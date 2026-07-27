@@ -45,7 +45,7 @@ export function ActionTable({
   selectedActionName,
 }) {
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
-  const [previewAction, setPreviewAction] = useState(null)
+  const [preview, setPreview] = useState(null)
   const sortedActions = useMemo(
     () => sortRows(actions, sort, ACTION_SORT_COLUMNS),
     [actions, sort],
@@ -63,7 +63,7 @@ export function ActionTable({
       <table className="topic-table action-table">
         <thead>
           <tr>
-            <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="status" label="서버 상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="server_count" label="서버" onSort={onSort} sort={sort} />
@@ -71,6 +71,7 @@ export function ActionTable({
             <SortableHeader columnKey="last_goal_status" label="마지막 Goal" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="callable" label="실행 가능" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_sent" label="Goal 전송" onSort={onSort} sort={sort} />
+            <th>마지막 Feedback</th>
             <th>마지막 Goal</th>
             <SortableHeader columnKey="feedback_supported" label="피드백" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="result_supported" label="결과" onSort={onSort} sort={sort} />
@@ -112,7 +113,21 @@ export function ActionTable({
                 <td>{formatRelativeTime(summary?.last_goal_sent_at)}</td>
                 <td>
                   <JsonPreviewButton
-                    onOpen={() => setPreviewAction(action)}
+                    onOpen={() => setPreview({
+                      name: action.name,
+                      title: '마지막 Feedback',
+                      value: actionFeedbackPreview(action),
+                    })}
+                    value={actionFeedbackPreview(action)}
+                  />
+                </td>
+                <td>
+                  <JsonPreviewButton
+                    onOpen={() => setPreview({
+                      name: action.name,
+                      title: '마지막 Goal',
+                      value: summary?.last_goal_preview,
+                    })}
                     value={summary?.last_goal_preview}
                   />
                 </td>
@@ -129,15 +144,22 @@ export function ActionTable({
           })}
         </tbody>
       </table>
-      {previewAction && (
+      {preview && (
         <JsonPreviewModal
-          name={previewAction.name}
-          onClose={() => setPreviewAction(null)}
-          title="마지막 Goal"
-          value={previewAction.last_goal_summary?.last_goal_preview}
+          name={preview.name}
+          onClose={() => setPreview(null)}
+          title={preview.title}
+          value={preview.value}
         />
       )}
     </div>
+  )
+}
+
+function actionFeedbackPreview(action) {
+  return (
+    action.last_goal_summary?.last_feedback_preview ??
+    action.runtime?.feedback_preview
   )
 }
 
@@ -183,6 +205,25 @@ function ResultBadge({ action }) {
 
 function resultDisplay(action) {
   const summary = action.last_goal_summary
+  const summaryStatus = String(summary?.last_goal_status || '').toLowerCase()
+  if (summaryStatus === 'aborted') {
+    return resultState('aborted', '실패 종료', 1)
+  }
+  if (summaryStatus === 'canceled') {
+    return resultState('result_canceled', '취소됨', 4)
+  }
+  if (summaryStatus === 'result_timeout') {
+    return resultState('result_timeout', 'Result Timeout', 2)
+  }
+  if (summaryStatus === 'result_receive_failed') {
+    return resultState('result_receive_failed', 'Result 수신 실패', 1)
+  }
+  if (summaryStatus === 'goal_rejected') {
+    return resultState('goal_rejected', 'Goal 거절', 3)
+  }
+  if (['goal_send_failed', 'goal_accept_timeout'].includes(summaryStatus)) {
+    return resultState(summaryStatus, 'Goal 전송 실패', 1)
+  }
   if (summary?.last_result_preview) {
     return resultState(summary.success ? 'success' : 'failed', summary.success ? '성공' : '실패', 9)
   }

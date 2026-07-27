@@ -84,7 +84,7 @@ export function ActionDetailPanel({ action, participants }) {
         <DetailLine label="이름" value={action.name} />
         <DetailLine label="타입" value={action.type ?? '-'} />
         <DetailLine
-          label="상태"
+          label="서버 상태"
           tone={statusTone(action.status)}
           value={action.status ?? '-'}
         />
@@ -162,8 +162,10 @@ export function ActionDetailPanel({ action, participants }) {
         />
         <DetailLine
           label="결과 상태"
-          tone={statusTone(runtime.result_status)}
-          value={resultStatusLabel(runtime.result_status)}
+          tone={statusTone(goalSummary?.last_goal_status ?? runtime.result_status)}
+          value={resultStatusLabel(
+            goalSummary?.last_goal_status ?? runtime.result_status,
+          )}
         />
         <DetailLine label="결과 오류" value={runtime.result_error ?? '-'} />
         <DetailLine label="마지막 실행 오류" value={goalSummary?.last_error ?? '-'} />
@@ -273,6 +275,11 @@ function goalStatusLabel(status) {
     succeeded: '성공',
     canceled: '취소됨',
     aborted: '실패 종료',
+    goal_rejected: 'Goal 거절',
+    goal_send_failed: 'Goal 전송 실패',
+    goal_accept_timeout: 'Goal 수락 Timeout',
+    result_timeout: 'Result Timeout',
+    result_receive_failed: 'Result 수신 실패',
   }
 
   return labels[String(status || '').toLowerCase()] ?? status ?? '-'
@@ -288,6 +295,11 @@ function resultStatusLabel(status) {
     error: '결과 조회 오류',
     unavailable: '결과 없음',
     pending: '결과 대기',
+    goal_rejected: 'Goal 거절',
+    goal_send_failed: 'Goal 전송 실패',
+    goal_accept_timeout: 'Goal 수락 Timeout',
+    result_timeout: 'Result Timeout',
+    result_receive_failed: 'Result 수신 실패',
   }
 
   return labels[String(status || '').toLowerCase()] ?? status ?? '-'
@@ -299,7 +311,16 @@ function statusTone(status) {
     return 'good'
   }
   if (
-    ['warning', 'waiting_server', 'pending', 'canceling', 'canceled'].includes(
+    [
+      'warning',
+      'waiting_server',
+      'pending',
+      'canceling',
+      'canceled',
+      'goal_rejected',
+      'result_timeout',
+      'cancel_failed',
+    ].includes(
       value,
     )
   ) {
@@ -313,6 +334,9 @@ function statusTone(status) {
       'failed',
       'aborted',
       'timeout',
+      'goal_send_failed',
+      'goal_accept_timeout',
+      'result_receive_failed',
     ].includes(value)
   ) {
     return 'bad'

@@ -56,6 +56,7 @@ export function ActionsPage({ dashboard }) {
       }
 
       const runtime = action.runtime ?? {}
+      const goalSummary = action.last_goal_summary
       const fields = [
         action.name,
         action.type,
@@ -63,6 +64,8 @@ export function ActionsPage({ dashboard }) {
         action.reason,
         runtime.last_goal_status,
         runtime.result_status,
+        goalSummary?.last_goal_status,
+        goalSummary?.last_error,
       ]
       return fields.some((field) =>
         String(field ?? '').toLowerCase().includes(normalizedSearch),
@@ -180,8 +183,12 @@ function matchesActionStatusFilter(action, statusFilter) {
   }
 
   const runtime = action.runtime ?? {}
+  const goalSummary = action.last_goal_summary
   const lastGoalStatus = String(
-    runtime.last_goal_status ?? action.last_goal_status ?? '',
+    goalSummary?.last_goal_status ??
+    runtime.last_goal_status ??
+    action.last_goal_status ??
+    '',
   ).toLowerCase()
   const resultStatus = String(runtime.result_status ?? '').toLowerCase()
 
@@ -194,6 +201,13 @@ function matchesActionStatusFilter(action, statusFilter) {
   if (statusFilter === 'failed') {
     return (
       ['aborted', 'canceled'].includes(lastGoalStatus) ||
+      [
+        'goal_rejected',
+        'goal_send_failed',
+        'goal_accept_timeout',
+        'result_timeout',
+        'result_receive_failed',
+      ].includes(lastGoalStatus) ||
       ['aborted', 'canceled', 'error', 'timeout'].includes(resultStatus) ||
       Boolean(runtime.result_error)
     )

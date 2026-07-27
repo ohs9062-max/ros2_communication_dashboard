@@ -14,6 +14,7 @@ from rclpy.action.graph import (
 )
 from rosidl_runtime_py.utilities import get_action
 
+from ros2_dashboard_backend.action.models import goal_status_label
 from ros2_dashboard_backend.interface_lab.apply.runtime import refresh_install_python_paths
 from ros2_dashboard_backend.interface_lab.common.value_converter import (
     InterfaceValidationError,
@@ -111,6 +112,8 @@ class ActionGoalRuntime:
         started_at = time()
         feedback_items: list[dict[str, Any]] = []
         sent_to_server = False
+        accepted = False
+        phase = 'goal_send'
         try:
             action_class = get_action(action_type)
             try:
@@ -145,6 +148,7 @@ class ActionGoalRuntime:
                 ),
             )
             sent_to_server = True
+            phase = 'goal_accept'
             send_future.add_done_callback(lambda _future: send_event.set())
             if not send_event.wait(timeout=timeout):
                 raise TimeoutError(f'action goal accept timeout after {timeout:.2f}s')
@@ -163,12 +167,14 @@ class ActionGoalRuntime:
                     started_at=started_at,
                     timeout_sec=timeout,
                     error='goal rejected',
+                    error_type='goal_rejected',
                     sent_to_server=sent_to_server,
                 )
                 self._record_history(result)
                 return result
 
             result_event = threading.Event()
+            phase = 'result'
             result_future = goal_handle.get_result_async()
             result_future.add_done_callback(lambda _future: result_event.set())
             remaining = max(0.0, timeout - (time() - started_at))
@@ -178,8 +184,10 @@ class ActionGoalRuntime:
             result_response = result_future.result()
             result_msg = getattr(result_response, 'result', result_response)
             status = getattr(result_response, 'status', None)
+            status_label = goal_status_label(status)
+            succeeded = status is None or status_label == 'succeeded'
             result = self._result(
-                success=True,
+                success=succeeded,
                 action_name=action_name,
                 action_type=action_type,
                 goal_data=goal_data,
@@ -189,20 +197,36 @@ class ActionGoalRuntime:
                 started_at=started_at,
                 timeout_sec=timeout,
                 status=status,
+                error=(
+                    None
+                    if succeeded
+                    else f'action finished with status {status_label}'
+                ),
                 sent_to_server=sent_to_server,
             )
         except Exception as exc:
+            if isinstance(exc, TimeoutError):
+                error_type = (
+                    'result_timeout'
+                    if phase == 'result'
+                    else 'goal_accept_timeout'
+                )
+            elif phase == 'result':
+                error_type = 'result_receive_failed'
+            else:
+                error_type = 'goal_send_failed'
             result = self._result(
                 success=False,
                 action_name=action_name,
                 action_type=action_type,
                 goal_data=goal_data,
-                accepted=False,
+                accepted=accepted,
                 feedback=feedback_items,
                 result=None,
                 started_at=started_at,
                 timeout_sec=timeout,
                 error=str(exc),
+                error_type=error_type,
                 sent_to_server=sent_to_server,
             )
             self._record_history(result)
@@ -229,6 +253,7 @@ class ActionGoalRuntime:
         goals = self.history()['goals']
         events = []
         for goal_index, goal in enumerate(goals):
+            goal_summary = _goal_summary(goal)
             sent_at = goal.get('sent_at')
             if (
                 self._receive_reset_at is not None
@@ -269,7 +294,7 @@ class ActionGoalRuntime:
                 'goal': goal.get('goal'),
                 'feedback': None,
                 'result': goal.get('result'),
-                'status': 'success' if goal.get('success') else goal.get('error_type') or goal.get('status') or 'failed',
+                'status': goal_summary['last_goal_status'],
                 'success': goal.get('success') is True,
                 'error_type': goal.get('error_type'),
                 'error': goal.get('error'),
@@ -315,16 +340,17 @@ class ActionGoalRuntime:
                 'canceled_count': 0,
                 'history': [],
             })
+            goal_summary = _goal_summary(goal)
             summary['goal_count'] += 1
             if goal.get('success') is True:
                 summary['success_count'] += 1
             else:
                 summary['failure_count'] += 1
-            if str(goal.get('status')).lower() == 'canceled':
+            if goal_summary['last_goal_status'] == 'canceled':
                 summary['canceled_count'] += 1
-            summary['history'].insert(0, _goal_summary(goal))
+            summary['history'].insert(0, goal_summary)
             summary['history'] = summary['history'][:5]
-            summary.update(_goal_summary(goal))
+            summary.update(goal_summary)
         return summaries
 
     def _allowed_action(
@@ -593,11 +619,10 @@ def _schema_from_action_class(action_type: str) -> tuple[list[dict[str, str]], l
 
 def _goal_summary(goal: dict[str, Any]) -> dict[str, Any]:
     error_type = goal.get('error_type')
-    status = (
-        'success'
-        if goal.get('success') is True
-        else error_type or goal.get('status') or 'failed'
-    )
+    raw_status = goal.get('status')
+    status = goal_status_label(raw_status) if isinstance(raw_status, int) else raw_status
+    if not status or status == 'unknown':
+        status = 'success' if goal.get('success') is True else error_type or 'failed'
     feedback = goal.get('feedback') if isinstance(goal.get('feedback'), list) else []
     return {
         'status': status,

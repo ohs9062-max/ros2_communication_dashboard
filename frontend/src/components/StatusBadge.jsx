@@ -21,6 +21,9 @@ function statusClass(value) {
     status === 'pending' ||
     status === 'canceling' ||
     status === 'canceled' ||
+    status === 'goal_rejected' ||
+    status === 'result_timeout' ||
+    status === 'cancel_failed' ||
     status === 'observed_goal_only'
   ) {
     return 'badge yellow'
@@ -44,6 +47,9 @@ function statusClass(value) {
     status === 'never_received' ||
     status === 'zero_hz' ||
     status === 'result_error' ||
+    status === 'goal_send_failed' ||
+    status === 'goal_accept_timeout' ||
+    status === 'result_receive_failed' ||
     status === 'feedback_error' ||
     status === 'disconnected'
   ) {
@@ -76,6 +82,12 @@ function statusLabel(value) {
     canceling: '취소 중',
     succeeded: '성공',
     canceled: '취소됨',
+    goal_rejected: 'Goal 거절',
+    goal_send_failed: 'Goal 전송 실패',
+    goal_accept_timeout: 'Goal 수락 Timeout',
+    result_timeout: 'Result Timeout',
+    result_receive_failed: 'Result 수신 실패',
+    cancel_failed: '취소 요청 실패',
     aborted: '실패 종료',
     unavailable: '사용 불가',
     disabled: '비활성',
