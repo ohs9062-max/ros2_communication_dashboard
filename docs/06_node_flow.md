@@ -1,73 +1,130 @@
 # Node Monitoring 흐름
 
-## 무엇을 하는가
+## 1. 기능을 한 문장으로 설명
 
-Node Runtime은 현재 Node 목록만 보여주는 것이 아니라 각 Node가 어떤 Topic, Service, Action에 참여하는지 관계를 조립한다. 이 관계가 주요 Node 판정과 Visualization 연결선의 근거가 된다.
+Node Monitoring은 현재 Node를 발견하고 각 Node가 어떤 Topic, Service, Action에 참여하는지 관계를 묶어 목록과 Visualization에 제공한다.
 
-## 관계 수집
+## 2. 전체 흐름
 
 ```text
-get_node_names()
-→ Node별 Publisher / Subscriber 조회
-→ Service Server / Client 조회
-→ Action Server / Client 조회
-→ 통신 이름과 full_type을 관계 배열로 저장
+ROS2 Graph에서 Node 발견
+→ Node별 Topic/Service/Action 관계 조회
+→ 이름과 full_type을 관계 배열로 저장
+→ 이전 cache와 비교
+→ last_seen_at 갱신 또는 disconnected 판정
+→ /ros/nodes 응답
+→ Nodes/Overview/Visualization 표시
 ```
 
-`/ros/nodes`의 주요 관계 필드는 다음과 같다.
+## 3. 단계별 쉬운 설명
 
-- `topic_publishers`
-- `topic_subscribers`
-- `service_servers`
-- `service_clients`
-- `action_servers`
-- `action_clients`
+### 1) Node 목록을 가져온다
 
-관계에는 가능한 경우 이름과 타입을 함께 보존한다. 이름만 같다고 등록 Interface 사용 Node로 판정하지 않기 위해서다.
+- 파일: `node/runtime.py L72~L161`
+- 역할: `get_node_names_and_namespaces()`로 현재 Node를 가져오고 내부 monitor Node를 제외한다.
+- 입력: Node name과 namespace
+- 다음 흐름: 각 Node의 통신 관계를 조회한다.
 
-## 주요 Node 판정
+### 2) 여섯 종류 관계를 모은다
 
-Frontend의 `nodeFilters.js`는 Node 관계 타입을 주요 Topic, Service, Action의 타입과 exact match한다.
+- 파일: `node/runtime.py L162~L227`
+- 파일: `node/discovery.py L14~L57`
+- 출력 관계:
+  - `topic_publishers`
+  - `topic_subscribers`
+  - `service_servers`
+  - `service_clients`
+  - `action_servers`
+  - `action_clients`
+- 왜 타입도 저장하는가: 같은 이름이라도 다른 Interface 타입일 수 있으므로 주요 Node 판정은 `full_type` exact match가 필요하다.
+
+### 3) 현재 발견 시각을 기억한다
+
+- 파일: `resource_state.py L11~L23`
+- 현재 보이면:
+  - `graph_present=true`
+  - `ever_discovered=true`
+  - `last_seen_at` 갱신
+
+### 4) 이전에 보였던 Node가 사라졌는지 판단한다
+
+- 파일: `node/runtime.py L72~L161`
+- 파일: `resource_state.py L24~L44`
+- 이전 cache에는 있지만 현재 Graph에 없으면 `disconnected`로 만든다.
+- 마지막 관계를 남기는 이유: 어떤 통신에 참여하던 Node가 사라졌는지 화면에서 설명하기 위해서다.
+- Backend 시작 후 한 번도 발견하지 않은 선택 항목은 빨간 종료 오류로 만들지 않는다.
+
+### 5) Node Alert를 만든다
+
+- 파일: `node/alerts.py L13~L42`
+- 조건: 이전에 발견한 Node가 현재 `disconnected`
+- level: error
+- code: API 호환을 위해 `node_stale`
+- 의미: 시간 지연 stale이 아니라 Graph 연결 끊김이다.
+
+### 6) API와 Frontend로 전달한다
+
+- 파일: `routers/monitoring.py L73~L83`
+- 파일: `hooks/useNodeDashboard.js L5~L68`
+- 파일: `pages/NodesPage.jsx L16~L168`
+- 역할: `/ros/nodes`를 3초마다 읽고 목록, 필터, 상세에 전달한다.
+
+### 7) 주요 Node를 판정한다
+
+- 파일: `utils/nodeFilters.js L22~L101`
+- 파일: `utils/primaryFilters.js L17~L79`
 
 ```text
-주요 Topic을 publish 또는 subscribe
-또는 주요 Service의 Server 또는 Client
-또는 주요 Action의 Server 또는 Client
+주요 Topic을 publish/subscribe
+또는 주요 Service의 Server/Client
+또는 주요 Action의 Server/Client
 → 주요 Node
 ```
 
-등록 Interface가 있다는 사실만으로 모든 Node를 포함하지 않는다. 실제 관계가 있어야 한다. 기존 기본 주요 Node 규칙과 dashboard monitor 내부 Node, 숨김·내부 항목 제외 정책도 유지된다.
+등록 Interface가 있다는 이유만으로 관계없는 Node를 주요 항목에 넣지 않는다.
 
-## 발견 상태 기억
+### 8) Visualization 연결선으로 바꾼다
 
-Node가 현재 Graph에서 사라져도 즉시 모든 정보를 버리지 않는다.
+- 파일: `utils/participants.js L1~L88`
+- 파일: `utils/graphTransform.js L18~L176`
+- 역할: Node 관계 배열을 화면용 node와 edge로 바꾼다.
+- 다음 흐름: `VisualizationPage.jsx`가 React Flow로 그린다.
 
-- 현재 발견: `graph_present=true`, `ever_discovered=true`, `last_seen_at` 갱신
-- 이전 발견 후 사라짐: `graph_present=false`, `disconnected_at` 설정, 상태 `disconnected`
-- 한 번도 발견되지 않음: 종료 오류로 만들지 않음
+## 4. 실제 코드 위치
 
-사라진 Node의 현재 연결 수는 0으로 보되, 어떤 통신에 참여했던 Node인지 설명할 수 있도록 마지막 관계 snapshot을 유지한다. Backend 재시작 시 이 메모리 정보는 초기화된다.
+| 기능 | 코드 위치 |
+|---|---|
+| Node cache/snapshot | `node/runtime.py L28~L71` |
+| Graph와 관계 갱신 | `node/runtime.py L72~L161` |
+| 관계 item 생성 | `node/discovery.py L14~L57` |
+| 발견/종료 상태 | `resource_state.py L11~L44` |
+| Alert | `node/alerts.py L13~L42` |
+| Frontend 주요 Node | `nodeFilters.js L22~L101` |
 
-Graph만으로 종료 사유를 확인할 수 없으므로 화면과 Alert는 “비정상 종료” 대신 “Node 연결 끊김” 또는 “종료 감지”를 사용한다.
+## 5. 입력 데이터
 
-## 상태와 Alert
+- Node name/namespace
+- Node별 Publisher/Subscriber
+- Service Server/Client
+- Action Server/Client
 
-현재 Graph에 있는 Node는 정상 또는 중립 상태다. 이전에 본 Node가 사라지면 빨간 `disconnected` 상태가 되고 Node Alert가 생성된다.
+## 6. 처리 과정
 
-코드 호환성을 위해 Alert code가 `node_stale`로 유지돼 있지만, 실제 판정과 사용자 의미는 시간 지연 stale이 아니라 Graph에서 사라진 Node의 연결 끊김이다.
+Backend는 현재 관계를 하나의 Node item으로 만들고 이전 item과 비교한다. Frontend는 이 관계 타입을 주요 리소스 타입과 비교한다.
 
-## 담당 파일
+## 7. 출력 데이터
 
-- `node/runtime.py`: Graph 관계와 cache
-- `node/alerts.py`: disconnected Node Alert
-- `node/models.py`: 상태와 Alert code
-- `resource_state.py`: 공통 발견 이력
-- `frontend/src/utils/nodeFilters.js`: 주요 Node exact match
+- Node 상태와 발견 시각
+- 여섯 관계 배열
+- 연결 수
+- `node_stale` disconnected Alert
 
-## 문제가 생기면
+## 8. 다음 단계와 연결
 
-1. `/ros/nodes`에서 관계 배열에 타입이 있는지 확인
-2. 주요 Topic/Service/Action API의 타입과 비교
-3. 내부 dashboard Node가 제외되는지 확인
-4. 사라진 Node의 `ever_discovered`, `last_seen_at`, `disconnected_at` 확인
-5. 화면 문제면 Nodes, Overview, Visualization이 같은 필터를 사용하는지 확인
+관계가 그래프로 바뀌는 과정은 [10_visualization_flow.md](10_visualization_flow.md), Alert 유지 과정은 [07_alert_flow.md](07_alert_flow.md)로 이어진다.
+
+## 9. 핵심 요약
+
+1. Node는 이름만이 아니라 실제 통신 관계까지 수집한다.
+2. 한 번 발견된 Node가 사라질 때만 disconnected가 된다.
+3. 관계 배열이 주요 Node와 Visualization 연결선의 공통 근거다.

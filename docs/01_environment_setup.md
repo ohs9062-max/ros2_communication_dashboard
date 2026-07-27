@@ -61,6 +61,13 @@ python3 -m uvicorn \
 
 주의할 점은 FastAPI lifespan 안에서 ROS2 Runtime도 시작된다는 것이다. reload가 일어나면 WebSocket뿐 아니라 `rclpy`, Node, spin thread, Subscription도 함께 종료됐다가 다시 생성된다. Interface Apply 성공 후 `reload_trigger.py`가 갱신되면 reload가 발생할 수 있다. 연결 안정성을 조사할 때는 먼저 `--reload`를 빼고 비교한다.
 
+실제 시작과 종료 위치:
+
+- FastAPI lifespan: `main.py L20~L30`
+- ROS2 시작: `ros_monitor.py L80~L94`
+- ROS2 종료: `ros_monitor.py L96~L120`
+- Apply reload trigger: `interface_lab/apply/runtime.py L342~L357`
+
 ## Frontend 실행
 
 다른 터미널에서 실행한다.
@@ -115,3 +122,9 @@ curl http://127.0.0.1:8000/ros/alerts
 - Hz 미지원: `/ros/topics`의 `supported_type`, `deep_monitoring`, 실제 `type` 확인
 
 기능별 추적 위치는 [11_code_trace_index.md](11_code_trace_index.md)를 참고한다.
+
+## 핵심 요약
+
+1. `backend/`에서 build하고 ROS와 install overlay를 source한 뒤 Uvicorn을 실행한다.
+2. 안정성 확인에는 reload 없는 실행이 기준이며 reload는 ROS Runtime 전체를 재시작한다.
+3. Frontend는 `frontend/`에서 Vite로 실행하며 Electron 과정은 없다.

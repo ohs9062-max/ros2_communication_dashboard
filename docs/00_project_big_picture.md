@@ -29,6 +29,24 @@ Vite + React 웹앱
 - Frontend는 Vite + React 기반 순수 웹앱이다.
 - React Flow는 관계를 분석하지 않는다. Frontend가 만든 `nodes`와 `edges`를 화면에 그린다.
 
+## 실제 코드로 이어지는 전체 흐름
+
+```text
+FastAPI 시작
+→ main.py L20~L45
+→ RosMonitor와 Runtime 조립
+→ ros_monitor.py L30~L94
+→ ROS2 Graph 주기 갱신
+→ ros_monitor.py L574~L581
+→ REST/WebSocket
+→ routers/monitoring.py L16~L109
+→ Frontend API와 hook
+→ rosApi.js L24~L73, App.jsx L20~L85
+→ 각 화면
+```
+
+입력은 ROS2 Graph, 메시지, 등록 Interface와 사용자 실행 요청이다. Backend는 이를 cache에 저장해 JSON으로 출력하고, Frontend가 목록·상세·그래프로 보여준다.
+
 ## YAML 등록 Interface가 연결되는 곳
 
 Interface Lab에서 등록되고 Python import까지 가능한 타입은 단순 실행 후보에만 쓰이지 않는다.
@@ -88,3 +106,9 @@ Graph 정보만으로 프로세스가 정상 종료했는지 비정상 종료했
 6. Interface Lab: [12_interface_lab_flow.md](12_interface_lab_flow.md)
 
 문제가 생기면 먼저 `/health`와 각 `/ros/*` 응답을 확인한다. Backend 응답이 정상인데 화면만 다르면 Frontend 매핑을, Backend 응답부터 다르면 해당 Runtime과 설정을 확인하는 순서가 가장 빠르다.
+
+## 핵심 요약
+
+1. Monitoring은 자동 관찰이고 Interface Lab은 사용자 명시 실행이다.
+2. Backend는 ROS2를 관찰해 cache snapshot을 만들고 Frontend는 그 JSON을 표시한다.
+3. YAML 등록 타입은 실제 Graph 타입과 정확히 같을 때 주요 항목과 실행 후보에 연결된다.

@@ -1,135 +1,183 @@
 # Interface Lab 흐름
 
-## 무엇을 하는가
+## 1. 기능을 한 문장으로 설명
 
-Interface Lab은 ROS Interface를 등록하고 import 가능한 상태로 만든 뒤, 사용자가 직접 Topic Publish/Receive, Service Call, Action Goal을 실행하는 도구다.
+Interface Lab은 ROS Interface를 등록·Build·import 확인한 뒤 사용자가 직접 Topic Publish/Receive, Service Call, Action Goal을 실행하는 작업 화면이다.
 
-자동 Monitoring은 관찰 경로이고 Interface Lab은 명시 실행 경로다. 등록 타입을 공유하지만 Runtime 책임은 분리된다.
+Monitoring은 자동 관찰이고 Interface Lab은 사용자 명시 실행이다. 같은 등록 타입을 참고하지만 Subscription, Client, history는 서로 다른 Runtime이 관리한다.
 
-## 등록 방식
-
-| 방식 | 의미 | 저장/Build |
-|---|---|---|
-| `manual_type` | 이미 설치돼 import 가능한 타입 이름 등록 | 파일 생성 없음, 보통 build 불필요 |
-| `manual_definition` | 화면에서 `.msg/.srv/.action` 정의 작성 | `uploaded_interfaces`에 저장, build 필요 |
-| `single_upload` | Interface 파일 하나 업로드 | `uploaded_interfaces`에 저장, build 필요 |
-| `package_upload` | 완성된 Interface package 업로드 | package 단위 보존, build 필요 |
-
-개별 등록은 `interface_registry.yaml`, package 등록은 `interface_packages.yaml`에 기록된다.
-
-## 두 종류의 업로드 저장소
-
-### uploaded_interfaces
-
-직접 작성과 단일 업로드 파일을 한 ROS package에 모은다.
-
-`manual_interfaces.py`가 현재 남은 파일을 다시 스캔하고 `CMakeLists.txt`와 `package.xml` 전체를 재생성한다. append 방식이 아니므로 삭제된 파일이 metadata에 남지 않는다.
-
-파일이 0개면 `rosidl_generate_interfaces()`를 남기지 않고 build 가능한 빈 `ament_cmake` package로 만든다.
-
-### uploaded_interface_packages
-
-zip 또는 folder로 올린 완성 package를 package 이름 그대로 보존한다. 업로드 과정은 `package.xml`과 `CMakeLists.txt`의 존재와 package/project 이름을 검증한 뒤 원본 폴더를 복사한다.
-
-Backend가 업로드 package의 XML과 CMake를 새 스크립트로 재작성하지 않는다. 자동 재생성 정책은 공유 `uploaded_interfaces` package에만 적용된다.
-
-## Apply와 import 확인
+## 2. 전체 흐름
 
 ```text
-등록 또는 파일 변경
-→ pending/build_required 기록
+Interface 등록 또는 업로드
+→ registry/YAML과 source 저장
+→ build_required 기록
 → 사용자가 Apply
-→ backend workspace에서 colcon build --symlink-install
-→ build log와 status 저장
-→ generated Python import check
-→ registry/package의 import_available 갱신
-→ reload_trigger.py 갱신
+→ colcon build --symlink-install
+→ import check
+→ import_available 갱신
+→ Graph 타입 exact match
+→ Publish/Receive/Call/Goal 후보
+→ 사용자 실행
+→ 결과와 history 표시
 ```
 
-동시 Apply는 lock으로 막는다. Backend 프로세스를 직접 kill하지 않으며, Uvicorn이 `--reload`로 실행 중이면 trigger 변경을 감지해 worker를 재시작할 수 있다.
+## 3. 단계별 쉬운 설명
 
-## 등록 타입이 Monitoring에 연결되는 방식
+### 1) Interface를 등록한다
 
-Apply 뒤 `import_available=true`가 된 타입은 다음 경로에 연결된다.
-
-| kind | Monitoring/화면 | Interface Lab |
+| 방식 | 의미 | 실제 코드 위치 |
 |---|---|---|
-| msg | Graph exact match 시 주요 Topic, 자동 상세 감시, Alert | Publish/Receive 후보 |
-| srv | Graph exact match 시 주요 Service | callable Service 후보 |
-| action | Graph exact match 시 주요 Action | callable Action 후보 |
+| manual type | 이미 설치된 full type만 등록 | `manual_interfaces.py L55~L91` |
+| manual definition | 화면에서 정의를 작성해 파일 생성 | `manual_interfaces.py L92~L191` |
+| single upload | `.msg/.srv/.action` 한 파일 업로드 | `registry.py L82~L210` |
+| package upload | 완성된 ROS package 업로드 | `packages.py L63~L222` |
 
-Node는 위 통신에 실제 참여할 때만 주요 Node가 된다. Frontend가 YAML을 직접 읽지 않고 Backend 결과를 사용한다.
+관리 API는 `routers/interface_management.py L41~L378`에 있다.
 
-## Topic Publish
+### 2) 두 저장소를 구분한다
+
+#### `backend/src/uploaded_interfaces`
+
+직접 작성과 단일 업로드 파일을 하나의 ROS package에 모은다.
+
+- 파일 스캔: `manual_interfaces.py L404~L415`
+- CMake/package.xml 전체 재생성: `manual_interfaces.py L416~L488`
+- 파일이 0개면 `rosidl_generate_interfaces()`를 남기지 않고 build 가능한 빈 package로 만든다.
+
+#### `backend/src/uploaded_interface_packages`
+
+완성된 package를 package 이름 그대로 저장한다.
+
+- package identity 검증: `packages.py L491~L556`
+- Backend는 업로드 package의 `package.xml`과 `CMakeLists.txt`를 새 내용으로 재생성하지 않는다.
+
+### 3) 변경이 있으면 Apply 대기로 표시한다
+
+- 파일: `apply/runtime.py L75~L99`
+- 역할: `build_required`, `rebuild_required`, pending message를 상태 YAML에 저장한다.
+
+### 4) 사용자가 Apply를 실행한다
+
+- 파일: `routers/interface_apply.py L26~L85`
+- 파일: `apply/runtime.py L100~L341`
+- 역할: backend workspace에서 `colcon build --symlink-install`을 실행하고 log와 status를 저장한다.
+- 동시 Apply는 lock으로 막는다.
+
+### 5) generated Python import를 확인한다
+
+- 파일: `apply/runtime.py L500~L589`
+- 역할: 새 `.msg/.srv/.action`에서 생성된 Python class를 실제 import하고 registry/package의 `import_available`을 갱신한다.
+- 다음 흐름: Monitoring 지원 타입과 Interface Lab 실행 후보에 반영된다.
+
+### 6) 필요하면 reload trigger를 갱신한다
+
+- 파일: `apply/runtime.py L342~L357`
+- 역할: Build 성공 뒤 `reload_trigger.py`를 갱신한다.
+- 주의: Backend를 직접 kill하지 않는다. Uvicorn이 `--reload`일 때만 파일 변경을 감지해 worker가 재시작될 수 있다.
+
+## 4. 실행 기능
+
+### Topic Publish
 
 ```text
-등록된 import 가능 msg 선택
-→ schema 생성
-→ Topic 이름과 payload 입력
-→ Graph 이름/type 안전 검사
+등록 msg 선택
+→ schema와 payload 입력
+→ 이름/type 안전 검사
 → ROS message 변환
-→ Publisher 생성 또는 재사용
-→ publish와 history 기록
+→ Publisher 생성/재사용
+→ publish와 history
 ```
 
-Graph 후보는 선택 msg `full_type`과 exact match한 Topic만 보여준다. Action 내부 Topic은 일반 Publish 후보와 실행 대상에서 제외한다.
+- Backend: `execution/topic_runtime.py L273~L416`
+- API: `routers/topic_execution.py L15~L106`
+- 공통 변환: `value_converter.py L37~L143`
+- Action 내부 Topic은 일반 Message Publish에서 거부한다.
+- Graph에 같은 이름의 다른 타입이 있으면 전송 전에 거부한다.
 
-후보가 정확히 하나이고 입력이 비어 있을 때만 자동 입력할 수 있다. 사용자가 직접 입력한 유효한 이름은 polling이나 후보 재계산으로 덮어쓰지 않는다. Graph에 없는 새 이름도 명시 Publish할 수 있지만, 같은 이름에 다른 타입이 이미 있으면 Backend가 전송 전에 거부한다.
-
-## Topic Receive
-
-Receive는 자동 Topic Monitoring Subscription과 다르다.
+### Topic Receive
 
 ```text
-사용자가 Topic/type 선택
-→ start
+사용자가 start
 → InterfaceReceiveRuntime Subscription
-→ 수신 history 저장
-→ stop 또는 reset
+→ 메시지와 history 저장
+→ stop/reset
 ```
 
-사용자가 시작한 Topic만 이 history에 들어간다. Monitoring의 latest/Hz cache와 목적을 섞지 않는다.
+- Backend: `execution/topic_runtime.py L113~L272`
+- API: `routers/topic_execution.py L108~L175`
+- Monitoring 자동 Subscription과 별도다.
 
-## Service Call
+### Service Call
 
-등록 srv 타입과 Graph의 Service 타입이 exact match하고 Server가 있을 때 callable 후보가 된다.
+```text
+등록 srv와 Graph exact match
+→ request validation
+→ service_is_ready()
+→ call_async()
+→ response 또는 Timeout
+→ history/summary
+```
 
-공통 converter가 scalar, sequence, nested custom msg, custom msg array를 재귀 변환한다. validation 실패 시 `sent_to_server=false`로 기록하고 요청을 전송하지 않는다. 성공/응답/timeout/error는 call history에 저장한다.
+- Backend: `execution/service_call_runtime.py L85~L188`
+- history: `service_call_runtime.py L189~L278`
+- API: `routers/service_execution.py L15~L97`
+- validation 실패는 `sent_to_server=false`
+- Timeout은 `error_type=timeout`
+- `response.success=false`는 `response_failed`
+- 자동 active check는 실행하지 않는다.
 
-등록됐다는 이유만으로 자동 호출하지 않는다.
+### Action Goal
 
-## Action Goal
+```text
+등록 action과 Graph exact match
+→ Goal validation
+→ send_goal_async()
+→ accepted/rejected
+→ Feedback callback
+→ get_result_async()
+→ succeeded/canceled/aborted 또는 Timeout
+→ history/summary
+```
 
-등록 action 타입과 Graph Action 타입이 exact match하고 Server가 있을 때 callable 후보가 된다.
+- Backend: `execution/action_goal_runtime.py L91~L239`
+- history/summary: `action_goal_runtime.py L240~L355`, `L620~L643`
+- API: `routers/action_execution.py L15~L105`
+- Goal 거절, 전송 실패, 수락 Timeout, Result Timeout을 구분한다.
+- 사용자 cancel 요청 기능은 현재 없다.
 
-사용자가 실행하면 Goal schema validation 후 ActionClient가 Goal을 보낸다. accepted/rejected, timeout, feedback, result와 오류를 history로 저장한다. 같은 이름이라도 type이 다르면 다른 Action으로 취급한다.
+## 5. Frontend 흐름
 
-Monitoring의 status/result 관찰이 새 Goal을 보내는 것은 아니다.
+- 전체 workspace와 실행 state: `InterfaceLabPage.jsx L45~L539`
+- Service 실행 영역: `InterfaceLabPage.jsx L836~L905`
+- Topic 실행 영역: `InterfaceLabPage.jsx L906~L1044`
+- Action 실행 영역: `InterfaceLabPage.jsx L1045~L1128`
+- 등록/업로드 보조 UI: `InterfaceUploadControl.jsx L48~L2207`
 
-## 삭제
+Frontend는 registry, package, callable, history를 합쳐 작업 항목을 만든다. 사용자가 직접 입력한 Publish Topic 이름은 Graph polling으로 덮어쓰지 않는다.
 
-개별 Interface 삭제는 source, kind, `full_type`, file name이 맞는 항목만 제거한다. `uploaded_interfaces`의 파일을 지운 뒤 package metadata를 다시 생성하고 build pending을 남긴다.
+## 6. 입력 데이터
 
-package 삭제는 `interface_packages.yaml`과 해당 `uploaded_interface_packages/<package>`만 대상으로 한다. 두 저장소의 삭제 생명주기를 섞지 않는다.
+- Interface 정의 파일 또는 full type
+- Build/import 결과
+- Graph name/type
+- 사용자 payload, request, Goal, timeout
 
-## 담당 파일
+## 7. 처리 과정
 
-- `interface_lab/management/registry.py`
-- `interface_lab/management/manual_interfaces.py`
-- `interface_lab/management/packages.py`
-- `interface_lab/apply/runtime.py`
-- `interface_lab/execution/topic_runtime.py`
-- `interface_lab/execution/service_call_runtime.py`
-- `interface_lab/execution/action_goal_runtime.py`
-- `interface_lab/common/value_converter.py`
-- `frontend/src/pages/InterfaceLabPage.jsx`
-- `frontend/src/components/InterfaceUploadControl.jsx`
+관리 코드는 파일과 registry를 다루고, Apply 코드는 build/import를 다루며, execution Runtime은 실제 ROS 통신을 담당한다. 이 책임을 섞지 않는다.
 
-## 문제가 생기면
+## 8. 출력 데이터와 다음 단계
 
-1. registry/package entry의 source, kind, `full_type`, `import_available` 확인
-2. Apply status와 `interface_apply_last.log` 확인
-3. Backend가 새 overlay를 source한 환경에서 실행됐는지 확인
-4. Graph 타입과 등록 타입 exact match 확인
-5. validation 실패면 `sent_to_*`와 `error_type` 확인
-6. reload 뒤 문제면 Monitoring Runtime 재시작과 WebSocket 재연결을 별도로 확인
+- registry/package/apply status
+- callable message/service/action 후보
+- Publish/Receive/Call/Goal 결과와 history
+- import 가능한 등록 타입은 Monitoring 주요 항목과 상세 감시에도 연결된다.
+
+Monitoring 연결은 [03_topic_flow.md](03_topic_flow.md), [04_service_flow.md](04_service_flow.md), [05_action_flow.md](05_action_flow.md)를 참고한다.
+
+## 9. 핵심 요약
+
+1. 등록→Build→import 확인이 끝나야 generated Interface를 안전하게 실행할 수 있다.
+2. Monitoring은 관찰하고 Interface Lab은 사용자가 누른 작업만 실행한다.
+3. single interface package와 완성 package 저장소의 생성·삭제 정책을 섞지 않는다.

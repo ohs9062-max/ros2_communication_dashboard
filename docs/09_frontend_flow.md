@@ -1,93 +1,138 @@
 # Frontend 데이터 흐름
 
-## 무엇을 하는가
+## 1. 기능을 한 문장으로 설명
 
-Frontend는 Vite + React 기반 웹앱이다. ROS2에 직접 접근하지 않고 FastAPI의 REST와 WebSocket 결과를 화면 상태로 바꾼다.
+Frontend는 FastAPI의 JSON 응답을 일정 주기로 가져와 React state에 저장하고, 목록·상세·Overview·Visualization·Alerts 화면으로 보여준다.
+
+Polling은 “Frontend가 일정 시간마다 Backend에 다시 요청하는 방식”이다. Frontend는 ROS2에 직접 연결하지 않는다.
+
+## 2. 전체 흐름
 
 ```text
-FastAPI
+FastAPI REST/WebSocket
 → rosApi.js
-→ polling/WebSocket hooks
-→ 공통 filter와 status helper
-→ page/component
+→ polling/WebSocket hook
+→ React state
+→ filter/status helper
+→ page
+→ table/detail component
+→ StatusBadge와 JSON popup
 ```
 
-## 화면별 데이터
+## 3. 단계별 쉬운 설명
 
-| 화면 | 주요 데이터 |
+### 1) App이 현재 화면에 필요한 hook을 켠다
+
+- 파일: `App.jsx L20~L85`
+- 역할: 현재 route에 따라 Topic, Service, Action, Node polling을 활성화하고 각 Page에 데이터를 전달한다.
+- 왜 필요한가: 보이지 않는 화면의 불필요한 요청을 줄이기 위해서다.
+
+### 2) API 함수가 Backend를 호출한다
+
+- 파일: `api/rosApi.js L24~L73`
+- 역할: `/health`, `/ros/topics`, `/ros/services`, `/ros/actions`, `/ros/nodes`, `/ros/alerts` 응답을 JSON으로 읽는다.
+- 파일: `api/rosApi.js L74~L360`
+- 역할: Interface Lab 등록·Apply·Publish·Call·Goal·history API를 호출한다.
+
+### 3) usePolling이 반복 요청을 안전하게 관리한다
+
+- 파일: `hooks/usePolling.js L3~L85`
+- 역할: loading, data, error를 저장하고 interval을 시작·정리한다.
+- 중요한 동작: 다음 요청이 성공하면 이전 error를 지우고, component가 사라지면 timer를 정리한다.
+
+### 4) 화면별 hook이 응답을 읽기 쉬운 state로 바꾼다
+
+| 화면 | hook과 주기 |
 |---|---|
-| Overview | Topic/Service/Action/Node 집계와 최근 Alert |
-| Topics | Topic 목록, 선택 Topic latest/Hz |
-| Services | Service 목록과 Server/Client 관계 |
-| Actions | Action 목록과 Goal 관찰 상태 |
-| Nodes | Node 목록과 여섯 종류 통신 관계 |
-| Visualization | 네 리소스 REST 응답을 조합한 graph |
-| Alerts | active 목록과 resolved history |
-| Interface Lab | registry, Apply, 실행 후보와 history |
+| Topic | `useTopicDashboard.js L13~L174`, 목록 1초 |
+| Service | `useServiceDashboard.js L6~L80`, 3초 |
+| Action | `useActionDashboard.js L6~L76`, 3초 |
+| Node | `useNodeDashboard.js L5~L68`, 3초 |
+| Visualization | `useVisualizationGraph.js L17~L275`, 5초 |
+| WebSocket | `useMonitorWebSocket.js L4~L74`, 연결 유지 |
 
-`App.jsx`는 현재 page에 필요한 polling만 활성화한다. Nodes와 Visualization은 관계 판정에 여러 리소스 데이터가 필요하므로 Topic, Service, Action, Node를 함께 조회한다.
+### 5) 주요 항목을 판정한다
 
-## 주요 항목 필터
+- 파일: `utils/primaryFilters.js L17~L79`
+- 파일: `utils/nodeFilters.js L22~L101`
+- Topic/Service/Action은 Backend의 등록 타입 일치 신호를 사용한다.
+- Node는 실제 관계 배열의 타입이 주요 리소스 타입과 정확히 같은지 확인한다.
+- Frontend가 YAML을 직접 읽지는 않는다.
 
-`primaryFilters.js`가 Topic, Service, Action의 공통 판정을 제공하고 `nodeFilters.js`가 관계 타입으로 주요 Node를 판정한다.
+### 6) Page가 검색·필터·선택을 관리한다
 
-- Topic: Backend `supported_type` 등 실제 감시 신호
-- Service: Backend `allowlisted`
-- Action: Backend `allowlisted`
-- Node: 위 주요 통신의 타입과 Node 관계 타입 exact match
+- Topic: `pages/TopicsPage.jsx L14~L186`
+- Service: `pages/ServicesPage.jsx L67~L227`
+- Action: `pages/ActionsPage.jsx L17~L179`
+- Node: `pages/NodesPage.jsx L16~L168`
+- 각 Page는 API data 자체를 새로 만들기보다 표시할 목록과 선택 항목을 정한다.
 
-Overview, 각 목록, Visualization은 이 helper를 재사용한다. YAML 파일을 Frontend가 직접 읽지 않는다.
+### 7) Table과 Detail이 실제 필드를 표시한다
 
-기존 기본 주요 항목을 위한 호환 규칙도 남아 있으므로 코드에 일부 기존 이름 기준이 존재한다. 다만 YAML 등록 custom Interface를 화면마다 새 이름으로 하드코딩하지 않고 Backend의 타입 판정 결과를 사용한다.
+- Topic: `TopicTable.jsx L44~L144`, `TopicDetailPanel.jsx L11~L161`
+- Service: `ServiceTable.jsx L33~L145`, `ServiceDetailPanel.jsx L6~L207`
+- Action: `ActionTable.jsx L41~L158`, `ActionDetailPanel.jsx L6~L232`
 
-## 상태 표시
+현재 주요 표시:
 
-공통 status helper와 `StatusBadge`가 상태를 화면 색과 문구로 바꾼다.
+- Topic: 마지막 값과 마지막 확인, Hz, 상세 감시
+- Service: 서버 상태와 최근 Call 결과, 마지막 요청/응답
+- Action: 서버 상태와 마지막 Goal, Feedback 값, Result, 실행 시간
 
-- 현재 Graph에 있음: 정상, 사용 가능 또는 대기
-- 이전 발견 후 없음: `disconnected`, 빨강
-- 정보 부족: `unknown`, 중립이며 오류 집계 제외
-- 해결 Alert: `resolved`, 초록
+긴 JSON은 목록에서 `...`로 줄여 보이고 클릭하면 공용 JSON popup으로 전체 값을 보여준다.
 
-Graph만으로 종료 원인을 알 수 없기 때문에 “비정상 종료”라고 단정하지 않는다.
+### 8) StatusBadge가 문구와 색을 정한다
 
-## Polling 안정성
+- 파일: `components/StatusBadge.jsx L1~L125`
+- 예:
+  - active/succeeded: 초록
+  - accepted/executing: 파랑
+  - canceled/rejected/Result Timeout: 노랑
+  - disconnected/aborted/전송 실패: 빨강
+  - unknown: 회색
 
-공통 `usePolling`은 interval을 cleanup하고, 응답 state가 바뀔 때 interval 자체가 다시 만들어지지 않도록 안정적인 reset 기준을 사용한다.
+### 9) Overview와 Alerts를 표시한다
 
-Topic latest/Hz는 현재 선택 Topic에 대해서만 요청한다. 늦게 도착한 이전 요청이 새 선택 값을 덮지 않도록 응답의 Topic 이름과 현재 선택 이름을 비교한다. Action 내부 Topic과 관리용 내부 Topic은 기본 상세 선택과 Hz polling 후보에서 제외한다.
+- 파일: `pages/OverviewPage.jsx L18~L188`, `L371~L419`
+- 파일: `pages/AlertsPage.jsx L5~L102`
+- 파일: `components/AlertsPreview.jsx L5~L96`
+- Overview는 `/ros/alerts` meta로 현재 warning/error를 계산한다.
+- Alerts 현재 탭은 active, 이전 탭은 resolved history 최대 50개를 보여준다.
 
-## Alert 표시
+## 4. 실제 코드 위치
 
-Overview의 최근 Alert는 접힌 상태에서 3개를 보여주고 펼치면 최대 10개를 보여준다.
+| 기능 | 코드 위치 |
+|---|---|
+| 전체 page 조립 | `App.jsx L20~L85` |
+| 공통 API | `rosApi.js L24~L73` |
+| 공통 polling | `usePolling.js L3~L85` |
+| 공통 상태 배지 | `StatusBadge.jsx L1~L125` |
+| 주요 항목 | `primaryFilters.js L17~L79` |
+| 주요 Node | `nodeFilters.js L22~L101` |
 
-Alerts 화면은 다음 두 탭으로 나뉜다.
+## 5. 입력 데이터
 
-- 현재 Alert: `resolved`가 아닌 active 장애
-- 이전 Alert: Backend `history`의 해결 항목, 최대 50개
+- REST JSON
+- WebSocket snapshot
+- 사용자 검색, 필터, 선택, Interface Lab 입력
 
-resolved는 초록 “해결됨”으로 보이지만 현재 warning/error 집계에는 포함되지 않는다.
+## 6. 처리 과정
 
-## Interface Lab
+hook이 data/error/loading을 관리하고 Page가 표시 범위를 정한다. Component는 Backend 필드명을 그대로 읽어 문구와 색으로 바꾼다. 실패 상태가 `null` fallback 때문에 사라지지 않도록 사용자 Call/Goal summary를 Runtime 상태보다 먼저 읽는 구간이 있다.
 
-Interface Lab은 Monitoring 화면과 달리 사용자 입력으로 실제 Publish, Receive, Call, Goal을 실행할 수 있다. Graph 후보 자동 입력은 사용자가 직접 입력한 Topic 이름을 polling 때 덮어쓰지 않도록 입력 출처를 구분한다.
+## 7. 출력 데이터
 
-세부 실행 흐름은 [12_interface_lab_flow.md](12_interface_lab_flow.md)에 있다.
+- 화면 목록과 상세 패널
+- 상태 badge
+- Alert 현재/이전 목록
+- JSON 전체보기 popup
 
-## 담당 파일
+## 8. 다음 단계와 연결
 
-- `frontend/src/api/rosApi.js`
-- `frontend/src/hooks/usePolling.js`
-- `frontend/src/hooks/useMonitorWebSocket.js`
-- `frontend/src/utils/primaryFilters.js`
-- `frontend/src/utils/nodeFilters.js`
-- `frontend/src/utils/status.js`
-- `frontend/src/pages/`
+관계 그래프는 [10_visualization_flow.md](10_visualization_flow.md), 사용자 실행 화면은 [12_interface_lab_flow.md](12_interface_lab_flow.md)로 이어진다.
 
-## 문제가 생기면
+## 9. 핵심 요약
 
-1. 같은 시각의 REST 응답과 화면 값을 비교
-2. Backend 필드가 Frontend helper에서 다른 이름으로 읽히는지 확인
-3. page 전환 뒤 불필요 polling이 남는지 확인
-4. effect dependency에 매 render 새 배열·객체·함수가 들어가는지 확인
-5. 동일 값을 반복 `setState`해 Maximum update depth가 생기는지 확인
+1. Frontend는 ROS2가 아니라 FastAPI 응답을 읽는다.
+2. hook은 요청과 state를, Page는 필터를, component는 표시를 담당한다.
+3. Backend 상태 필드와 Frontend가 읽는 필드명이 정확히 같아야 실패가 숨지 않는다.

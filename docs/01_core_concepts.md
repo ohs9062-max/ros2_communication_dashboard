@@ -28,9 +28,17 @@ Graph는 현재 발견되는 Node와 통신 endpoint의 관계 정보다. “지
 
 Runtime은 특정 영역의 Graph 조회, 상태 계산, Subscription 또는 cache 관리를 맡는 Backend 객체다. 예를 들어 `TopicRuntime`, `ServiceRuntime`, `ActionRuntime`, `NodeRuntime`이 있다.
 
+- Runtime 조립: `ros_monitor.py L30~L78`
+- 주기 실행: `ros_monitor.py L574~L581`
+
 ### Cache와 snapshot
 
 Runtime은 ROS callback이나 주기 갱신 결과를 메모리 cache에 저장한다. API는 ROS2를 매 요청마다 새로 조회하지 않고 lock으로 보호된 snapshot을 반환한다.
+
+- Topic snapshot: `topic/runtime.py L74~L104`
+- Service snapshot: `service/runtime.py L58~L84`
+- Action snapshot: `action/runtime.py L74~L87`
+- Node snapshot: `node/runtime.py L57~L71`
 
 ### exact match
 
@@ -62,6 +70,8 @@ Backend의 공통 상태 보조 로직은 다음 값을 다룬다.
 
 현재 발견되면 `graph_present=true`, `ever_discovered=true`가 된다. 이후 사라질 때만 `disconnected`로 전환한다. 설정에 타입이 등록됐지만 Graph에서 한 번도 발견되지 않은 대상은 빨간 종료 상태로 만들지 않는다.
 
+- 실제 코드: `resource_state.py L11~L44`
+
 ## 주요 항목
 
 주요 항목은 등록 여부만이 아니라 실제 Graph 통신과의 연결로 판정한다.
@@ -85,3 +95,16 @@ Interface Lab은 사용자 실행 경로다.
 - Goal: 사용자가 Action Goal 전송
 
 두 경로가 같은 등록 Interface를 참고하더라도 Runtime과 책임은 분리돼 있다.
+
+## 입력·처리·출력으로 다시 보기
+
+- 입력: ROS2 Graph, ROS callback, 등록 YAML, 사용자 요청
+- 처리: Runtime이 상태를 계산하고 cache에 저장
+- 출력: snapshot JSON, Alert, 화면
+- 다음 단계: 전체 실행 순서는 [02_backend_flow.md](02_backend_flow.md)에서 확인한다.
+
+## 핵심 요약
+
+1. Graph는 현재 보이는 관계이고 cache는 Backend가 기억한 최신 상태다.
+2. disconnected는 실제로 한 번 발견된 뒤 사라진 경우에만 사용한다.
+3. Monitoring과 Interface Lab은 등록 타입을 공유하지만 실행 책임은 분리한다.

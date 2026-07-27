@@ -1,81 +1,117 @@
 # Visualization 흐름
 
-## 무엇을 하는가
+## 1. 기능을 한 문장으로 설명
 
-Visualization은 Backend가 제공한 Topic, Service, Action, Node 관계를 하나의 그래프로 보여준다. React Flow는 완성된 `nodes`와 `edges`를 그리는 라이브러리이며 ROS2 관계를 스스로 분석하지 않는다.
+Visualization은 네 REST API의 리소스와 Node 관계를 조합해 “누가 무엇과 통신하는지” 연결 그림으로 보여준다.
 
-## 데이터 흐름
+React Flow는 관계를 분석하는 도구가 아니라 Frontend가 만든 `nodes`와 `edges`를 화면에 그리는 라이브러리다.
+
+## 2. 전체 흐름
 
 ```text
-/ros/topics
-/ros/services
-/ros/actions
-/ros/nodes
+/ros/topics + /ros/services + /ros/actions + /ros/nodes
 → useVisualizationGraph
-→ primary filter와 participant map
+→ 주요 항목과 관계 대상 선택
 → graphTransform
-→ React Flow nodes / edges
-→ 화면 렌더링
+→ nodes/edges 생성
+→ React Flow 렌더링
+→ 검색, 전체 Graph, 1-hop 표시
 ```
 
-네 REST 응답의 갱신 시점이 잠깐 다를 수 있으므로 hook은 이전의 안정적인 graph를 보조적으로 유지해 한 번의 polling 차이로 화면이 과도하게 깜빡이지 않게 한다.
+## 3. 단계별 쉬운 설명
 
-## 그래프에 포함되는 기준
+### 1) 네 API를 함께 요청한다
 
-주요 항목 모드는 목록 화면과 같은 정책을 사용한다.
+- 파일: `hooks/useVisualizationGraph.js L17~L214`
+- 주기: 5초
+- 입력: Topic, Service, Action, Node REST 응답
+- 왜 네 개가 필요한가: Node 관계만으로는 각 리소스의 현재 상태와 주요 항목 여부를 모두 알 수 없기 때문이다.
 
-- 등록 msg 타입과 exact match한 주요 Topic
-- 등록 srv 타입과 exact match한 주요 Service
-- 등록 action 타입과 exact match한 주요 Action
-- 위 통신에 실제 참여하는 주요 Node
-- 기존 기본 주요 항목
+### 2) 관계 참여자를 묶는다
 
-dashboard monitor 내부 Node와 관계없는 숨김·내부 항목은 기본 그래프에서 제외한다.
+- 파일: `utils/participants.js L1~L88`
+- 역할: Node의 여섯 관계 배열을 리소스 이름별 Server/Client 또는 Publisher/Subscriber 목록으로 바꾼다.
 
-## 관계선 생성
+### 3) 주요 항목을 고른다
 
-Node의 publisher/subscriber, service server/client, action server/client 배열을 기준으로 edge를 만든다.
+- 파일: `utils/primaryFilters.js L17~L79`
+- 파일: `utils/nodeFilters.js L22~L101`
+- 등록 msg/srv/action 타입과 Graph 타입이 exact match한 리소스, 그리고 실제로 그 통신에 참여한 Node를 포함한다.
+- 관계없는 모든 Node를 등록 타입만 보고 포함하지 않는다.
 
-예:
+### 4) 화면용 node와 edge를 만든다
+
+- 파일: `utils/graphTransform.js L18~L176`
+- 역할:
+  - ROS Node, Topic, Service, Action을 화면 node로 변환
+  - publisher/subscriber/server/client 관계를 edge로 변환
+  - 상태와 검색용 정보를 붙임
+
+관계 예:
 
 ```text
-Node → Topic      Publisher
-Topic → Node      Subscriber
-Node ↔ Service    Server / Client
-Node ↔ Action     Server / Client
+Node → Topic       Publisher
+Topic → Node       Subscriber
+Node ↔ Service     Server / Client
+Node ↔ Action      Server / Client
 ```
 
-타입 정보가 제공되는 관계는 전체 `full_type`이 같은지 확인한다. 등록 타입 이름만 보고 관계선을 만들지 않는다.
+### 5) 레이아웃과 필터를 적용한다
 
-## 1-hop과 전체 Graph
+- 파일: `utils/graphTransform.js L356~L689`
+- 역할: node 위치, 연결 수, 검색, 숨김, 주요 항목, active 상태 필터를 적용한다.
 
-- 전체 Graph: 현재 필터에 포함된 모든 리소스와 관계
-- 1-hop: 선택한 항목과 직접 연결된 이웃까지만 표시
+### 6) React Flow가 그린다
 
-1-hop은 이미 조립된 graph에서 선택 항목과 연결된 edge를 필터링하는 화면 기능이다. Backend Graph 조회 방식을 바꾸지 않는다.
+- 파일: `pages/VisualizationPage.jsx L11~L364`
+- 역할: 만들어진 nodes/edges를 렌더링하고 선택, 확대/축소, 표시 mode를 관리한다.
 
-## 상태 표현
+### 7) 1-hop을 표시한다
 
-Node와 리소스의 상태는 REST 응답을 그대로 사용한다.
+- 파일: `utils/graphTransform.js L185~L355`
+- 1-hop은 선택한 항목과 직접 연결된 이웃만 남기는 화면 필터다.
+- Backend Graph 조회 방식이나 원본 관계를 변경하지 않는다.
 
-- `disconnected`: 빨간 종료 감지
-- `unknown`: 중립, 오류 집계 제외
-- active/waiting: 정상 또는 대기 색상
+### 8) 한 번의 polling 차이를 완화한다
 
-Frontend가 등록 여부만 보고 임의로 정상이나 disconnected를 만들지 않는다.
+- 파일: `hooks/useVisualizationGraph.js L238~L275`
+- 역할: 네 API의 도착 시각이 잠깐 다를 때 이전 안정적인 graph를 보조적으로 유지해 과도한 깜빡임을 줄인다.
 
-## 담당 파일
+## 4. 실제 코드 위치
 
-- `frontend/src/hooks/useVisualizationGraph.js`: 네 API 조회와 graph 상태
-- `frontend/src/utils/graphTransform.js`: nodes/edges 변환
-- `frontend/src/utils/primaryFilters.js`: 주요 리소스
-- `frontend/src/utils/nodeFilters.js`: 주요 Node
-- `frontend/src/pages/VisualizationPage.jsx`: React Flow 렌더링과 조작
+| 기능 | 코드 위치 |
+|---|---|
+| API 요청과 graph state | `useVisualizationGraph.js L17~L275` |
+| 참여자 map | `participants.js L1~L88` |
+| graph 생성 | `graphTransform.js L18~L176` |
+| Node 중심 graph | `graphTransform.js L185~L355` |
+| filter/layout | `graphTransform.js L356~L689` |
+| 화면 렌더링 | `VisualizationPage.jsx L11~L385` |
 
-## 문제가 생기면
+## 5. 입력 데이터
 
-1. 네 `/ros/*` 응답에 동일 리소스 이름과 타입이 있는지 확인
-2. Node 관계 배열에 해당 endpoint가 있는지 확인
-3. 주요 항목 helper 결과와 목록 화면 결과 비교
-4. `graphTransform` 출력의 node id와 edge source/target 확인
-5. React Flow 문제가 아니라 입력 `nodes`/`edges` 생성 문제인지 먼저 구분
+- 네 `/ros/*` REST 목록
+- Node 관계 배열
+- 주요 항목 filter 결과
+- 사용자의 검색과 선택
+
+## 6. 처리 과정
+
+Frontend는 REST item을 이름과 타입으로 연결한다. 타입 정보가 있는 관계는 full type exact match를 사용한다. `disconnected`와 `unknown` 상태도 REST 값을 그대로 보존한다.
+
+## 7. 출력 데이터
+
+- React Flow `nodes`
+- React Flow `edges`
+- 선택 항목 상세
+- 전체 Graph 또는 1-hop view
+
+## 8. 다음 단계와 연결
+
+Node 관계 생성은 [06_node_flow.md](06_node_flow.md), Frontend 공통 polling과 상태 표시는 [09_frontend_flow.md](09_frontend_flow.md)로 이어진다.
+
+## 9. 핵심 요약
+
+1. 관계의 원본은 Backend `/ros/nodes`와 각 리소스 REST 응답이다.
+2. React Flow는 완성된 nodes/edges를 그릴 뿐 관계를 추론하지 않는다.
+3. 주요 항목 목록과 Visualization은 같은 타입 기반 helper를 사용한다.
