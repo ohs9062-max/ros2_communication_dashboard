@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 from rths_interfaces.msg import CleaningSchedule
+from std_msgs.msg import String
 
 from ros2_dashboard_backend.config_loader import (
     MonitorConfig,
@@ -17,6 +18,8 @@ from ros2_dashboard_backend.topic.alerts import (
     retain_alerts,
 )
 from ros2_dashboard_backend.topic.runtime import TopicRuntime
+from ros2_dashboard_backend.topic.preview import build_message_preview
+from ros2_dashboard_backend.ros_monitor import RosMonitor
 
 
 class _FakeNode:
@@ -54,6 +57,15 @@ class _FakeNode:
 
     def count_subscribers(self, _topic_name):
         return self.external_subscriber_count + len(self.subscriptions)
+
+
+def test_default_message_preview_builder_is_unchanged() -> None:
+    message = String()
+    message.data = 'dashboard'
+
+    assert build_message_preview('std_msgs/msg/String', message) == {
+        'data': 'dashboard',
+    }
 
 
 def test_registered_importable_messages_extend_monitor_supported_types(
@@ -124,26 +136,41 @@ def test_registered_custom_message_is_subscribed_and_measures_hz() -> None:
         node_getter=lambda: node,
     )
 
-    assert runtime._auto_subscribe_topic(
-        '/demo_cleaning_schedule',
-        topic_type,
-        supported_type=True,
-    )
+    node.publisher_count = 1
+    runtime.update()
     callback = node.subscriptions[0]['callback']
-    callback(CleaningSchedule())
+    message = CleaningSchedule()
+    message.scheduling_id = 50
+    message.scheduling_dt = '2026-07-27 09:24:31'
+    message.count = 49
+    message.is_active = True
+    callback(message)
     sleep(0.01)
-    callback(CleaningSchedule())
+    callback(message)
 
     snapshot = runtime._topic_hz_snapshot(
         '/demo_cleaning_schedule',
         topic_type,
     )
+    topic = runtime.snapshot()['topics'][0]
+    expected_preview = {
+        'scheduling_id': 50,
+        'scheduling_dt': '2026-07-27 09:24:31',
+        'count': 49,
+        'is_active': True,
+    }
 
     assert snapshot['success'] is True
     assert snapshot['data']['received'] is True
     assert snapshot['data']['last_received_at'] is not None
     assert snapshot['data']['message_count'] == 2
     assert snapshot['data']['hz'] > 0
+    assert topic['last_message_preview'] == expected_preview
+    websocket_topics = RosMonitor._websocket_topic_meta([topic])
+    assert websocket_topics['latest']['/demo_cleaning_schedule'] == {
+        'message_preview': expected_preview,
+        'last_received_at': topic['last_received_at'],
+    }
 
 
 def test_registered_custom_message_reports_missing_and_stale_alerts() -> None:

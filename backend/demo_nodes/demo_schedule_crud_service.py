@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-
+# import time
 from demo_interface_imports import import_demo_interface
 
 ScheduleCrud = import_demo_interface(
@@ -30,6 +30,7 @@ class DemoScheduleCrudService(Node):
         self.get_logger().info("Demo /ScheduleCrud service server started")
 
     def handle_schedule_crud(self, request, response):
+        # time.sleep(10)
         self.get_logger().info("Received /ScheduleCrud request")
 
         request_fields = request.get_fields_and_field_types()

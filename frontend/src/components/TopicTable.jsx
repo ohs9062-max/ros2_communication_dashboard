@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
+import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
@@ -48,6 +49,7 @@ export function TopicTable({
   hzByTopic = {},
 }) {
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
+  const [previewTopic, setPreviewTopic] = useState(null)
   const sortedTopics = useMemo(
     () =>
       sortRows(
@@ -114,7 +116,12 @@ export function TopicTable({
                   <HzBadge hzData={hzData} topic={topic} />
                 </td>
                 <td>{topic.deep_monitoring ? '예' : '아니오'}</td>
-                <td><PreviewText value={topic.last_message_preview} /></td>
+                <td>
+                  <JsonPreviewButton
+                    onOpen={() => setPreviewTopic(topic)}
+                    value={topic.last_message_preview}
+                  />
+                </td>
                 <td>
                   {formatRelativeTime(topicLastCheckedAt(topic, hzData))}
                 </td>
@@ -123,13 +130,16 @@ export function TopicTable({
           })}
         </tbody>
       </table>
+      {previewTopic && (
+        <JsonPreviewModal
+          name={previewTopic.name}
+          onClose={() => setPreviewTopic(null)}
+          title="마지막 값"
+          value={previewTopic.last_message_preview}
+        />
+      )}
     </div>
   )
-}
-
-function PreviewText({ value }) {
-  if (!value) return <span className="muted">-</span>
-  return <code className="table-preview-text">{JSON.stringify(value)}</code>
 }
 
 function HzBadge({ hzData, topic }) {

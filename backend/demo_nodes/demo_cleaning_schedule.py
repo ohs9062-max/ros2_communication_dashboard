@@ -61,6 +61,24 @@ class DemoCleaningScheduleTopicPublisher(Node):
         )
 
     def publish_cleaning_schedule(self):
+        # 미수신
+        # if self._is_paused:
+        #     self._pause_count += 1
+
+        #     self.get_logger().warning(
+        #         "Message publishing paused: "
+        #         f"{self._pause_count}/5 seconds"
+        #     )
+
+        #     if self._pause_count >= 5:
+        #         self._is_paused = False
+        #         self._pause_count = 0
+        #         self._publish_count = 0
+
+        #         self.get_logger().info(
+        #             "Message publishing resumed"
+        #         )
+
         msg = CleaningSchedule()
 
         msg.scheduling_id = self._scheduling_id

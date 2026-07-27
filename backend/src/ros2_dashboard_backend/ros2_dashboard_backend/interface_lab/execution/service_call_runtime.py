@@ -134,8 +134,12 @@ class ServiceCallRuntime:
             response = future.result()
             elapsed_ms = (time() - started_at) * 1000.0
             response_preview = ros_message_to_json(response)
+            response_failed = (
+                isinstance(response_preview, dict)
+                and response_preview.get('success') is False
+            )
             result = {
-                'success': True,
+                'success': not response_failed,
                 'service_name': service_name,
                 'service_type': service_type,
                 'request': request_data,
@@ -146,8 +150,20 @@ class ServiceCallRuntime:
                 'called': True,
                 'sent_to_server': True,
             }
+            if response_failed:
+                result['error_type'] = 'response_failed'
+                result['error'] = str(
+                    response_preview.get('message')
+                    or response_preview.get('error')
+                    or 'Service response reported success=false'
+                )
         except Exception as exc:
             elapsed_ms = (time() - started_at) * 1000.0
+            error_type = (
+                'timeout'
+                if isinstance(exc, TimeoutError)
+                else 'service_call_error'
+            )
             result = {
                 'success': False,
                 'service_name': service_name,
@@ -159,6 +175,7 @@ class ServiceCallRuntime:
                 'called_at': started_at,
                 'called': sent_to_server,
                 'sent_to_server': sent_to_server,
+                'error_type': error_type,
                 'error': str(exc),
             }
             self._record_history(result)

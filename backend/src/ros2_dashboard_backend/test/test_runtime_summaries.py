@@ -1,5 +1,6 @@
 from ros2_dashboard_backend.interface_lab.execution.action_goal_runtime import ActionGoalRuntime
 from ros2_dashboard_backend.interface_lab.execution.service_call_runtime import ServiceCallRuntime
+from ros2_dashboard_backend.ros_monitor import _service_effective_status
 
 
 def test_service_history_summary_includes_validation_not_sent():
@@ -50,6 +51,33 @@ def test_service_receive_history_and_reset_are_runtime_owned():
     }
     assert runtime.receive_history()['meta']['count'] == 0
     assert runtime.history()['meta']['count'] == 1
+
+
+def test_service_effective_status_keeps_graph_and_call_results_separate():
+    timeout_summary = {
+        'last_call_status': 'timeout',
+        'sent_to_server': True,
+    }
+    success_summary = {
+        'last_call_status': 'success',
+        'sent_to_server': True,
+    }
+
+    assert _service_effective_status(
+        graph_status='active',
+        server_count=1,
+        summary=timeout_summary,
+    ) == 'timeout'
+    assert _service_effective_status(
+        graph_status='active',
+        server_count=1,
+        summary=success_summary,
+    ) == 'active'
+    assert _service_effective_status(
+        graph_status='waiting_server',
+        server_count=0,
+        summary=timeout_summary,
+    ) == 'waiting_server'
 
 
 def test_action_history_summary_includes_result_and_feedback():

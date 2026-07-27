@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { formatMs, formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
+import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
@@ -36,6 +37,7 @@ export function ServiceTable({
   services,
 }) {
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
+  const [preview, setPreview] = useState(null)
   const sortedServices = useMemo(
     () => sortRows(services, sort, SERVICE_SORT_COLUMNS),
     [services, sort],
@@ -79,7 +81,10 @@ export function ServiceTable({
                 onClick={() => onSelectService(service.name)}
               >
                 <td>
-                  <StatusBadge value={service.status} />
+                  <StatusBadge
+                    label={serviceStatusLabel(service)}
+                    value={service.effective_status ?? service.status}
+                  />
                 </td>
                 <td className="topic-name service-name">{service.name}</td>
                 <td className="topic-type service-type">{service.type ?? '-'}</td>
@@ -90,8 +95,26 @@ export function ServiceTable({
                 <td>{service.client_count ?? 0}</td>
                 <td>{service.callable ? '예' : service.allowlisted ? '등록됨' : '아니오'}</td>
                 <td>{formatRelativeTime(summary?.last_called_at)}</td>
-                <td><PreviewText value={summary?.last_request_preview} /></td>
-                <td><PreviewText value={summary?.last_response_preview ?? summary?.last_error} /></td>
+                <td>
+                  <JsonPreviewButton
+                    onOpen={() => setPreview({
+                      name: service.name,
+                      title: '마지막 요청',
+                      value: summary?.last_request_preview,
+                    })}
+                    value={summary?.last_request_preview}
+                  />
+                </td>
+                <td>
+                  <JsonPreviewButton
+                    onOpen={() => setPreview({
+                      name: service.name,
+                      title: '마지막 응답',
+                      value: summary?.last_response_preview ?? summary?.last_error,
+                    })}
+                    value={summary?.last_response_preview ?? summary?.last_error}
+                  />
+                </td>
                 <td>{formatMs(summary?.last_response_time_ms)}</td>
                 <td>{service.hidden_by_default ? '예' : '아니오'}</td>
               </tr>
@@ -99,12 +122,25 @@ export function ServiceTable({
           })}
         </tbody>
       </table>
+      {preview && (
+        <JsonPreviewModal
+          name={preview.name}
+          onClose={() => setPreview(null)}
+          title={preview.title}
+          value={preview.value}
+        />
+      )}
     </div>
   )
 }
 
-function PreviewText({ value }) {
-  if (value === undefined || value === null || value === '') return <span className="muted">-</span>
-  const text = typeof value === 'string' ? value : JSON.stringify(value)
-  return <code className="table-preview-text">{text}</code>
+function serviceStatusLabel(service) {
+  const effectiveStatus = service.effective_status ?? service.status
+  if (effectiveStatus === 'timeout') return 'Timeout'
+  if (effectiveStatus === 'failed') return '호출 실패'
+  if (effectiveStatus === 'active' && service.call_status === 'not_called') {
+    return '호출 가능'
+  }
+  if (effectiveStatus === 'active') return '정상'
+  return undefined
 }

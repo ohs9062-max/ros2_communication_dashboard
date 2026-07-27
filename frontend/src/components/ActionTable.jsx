@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { formatMs, formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
+import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
@@ -44,6 +45,7 @@ export function ActionTable({
   selectedActionName,
 }) {
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
+  const [previewAction, setPreviewAction] = useState(null)
   const sortedActions = useMemo(
     () => sortRows(actions, sort, ACTION_SORT_COLUMNS),
     [actions, sort],
@@ -108,7 +110,12 @@ export function ActionTable({
                 </td>
                 <td>{action.callable ? '예' : action.allowlisted ? '등록됨' : '아니오'}</td>
                 <td>{formatRelativeTime(summary?.last_goal_sent_at)}</td>
-                <td><PreviewText value={summary?.last_goal_preview} /></td>
+                <td>
+                  <JsonPreviewButton
+                    onOpen={() => setPreviewAction(action)}
+                    value={summary?.last_goal_preview}
+                  />
+                </td>
                 <td>
                   <FeedbackBadge action={action} />
                 </td>
@@ -122,6 +129,14 @@ export function ActionTable({
           })}
         </tbody>
       </table>
+      {previewAction && (
+        <JsonPreviewModal
+          name={previewAction.name}
+          onClose={() => setPreviewAction(null)}
+          title="마지막 Goal"
+          value={previewAction.last_goal_summary?.last_goal_preview}
+        />
+      )}
     </div>
   )
 }
@@ -221,10 +236,4 @@ function resultDisplay(action) {
 
 function resultState(value, label, sortValue) {
   return { label, sortValue, value }
-}
-
-function PreviewText({ value }) {
-  if (value === undefined || value === null || value === '') return <span className="muted">-</span>
-  const text = typeof value === 'string' ? value : JSON.stringify(value)
-  return <code className="table-preview-text">{text}</code>
 }

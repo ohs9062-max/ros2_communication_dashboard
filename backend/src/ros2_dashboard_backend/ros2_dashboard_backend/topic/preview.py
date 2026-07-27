@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from rosidl_runtime_py.convert import message_to_ordereddict
+
 from ros2_dashboard_backend.topic.models import (
     MONITOR_STATUS_TYPE,
     SUPPORTED_PREVIEW_TYPES,
@@ -14,7 +16,7 @@ def build_message_preview(topic_type: str, message: Any) -> dict[str, Any]:
     """Topic 모니터링에서 public API 응답 항목을 조립하는 함수입니다."""
     builder = _preview_builders().get(topic_type)
     if builder is None:
-        return {}
+        return dict(message_to_ordereddict(message))
 
     return builder(message)
 

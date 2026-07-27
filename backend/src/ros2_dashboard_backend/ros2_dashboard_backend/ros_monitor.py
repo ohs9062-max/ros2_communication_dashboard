@@ -148,6 +148,16 @@ class RosMonitor:
             service['callable'] = key in callable_names
             if summary:
                 service['last_call_summary'] = summary
+            service['call_status'] = (
+                summary.get('last_call_status')
+                if summary
+                else 'not_called'
+            )
+            service['effective_status'] = _service_effective_status(
+                graph_status=service.get('status'),
+                server_count=service.get('server_count'),
+                summary=summary,
+            )
             service['call_count'] = summary.get('call_count', 0) if summary else 0
             service['success_count'] = summary.get('success_count', 0) if summary else 0
             service['failure_count'] = summary.get('failure_count', 0) if summary else 0
@@ -426,6 +436,7 @@ class RosMonitor:
                     'topic_stale',
                     'topic_disconnected',
                     'service_disconnected',
+                    'service_call_timeout',
                     'action_disconnected',
                     'node_stale',
                 },
@@ -446,7 +457,7 @@ class RosMonitor:
     @staticmethod
     def _websocket_topic_meta(
         topics: list[dict[str, Any]],
-    ) -> dict[str, int]:
+    ) -> dict[str, Any]:
         return {
             'count': len(topics),
             'active_count': sum(
@@ -475,6 +486,14 @@ class RosMonitor:
                 1 for topic in topics
                 if topic.get('status') in ('stale', 'disconnected')
             ),
+            'latest': {
+                topic['name']: {
+                    'message_preview': topic.get('last_message_preview'),
+                    'last_received_at': topic.get('last_received_at'),
+                }
+                for topic in topics
+                if topic.get('last_message_preview') is not None
+            },
         }
 
     @staticmethod
@@ -554,3 +573,24 @@ class RosMonitor:
         # Service 자동 호출은 의도적으로 비활성화합니다.
         # 생존 상태는 Graph로 관찰하고 실제 요청/응답은 Interface Lab의
         # 사용자 명시 Call 기록으로만 확인합니다.
+
+
+def _service_effective_status(
+    *,
+    graph_status: str | None,
+    server_count: Any,
+    summary: dict[str, Any] | None,
+) -> str:
+    status = str(graph_status or 'unknown')
+    if status == 'disconnected' or int(server_count or 0) <= 0:
+        return status
+
+    if not summary or summary.get('sent_to_server') is not True:
+        return status
+
+    call_status = str(summary.get('last_call_status') or '')
+    if call_status == 'timeout':
+        return 'timeout'
+    if call_status == 'success':
+        return 'active'
+    return 'failed'

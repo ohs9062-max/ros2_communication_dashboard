@@ -20,7 +20,10 @@ export function ServiceDetailPanel({ participants, service }) {
     <aside className="detail-panel">
       <div className="panel-heading">
         <span>Service 상세</span>
-        <StatusBadge value={service.status} />
+        <StatusBadge
+          label={effectiveStatusLabel(service)}
+          value={service.effective_status ?? service.status}
+        />
       </div>
       <h2>{service.name}</h2>
       <p className="muted">{service.type ?? '-'}</p>
@@ -41,9 +44,14 @@ export function ServiceDetailPanel({ participants, service }) {
           value={service.hidden_by_default ? '예' : '아니오'}
         />
         <DetailLine
-          label="상태"
+          label="서버 상태"
           tone={statusTone(service.status)}
-          value={service.status ?? '-'}
+          value={serverStatusLabel(service.status)}
+        />
+        <DetailLine
+          label="최근 호출 결과"
+          tone={statusTone(service.effective_status)}
+          value={callStatusLabel(callSummary)}
         />
         <DetailLine label="상태 이유" value={service.reason ?? '-'} />
         <DetailLine label="마지막 갱신" value={formatTime(service.last_updated)} />
@@ -80,7 +88,7 @@ export function ServiceDetailPanel({ participants, service }) {
         <DetailLine
           label="마지막 호출 상태"
           tone={statusTone(callSummary?.last_call_status)}
-          value={callSummary?.last_call_status ?? '-'}
+          value={callStatusLabel(callSummary)}
         />
         <DetailLine
           label="서버 전송"
@@ -133,6 +141,39 @@ export function ServiceDetailPanel({ participants, service }) {
       </DetailSection>
     </aside>
   )
+}
+
+function effectiveStatusLabel(service) {
+  const status = service.effective_status ?? service.status
+  if (status === 'timeout') return 'Timeout'
+  if (status === 'failed') return '호출 실패'
+  if (status === 'active' && service.call_status === 'not_called') {
+    return '호출 가능'
+  }
+  if (status === 'active') return '정상'
+  return undefined
+}
+
+function serverStatusLabel(status) {
+  if (status === 'active') return '사용 가능'
+  if (status === 'waiting_server') return '서버 대기'
+  if (status === 'disconnected') return '연결 끊김'
+  return status ?? '-'
+}
+
+function callStatusLabel(summary) {
+  if (!summary) return '호출 이력 없음'
+  if (summary.last_call_status === 'success') return '정상'
+  if (summary.last_call_status === 'timeout') return 'Timeout'
+  if (
+    ['failed', 'response_failed', 'service_call_error'].includes(
+      summary.last_call_status,
+    )
+  ) {
+    return '호출 실패'
+  }
+  if (summary.last_call_status === 'validation_error') return '입력 검증 실패'
+  return summary.last_call_status ?? '-'
 }
 
 function DetailLine({ label, tone, value }) {

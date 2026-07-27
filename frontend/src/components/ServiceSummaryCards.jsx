@@ -12,10 +12,15 @@ export function ServiceSummaryCards({
     ((meta.visible_count ?? services.length) + (meta.hidden_count ?? 0))
   const activeCount =
     summary?.activeCount ??
-    services.filter((service) => service.status === 'active').length
+    services.filter(
+      (service) => (service.effective_status ?? service.status) === 'active',
+    ).length
   const waitingCount =
     summary?.waitingCount ??
-    services.filter((service) => service.status === 'waiting_server').length
+    services.filter(
+      (service) =>
+        (service.effective_status ?? service.status) === 'waiting_server',
+    ).length
   const issueCount = summary?.issueCount ?? waitingCount
   const internalManagementCount =
     summary?.internalManagementCount ?? meta.hidden_count ?? 0

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import rclpy
+# import time
 from rclpy.node import Node
 
 from demo_interface_imports import import_demo_interface
@@ -30,6 +31,7 @@ class DemoRobotControlService(Node):
         self.get_logger().info("Demo /RobotControl service server started")
 
     def handle_robot_control(self, request, response):
+        # time.sleep(10)
         self.get_logger().info("Received /RobotControl request")
 
         request_fields = request.get_fields_and_field_types()
@@ -42,6 +44,7 @@ class DemoRobotControlService(Node):
 
         if "success" in response_fields:
             response.success = True
+            #response.success = False
 
         if "message" in response_fields:
             response.message = "demo RobotControl response ok"

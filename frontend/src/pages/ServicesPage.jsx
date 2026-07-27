@@ -34,6 +34,8 @@ const ISSUE_SERVICE_STATUSES = new Set([
   'waiting_server',
   'disconnected',
   'error',
+  'failed',
+  'timeout',
 ])
 
 const LIFECYCLE_SERVICE_SUFFIXES = [
@@ -103,6 +105,8 @@ export function ServicesPage({ dashboard }) {
         service.type,
         service.category,
         service.status,
+        service.effective_status,
+        service.call_status,
       ]
       const matchesSearch =
         !normalizedSearch ||
@@ -277,22 +281,28 @@ function getServiceUiSummary(services, primaryServices, meta) {
 
   return {
     activeCount: services.filter(
-      (service) => service.status === 'active',
+      (service) => serviceEffectiveStatus(service) === 'active',
     ).length,
     internalManagementCount: services.filter(isInternalOrManagementService).length +
       hiddenNotFetched,
     issueCount: services.filter(isIssueService).length,
     primaryCount: primaryServices.length,
     waitingCount: services.filter(
-      (service) => service.status === 'waiting_server',
+      (service) => serviceEffectiveStatus(service) === 'waiting_server',
     ).length,
     total,
   }
 }
 
 function isIssueService(service) {
-  const status = String(service.status || 'unknown').toLowerCase()
+  const status = serviceEffectiveStatus(service)
   return ISSUE_SERVICE_STATUSES.has(status)
+}
+
+function serviceEffectiveStatus(service) {
+  return String(
+    service.effective_status ?? service.status ?? 'unknown',
+  ).toLowerCase()
 }
 
 function isCustomService(service) {
