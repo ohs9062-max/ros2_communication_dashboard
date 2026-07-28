@@ -1,12 +1,12 @@
 interface_registry:
   messages:
-  - file_name: Malang.msg
+  - file_name: OHS.msg
     file_kind: msg
-    type_name: Malang
-    full_type: uploaded_interfaces/msg/Malang
+    type_name: OHS
+    full_type: uploaded_interfaces/msg/OHS
     source: manual_definition
     allowlisted: true
-    uploaded_at: '2026-07-21T01:09:17.874653+00:00'
+    uploaded_at: '2026-07-28T04:15:40.076189+00:00'
     raw_text: 'uint8 cmd
 
       bool success
@@ -29,8 +29,8 @@ interface_registry:
       interface_package: uploaded_interfaces
       interface_package_path: backend/src/uploaded_interfaces
       absolute_interface_package_path: /home/hs/rang/ros2_dashboard/backend/src/uploaded_interfaces
-      saved_path: backend/src/uploaded_interfaces/msg/Malang.msg
-      absolute_saved_path: /home/hs/rang/ros2_dashboard/backend/src/uploaded_interfaces/msg/Malang.msg
+      saved_path: backend/src/uploaded_interfaces/msg/OHS.msg
+      absolute_saved_path: /home/hs/rang/ros2_dashboard/backend/src/uploaded_interfaces/msg/OHS.msg
       file_saved: true
       cmake_registered: true
       package_xml_checked: true
@@ -40,7 +40,7 @@ interface_registry:
       import_error: null
       error: null
       last_build_status: success
-      last_build_at: '2026-07-23T01:39:53.655008+00:00'
-      import_checked_at: '2026-07-23T01:39:55.548703+00:00'
+      last_build_at: '2026-07-28T04:16:17.047005+00:00'
+      import_checked_at: '2026-07-28T04:16:19.016161+00:00'
   services: []
   actions: []

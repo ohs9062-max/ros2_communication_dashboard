@@ -2,8 +2,8 @@ running: false
 status: success
 build_status: success
 real_apply_success: true
-started_at: '2026-07-23T01:39:48.039915+00:00'
-finished_at: '2026-07-23T01:39:53.654706+00:00'
+started_at: '2026-07-28T04:16:10.724492+00:00'
+finished_at: '2026-07-28T04:16:17.046676+00:00'
 returncode: 0
 workspace_path: /home/hs/rang/ros2_dashboard/backend
 log_path: /home/hs/rang/ros2_dashboard/backend/config/interface_apply_last.log
@@ -21,8 +21,8 @@ summary: &id002
     ready_for_build: true
     registry_exists: true
     registry_path: backend/config/interface_registry.yaml
-    interface_package: ros2_dashboard_interfaces
-    interface_package_path: backend/src/ros2_dashboard_interfaces
+    interface_package: uploaded_interfaces
+    interface_package_path: backend/src/uploaded_interfaces
     total: 1
     applied_count: 1
     not_applied: []
@@ -67,5 +67,4 @@ cleanup:
   removed:
   - build/rths_interfaces
   - install/rths_interfaces
-  - log/latest/rths_interfaces
   duplicates: {}

@@ -61,8 +61,8 @@ def test_default_registry_paths_stay_backend_workspace_relative(monkeypatch):
 
     assert workspace.name == 'backend'
     assert default_registry_path() == workspace / 'config' / 'interface_registry.yaml'
-    assert package_name == 'ros2_dashboard_interfaces'
-    assert package_path == (workspace / 'src' / 'ros2_dashboard_interfaces').resolve()
+    assert package_name == 'uploaded_interfaces'
+    assert package_path == (workspace / 'src' / 'uploaded_interfaces').resolve()
 
 
 def test_parse_service_and_action_sections():

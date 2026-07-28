@@ -52,7 +52,7 @@ def default_interface_package() -> tuple[str, Path]:
     """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
     backend_root = backend_workspace_root()
     package_name = os.getenv(
-        'INTERFACE_PACKAGE_NAME', 'ros2_dashboard_interfaces',
+        'INTERFACE_PACKAGE_NAME', 'uploaded_interfaces',
     ).strip()
     configured = Path(os.getenv('INTERFACE_PACKAGE_PATH', f'src/{package_name}'))
     package_path = configured if configured.is_absolute() else backend_root / configured

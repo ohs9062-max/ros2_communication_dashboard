@@ -164,7 +164,7 @@ async def register_manual_interface_type(request: Request) -> dict[str, Any]:
         'success': True,
         'entry': entry,
         'data': entry,
-        'message': '타입 직접 등록이 완료되었습니다. 파일/CMake/package.xml은 수정하지 않았습니다.',
+        'message': '기존 빌드 타입 등록이 완료되었습니다. 파일/CMake/package.xml은 수정하지 않았습니다.',
     }
 
 

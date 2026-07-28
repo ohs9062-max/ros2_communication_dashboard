@@ -1946,7 +1946,7 @@ function packageFromType(type = '') {
 
 function sourceLabel(source) {
   if (source === 'single_upload') return '파일 등록'
-  if (source === 'manual_type') return '타입 직접 등록'
+  if (source === 'manual_type') return '기존 빌드 타입 등록'
   if (source === 'manual_definition') return '인터페이스 직접 작성'
   if (source === 'uploaded_package') return 'package 등록'
   if (source === 'graph') return 'graph'

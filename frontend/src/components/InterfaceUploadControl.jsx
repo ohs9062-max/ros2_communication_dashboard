@@ -44,6 +44,11 @@ import {
 } from '../api/rosApi.js'
 
 const ACCEPTED_EXTENSIONS = ['.msg', '.srv', '.action']
+const MANUAL_DEFINITION_EXAMPLES = {
+  msg: '예:\nuint8 cmd\nbool success\nstring message',
+  srv: '예:\nuint8 cmd\n---\nbool success\nstring message',
+  action: '예:\nuint8 command\n---\nbool success\n---\nstring status',
+}
 
 export function InterfaceUploadControl({
   onStateChanged,
@@ -87,12 +92,11 @@ export function InterfaceUploadControl({
   const [packages, setPackages] = useState([])
   const [showManualInput, setShowManualInput] = useState(false)
   const [manualMode, setManualMode] = useState('type')
-  const [manualType, setManualType] = useState('rths_interfaces/srv/ScheduleCrud')
-  const [manualDescription, setManualDescription] = useState('')
+  const [manualType, setManualType] = useState('')
   const manualPackage = 'uploaded_interfaces'
   const [manualKind, setManualKind] = useState('srv')
-  const [manualTypeName, setManualTypeName] = useState('MyControl')
-  const [manualDefinition, setManualDefinition] = useState('uint8 cmd\n---\nbool success\nstring message\n')
+  const [manualTypeName, setManualTypeName] = useState('')
+  const [manualDefinition, setManualDefinition] = useState('')
   const [editingManualDefinition, setEditingManualDefinition] = useState(null)
   const [showReceivePanel, setShowReceivePanel] = useState(false)
   const [receiveMode, setReceiveMode] = useState('topic')
@@ -187,16 +191,16 @@ export function InterfaceUploadControl({
   }, [availableTopics, receiveTopicSearch, selectedMessage?.message_type])
   const selectedTopicReceiving = receiveTopics.some((topic) =>
     topic.topic_name === selectedReceiveTopic
-      && (!selectedMessage?.message_type || topic.topic_type === selectedMessage.message_type)
-      && topic.receiving !== false,
+    && (!selectedMessage?.message_type || topic.topic_type === selectedMessage.message_type)
+    && topic.receiving !== false,
   )
   const visibleReceiveTopicHistory = receiveTopicHistory.filter((event) =>
     (!selectedReceiveTopic || event.topic_name === selectedReceiveTopic)
-      && (!selectedMessage?.message_type || event.topic_type === selectedMessage.message_type),
+    && (!selectedMessage?.message_type || event.topic_type === selectedMessage.message_type),
   )
   const visiblePublishHistory = topicPublishHistory.filter((event) =>
     (!topicPublishName || event.topic_name === topicPublishName)
-      && (!selectedMessage?.message_type || event.topic_type === selectedMessage.message_type),
+    && (!selectedMessage?.message_type || event.topic_type === selectedMessage.message_type),
   )
 
   useEffect(() => {
@@ -258,12 +262,12 @@ export function InterfaceUploadControl({
   const visibleReceiveServiceHistory = selectedReceiveService && activeReceiveServiceKey === selectedReceiveServiceKey
     ? receiveServiceHistory.filter((event) =>
       event.service_name === selectedReceiveService.service_name
-        && event.service_type === selectedReceiveService.service_type)
+      && event.service_type === selectedReceiveService.service_type)
     : []
   const visibleReceiveActionHistory = selectedReceiveAction && activeReceiveActionKey === selectedReceiveActionKey
     ? receiveActionHistory.filter((event) =>
       event.action_name === selectedReceiveAction.action_name
-        && event.action_type === selectedReceiveAction.action_type)
+      && event.action_type === selectedReceiveAction.action_type)
     : []
 
   useEffect(() => {
@@ -455,14 +459,13 @@ export function InterfaceUploadControl({
       const payload = await registerManualType({
         full_type: manualType,
         allowlisted: true,
-        description: manualDescription,
       })
       const entry = payload.data ?? payload.entry
       setFeedback({
         tone: entry?.build?.import_available ? 'success' : 'warning',
         text: entry?.build?.import_available
-          ? `${entry.full_type} 타입 직접 등록 완료 · import됨`
-          : `${entry?.full_type ?? manualType} 타입 직접 등록 완료 · import 안됨: ${entry?.build?.import_error ?? '환경/source 확인 필요'}`,
+          ? `${entry.full_type} 기존 빌드 타입 등록 완료 · import됨`
+          : `${entry?.full_type ?? manualType} 기존 빌드 타입 등록 완료 · import 안됨: ${entry?.build?.import_error ?? '환경/source 확인 필요'}`,
       })
       await loadRegistry(true)
       onStateChanged?.()
@@ -1165,8 +1168,8 @@ export function InterfaceUploadControl({
           text: importFailed
             ? '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
             : notApplied.length
-            ? `부분 적용: 파일 생성 또는 CMake 등록이 완료되지 않았습니다. 상세 상태를 확인하세요. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
-            : payload.message || '빌드 실패. CMakeLists.txt, package.xml, interface 의존성을 확인하세요.',
+              ? `부분 적용: 파일 생성 또는 CMake 등록이 완료되지 않았습니다. 상세 상태를 확인하세요. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
+              : payload.message || '빌드 실패. CMakeLists.txt, package.xml, interface 의존성을 확인하세요.',
         })
       }
       await loadApplyStatus()
@@ -1490,7 +1493,7 @@ export function InterfaceUploadControl({
         <div className="interface-manual-panel">
           <div className="interface-manual-tabs">
             <button className={manualMode === 'type' ? 'active' : ''} onClick={() => setManualMode('type')} type="button">
-              타입 직접 등록
+              기존 빌드 타입 등록
             </button>
             <button className={manualMode === 'definition' ? 'active' : ''} onClick={() => setManualMode('definition')} type="button">
               인터페이스 직접 작성
@@ -1499,16 +1502,19 @@ export function InterfaceUploadControl({
           {manualMode === 'type' ? (
             <div className="interface-manual-form">
               <p className="interface-package-help">
-                이미 빌드/source 되어 있는 ROS2 타입을 allowlist에 등록합니다.
-                파일은 생성하지 않으며 build도 필요하지 않습니다.
+                다른 ROS2 워크스페이스에서 이미 빌드되어
+                현재 환경에서 import 가능한 인터페이스 타입을 등록합니다.
+
+                .msg, .srv, .action 파일을 새로 생성하거나
+                colcon build를 수행하지 않습니다.
               </p>
               <label className="interface-service-field">
                 <span>full type</span>
-                <input value={manualType} onChange={(event) => setManualType(event.target.value)} />
-              </label>
-              <label className="interface-service-field">
-                <span>description</span>
-                <input value={manualDescription} onChange={(event) => setManualDescription(event.target.value)} />
+                <input
+                  placeholder="예: rths_interfaces/srv/ScheduleCrud"
+                  value={manualType}
+                  onChange={(event) => setManualType(event.target.value)}
+                />
               </label>
               <button className="interface-service-call-button" disabled={disabled} onClick={submitManualType} type="button">
                 타입 등록
@@ -1538,11 +1544,20 @@ export function InterfaceUploadControl({
               </label>
               <label className="interface-service-field">
                 <span>type name</span>
-                <input value={manualTypeName} onChange={(event) => setManualTypeName(event.target.value)} />
+                <input
+                  placeholder="예: MyControl"
+                  value={manualTypeName}
+                  onChange={(event) => setManualTypeName(event.target.value)}
+                />
               </label>
               <label className="interface-service-field">
                 <span>definition</span>
-                <textarea rows="8" value={manualDefinition} onChange={(event) => setManualDefinition(event.target.value)} />
+                <textarea
+                  placeholder={MANUAL_DEFINITION_EXAMPLES[manualKind]}
+                  rows="8"
+                  value={manualDefinition}
+                  onChange={(event) => setManualDefinition(event.target.value)}
+                />
               </label>
               <div className="interface-receive-actions">
                 <button className="interface-receive-action-button ghost" disabled={disabled} onClick={validateCurrentManualDefinition} type="button">

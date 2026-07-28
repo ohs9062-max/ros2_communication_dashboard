@@ -34,7 +34,6 @@ Vite + React
 | FastAPI lifespan | Uvicorn worker 시작·종료 때 실행한다 | startup에서 `start()`, shutdown에서 `stop()` | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/main.py L20-L27` |
 | ROS 시작 | `rclpy.init()` 후 monitor Node를 만든다 | Node → timer → 최초 update → spin thread | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L80-L94` |
 | 주기 timer | `poll_interval_sec`마다 Graph를 다시 읽는다 | `_update_graph()` 호출 | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L80-L94`, `L574-L581` |
-| spin thread | subscription, service future, action callback을 처리한다 | `rclpy.spin(self._node)` | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L583-L590` |
 | 종료 | worker 종료 또는 reload 때 실행한다 | timer 취소 → 실행 Runtime clear → `rclpy.shutdown()` → join → Node destroy | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L96-L120` |
 
 핵심 시작 코드는 다음과 같다.
@@ -119,8 +118,13 @@ self._service_runtime.update(self._node)
 self._action_runtime.update(self._node)
 ```
 
-파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L574-L581`
+0. **rclpy**Python에서 ROS2를 사용하게 해주는 전체 라이브러리
+0. **rclpy.node.Node** 객체가 제공하는 Graph 조회 메서드로 읽음
+0. **lifespan** FastAPI 애플리케이션의 시작과 종료 생명주기를 관리하는 함수
+0. **Cache** 최신 상태를 보관하는 저장소, **Snapshot** 그 Cache를 특정 시점에 읽어 만든 응답 데이터.
+0. **Runtime** :프로그램이 실행 중일 때 실제로 동작하면서 ROS2 정보를 수집하고 상태를 계산해 Cache에 저장하는 담당 객체.
 
+파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L574-L581`
 1. **Node**: Node 목록과 pub/sub/service/action 관계를 읽어 Node cache를 교체한다.
 2. **Topic**: Topic 목록, 타입, publisher/subscriber 수를 읽고 필요한 subscription을 생성·제거한다.
 3. **Service**: Service 이름/타입과 server/client 수를 읽는다.
