@@ -69,15 +69,16 @@ def is_service_included(
     *,
     include_names: tuple[str, ...] = (),
     exclude_names: tuple[str, ...] = (),
+    exclude_prefixes: tuple[str, ...] = (),
 ) -> bool:
     """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
-    if include_names:
-        return name in include_names and name not in exclude_names
-
     if name in exclude_names:
         return False
 
-    return True
+    if any(name.startswith(prefix) for prefix in exclude_prefixes if prefix):
+        return False
+
+    return not include_names or name in include_names
 
 
 def is_supported_type(service_type: str | None) -> bool:

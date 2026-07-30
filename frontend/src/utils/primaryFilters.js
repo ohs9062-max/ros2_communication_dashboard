@@ -1,11 +1,3 @@
-const IMPORTANT_TOPIC_NAMES = new Set([
-  '/cmd_vel',
-  '/odom',
-  '/imu',
-  '/joint_states',
-  '/scan',
-])
-
 const INTERNAL_TOPIC_NAMES = new Set([
   '/clock',
   '/parameter_events',
@@ -43,7 +35,6 @@ export function isPrimaryTopic(topic, hzEntry) {
   return (
     isRegisteredTopic(topic) ||
     topic?.status === 'active' ||
-    IMPORTANT_TOPIC_NAMES.has(topic?.name) ||
     topic?.received === true ||
     hzData?.received === true ||
     messageCount > 0 ||

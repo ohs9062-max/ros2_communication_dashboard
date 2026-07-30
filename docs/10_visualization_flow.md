@@ -34,8 +34,8 @@ React Flow는 관계를 분석하는 도구가 아니라 Frontend가 만든 `nod
 
 ### 3) 주요 항목을 고른다
 
-- 파일: `utils/primaryFilters.js L17~L79`
-- 파일: `utils/nodeFilters.js L22~L101`
+- 파일: `utils/primaryFilters.js L1~L78`
+- 파일: `utils/nodeFilters.js L1~L77`
 - 등록 msg/srv/action 타입과 Graph 타입이 exact match한 리소스, 그리고 실제로 그 통신에 참여한 Node를 포함한다.
 - 관계없는 모든 Node를 등록 타입만 보고 포함하지 않는다.
 
@@ -58,7 +58,7 @@ Node ↔ Action      Server / Client
 
 ### 5) 레이아웃과 필터를 적용한다
 
-- 파일: `utils/graphTransform.js L356~L689`
+- 파일: `utils/graphTransform.js L356~L694`
 - 역할: node 위치, 연결 수, 검색, 숨김, 주요 항목, active 상태 필터를 적용한다.
 
 ### 6) React Flow가 그린다
@@ -85,7 +85,7 @@ Node ↔ Action      Server / Client
 | 참여자 map | `participants.js L1~L90` |
 | graph 생성 | `graphTransform.js L18~L176` |
 | Node 중심 graph | `graphTransform.js L185~L355` |
-| filter/layout | `graphTransform.js L356~L689` |
+| filter/layout | `graphTransform.js L356~L694` |
 | 화면 렌더링 | `VisualizationPage.jsx L11~L385` |
 
 ## 5. 입력 데이터

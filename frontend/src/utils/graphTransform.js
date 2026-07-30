@@ -644,7 +644,11 @@ function isHiddenEntity(kind, entity) {
 function isInternalNode(node) {
   const name = String(node.name ?? '')
   const fullName = String(node.full_name ?? '')
-  return name.includes('ros2cli_daemon') || fullName.includes('ros2cli_daemon')
+  return (
+    node.is_internal === true ||
+    name.includes('ros2cli_daemon') ||
+    fullName.includes('ros2cli_daemon')
+  )
 }
 
 function connectionCount(node) {

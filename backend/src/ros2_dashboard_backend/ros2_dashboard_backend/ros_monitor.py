@@ -439,7 +439,11 @@ class RosMonitor:
 
     def node_snapshot(self) -> dict[str, Any]:
         """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
-        return self._node_runtime.snapshot()
+        snapshot = self._node_runtime.snapshot()
+        internal_node = self._monitor_node_full_name()
+        for node in snapshot['nodes']:
+            node['is_internal'] = node.get('full_name') == internal_node
+        return snapshot
 
     def _role_node_index(self) -> dict[tuple[str, str, str], set[str]]:
         return build_role_node_index(self._node_runtime.snapshot()['nodes'])

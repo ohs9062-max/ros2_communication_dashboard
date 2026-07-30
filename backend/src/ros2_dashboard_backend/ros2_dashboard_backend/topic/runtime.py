@@ -18,6 +18,7 @@ from ros2_dashboard_backend.topic.discovery import build_topic_item
 from ros2_dashboard_backend.topic.filters import (
     is_supported_type,
     is_topic_included,
+    is_topic_type_excluded,
     should_deep_monitor,
 )
 from ros2_dashboard_backend.topic.hz import (
@@ -139,6 +140,14 @@ class TopicRuntime:
 
         for name, types in topic_names_and_types:
             if not self._is_topic_included(name):
+                continue
+            if any(
+                is_topic_type_excluded(
+                    topic_type,
+                    exclude_types=self._config.topics_exclude_types,
+                )
+                for topic_type in types
+            ):
                 continue
 
             topic_type = types[0] if types else None
@@ -313,6 +322,7 @@ class TopicRuntime:
             name,
             include_names=self._config.topics_include,
             exclude_names=self._config.topics_exclude,
+            exclude_prefixes=self._config.topics_exclude_prefixes,
         )
 
     def _topic_type(self, name: str) -> str | None:

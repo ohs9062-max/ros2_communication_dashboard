@@ -48,13 +48,13 @@ Uvicorn 실행
 
 ### 4) spin thread가 ROS callback을 처리한다
 
-- 파일: `ros_monitor.py L665~L675`
+- 파일: `ros_monitor.py L669~L679`
 - 역할: `rclpy.spin()`이 Subscription callback, timer callback, Action/Service future 완료를 처리한다.
 - 왜 필요한가: FastAPI 요청 처리와 ROS2 callback 처리가 서로를 오래 막지 않게 하기 위해서다.
 
 ### 5) 각 Graph Runtime을 갱신한다
 
-- 파일: `ros_monitor.py L677~L683`
+- 파일: `ros_monitor.py L681~L687`
 - 역할: Node → Topic → Service → Action 순서로 `update()`를 호출한다.
 - 중요: Service active check 자동 호출은 이 실행 경로에서 의도적으로 비활성화돼 있다. Service 생존은 Graph로 관찰하고 실제 요청은 Interface Lab 사용자가 실행한다.
 - 출력: Runtime별 최신 cache
@@ -69,7 +69,7 @@ Uvicorn 실행
 
 ### 7) WebSocket이 가벼운 통합 상태를 보낸다
 
-- 파일: `ros_monitor.py L456~L486`
+- 파일: `ros_monitor.py L460~L490`
 - 파일: `routers/monitoring.py L92~L109`
 - 역할: 1초마다 리소스 수와 Alert, Topic latest 요약을 보낸다. 상세 목록과 관계 데이터는 REST가 담당한다.
 
@@ -82,7 +82,7 @@ Uvicorn 실행
 | Runtime 조립 | `ros_monitor.py L37~L82` |
 | 시작 | `ros_monitor.py L84~L98` |
 | 종료 | `ros_monitor.py L100~L124` |
-| Graph 갱신 | `ros_monitor.py L677~L683` |
+| Graph 갱신 | `ros_monitor.py L681~L687` |
 | 공통 발견 상태 | `resource_state.py L11~L44` |
 | Monitoring REST/WS | `routers/monitoring.py L16~L109` |
 

@@ -70,12 +70,15 @@ class MonitorConfig:
     topics_auto_subscribe_supported_types: bool = True
     topics_include: tuple[str, ...] = ()
     topics_exclude: tuple[str, ...] = DEFAULT_TOPIC_EXCLUDES
+    topics_exclude_prefixes: tuple[str, ...] = ()
+    topics_exclude_types: tuple[str, ...] = ()
     topics_supported_types: tuple[str, ...] = DEFAULT_SUPPORTED_TOPIC_TYPES
     topics_registered_types: tuple[str, ...] = ()
     topics_required_stream_names: tuple[str, ...] = ()
     topics_command_names: tuple[str, ...] = ()
     services_include: tuple[str, ...] = ()
     services_exclude: tuple[str, ...] = ()
+    services_exclude_prefixes: tuple[str, ...] = ()
     services_active_check: ServiceActiveCheckConfig = field(
         default_factory=ServiceActiveCheckConfig,
     )
@@ -223,6 +226,14 @@ def _monitor_config(
             'exclude',
             default=DEFAULT_TOPIC_EXCLUDES,
         ),
+        topics_exclude_prefixes=_config_string_tuple(
+            topics,
+            'exclude_prefixes',
+        ),
+        topics_exclude_types=_config_string_tuple(
+            topics,
+            'exclude_types',
+        ),
         topics_supported_types=tuple(dict.fromkeys(
             _string_tuple(
                 topics.get('supported_types'),
@@ -237,6 +248,10 @@ def _monitor_config(
         topics_command_names=_string_tuple(topics.get('command_names')),
         services_include=_config_string_tuple(services, 'include'),
         services_exclude=_config_string_tuple(services, 'exclude'),
+        services_exclude_prefixes=_config_string_tuple(
+            services,
+            'exclude_prefixes',
+        ),
         services_active_check=_service_active_check_config(
             services.get('active_check'),
         ),
@@ -388,12 +403,12 @@ def _config_string_tuple(
     default: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
     """Backend 설정 로딩에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
-    values = _string_tuple(data.get(base_key))
-    if values:
-        return values
-
     explicit_key = f'{base_key}_names'
-    return _string_tuple(data.get(explicit_key), default=default)
+    if base_key in data:
+        return _string_tuple(data.get(base_key), default=default)
+    if explicit_key in data:
+        return _string_tuple(data.get(explicit_key), default=default)
+    return default
 
 
 def _service_active_check_config(value: Any) -> ServiceActiveCheckConfig:

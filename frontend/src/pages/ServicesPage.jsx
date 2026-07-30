@@ -13,23 +13,6 @@ const SERVICE_FILTERS = [
   { id: 'internal', label: '내부/관리 포함' },
 ]
 
-const CUSTOM_SERVICE_TYPE_PREFIXES = [
-  'can_interfaces/srv/',
-  'ros2_dashboard_interfaces/srv/',
-  'rths_interfaces/srv/',
-]
-
-const CUSTOM_SERVICE_TYPES = new Set([
-  'example_interfaces/srv/AddTwoInts',
-])
-
-const IMPORTANT_SERVICE_NAMES = new Set([
-  '/add_two_ints',
-  '/cmd_service',
-  '/robot_cmd',
-  '/RobotControl',
-])
-
 const ISSUE_SERVICE_STATUSES = new Set([
   'waiting_server',
   'disconnected',
@@ -83,7 +66,11 @@ export function ServicesPage({ dashboard }) {
   } = dashboard
 
   const primaryServices = useMemo(
-    () => services.filter((service) => isPrimaryService(service)),
+    () => services.filter(
+      (service) =>
+        !isInternalOrManagementService(service) &&
+        isPrimaryService(service),
+    ),
     [services],
   )
   const summary = useMemo(
@@ -255,7 +242,10 @@ function isPrimaryService(service) {
   return (
     isRegisteredService(service) ||
     isIssueService(service) ||
-    isCustomService(service)
+    (
+      service.category === 'user' &&
+      service.hidden_by_default !== true
+    )
   )
 }
 
@@ -303,16 +293,6 @@ function serviceEffectiveStatus(service) {
   return String(
     service.effective_status ?? service.status ?? 'unknown',
   ).toLowerCase()
-}
-
-function isCustomService(service) {
-  const type = String(service.type ?? '')
-  const name = String(service.name ?? '')
-  return (
-    CUSTOM_SERVICE_TYPES.has(type) ||
-    CUSTOM_SERVICE_TYPE_PREFIXES.some((prefix) => type.startsWith(prefix)) ||
-    IMPORTANT_SERVICE_NAMES.has(name)
-  )
 }
 
 function isInternalOrManagementService(service) {

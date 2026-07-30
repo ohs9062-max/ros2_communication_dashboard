@@ -2,6 +2,7 @@ from ros2_dashboard_backend.topology import (
     build_role_node_index,
     related_nodes,
 )
+from ros2_dashboard_backend.ros_monitor import RosMonitor
 
 
 def _entity(name: str, full_type: str) -> dict:
@@ -114,3 +115,38 @@ def test_role_node_index_deduplicates_and_excludes_disconnected_nodes() -> None:
         resource_name='/demo_cleaning_schedule',
         resource_types=['rths_interfaces/msg/CleaningSchedule'],
     ) == ['/ros2_dashboard_topic_monitor']
+
+
+def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:
+    monitor = RosMonitor.__new__(RosMonitor)
+    monitor._node = _MonitorNode()
+    monitor._node_runtime = _NodeRuntime()
+
+    nodes = monitor.node_snapshot()['nodes']
+
+    assert nodes == [
+        {
+            'full_name': '/ros2_dashboard_topic_monitor',
+            'is_internal': True,
+        },
+        {
+            'full_name': '/robot',
+            'is_internal': False,
+        },
+    ]
+
+
+class _MonitorNode:
+    def get_fully_qualified_name(self):
+        return '/ros2_dashboard_topic_monitor'
+
+
+class _NodeRuntime:
+    def snapshot(self):
+        return {
+            'nodes': [
+                {'full_name': '/ros2_dashboard_topic_monitor'},
+                {'full_name': '/robot'},
+            ],
+            'meta': {},
+        }

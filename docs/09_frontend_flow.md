@@ -55,16 +55,17 @@ FastAPI REST/WebSocket
 
 ### 5) 주요 항목을 판정한다
 
-- 파일: `utils/primaryFilters.js L17~L79`
-- 파일: `utils/nodeFilters.js L22~L101`
+- 파일: `utils/primaryFilters.js L1~L78`
+- 파일: `utils/nodeFilters.js L1~L77`
 - Topic/Service/Action은 Backend의 등록 타입 일치 신호를 사용한다.
 - Node는 실제 관계 배열의 타입이 주요 리소스 타입과 정확히 같은지 확인한다.
+- 특정 Topic·Nav2·TurtleBot 이름 fallback은 사용하지 않고 Backend `supported_type`, `allowlisted`, `category`, `is_internal`과 관계 타입을 사용한다.
 - Frontend가 YAML을 직접 읽지는 않는다.
 
 ### 6) Page가 검색·필터·선택을 관리한다
 
 - Topic: `pages/TopicsPage.jsx L14~L186`
-- Service: `pages/ServicesPage.jsx L67~L227`
+- Service: `pages/ServicesPage.jsx L50~L214`
 - Action: `pages/ActionsPage.jsx L17~L179`
 - Node: `pages/NodesPage.jsx L16~L169`
 - 각 Page는 API data 자체를 새로 만들기보다 표시할 목록과 선택 항목을 정한다.
@@ -109,8 +110,8 @@ FastAPI REST/WebSocket
 | 공통 API | `rosApi.js L24~L73` |
 | 공통 polling | `usePolling.js L3~L85` |
 | 공통 상태 배지 | `StatusBadge.jsx L1~L125` |
-| 주요 항목 | `primaryFilters.js L17~L79` |
-| 주요 Node | `nodeFilters.js L22~L101` |
+| 주요 항목 | `primaryFilters.js L1~L78` |
+| 주요 Node | `nodeFilters.js L1~L77` |
 
 ## 5. 입력 데이터
 

@@ -71,8 +71,8 @@ ROS2 Graph에서 Node 발견
 
 ### 7) 주요 Node를 판정한다
 
-- 파일: `utils/nodeFilters.js L22~L101`
-- 파일: `utils/primaryFilters.js L17~L79`
+- 파일: `utils/nodeFilters.js L1~L77`
+- 파일: `utils/primaryFilters.js L1~L78`
 
 ```text
 주요 Topic을 publish/subscribe
@@ -81,7 +81,7 @@ ROS2 Graph에서 Node 발견
 → 주요 Node
 ```
 
-등록 Interface가 있다는 이유만으로 관계없는 Node를 주요 항목에 넣지 않는다.
+등록 Interface가 있다는 이유만으로 관계없는 Node를 주요 항목에 넣지 않는다. Nav2/TurtleBot 이름 fallback은 사용하지 않으며, Dashboard Node는 Backend가 추가한 `is_internal`로 숨긴다.
 
 ### 8) Visualization 연결선으로 바꾼다
 
@@ -99,7 +99,7 @@ ROS2 Graph에서 Node 발견
 | 관계 item 생성 | `node/discovery.py L14~L57` |
 | 발견/종료 상태 | `resource_state.py L11~L44` |
 | Alert | `node/alerts.py L13~L42` |
-| Frontend 주요 Node | `nodeFilters.js L22~L101` |
+| Frontend 주요 Node | `nodeFilters.js L1~L77` |
 
 ## 5. 입력 데이터
 
@@ -117,6 +117,7 @@ Backend는 현재 관계를 하나의 Node item으로 만들고 이전 item과 �
 ## 7. 출력 데이터
 
 - Node 상태와 발견 시각
+- Dashboard 내부 Node 여부 `is_internal`
 - 여섯 관계 배열
 - 연결 수
 - `node_stale` disconnected Alert

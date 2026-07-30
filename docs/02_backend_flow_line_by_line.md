@@ -27,9 +27,9 @@ main.py lifespan
    - Topic, Service, Action, Node와 Interface Lab Runtime을 만든다.
 4. ROS2 시작: `ros_monitor.py L84~L98`
    - `rclpy.init()`, Node, timer, 첫 갱신, spin thread 순서다.
-5. ROS callback loop: `ros_monitor.py L665~L675`
+5. ROS callback loop: `ros_monitor.py L669~L679`
    - `rclpy.spin()`이 callback을 실행한다.
-6. Graph 갱신: `ros_monitor.py L677~L683`
+6. Graph 갱신: `ros_monitor.py L681~L687`
    - 네 Monitoring Runtime의 `update()`를 호출한다.
 7. REST 연결: `routers/monitoring.py L16~L89`
    - snapshot을 JSON으로 반환한다.
@@ -47,4 +47,4 @@ main.py lifespan
 
 ## 5. 핵심 요약
 
-코드를 처음 읽을 때는 `main.py L20~L30`에서 시작해 `ros_monitor.py L84~L124`, `L665~L683`, 마지막으로 `routers/monitoring.py L16~L109` 순서로 읽으면 된다.
+코드를 처음 읽을 때는 `main.py L20~L30`에서 시작해 `ros_monitor.py L84~L124`, `L669~L687`, 마지막으로 `routers/monitoring.py L16~L109` 순서로 읽으면 된다.

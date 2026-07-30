@@ -107,6 +107,7 @@ class ServiceRuntime:
                 name,
                 include_names=self._config.services_include,
                 exclude_names=self._config.services_exclude,
+                exclude_prefixes=self._config.services_exclude_prefixes,
             ):
                 continue
 

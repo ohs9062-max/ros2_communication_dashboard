@@ -26,8 +26,9 @@ ROS2 Graph에서 Service 발견
 
 ### 1) Graph에서 Service를 발견한다
 
-- 파일: `service/runtime.py L90~L152`
+- 파일: `service/runtime.py L90~L153`
 - 역할: 현재 Service 이름과 타입을 가져오고 Server/Client endpoint 수를 센다. 이전 cache와 비교해 사라진 Service도 찾는다.
+- 제외: `exclude_names` exact match와 `exclude_prefixes` prefix match를 적용하며 명시적 exclude가 include보다 우선한다.
 - 파일: `service/discovery.py L17~L56`
 - 역할: 화면에 필요한 한 Service item을 만든다.
 - 다음 흐름: `service_status()`가 Graph 상태를 정한다.
@@ -85,7 +86,7 @@ ROS2 Graph에서 Service 발견
 - 파일: `interface_lab/execution/service_call_runtime.py L189~L278`
 - 파일: `interface_lab/execution/service_call_runtime.py L462~L478`
 - 파일: `ros_monitor.py L173~L232`
-- 파일: `ros_monitor.py L687~L705`
+- 파일: `ros_monitor.py L691~L709`
 
 `status`는 Graph 상태를 유지한다. `call_status`는 최근 사용자 호출 결과다. `effective_status`는 목록 표시용 우선순위다.
 
@@ -110,12 +111,13 @@ Server 있음 + 성공 → active
 - 파일: `components/ServiceTable.jsx L33~L136`
 - 파일: `components/ServiceDetailPanel.jsx L6~L159`
 - 목록: `effective_status`를 사용해 Timeout/호출 실패를 숨기지 않는다.
+- 필터: 주요 항목에도 전체와 같은 내부/관리 제외를 적용해 `주요 항목 ⊆ 전체 ⊆ 내부/관리 포함` 관계를 유지한다.
 - 상세: `서버 상태`, `최근 호출 결과`, `마지막 호출`, 응답 시간, 오류를 따로 표시한다.
 - 마지막 요청과 응답을 클릭하면 전체 JSON popup을 연다.
 
 ## 4. Active check 현재 정책
 
-`service/active_check.py`와 `service/active_check_runtime.py` 같은 이전 호환 코드가 남아 있다. 그러나 현재 주기 실행 경로 `ros_monitor.py L677~L683`에서는 `update_active_checks()`를 호출하지 않는다.
+`service/active_check.py`와 `service/active_check_runtime.py` 같은 이전 호환 코드가 남아 있다. 그러나 현재 주기 실행 경로 `ros_monitor.py L681~L687`에서는 `update_active_checks()`를 호출하지 않는다.
 
 따라서 문서와 화면에서 active check를 현재 사용 중인 자동 생존 확인 기능으로 설명하면 안 된다. 실제 Service 요청은 Interface Lab 사용자가 실행했을 때만 전송된다.
 

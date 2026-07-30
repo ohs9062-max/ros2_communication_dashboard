@@ -117,6 +117,10 @@ curl http://127.0.0.1:8000/ros/alerts
 
 `backend/build/`, `backend/install/`, `backend/log/`, `frontend/node_modules/`는 생성물이다. 문제 해결을 이유로 내용을 직접 고치지 않는다.
 
+현재 Backend `.env`의 `API_HOST`, `API_PORT`는 Uvicorn 명령에 자동 연결되지 않는다.
+실행 스크립트와 위 명령의 `--host`, `--port` 값을 직접 사용하며,
+`CORS_ORIGINS`와 `MONITOR_CONFIG_PATH`만 Backend 코드가 읽는다.
+
 ## 문제가 생기면
 
 - Backend 시작 실패: lifespan 로그에서 `rclpy.init()`과 Runtime 시작 위치 확인

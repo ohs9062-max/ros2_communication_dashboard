@@ -32,7 +32,7 @@ builder는 “현재 상태가 Alert 조건인가?”를 판단해 공통 dict�
 
 ### 2) RosMonitor가 Alert를 합친다
 
-- 파일: `ros_monitor.py L496~L564`
+- 파일: `ros_monitor.py L500~L568`
 - 역할: 네 builder 결과를 한 배열로 합치고 상태형 유지 대상 code를 지정한다.
 - 다음 흐름: `retain_alerts()`가 이전 cache와 비교한다.
 
@@ -57,7 +57,7 @@ builder는 “현재 상태가 Alert 조건인가?”를 판단해 공통 dict�
 
 ### 5) 해결 이력을 최대 50개 저장한다
 
-- 파일: `ros_monitor.py L496~L564`
+- 파일: `ros_monitor.py L500~L568`
 - 해결 순간 별도 history snapshot을 만들고 최근 50개만 메모리에 보관한다.
 - 같은 장애가 60초 안에 다시 생기면 같은 `id`를 다시 active로 전환한다.
 
