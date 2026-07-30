@@ -110,7 +110,8 @@ self._topic_runtime.update()
 self._service_runtime.update()
 self._action_runtime.update()
 ```
-
+0. **토폴로지** : ROS2 네트워크의 전체 구조 (Node, Topic, Service, Action 관계도)
+0. **lamda** : 익명 함수 lambda는 Python에서 이름 없이 짧게 만드는 함수야.
 0. **rclpy**Python에서 ROS2를 사용하게 해주는 전체 라이브러리
 0. **rclpy.node.Node** 객체가 제공하는 Graph 조회 메서드로 읽음
 0. **lifespan** FastAPI 애플리케이션의 시작과 종료 생명주기를 관리하는 함수

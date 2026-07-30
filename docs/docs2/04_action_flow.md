@@ -1,0 +1,65 @@
+# Action 흐름
+
+## 한 문장으로 보기
+
+Action 목록은 Graph에서 Server/Client 관계를 발견하고 status·feedback을 관찰하며, 새 Goal 전송은 Interface Lab에서 사용자가 실행했을 때만 `ActionGoalRuntime`이 담당한다.
+
+## 쉬운 용어
+
+| 용어 | 뜻 |
+|---|---|
+| Action Server | 오래 걸릴 수 있는 작업을 실행하고 feedback/result를 제공하는 역할 |
+| Action Client | Goal을 보내고 feedback/result를 받는 역할 |
+| Goal | Action Server에 보내는 작업 요청 |
+| Feedback | 작업 중간 진행 정보 |
+| Result | 작업이 끝난 뒤 결과 |
+| status | accepted, executing, succeeded, aborted 같은 Goal 상태 |
+| Action 내부 통신 | Action 하나를 구현하기 위해 자동 생성되는 status/feedback Topic과 goal/result/cancel Service |
+
+## Graph 발견과 관찰
+
+```text
+get_action_names_and_types()
+→ Server/Client 관계 수
+→ status/feedback subscription
+→ Action Cache
+→ Node 수와 Goal Activity 병합
+→ GET /ros/actions
+```
+
+| 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
+|---:|---|---:|---:|---|
+| 1 | `action/runtime.py` `update()` | L88-L164 | L94-L134 | Graph, 필터, 관계 수, 관찰 capability, Action item 생성 |
+| 2 | 같은 함수 | L88-L164 | L136-L149 | 사라진 Action을 disconnected로 보존 |
+| 3 | 같은 함수 | L88-L164 | L157-L163 | subscription 정리와 Result Runtime 연결 |
+| 4 | `action/runtime.py` `_ensure_subscriptions()` | L285-L425 | L350-L373, L389-L412 | status와 feedback subscription 생성 |
+| 5 | `action/runtime.py` `_status_callback()` | L430-L444 | L432-L443 | Goal status 수신값을 runtime cache에 반영 |
+| 6 | `action/runtime.py` `_feedback_callback()` | L446-L461 | L448-L460 | feedback preview를 runtime cache에 반영 |
+| 7 | `ros_monitor.py` `action_snapshot()` | L274-L318 | L286-L317 | Server/Client Node 수, endpoint 수, 등록·Goal 요약 병합 |
+| 8 | `monitoring.py` `get_ros_actions()` | L60-L70 | L63-L69 | API JSON 반환 |
+
+## 사용자 Goal 실행
+
+| 단계 | 파일·함수 | 함수 전체 L | 실제 핵심 L | 의미 |
+|---:|---|---:|---:|---|
+| 1 | `action_execution.py` `send_registered_action_goal()` | L27-L72 | L29-L53 | JSON과 Action name/type/goal 검사 |
+| 2 | 같은 함수 | L27-L72 | L55-L63 | `RosMonitor.send_action_goal()`로 전달 |
+| 3 | `ros_monitor.py` `send_action_goal()` | L324-L338 | L333-L338 | `ActionGoalRuntime`에 위임 |
+| 4 | `action_goal_runtime.py` `send_goal()` | L91-L238 | L100-L110 | timeout, Registry, Graph Server, monitor Node 검사 |
+| 5 | 같은 함수 | L91-L238 | L118-L141 | Goal 타입 변환과 Action Client 준비 |
+| 6 | 같은 함수 | L91-L238 | L143-L157 | `send_goal_async()`, feedback callback, Goal 수락 대기 |
+| 7 | 같은 함수 | L91-L238 | L158-L174 | Goal 거절 처리 |
+| 8 | 같은 함수 | L91-L238 | L176-L206 | `get_result_async()`, timeout, Result 변환 |
+| 9 | 같은 함수 | L91-L238 | L207-L238 | 실패 분류, history 저장, 반환 |
+
+Dashboard의 일반 Action Runtime은 관찰 경로이고, `ActionGoalRuntime`은 사용자 실행 경로다. 일반 목록을 열었다는 이유만으로 Goal을 보내지 않는다.
+
+## 주요/전체 필터
+
+- 주요: 등록된 Action 타입이거나 Goal·Feedback·Result 관찰 흔적이 있는 Action.
+- 전체: Backend가 발견한 모든 Action.
+- 대기 Action 포함: 주요 필터의 시작 집합도 전체로 넓힌다.
+- 실행 중/성공/실패·취소/Goal 미관찰: 마지막 Goal과 Result 상태로 다시 거른다.
+
+판정 함수 전체는 `primaryFilters.js isPrimaryAction()` L52-L69, 실제 조건은 L60-L67이며, 화면 집합 선택은 `ActionsPage.jsx` L35-L74, 상태 판정은 L180-L223이다.
+
