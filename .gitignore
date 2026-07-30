@@ -20,6 +20,7 @@ dist/
 # Env / secrets
 .env
 .env.*
+!frontend/.env.example
 *.key
 *.pem
 *.crt

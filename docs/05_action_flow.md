@@ -128,7 +128,7 @@ Result message 안의 사용자 필드 `success=false`와 ROS terminal status는
 
 ### 10) Frontend가 목록과 상세에 표시한다
 
-- 파일: `hooks/useActionDashboard.js L6~L76`
+- 파일: `hooks/useActionDashboard.js L7~L74`
 - 파일: `components/ActionTable.jsx L41~L158`
 - 목록: Server/Client Node 수, 서버 상태, 마지막 Goal, Goal 전송 시각, Feedback 값, Goal 값, Feedback/Result 상태, 실행 시간을 표시한다.
 - 파일: `components/ActionDetailPanel.jsx L6~L246`

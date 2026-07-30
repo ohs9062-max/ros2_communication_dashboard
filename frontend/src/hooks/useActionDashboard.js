@@ -1,24 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchActions, fetchAlerts, fetchNodes } from '../api/rosApi.js'
+import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
-
-const ACTION_POLL_INTERVAL_MS = 3000
-const ALERT_POLL_INTERVAL_MS = 3000
 
 export function useActionDashboard({ enabled = true } = {}) {
   const [includeIdleActions, setIncludeIdleActions] = useState(false)
   const [selectedActionName, setSelectedActionName] = useState('')
 
-  const actionsState = usePolling(fetchActions, ACTION_POLL_INTERVAL_MS, {
+  const actionsState = usePolling(fetchActions, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: { actions: [], meta: {} } },
   })
-  const alertsState = usePolling(fetchAlerts, ALERT_POLL_INTERVAL_MS, {
+  const alertsState = usePolling(fetchAlerts, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: [], meta: {} },
   })
-  const nodeState = usePolling(fetchNodes, ACTION_POLL_INTERVAL_MS, {
+  const nodeState = usePolling(fetchNodes, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: { nodes: [], meta: {} } },
   })

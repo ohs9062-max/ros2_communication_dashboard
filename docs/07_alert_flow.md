@@ -23,7 +23,7 @@ Alert cache는 DB가 아니라 Backend 메모리에 있다. Backend를 재시작
 
 ### 1) 각 기능이 문제 조건을 찾는다
 
-- Topic: `topic/alerts.py L39~L67`, `L169~L287`
+- Topic: `topic/alerts.py L27~L57`, `L161~L281`
 - Service: `service/alerts.py L10~L67`
 - Action: `action/alerts.py L21~L175`
 - Node: `node/alerts.py L13~L42`
@@ -32,13 +32,13 @@ builder는 “현재 상태가 Alert 조건인가?”를 판단해 공통 dict�
 
 ### 2) RosMonitor가 Alert를 합친다
 
-- 파일: `ros_monitor.py L496~L562`
+- 파일: `ros_monitor.py L496~L564`
 - 역할: 네 builder 결과를 한 배열로 합치고 상태형 유지 대상 code를 지정한다.
 - 다음 흐름: `retain_alerts()`가 이전 cache와 비교한다.
 
 ### 3) active 상태를 유지한다
 
-- 파일: `topic/alerts.py L68~L137`
+- 파일: `topic/alerts.py L60~L127`
 - 장애가 계속 감지되면:
   - `active=true`
   - `alert_state=active`
@@ -47,7 +47,7 @@ builder는 “현재 상태가 Alert 조건인가?”를 판단해 공통 dict�
 
 ### 4) 정상 복구 시 resolved로 바꾼다
 
-- 파일: `topic/alerts.py L68~L137`
+- 파일: `topic/alerts.py L60~L127`
 - 조건이 사라진 즉시:
   - `active=false`
   - `alert_state=resolved`
@@ -57,13 +57,13 @@ builder는 “현재 상태가 Alert 조건인가?”를 판단해 공통 dict�
 
 ### 5) 해결 이력을 최대 50개 저장한다
 
-- 파일: `ros_monitor.py L496~L562`
+- 파일: `ros_monitor.py L496~L564`
 - 해결 순간 별도 history snapshot을 만들고 최근 50개만 메모리에 보관한다.
 - 같은 장애가 60초 안에 다시 생기면 같은 `id`를 다시 active로 전환한다.
 
 ### 6) meta를 계산한다
 
-- 파일: `topic/alerts.py L138~L168`
+- 파일: `topic/alerts.py L130~L158`
 - 역할: resolved를 제외한 active 항목만 warning/error/critical 수에 포함한다.
 
 ### 7) API와 화면에 전달한다

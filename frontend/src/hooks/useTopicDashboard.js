@@ -7,11 +7,12 @@ import {
   fetchTopicLatest,
   fetchTopics,
 } from '../api/rosApi.js'
+import {
+  DASHBOARD_POLL_INTERVAL_MS,
+  TOPIC_POLL_INTERVAL_MS,
+} from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
-
-const POLL_INTERVAL_MS = 1000
-const NODE_POLL_INTERVAL_MS = 3000
 
 export function useTopicDashboard({
   enabled = true,
@@ -21,16 +22,16 @@ export function useTopicDashboard({
   const [selectedTopicName, setSelectedTopicName] = useState('')
   const [topicHzByName, setTopicHzByName] = useState({})
 
-  const health = usePolling(fetchHealth, POLL_INTERVAL_MS, { enabled })
-  const topics = usePolling(fetchTopics, POLL_INTERVAL_MS, {
+  const health = usePolling(fetchHealth, TOPIC_POLL_INTERVAL_MS, { enabled })
+  const topics = usePolling(fetchTopics, TOPIC_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: [], meta: {} },
   })
-  const alerts = usePolling(fetchAlerts, POLL_INTERVAL_MS, {
+  const alerts = usePolling(fetchAlerts, TOPIC_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: [], meta: {} },
   })
-  const nodeState = usePolling(fetchNodes, NODE_POLL_INTERVAL_MS, {
+  const nodeState = usePolling(fetchNodes, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: { nodes: [], meta: {} } },
   })
@@ -44,11 +45,11 @@ export function useTopicDashboard({
     [selectedTopicName],
   )
 
-  const latest = usePolling(latestFetcher, POLL_INTERVAL_MS, {
+  const latest = usePolling(latestFetcher, TOPIC_POLL_INTERVAL_MS, {
     enabled: enabled && pollSelectedTopicDetails && Boolean(selectedTopicName),
     resetKey: selectedTopicName,
   })
-  const hz = usePolling(hzFetcher, POLL_INTERVAL_MS, {
+  const hz = usePolling(hzFetcher, TOPIC_POLL_INTERVAL_MS, {
     enabled: enabled && pollSelectedTopicDetails && Boolean(selectedTopicName),
     resetKey: selectedTopicName,
   })
@@ -127,7 +128,10 @@ export function useTopicDashboard({
     }
 
     pollTopicHz()
-    const timer = window.setInterval(pollTopicHz, POLL_INTERVAL_MS)
+    const timer = window.setInterval(
+      pollTopicHz,
+      TOPIC_POLL_INTERVAL_MS,
+    )
 
     return () => {
       cancelled = true

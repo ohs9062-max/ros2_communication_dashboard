@@ -21,18 +21,6 @@ from ros2_dashboard_backend.topic.models import (
 )
 
 
-REQUIRED_STREAM_TOPIC_NAMES = {
-    '/imu',
-    '/joint_states',
-    '/odom',
-    '/scan',
-}
-
-COMMAND_TOPIC_NAMES = {
-    '/cmd_vel',
-    '/cmd_vel_smoothed',
-}
-
 ALERT_RESOLVED_RETENTION_SEC = 60.0
 
 
@@ -42,6 +30,8 @@ def build_alerts(
     subscriptions: dict[str, dict[str, Any]],
     detected_at: float,
     stale_timeout_sec: float,
+    required_stream_names: tuple[str, ...] = (),
+    command_names: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
     """Topic 모니터링에서 Alert 항목을 조립하는 함수입니다."""
     alerts_by_id = {}
@@ -51,6 +41,8 @@ def build_alerts(
             subscriptions=subscriptions,
             detected_at=detected_at,
             stale_timeout_sec=stale_timeout_sec,
+            required_stream_names=required_stream_names,
+            command_names=command_names,
         ):
             alerts_by_id[alert_item['id']] = alert_item
 
@@ -172,16 +164,18 @@ def _topic_alerts(
     subscriptions: dict[str, dict[str, Any]],
     detected_at: float,
     stale_timeout_sec: float,
+    required_stream_names: tuple[str, ...],
+    command_names: tuple[str, ...],
 ) -> list[dict[str, Any]]:
     name = topic['name']
     publisher_count = topic['publisher_count']
     subscription = subscriptions.get(name)
 
-    if name in COMMAND_TOPIC_NAMES:
+    if name in command_names:
         return []
 
     if (
-        name not in REQUIRED_STREAM_TOPIC_NAMES
+        name not in required_stream_names
         and topic.get('registered_interface_type') is not True
     ):
         return []

@@ -5,6 +5,7 @@ import {
   fetchServices,
   fetchTopics,
 } from '../api/rosApi.js'
+import { VISUALIZATION_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildCommunicationGraph } from '../utils/graphTransform.js'
 import {
   isHiddenGraphNode,
@@ -13,8 +14,6 @@ import {
 import { buildParticipantMaps } from '../utils/participants.js'
 import { isInternalNode, isPrimaryNode } from '../utils/nodeFilters.js'
 import { usePolling } from './usePolling.js'
-
-const GRAPH_POLL_INTERVAL_MS = 5000
 
 export function useVisualizationGraph() {
   const [activeOnly, setActiveOnly] = useState(true)
@@ -28,20 +27,20 @@ export function useVisualizationGraph() {
   const [showTopics, setShowTopics] = useState(true)
   const [viewMode, setViewMode] = useState('nodes')
 
-  const nodeState = usePolling(fetchNodes, GRAPH_POLL_INTERVAL_MS, {
+  const nodeState = usePolling(fetchNodes, VISUALIZATION_POLL_INTERVAL_MS, {
     initialData: { data: { nodes: [], meta: {} } },
   })
-  const topicState = usePolling(fetchTopics, GRAPH_POLL_INTERVAL_MS, {
+  const topicState = usePolling(fetchTopics, VISUALIZATION_POLL_INTERVAL_MS, {
     initialData: { data: [], meta: {} },
   })
   const serviceFetcher = useCallback(
     () => fetchServices({ includeHidden }),
     [includeHidden],
   )
-  const serviceState = usePolling(serviceFetcher, GRAPH_POLL_INTERVAL_MS, {
+  const serviceState = usePolling(serviceFetcher, VISUALIZATION_POLL_INTERVAL_MS, {
     initialData: { data: { services: [], meta: {} } },
   })
-  const actionState = usePolling(fetchActions, GRAPH_POLL_INTERVAL_MS, {
+  const actionState = usePolling(fetchActions, VISUALIZATION_POLL_INTERVAL_MS, {
     initialData: { data: { actions: [], meta: {} } },
   })
 

@@ -65,7 +65,7 @@ ROS2 Graph에서 Node 발견
 ### 6) API와 Frontend로 전달한다
 
 - 파일: `routers/monitoring.py L73~L83`
-- 파일: `hooks/useNodeDashboard.js L5~L68`
+- 파일: `hooks/useNodeDashboard.js L6~L66`
 - 파일: `pages/NodesPage.jsx L16~L169`
 - 역할: `/ros/nodes`를 3초마다 읽고 목록, 필터, 상세에 전달한다.
 

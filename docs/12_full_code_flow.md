@@ -75,11 +75,11 @@ Frontend 실행은 Vite 개발 서버, Backend 실행은 Uvicorn이다. React는
 
 주요 실제 위치:
 
-- Topic: `frontend/src/hooks/useTopicDashboard.js L13-L174`, `frontend/src/pages/TopicsPage.jsx L14-L185`, `frontend/src/components/TopicTable.jsx L46-L217`
-- Service: `frontend/src/hooks/useServiceDashboard.js L6-L72`, `frontend/src/pages/ServicesPage.jsx L67-L326`
-- Action: `frontend/src/hooks/useActionDashboard.js L6-L59`, `frontend/src/pages/ActionsPage.jsx L17-L249`
-- Node: `frontend/src/hooks/useNodeDashboard.js L5-L49`, `frontend/src/pages/NodesPage.jsx L16-L216`
-- Visualization: `frontend/src/hooks/useVisualizationGraph.js L17-L263`, `frontend/src/utils/graphTransform.js L18-L175`
+- Topic: `frontend/src/hooks/useTopicDashboard.js L17-L178`, `frontend/src/pages/TopicsPage.jsx L14-L185`, `frontend/src/components/TopicTable.jsx L46-L217`
+- Service: `frontend/src/hooks/useServiceDashboard.js L7-L78`, `frontend/src/pages/ServicesPage.jsx L67-L326`
+- Action: `frontend/src/hooks/useActionDashboard.js L7-L74`, `frontend/src/pages/ActionsPage.jsx L17-L249`
+- Node: `frontend/src/hooks/useNodeDashboard.js L6-L66`, `frontend/src/pages/NodesPage.jsx L16-L216`
+- Visualization: `frontend/src/hooks/useVisualizationGraph.js L18-L274`, `frontend/src/utils/graphTransform.js L18-L175`
 - Alerts: `frontend/src/pages/AlertsPage.jsx L5-L102`
 - Interface Lab: `frontend/src/pages/InterfaceLabPage.jsx L45-L538`
 
@@ -117,7 +117,7 @@ self._action_runtime.update(self._node)
 0. **Cache** 최신 상태를 보관하는 저장소, **Snapshot** 그 Cache를 특정 시점에 읽어 만든 응답 데이터.
 0. **Runtime** :프로그램이 실행 중일 때 실제로 동작하면서 ROS2 정보를 수집하고 상태를 계산해 Cache에 저장하는 담당 객체.
 
-파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L675-L681`
+파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L677-L683`
 1. **Node**: Node 목록과 pub/sub/service/action 관계를 읽어 Node cache를 교체한다.
 2. **Topic**: Topic 목록, 타입, publisher/subscriber 수를 읽고 필요한 subscription을 생성·제거한다.
 3. **Service**: Service 이름/타입과 server/client 수를 읽는다.
@@ -150,7 +150,7 @@ node.get_topic_names_and_types()
 ```
 
 - Graph 발견과 item 생성: `topic/runtime.py L124-L222`
-- 설정 병합: `topic/runtime.py L254-L337`, `config_loader.py L186-L309`
+- 설정 병합: `topic/runtime.py L254-L337`, `config_loader.py L188-L315`
 - subscription 조정과 내부 endpoint 판정: `topic/runtime.py L339-L495`
 - callback: `topic/runtime.py L496-L512`
 - 변환: `topic/preview.py L1-L21`, `topic/subscriptions.py L1-L60`
@@ -203,7 +203,9 @@ callback은 변환된 message, 수신 epoch, timestamp window를 같은 cache en
 
 `last_received_at`이 없고 publisher가 계속 있으면 timeout 뒤 `topic_message_missing`, 마지막 수신 후 `stale_timeout_sec`(현재 3초)를 넘으면 `topic_stale`이다. command 성격 Topic은 지속 발행이 아닐 수 있어 missing/stale 기본 대상에서 제외된다.
 
-파일: `topic/alerts.py L39-L168`, `L169-L287`
+파일: `topic/alerts.py L27-L158`, `L161-L281`
+
+지속 stream과 command Topic 이름은 `monitor.yaml`의 `topics.required_stream_names`, `topics.command_names`에서 읽는다. 항목이 없으면 빈 목록이며, 등록 Interface 타입을 Alert 대상으로 보는 기존 조건은 유지한다.
 
 ## 5. stale와 disconnected 상태
 
@@ -314,7 +316,7 @@ Topic, Service, Action 기본 목록은 이 Node 관계 cache를 `topology.py L1
 
 각 Runtime은 `{id, level, source, name, code, message, status, ...}` item을 만든다. `RosMonitor.alert_snapshot()`이 Topic, MonitorStatus, Service, Node, Action Alert를 합친 뒤 공통 lifecycle cache에 넣는다.
 
-파일: `ros_monitor.py L496-L562`
+파일: `ros_monitor.py L496-L564`
 
 공통 lifecycle:
 
@@ -360,7 +362,7 @@ Overview는 alert response `meta`와 active item으로 현재 건수를 표시�
 | Backend WebSocket 전송 | 1초 |
 | WebSocket 재연결 | 2.5초 |
 
-파일: `useTopicDashboard.js L13-L130`, `useServiceDashboard.js L6-L28`, `useActionDashboard.js L6-L24`, `useNodeDashboard.js L5-L20`, `useVisualizationGraph.js L17-L47`, `useMonitorWebSocket.js L4-L63`
+파일: `config/polling.js L1-L21`, `useTopicDashboard.js L17-L163`, `useServiceDashboard.js L7-L78`, `useActionDashboard.js L7-L74`, `useNodeDashboard.js L6-L66`, `useVisualizationGraph.js L18-L211`, `useMonitorWebSocket.js L4-L63`
 
 ### 10.2 역할 차이
 
@@ -537,7 +539,7 @@ Backend import module cache와 실행 history를 삭제 API가 강제로 모두 
 | Node stale 명칭 불일치 | config timeout을 저장하지만 계산하지 않고 Graph 누락 즉시 disconnected | Node 종료 후 다음 poll; 높음 / `node/runtime.py`, 문구/tests |
 | Service active check 잔존 | 실행되지는 않지만 model/API 호환 field와 클래스가 남아 이해 비용 발생 | `rg active_check`; 낮음. 제거 시 API 호환 검토 필요 |
 | Hz 초기 편향 | 고정 5초 분모라 시작 직후 실제 rate보다 낮음 | publisher 시작 직후 `/hz`; 중 / `topic/hz.py` |
-| 이벤트 Topic stale 오탐 | YAML 등록 주기성 없는 msg도 deep monitoring 대상이 될 수 있음 | 1회 publish 후 3초; 높음 / config에 stream 정책 추가 검토 |
+| 이벤트 Topic stale 오탐 | YAML 등록 주기성 없는 msg도 deep monitoring 대상이 될 수 있음 | 1회 publish 후 3초; 높음 / `topics.command_names` 운영 설정 검토 |
 | 무거운 Topic 자동 구독 | import 가능한 등록 msg를 모두 deserialize하면 CPU/메모리 증가 가능 | 고주파 image/point cloud 등록; 높음 / Topic config/QoS/preview limit |
 | 공통 lock 병목 | subscription create/destroy 일부가 lock 안에서 ROS API 호출 | Graph 변동 중 응답 지연 측정; 중 / `topic/runtime.py L372-L389` |
 | snapshot 시점 차이 | Visualization 네 REST 호출이 다른 poll 순간일 수 있음 | 빠른 생성/종료 반복; 중 / version/timestamp 비교 |

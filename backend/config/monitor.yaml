@@ -7,6 +7,16 @@ topics:
   auto_discover: true
   auto_subscribe_supported_types: true
 
+  required_stream_names:
+    - /imu
+    - /joint_states
+    - /odom
+    - /scan
+
+  command_names:
+    - /cmd_vel
+    - /cmd_vel_smoothed
+
   include_names: []
 
   exclude_names: []

@@ -317,6 +317,8 @@ topic/service/action include / exclude
 topic auto_discover
 supported_types
 auto_subscribe_supported_types
+topic required_stream_names
+topic command_names
 service active_check allowlist
 ```
 
@@ -340,6 +342,7 @@ Frontend는 YAML 파일을 다시 해석하지 않고 이 Backend 결과를 사�
 .env에 ROS2 감시 대상 목록을 넣지 않는다.
 frontend에 새로운 ROS2 감시 대상 이름이나 타입 목록을 추가하지 않는다.
 설정 파일이 없어도 safe default로 서버가 죽지 않아야 한다.
+지속 stream과 command Topic 이름 정책은 monitor.yaml에서 읽고 누락 시 빈 목록을 사용한다.
 기존 호환용 이름 fallback은 확대하지 않고 YAML 등록 타입과 Backend 판정 신호를 우선한다.
 Gazebo/TurtleBot3 이름을 새 Backend 동작 조건으로 하드코딩하지 않는다.
 ```
@@ -937,6 +940,11 @@ waiting_publisher
 
 command topic
 = 명령이 있을 때만 발행될 수 있으므로 message missing / stale 기본 대상에서 제외
+= monitor.yaml의 topics.command_names로 지정
+
+required stream topic
+= monitor.yaml의 topics.required_stream_names로 지정
+= 등록 Interface 타입을 Alert 대상으로 보는 기존 조건과 함께 적용
 
 publisher_count > 0 and subscriber_count == 0
 = 기본 장애 Alert로 보지 않음

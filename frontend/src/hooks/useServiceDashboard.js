@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchAlerts, fetchNodes, fetchServices } from '../api/rosApi.js'
+import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
-
-const SERVICE_POLL_INTERVAL_MS = 3000
-const ALERT_POLL_INTERVAL_MS = 3000
 
 export function useServiceDashboard({ enabled = true } = {}) {
   const [includeHidden, setIncludeHidden] = useState(false)
@@ -14,16 +12,16 @@ export function useServiceDashboard({ enabled = true } = {}) {
     () => fetchServices({ includeHidden }),
     [includeHidden],
   )
-  const servicesState = usePolling(servicesFetcher, SERVICE_POLL_INTERVAL_MS, {
+  const servicesState = usePolling(servicesFetcher, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: { services: [], meta: {} } },
     resetKey: includeHidden,
   })
-  const alertsState = usePolling(fetchAlerts, ALERT_POLL_INTERVAL_MS, {
+  const alertsState = usePolling(fetchAlerts, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: [], meta: {} },
   })
-  const nodeState = usePolling(fetchNodes, SERVICE_POLL_INTERVAL_MS, {
+  const nodeState = usePolling(fetchNodes, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: { nodes: [], meta: {} } },
   })

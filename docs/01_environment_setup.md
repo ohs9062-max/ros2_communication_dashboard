@@ -75,12 +75,16 @@ python3 -m uvicorn \
 ```bash
 cd frontend
 npm install
+cp .env.example .env
 npm run dev
 ```
 
 현재 Frontend는 Vite 개발 서버가 제공하는 React 웹앱이다. Electron 명령은 필요하지 않다.
 
-Backend 주소를 바꿔야 하면 Frontend 환경 변수의 API base URL을 실제 Backend 주소에 맞춘다.
+Backend 주소나 Dashboard polling 주기를 바꿔야 하면 `frontend/.env`의
+`VITE_API_BASE_URL`, `VITE_TOPIC_POLL_INTERVAL_MS`,
+`VITE_DASHBOARD_POLL_INTERVAL_MS`, `VITE_VISUALIZATION_POLL_INTERVAL_MS`를 조정한다.
+값이 없거나 polling 값이 올바른 양수가 아니면 기존 주기를 사용한다.
 
 ## 기본 확인
 

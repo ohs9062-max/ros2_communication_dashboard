@@ -73,8 +73,9 @@ ROS2 Publisher
 
 ### 6) missing과 stale Alert를 만든다
 
-- 파일: `topic/alerts.py L39~L67`
-- 파일: `topic/alerts.py L169~L287`
+- 파일: `topic/alerts.py L27~L57`
+- 파일: `topic/alerts.py L161~L281`
+- 정책 목록: `monitor.yaml`의 `topics.required_stream_names`, `topics.command_names`
 - 조건:
   - `topic_message_missing`: Publisher가 있고 Subscription도 만들었지만 제한 시간 동안 한 번도 받지 못함
   - `topic_stale`: 이전에는 받았지만 `stale_timeout_sec`보다 오래 새 메시지가 없음
@@ -90,7 +91,7 @@ ROS2 Publisher
 
 ### 8) Frontend가 목록과 상세에 표시한다
 
-- 파일: `hooks/useTopicDashboard.js L13~L174`
+- 파일: `hooks/useTopicDashboard.js L17~L178`
 - 역할: Topic 목록은 1초마다, Node 관계는 3초마다 요청한다. 선택 Topic만 latest/Hz를 추가 요청한다.
 - 파일: `components/TopicTable.jsx L46~L146`
 - 역할: Publisher/Subscriber Node 수, 상태, Hz, 상세 감시, 마지막 값, 마지막 확인을 표시한다. 마지막 값 클릭 시 전체 JSON popup을 연다.
@@ -108,7 +109,7 @@ ROS2 Publisher
 → topic/runtime.py L74~L104: snapshot에 last_message_preview 포함
 → routers/monitoring.py L16~L28: /ros/topics 응답
 → rosApi.js L45~L55: Frontend API 호출
-→ useTopicDashboard.js L16~L161: polling state 저장
+→ useTopicDashboard.js L17~L163: polling state 저장
 → TopicTable.jsx L46~L146: 마지막 값 표시
 → TopicDetailPanel.jsx L11~L192: 상세 표시
 ```

@@ -44,11 +44,13 @@ FastAPI REST/WebSocket
 
 | 화면 | hook과 주기 |
 |---|---|
-| Topic | `useTopicDashboard.js L13~L174`, 목록 1초 |
-| Service | `useServiceDashboard.js L6~L80`, 3초 |
-| Action | `useActionDashboard.js L6~L76`, 3초 |
-| Node | `useNodeDashboard.js L5~L68`, 3초 |
-| Visualization | `useVisualizationGraph.js L17~L275`, 5초 |
+| Topic | `useTopicDashboard.js L17~L178`, 목록 1초 |
+| Service | `useServiceDashboard.js L7~L78`, 3초 |
+| Action | `useActionDashboard.js L7~L74`, 3초 |
+| Node | `useNodeDashboard.js L6~L66`, 3초 |
+| Visualization | `useVisualizationGraph.js L18~L274`, 5초 |
+
+주기 값은 `config/polling.js L1~L21`에서 Vite 환경변수를 한 번 파싱하며, 설정이 없거나 잘못되면 위 기존 주기로 돌아간다.
 | WebSocket | `useMonitorWebSocket.js L4~L74`, 연결 유지 |
 
 ### 5) 주요 항목을 판정한다

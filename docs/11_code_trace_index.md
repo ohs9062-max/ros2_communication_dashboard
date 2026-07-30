@@ -17,8 +17,8 @@
 | Runtime 생성 | `ros_monitor.py L37~L82` |
 | rclpy/Node/timer/thread 시작 | `ros_monitor.py L84~L98` |
 | shutdown/join/destroy/clear | `ros_monitor.py L100~L124` |
-| spin | `ros_monitor.py L663~L673` |
-| Graph 주기 갱신 | `ros_monitor.py L675~L681` |
+| spin | `ros_monitor.py L665~L675` |
+| Graph 주기 갱신 | `ros_monitor.py L677~L683` |
 
 ## 3. Monitoring API
 
@@ -36,7 +36,7 @@
 ## 4. Topic 끝까지 추적
 
 ```text
-config_loader.py L186~L309
+config_loader.py L188~L315
 → topic/runtime.py L124~L222
 → topic/runtime.py L339~L495
 → topic/runtime.py L496~L512
@@ -44,7 +44,7 @@ config_loader.py L186~L309
 → topic/runtime.py L74~L104
 → routers/monitoring.py L16~L40
 → rosApi.js L45~L55
-→ useTopicDashboard.js L13~L174
+→ useTopicDashboard.js L17~L178
 → TopicTable.jsx L46~L146
 → TopicDetailPanel.jsx L11~L192
 ```
@@ -61,7 +61,7 @@ config_loader.py L186~L309
 | 공통 Node 관계 인덱스 | `topology.py L19~L54` |
 | Topic Node/endpoint 필드 병합 | `ros_monitor.py L126~L171` |
 | custom msg dict preview | `topic/preview.py L15~L21` |
-| missing/stale Alert | `topic/alerts.py L169~L287` |
+| missing/stale Alert | `topic/alerts.py L161~L281` |
 
 ## 5. Service 끝까지 추적
 
@@ -87,7 +87,7 @@ service/runtime.py L90~L152
 | Graph+Node 관계+Call 상태 병합 | `ros_monitor.py L173~L232`, `L685~L703` |
 | Timeout Alert | `service/alerts.py L10~L67` |
 
-Active check 호환 코드는 `service/active_check*.py`에 남아 있지만 `ros_monitor.py L675~L681`에서 실행하지 않는다.
+Active check 호환 코드는 `service/active_check*.py`에 남아 있지만 `ros_monitor.py L677~L683`에서 실행하지 않는다.
 
 ## 6. Action 끝까지 추적
 
@@ -125,19 +125,19 @@ action/runtime.py L88~L165
 | participant map | `participants.js L1~L90` |
 | graph nodes/edges | `graphTransform.js L18~L176` |
 | layout/filter | `graphTransform.js L356~L689` |
-| Visualization polling | `useVisualizationGraph.js L17~L275` |
+| Visualization polling | `useVisualizationGraph.js L18~L274` |
 | React Flow 화면 | `VisualizationPage.jsx L11~L385` |
 
 ## 8. Alert
 
 ```text
-RosMonitor.alerts()                       ros_monitor.py L496~L562
-→ build_alerts()                          topic/alerts.py L39~L67
+RosMonitor.alerts()                       ros_monitor.py L496~L564
+→ build_alerts()                          topic/alerts.py L27~L57
 → build_service_alerts()                  service/alerts.py L10~L67
 → build_action_alerts()                   action/alerts.py L21~L175
 → build_node_alerts()                     node/alerts.py L13~L42
-→ retain_alerts()                         topic/alerts.py L68~L137
-→ build_alert_meta()                      topic/alerts.py L138~L168
+→ retain_alerts()                         topic/alerts.py L60~L127
+→ build_alert_meta()                      topic/alerts.py L130~L158
 → /ros/alerts                             routers/monitoring.py L86~L89
 → Overview/Alerts                         OverviewPage.jsx L18~L133,
                                           AlertsPage.jsx L5~L102
@@ -170,10 +170,10 @@ RosMonitor.alerts()                       ros_monitor.py L496~L562
 ## 11. 증상별 빠른 경로
 
 - custom msg 마지막 값 `{}`: `topic/runtime.py L496~L512` → `topic/preview.py L15~L21` → `TopicTable.jsx L46~L146`
-- Topic Hz/stale: `topic/hz.py L14~L70` → `topic/alerts.py L169~L287`
+- Topic Hz/stale: `topic/hz.py L14~L70` → `topic/alerts.py L161~L281`
 - Service Timeout 미표시: `service_call_runtime.py L132~L184` → `ros_monitor.py L173~L232` → `ServiceTable.jsx L33~L136`
 - Action 실패가 성공으로 보임: `action_goal_runtime.py L91~L239`, `L620~L643` → `ActionTable.jsx L41~L158`
-- Alert가 해결 후 남음: `topic/alerts.py L68~L137`의 `retain_alerts()` 확인
+- Alert가 해결 후 남음: `topic/alerts.py L60~L127`의 `retain_alerts()` 확인
 - 주요 Node 누락: `/ros/nodes` 관계 → `primaryFilters.js L17~L79` → `nodeFilters.js L22~L101`
 
 ## 12. 핵심 요약

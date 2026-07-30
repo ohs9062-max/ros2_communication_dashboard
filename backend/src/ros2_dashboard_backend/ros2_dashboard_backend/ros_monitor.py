@@ -507,6 +507,8 @@ class RosMonitor:
             subscriptions=subscriptions,
             detected_at=detected_at,
             stale_timeout_sec=self._config.stale_timeout_sec,
+            required_stream_names=self._config.topics_required_stream_names,
+            command_names=self._config.topics_command_names,
         )
         alerts.extend(
             build_service_alerts(

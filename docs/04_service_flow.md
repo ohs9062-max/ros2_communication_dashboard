@@ -85,7 +85,7 @@ ROS2 Graph에서 Service 발견
 - 파일: `interface_lab/execution/service_call_runtime.py L189~L278`
 - 파일: `interface_lab/execution/service_call_runtime.py L462~L478`
 - 파일: `ros_monitor.py L173~L232`
-- 파일: `ros_monitor.py L685~L703`
+- 파일: `ros_monitor.py L687~L705`
 
 `status`는 Graph 상태를 유지한다. `call_status`는 최근 사용자 호출 결과다. `effective_status`는 목록 표시용 우선순위다.
 
@@ -106,7 +106,7 @@ Server 있음 + 성공 → active
 
 ### 10) Frontend가 두 상태를 나눠 보여준다
 
-- 파일: `hooks/useServiceDashboard.js L6~L80`
+- 파일: `hooks/useServiceDashboard.js L7~L78`
 - 파일: `components/ServiceTable.jsx L33~L136`
 - 파일: `components/ServiceDetailPanel.jsx L6~L159`
 - 목록: `effective_status`를 사용해 Timeout/호출 실패를 숨기지 않는다.
@@ -115,7 +115,7 @@ Server 있음 + 성공 → active
 
 ## 4. Active check 현재 정책
 
-`service/active_check.py`와 `service/active_check_runtime.py` 같은 이전 호환 코드가 남아 있다. 그러나 현재 주기 실행 경로 `ros_monitor.py L675~L681`에서는 `update_active_checks()`를 호출하지 않는다.
+`service/active_check.py`와 `service/active_check_runtime.py` 같은 이전 호환 코드가 남아 있다. 그러나 현재 주기 실행 경로 `ros_monitor.py L677~L683`에서는 `update_active_checks()`를 호출하지 않는다.
 
 따라서 문서와 화면에서 active check를 현재 사용 중인 자동 생존 확인 기능으로 설명하면 안 된다. 실제 Service 요청은 Interface Lab 사용자가 실행했을 때만 전송된다.
 

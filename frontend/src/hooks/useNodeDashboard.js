@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAlerts, fetchNodes } from '../api/rosApi.js'
+import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { usePolling } from './usePolling.js'
-
-const NODE_POLL_INTERVAL_MS = 3000
-const ALERT_POLL_INTERVAL_MS = 3000
 
 export function useNodeDashboard({ enabled = true } = {}) {
   const [selectedNodeName, setSelectedNodeName] = useState('')
@@ -11,11 +9,11 @@ export function useNodeDashboard({ enabled = true } = {}) {
   const [statusFilter, setStatusFilter] = useState('primary')
   const [includeInternalNodes, setIncludeInternalNodes] = useState(false)
 
-  const nodesState = usePolling(fetchNodes, NODE_POLL_INTERVAL_MS, {
+  const nodesState = usePolling(fetchNodes, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: { nodes: [], meta: {} } },
   })
-  const alertsState = usePolling(fetchAlerts, ALERT_POLL_INTERVAL_MS, {
+  const alertsState = usePolling(fetchAlerts, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: [], meta: {} },
   })

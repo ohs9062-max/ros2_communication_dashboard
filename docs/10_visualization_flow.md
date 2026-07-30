@@ -22,7 +22,7 @@ React Flow는 관계를 분석하는 도구가 아니라 Frontend가 만든 `nod
 
 ### 1) 네 API를 함께 요청한다
 
-- 파일: `hooks/useVisualizationGraph.js L17~L214`
+- 파일: `hooks/useVisualizationGraph.js L18~L211`
 - 주기: 5초
 - 입력: Topic, Service, Action, Node REST 응답
 - 왜 네 개가 필요한가: Node 관계만으로는 각 리소스의 현재 상태와 주요 항목 여부를 모두 알 수 없기 때문이다.
@@ -81,7 +81,7 @@ Node ↔ Action      Server / Client
 
 | 기능 | 코드 위치 |
 |---|---|
-| API 요청과 graph state | `useVisualizationGraph.js L17~L275` |
+| API 요청과 graph state | `useVisualizationGraph.js L18~L274` |
 | 참여자 map | `participants.js L1~L90` |
 | graph 생성 | `graphTransform.js L18~L176` |
 | Node 중심 graph | `graphTransform.js L185~L355` |

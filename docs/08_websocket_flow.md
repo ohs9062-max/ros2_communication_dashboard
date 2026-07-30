@@ -41,7 +41,7 @@ Frontend가 /ws/monitor 연결
 ### 4) snapshot을 만든다
 
 - 파일: `ros_monitor.py L456~L486`
-- 파일: `ros_monitor.py L565~L661`
+- 파일: `ros_monitor.py L567~L663`
 - 포함 데이터:
   - Topic 수와 상태 요약, 수신한 Topic의 latest preview/시각
   - Service 수와 callable/최근 Call 수
