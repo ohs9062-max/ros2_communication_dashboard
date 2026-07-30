@@ -53,8 +53,8 @@ export function NodeDetailPanel({ node }) {
 
       <DetailSection collapsible title="연결 정보 · Topic">
         <div className="metric-grid">
-          <Metric label="발행자 수" value={node.publisher_count ?? 0} />
-          <Metric label="구독자 수" value={node.subscriber_count ?? 0} />
+          <Metric label="발행 Topic 수" value={node.publisher_count ?? 0} />
+          <Metric label="구독 Topic 수" value={node.subscriber_count ?? 0} />
         </div>
         <EntityList
           emptyMessage="발행 Topic 없음"
@@ -71,11 +71,11 @@ export function NodeDetailPanel({ node }) {
       <DetailSection collapsible title="연결 정보 · Service">
         <div className="metric-grid">
           <Metric
-            label="응답 Service"
+            label="Service Server 수"
             value={node.service_server_count ?? 0}
           />
           <Metric
-            label="요청 Service"
+            label="Service Client 수"
             value={node.service_client_count ?? 0}
           />
         </div>
@@ -94,11 +94,11 @@ export function NodeDetailPanel({ node }) {
       <DetailSection collapsible title="연결 정보 · Action">
         <div className="metric-grid">
           <Metric
-            label="Goal 실행 Action"
+            label="Action Server 수"
             value={node.action_server_count ?? 0}
           />
           <Metric
-            label="Goal 요청 Action"
+            label="Action Client 수"
             value={node.action_client_count ?? 0}
           />
         </div>

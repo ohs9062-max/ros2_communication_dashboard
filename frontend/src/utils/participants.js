@@ -4,6 +4,9 @@ export function buildParticipantMaps(nodes = []) {
   const actionParticipants = {}
 
   for (const node of nodes) {
+    if (node.graph_present === false) {
+      continue
+    }
     const nodeName = node.full_name || node.name
     if (!nodeName) {
       continue

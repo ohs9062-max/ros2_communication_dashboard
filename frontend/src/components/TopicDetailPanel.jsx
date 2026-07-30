@@ -57,18 +57,43 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
 
       <DetailSection collapsible title="연결 정보">
         <div className="detail-line">
-          <span>발행자</span>
-          <strong>{topic.publisher_count ?? 0}</strong>
+          <span>Publisher Node 수</span>
+          <strong>{topic.publisher_node_count ?? topic.publisher_count ?? 0}</strong>
         </div>
         <div className="detail-line">
-          <span>전체 구독자</span>
-          <strong>{topic.subscriber_count ?? 0}</strong>
+          <span>Subscriber Node 수</span>
+          <strong>{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</strong>
         </div>
         <div className="detail-line">
-          <span>외부 구독자</span>
+          <span>내부 Subscriber Node 수</span>
           <strong>
-            {topic.external_subscriber_count ?? topic.subscriber_count ?? 0}
+            {topic.internal_subscriber_node_count ?? 0}
           </strong>
+        </div>
+        <div className="detail-line">
+          <span>외부 Subscriber Node 수</span>
+          <strong>
+            {topic.external_subscriber_node_count ??
+              topic.external_subscriber_count ??
+              topic.subscriber_count ??
+              0}
+          </strong>
+        </div>
+        <div className="detail-line">
+          <span>Publisher Endpoint 수</span>
+          <strong>{topic.publisher_endpoint_count ?? topic.publisher_count ?? 0}</strong>
+        </div>
+        <div className="detail-line">
+          <span>Subscriber Endpoint 수</span>
+          <strong>{topic.subscriber_endpoint_count ?? topic.subscriber_count ?? 0}</strong>
+        </div>
+        <div className="detail-line">
+          <span>내부 Subscriber Endpoint 수</span>
+          <strong>{topic.internal_subscriber_endpoint_count ?? topic.monitor_subscriber_count ?? 0}</strong>
+        </div>
+        <div className="detail-line">
+          <span>외부 Subscriber Endpoint 수</span>
+          <strong>{topic.external_subscriber_endpoint_count ?? topic.external_subscriber_count ?? 0}</strong>
         </div>
         <div className="detail-line">
           <span>상세 감시</span>
@@ -76,6 +101,12 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
             {topic.deep_monitoring ? '예' : '아니오'}
           </strong>
         </div>
+        {(topic.internal_subscriber_node_count ?? 0) > 0 && (
+          <p className="detail-help-text">
+            Dashboard 내부 Node 관계도 집계에 포함됩니다. 내부 Node는 Node 탭의
+            주요 항목 필터에서 숨겨질 수 있습니다.
+          </p>
+        )}
       </DetailSection>
 
       <DetailSection collapsible title="연결 Node">

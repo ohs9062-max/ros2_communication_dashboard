@@ -65,12 +65,12 @@ export function NodeTable({
             <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="full_name" label="Node" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="namespace" label="네임스페이스" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="publisher_count" label="발행" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="subscriber_count" label="구독" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="service_server_count" label="응답 Service" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="service_client_count" label="요청 Service" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="action_server_count" label="Goal 실행" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="action_client_count" label="Goal 요청" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="publisher_count" label="발행 Topic 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="subscriber_count" label="구독 Topic 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="service_server_count" label="Service Server 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="service_client_count" label="Service Client 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="action_server_count" label="Action Server 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="action_client_count" label="Action Client 수" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_seen_at" label="마지막 확인" onSort={onSort} sort={sort} />
           </tr>
         </thead>

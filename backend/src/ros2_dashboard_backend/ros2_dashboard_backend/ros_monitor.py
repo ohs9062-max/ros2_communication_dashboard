@@ -25,6 +25,10 @@ from ros2_dashboard_backend.topic.alerts import (
     retain_alerts,
 )
 from ros2_dashboard_backend.topic.runtime import TopicRuntime
+from ros2_dashboard_backend.topology import (
+    build_role_node_index,
+    related_nodes,
+)
 
 
 class RosMonitor:
@@ -121,7 +125,50 @@ class RosMonitor:
 
     def snapshot(self) -> dict[str, Any]:
         """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
-        return self._topic_runtime.snapshot()
+        snapshot = self._topic_runtime.snapshot()
+        role_nodes = self._role_node_index()
+        internal_node = self._monitor_node_full_name()
+        for topic in snapshot['topics']:
+            topic_types = topic.get('types') or []
+            publisher_nodes = related_nodes(
+                role_nodes,
+                role='topic_publisher',
+                resource_name=str(topic.get('name') or ''),
+                resource_types=topic_types,
+            )
+            subscriber_nodes = related_nodes(
+                role_nodes,
+                role='topic_subscriber',
+                resource_name=str(topic.get('name') or ''),
+                resource_types=topic_types,
+            )
+            internal_subscriber_nodes = [
+                name for name in subscriber_nodes
+                if name == internal_node
+            ]
+            external_subscriber_nodes = [
+                name for name in subscriber_nodes
+                if name != internal_node
+            ]
+            topic.update({
+                'publisher_node_count': len(publisher_nodes),
+                'subscriber_node_count': len(subscriber_nodes),
+                'internal_subscriber_node_count': len(internal_subscriber_nodes),
+                'external_subscriber_node_count': len(external_subscriber_nodes),
+                'publisher_nodes': publisher_nodes,
+                'subscriber_nodes': subscriber_nodes,
+                'internal_subscriber_nodes': internal_subscriber_nodes,
+                'external_subscriber_nodes': external_subscriber_nodes,
+                'publisher_endpoint_count': int(topic.get('publisher_count') or 0),
+                'subscriber_endpoint_count': int(topic.get('subscriber_count') or 0),
+                'internal_subscriber_endpoint_count': int(
+                    topic.get('monitor_subscriber_count') or 0
+                ),
+                'external_subscriber_endpoint_count': int(
+                    topic.get('external_subscriber_count') or 0
+                ),
+            })
+        return snapshot
 
     def service_snapshot(
         self,
@@ -132,6 +179,7 @@ class RosMonitor:
         snapshot = self._service_runtime.snapshot(
             include_hidden=include_hidden,
         )
+        role_nodes = self._role_node_index()
         summaries = self._service_call_runtime.summary_by_service()
         callable_items = self._service_call_runtime.callable_services()['services']
         allowlisted_types = {item.get('service_type') for item in callable_items}
@@ -142,6 +190,26 @@ class RosMonitor:
         }
         for service in snapshot['services']:
             key = (service.get('name'), service.get('type'))
+            server_nodes = related_nodes(
+                role_nodes,
+                role='service_server',
+                resource_name=str(service.get('name') or ''),
+                resource_types=[service.get('type')],
+            )
+            client_nodes = related_nodes(
+                role_nodes,
+                role='service_client',
+                resource_name=str(service.get('name') or ''),
+                resource_types=[service.get('type')],
+            )
+            service.update({
+                'server_node_count': len(server_nodes),
+                'client_node_count': len(client_nodes),
+                'server_nodes': server_nodes,
+                'client_nodes': client_nodes,
+                'server_endpoint_count': int(service.get('server_count') or 0),
+                'client_endpoint_count': int(service.get('client_count') or 0),
+            })
             summary = summaries.get(key)
             allowlisted = service.get('type') in allowlisted_types
             service['allowlisted'] = allowlisted
@@ -206,6 +274,7 @@ class RosMonitor:
     def action_snapshot(self) -> dict[str, Any]:
         """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
         snapshot = self._action_runtime.snapshot()
+        role_nodes = self._role_node_index()
         summaries = self._action_goal_runtime.summary_by_action()
         callable_items = self._action_goal_runtime.callable_actions()['actions']
         allowlisted_types = {item.get('action_type') for item in callable_items}
@@ -216,6 +285,26 @@ class RosMonitor:
         }
         for action in snapshot['actions']:
             key = (action.get('name'), action.get('type'))
+            server_nodes = related_nodes(
+                role_nodes,
+                role='action_server',
+                resource_name=str(action.get('name') or ''),
+                resource_types=[action.get('type')],
+            )
+            client_nodes = related_nodes(
+                role_nodes,
+                role='action_client',
+                resource_name=str(action.get('name') or ''),
+                resource_types=[action.get('type')],
+            )
+            action.update({
+                'server_node_count': len(server_nodes),
+                'client_node_count': len(client_nodes),
+                'server_nodes': server_nodes,
+                'client_nodes': client_nodes,
+                'server_endpoint_count': int(action.get('server_count') or 0),
+                'client_endpoint_count': int(action.get('client_count') or 0),
+            })
             summary = summaries.get(key)
             allowlisted = action.get('type') in allowlisted_types
             action['allowlisted'] = allowlisted
@@ -351,6 +440,18 @@ class RosMonitor:
     def node_snapshot(self) -> dict[str, Any]:
         """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
         return self._node_runtime.snapshot()
+
+    def _role_node_index(self) -> dict[tuple[str, str, str], set[str]]:
+        return build_role_node_index(self._node_runtime.snapshot()['nodes'])
+
+    def _monitor_node_full_name(self) -> str:
+        node = self._node
+        if node is None:
+            return '/ros2_dashboard_topic_monitor'
+        try:
+            return str(node.get_fully_qualified_name())
+        except Exception:
+            return '/ros2_dashboard_topic_monitor'
 
     def websocket_snapshot(self) -> dict[str, Any]:
         """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""

@@ -93,8 +93,22 @@ export function ActionDetailPanel({ action, participants }) {
       </DetailSection>
 
       <DetailSection collapsible title="연결 정보">
-        <DetailLine label="서버 수" value={action.server_count ?? 0} />
-        <DetailLine label="클라이언트 수" value={action.client_count ?? 0} />
+        <DetailLine
+          label="Server Node 수"
+          value={action.server_node_count ?? action.server_count ?? 0}
+        />
+        <DetailLine
+          label="Client Node 수"
+          value={action.client_node_count ?? action.client_count ?? 0}
+        />
+        <DetailLine
+          label="Server Endpoint 수"
+          value={action.server_endpoint_count ?? action.server_count ?? 0}
+        />
+        <DetailLine
+          label="Client Endpoint 수"
+          value={action.client_endpoint_count ?? action.client_count ?? 0}
+        />
         <DetailLine label="상태 Topic" value={action.status_topic ?? '-'} />
         <DetailLine label="피드백 Topic" value={action.feedback_topic ?? '-'} />
         <p className="detail-help-text">

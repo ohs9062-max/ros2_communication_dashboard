@@ -1,6 +1,7 @@
 from threading import Lock
 from time import sleep, time
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
 from rths_interfaces.msg import CleaningSchedule
@@ -57,6 +58,29 @@ class _FakeNode:
 
     def count_subscribers(self, _topic_name):
         return self.external_subscriber_count + len(self.subscriptions)
+
+    def get_name(self):
+        return 'ros2_dashboard_topic_monitor'
+
+    def get_namespace(self):
+        return '/'
+
+    def get_subscriptions_info_by_topic(self, _topic_name):
+        internal = [
+            SimpleNamespace(
+                node_name='ros2_dashboard_topic_monitor',
+                node_namespace='/',
+            )
+            for _subscription in self.subscriptions
+        ]
+        external = [
+            SimpleNamespace(
+                node_name=f'external_subscriber_{index}',
+                node_namespace='/',
+            )
+            for index in range(self.external_subscriber_count)
+        ]
+        return [*internal, *external]
 
 
 def test_default_message_preview_builder_is_unchanged() -> None:
@@ -171,6 +195,34 @@ def test_registered_custom_message_is_subscribed_and_measures_hz() -> None:
         'message_preview': expected_preview,
         'last_received_at': topic['last_received_at'],
     }
+
+
+def test_external_subscriber_count_excludes_all_monitor_owned_endpoints() -> None:
+    topic_type = 'rths_interfaces/msg/CleaningSchedule'
+    node = _FakeNode()
+    node.publisher_count = 1
+    node.create_subscription(
+        CleaningSchedule,
+        node.topic_name,
+        lambda _message: None,
+        10,
+    )
+    runtime = TopicRuntime(
+        action_monitor_subscriber_count=lambda _name: 0,
+        config=MonitorConfig(
+            topics_supported_types=(topic_type,),
+            topics_registered_types=(topic_type,),
+        ),
+        lock=Lock(),
+        node_getter=lambda: node,
+    )
+
+    runtime.update()
+    topic = runtime.snapshot()['topics'][0]
+
+    assert topic['raw_subscriber_count'] == 2
+    assert topic['monitor_subscriber_count'] == 2
+    assert topic['external_subscriber_count'] == 0
 
 
 def test_registered_custom_message_reports_missing_and_stale_alerts() -> None:

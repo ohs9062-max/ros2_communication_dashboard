@@ -401,6 +401,11 @@ class TopicRuntime:
         if topic_type is None:
             return 0
 
+        node = self._node_getter()
+        graph_count = self._owned_subscription_endpoint_count(node, name)
+        if graph_count is not None:
+            return graph_count
+
         with self._lock:
             entry = self._subscriptions.get(name)
 
@@ -409,6 +414,46 @@ class TopicRuntime:
             return 1 + action_count
 
         return action_count
+
+    @staticmethod
+    def _owned_subscription_endpoint_count(
+        node: Any,
+        topic_name: str,
+    ) -> int | None:
+        """현재 monitor Node가 소유한 Topic subscription endpoint 수를 반환합니다."""
+        if node is None:
+            return None
+
+        endpoint_reader = getattr(
+            node,
+            'get_subscriptions_info_by_topic',
+            None,
+        )
+        get_name = getattr(node, 'get_name', None)
+        get_namespace = getattr(node, 'get_namespace', None)
+        if (
+            endpoint_reader is None
+            or get_name is None
+            or get_namespace is None
+        ):
+            return None
+
+        try:
+            own_name = str(get_name())
+            own_namespace = str(get_namespace() or '/')
+            endpoints = endpoint_reader(topic_name)
+        except Exception:
+            return None
+
+        return sum(
+            1
+            for endpoint in endpoints
+            if (
+                str(getattr(endpoint, 'node_name', '')) == own_name
+                and str(getattr(endpoint, 'node_namespace', '') or '/')
+                == own_namespace
+            )
+        )
 
     def _cleanup_disappeared_subscriptions(
         self,

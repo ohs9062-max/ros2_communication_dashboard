@@ -11,16 +11,18 @@ const TOPIC_SORT_COLUMNS = {
   type: { value: (topic) => topic.types?.[0] },
   publisher_count: {
     defaultDirection: 'desc',
-    value: (topic) => topic.publisher_count,
+    value: (topic) => topic.publisher_node_count ?? topic.publisher_count,
   },
   subscriber_count: {
     defaultDirection: 'desc',
-    value: (topic) => topic.subscriber_count,
+    value: (topic) => topic.subscriber_node_count ?? topic.subscriber_count,
   },
   external_subscriber_count: {
     defaultDirection: 'desc',
     value: (topic) =>
-      topic.external_subscriber_count ?? topic.subscriber_count,
+      topic.external_subscriber_node_count ??
+      topic.external_subscriber_count ??
+      topic.subscriber_count,
   },
   hz: {
     defaultDirection: 'desc',
@@ -75,9 +77,9 @@ export function TopicTable({
             <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="publisher_count" label="발행" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="subscriber_count" label="구독" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="external_subscriber_count" label="외부 구독" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="publisher_count" label="Publisher Node 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="subscriber_count" label="Subscriber Node 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="external_subscriber_count" label="외부 Subscriber Node 수" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="hz" label="Hz" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="deep_monitoring" label="상세 감시" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="observed" label="마지막 값" onSort={onSort} sort={sort} />
@@ -105,10 +107,11 @@ export function TopicTable({
                 </td>
                 <td className="topic-name">{topic.name}</td>
                 <td className="topic-type">{topic.types?.[0] ?? '-'}</td>
-                <td>{topic.publisher_count ?? 0}</td>
-                <td>{topic.subscriber_count ?? 0}</td>
+                <td>{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>
+                <td>{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</td>
                 <td>
-                  {topic.external_subscriber_count ??
+                  {topic.external_subscriber_node_count ??
+                    topic.external_subscriber_count ??
                     topic.subscriber_count ??
                     0}
                 </td>

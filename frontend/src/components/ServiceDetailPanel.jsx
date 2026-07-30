@@ -58,8 +58,22 @@ export function ServiceDetailPanel({ participants, service }) {
       </DetailSection>
 
       <DetailSection collapsible title="연결 정보">
-        <DetailLine label="서버 수" value={service.server_count ?? 0} />
-        <DetailLine label="클라이언트 수" value={service.client_count ?? 0} />
+        <DetailLine
+          label="Server Node 수"
+          value={service.server_node_count ?? service.server_count ?? 0}
+        />
+        <DetailLine
+          label="Client Node 수"
+          value={service.client_node_count ?? service.client_count ?? 0}
+        />
+        <DetailLine
+          label="Server Endpoint 수"
+          value={service.server_endpoint_count ?? service.server_count ?? 0}
+        />
+        <DetailLine
+          label="Client Endpoint 수"
+          value={service.client_endpoint_count ?? service.client_count ?? 0}
+        />
         <p className="detail-help-text">
           요청자 Node는 요청을 보내고, 응답자 Node는 요청을 받아 응답합니다.
         </p>

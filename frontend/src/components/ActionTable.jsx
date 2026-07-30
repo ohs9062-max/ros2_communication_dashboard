@@ -11,11 +11,11 @@ const ACTION_SORT_COLUMNS = {
   type: { value: (action) => action.type },
   server_count: {
     defaultDirection: 'desc',
-    value: (action) => action.server_count,
+    value: (action) => action.server_node_count ?? action.server_count,
   },
   client_count: {
     defaultDirection: 'desc',
-    value: (action) => action.client_count,
+    value: (action) => action.client_node_count ?? action.client_count,
   },
   last_goal_status: { value: (action) => action.runtime?.last_goal_status },
   callable: { value: (action) => (action.callable ? 1 : 0), defaultDirection: 'desc' },
@@ -66,8 +66,8 @@ export function ActionTable({
             <SortableHeader columnKey="status" label="서버 상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="server_count" label="서버" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="client_count" label="클라이언트" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="server_count" label="Server Node 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" label="Client Node 수" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_status" label="마지막 Goal" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="callable" label="실행 가능" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_sent" label="Goal 전송" onSort={onSort} sort={sort} />
@@ -96,8 +96,8 @@ export function ActionTable({
                 </td>
                 <td className="topic-name action-name">{action.name}</td>
                 <td className="topic-type action-type">{action.type ?? '-'}</td>
-                <td>{action.server_count ?? 0}</td>
-                <td>{action.client_count ?? 0}</td>
+                <td>{action.server_node_count ?? action.server_count ?? 0}</td>
+                <td>{action.client_node_count ?? action.client_count ?? 0}</td>
                 <td>
                   <StatusBadge
                     value={

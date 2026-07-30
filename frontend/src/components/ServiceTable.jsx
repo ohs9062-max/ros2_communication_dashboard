@@ -12,11 +12,11 @@ const SERVICE_SORT_COLUMNS = {
   category: { value: (service) => service.category },
   server_count: {
     defaultDirection: 'desc',
-    value: (service) => service.server_count,
+    value: (service) => service.server_node_count ?? service.server_count,
   },
   client_count: {
     defaultDirection: 'desc',
-    value: (service) => service.client_count,
+    value: (service) => service.client_node_count ?? service.client_count,
   },
   callable: { value: (service) => (service.callable ? 1 : 0), defaultDirection: 'desc' },
   last_call: { value: (service) => service.last_call_summary?.last_called_at, defaultDirection: 'desc' },
@@ -59,8 +59,8 @@ export function ServiceTable({
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="category" label="분류" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="server_count" label="서버" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="client_count" label="클라이언트" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="server_count" label="Server Node 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" label="Client Node 수" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="callable" label="호출 가능" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_call" label="마지막 호출" onSort={onSort} sort={sort} />
             <th>마지막 요청</th>
@@ -91,8 +91,8 @@ export function ServiceTable({
                 <td>
                   <StatusBadge value={service.category} />
                 </td>
-                <td>{service.server_count ?? 0}</td>
-                <td>{service.client_count ?? 0}</td>
+                <td>{service.server_node_count ?? service.server_count ?? 0}</td>
+                <td>{service.client_node_count ?? service.client_count ?? 0}</td>
                 <td>{service.callable ? '예' : service.allowlisted ? '등록됨' : '아니오'}</td>
                 <td>{formatRelativeTime(summary?.last_called_at)}</td>
                 <td>

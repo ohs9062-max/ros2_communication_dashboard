@@ -96,7 +96,8 @@ export function NodesPage({ actions, dashboard, services, topics }) {
               <h2>Nodes</h2>
               <p className="muted">
                 기본 화면은 운영 시 먼저 확인할 핵심 Node와 종료가 감지된
-                Node를 표시합니다.
+                Node를 표시합니다. 통신 수치는 실제 메시지·요청·Goal 횟수가
+                아니라 현재 Graph의 고유 Topic·Service·Action 관계 수입니다.
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}
