@@ -35,7 +35,7 @@ _BOOL_TYPES = {'bool', 'boolean'}
 
 
 def build_ros_message(message_class: type, payload: dict[str, Any], *, label: str = 'payload') -> Any:
-    """Interface Lab에서 public API 응답 항목을 조립하는 함수입니다."""
+    """JSON payload를 검증해 지정한 ROS message class의 객체를 만듭니다."""
     if not isinstance(payload, dict):
         raise InterfaceValidationError(f'{label} must be an object')
     target = message_class()
@@ -44,7 +44,7 @@ def build_ros_message(message_class: type, payload: dict[str, Any], *, label: st
 
 
 def fill_ros_message(target: Any, payload: dict[str, Any], *, label: str) -> None:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """payload 필드를 타입에 맞게 변환해 기존 ROS message 객체에 채웁니다."""
     fields = target.get_fields_and_field_types()
     unknown = sorted(set(payload) - set(fields))
     if unknown:
@@ -106,7 +106,7 @@ def convert_value(value: Any, field_type: str, *, label: str) -> Any:
 
 
 def ros_value_to_json(value: Any) -> Any:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """ROS scalar·sequence·message 값을 JSON-safe 값으로 재귀 변환합니다."""
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     if isinstance(value, (list, tuple)):
@@ -120,7 +120,7 @@ def ros_value_to_json(value: Any) -> Any:
 
 
 def ros_message_to_json(message: Any) -> dict[str, Any]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """ROS message의 모든 공개 필드를 JSON dict로 변환합니다."""
     return {
         key: ros_value_to_json(getattr(message, key))
         for key in message.get_fields_and_field_types()

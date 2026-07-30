@@ -28,22 +28,22 @@ INTERNAL_SERVICE_SUFFIXES = (
 
 
 def is_parameter_service(name: str) -> bool:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """ROS2 Parameter 기본 Service 이름인지 확인합니다."""
     return any(name.endswith(suffix) for suffix in PARAMETER_SERVICE_SUFFIXES)
 
 
 def is_internal_service(name: str) -> bool:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Dashboard 기본 목록에서 숨길 ROS 내부 Service 이름인지 확인합니다."""
     return any(name.endswith(suffix) for suffix in INTERNAL_SERVICE_SUFFIXES)
 
 
 def is_action_internal_service(name: str) -> bool:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 구현에 자동 생성되는 goal·result·cancel Service인지 확인합니다."""
     return '/_action/' in name
 
 
 def service_category(name: str, service_type: str | None) -> str:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Service 이름과 타입으로 user·parameter·action_internal 분류를 정합니다."""
     if is_parameter_service(name):
         return SERVICE_CATEGORY_PARAMETER
 
@@ -71,7 +71,7 @@ def is_service_included(
     exclude_names: tuple[str, ...] = (),
     exclude_prefixes: tuple[str, ...] = (),
 ) -> bool:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Service 이름에 include·exclude·prefix 설정을 적용합니다."""
     if name in exclude_names:
         return False
 

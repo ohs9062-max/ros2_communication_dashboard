@@ -37,6 +37,9 @@ get_action_names_and_types()
 | 6 | `action/runtime.py` `_feedback_callback()` | L446-L461 | L448-L460 | feedback preview를 runtime cache에 반영 |
 | 7 | `ros_monitor.py` `action_snapshot()` | L274-L318 | L286-L317 | Server/Client Node 수, endpoint 수, 등록·Goal 요약 병합 |
 | 8 | `monitoring.py` `get_ros_actions()` | L60-L70 | L63-L69 | API JSON 반환 |
+| 9 | `useActionDashboard.js` → `ActionsPage.jsx` | L7-L74 → L17-L178 | Hook L11-L15, Page L35-L74 | Action API를 polling하고 주요·전체·Goal 상태·검색 조건으로 최종 목록을 표시한다. |
+
+1~9는 Graph 발견과 관찰 결과의 화면 표시 흐름이다. 새 Goal을 보내는 과정은 아래 표처럼 별도 사용자 실행 경로다.
 
 ## 사용자 Goal 실행
 
@@ -62,4 +65,3 @@ Dashboard의 일반 Action Runtime은 관찰 경로이고, `ActionGoalRuntime`�
 - 실행 중/성공/실패·취소/Goal 미관찰: 마지막 Goal과 Result 상태로 다시 거른다.
 
 판정 함수 전체는 `primaryFilters.js isPrimaryAction()` L52-L69, 실제 조건은 L60-L67이며, 화면 집합 선택은 `ActionsPage.jsx` L35-L74, 상태 판정은 L180-L223이다.
-

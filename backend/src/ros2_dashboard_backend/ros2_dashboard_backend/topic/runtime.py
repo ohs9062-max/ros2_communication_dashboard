@@ -54,7 +54,7 @@ class TopicRuntime:
         lock: Any,
         node_getter: Callable[[], Any],
     ) -> None:
-        """Topic 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """Topic Graph 조회, 자동 구독, latest·Hz Cache에 필요한 의존성을 저장합니다."""
         self._action_monitor_subscriber_count = (
             action_monitor_subscriber_count
         )
@@ -73,7 +73,7 @@ class TopicRuntime:
             self._subscriptions = {}
 
     def snapshot(self) -> dict[str, Any]:
-        """Topic 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+        """Topic Graph Cache에 최신 메시지와 마지막 수신 시각을 합쳐 반환합니다."""
         with self._lock:
             topics = [topic.copy() for topic in self._topics]
             subscriptions = {
@@ -106,7 +106,7 @@ class TopicRuntime:
     def alert_snapshot(
         self,
     ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
-        """Topic 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+        """Alert 계산에 필요한 Topic 목록과 subscription 상태를 함께 복사합니다."""
         with self._lock:
             topics = [topic.copy() for topic in self._topics]
             subscriptions = {
@@ -230,7 +230,7 @@ class TopicRuntime:
         )
 
     def latest_message(self, name: str) -> dict[str, Any]:
-        """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+        """Topic을 구독할 수 있는지 확인하고 현재 최신 메시지를 반환합니다."""
         if self._node_getter() is None:
             return self._latest_response(
                 success=False,
@@ -281,7 +281,7 @@ class TopicRuntime:
         )
 
     def topic_hz(self, name: str) -> dict[str, Any]:
-        """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+        """Topic을 구독할 수 있는지 확인하고 최근 timestamp 창의 Hz를 반환합니다."""
         if self._node_getter() is None:
             return self._hz_response(
                 success=False,

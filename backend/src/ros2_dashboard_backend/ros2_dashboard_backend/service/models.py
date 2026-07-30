@@ -26,7 +26,7 @@ ALERT_CODE_SERVICE_WAITING_SERVER = 'service_waiting_server'
 
 
 def is_valid_service_type(service_type: str | None) -> bool:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """값이 `package/srv/Type` 형식의 Service 전체 타입인지 확인합니다."""
     if not service_type:
         return False
 
@@ -39,7 +39,7 @@ def service_status(
     server_count: int,
     client_count: int | None,
 ) -> tuple[str, str]:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Server·Client 수와 타입 유효성으로 Service 상태를 결정합니다."""
     if not is_valid_service_type(service_type):
         return SERVICE_STATUS_UNKNOWN, 'service type is unknown'
 
@@ -59,7 +59,7 @@ def service_status(
 
 
 def service_hidden_by_default(category: str) -> bool:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Parameter·Action 내부·ROS 관리 Service의 기본 숨김 여부를 반환합니다."""
     return category != SERVICE_CATEGORY_USER
 
 
@@ -69,7 +69,7 @@ def service_meta(
     all_services: list[dict] | None = None,
     last_updated: float,
 ) -> dict[str, int | float]:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Service 목록의 상태·분류·숨김·active check 건수를 요약합니다."""
     counted_services = all_services if all_services is not None else services
 
     return {

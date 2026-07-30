@@ -50,7 +50,7 @@ class InterfaceApplyError(RuntimeError):
 
 
 def backend_workspace_path() -> Path:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """colcon build를 실행할 Backend ROS workspace 경로를 반환합니다."""
     return backend_workspace_root()
 
 
@@ -81,7 +81,7 @@ def apply_status() -> dict[str, Any]:
 
 
 def mark_interface_change_pending(message: str) -> dict[str, Any]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """Interface 변경 뒤 build가 필요하다는 상태와 변경 사유를 저장합니다."""
     status = _read_status()
     status.update({
         'running': False,
@@ -340,7 +340,7 @@ def run_interface_apply() -> dict[str, Any]:
 
 
 def touch_reload_trigger_after_delay(delay_sec: float = 0.75) -> None:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """Apply 성공 후 잠시 기다렸다 reload trigger 파일을 갱신합니다."""
     time.sleep(delay_sec)
     timestamp = datetime.now(timezone.utc).isoformat()
     path = reload_trigger_path()
@@ -385,7 +385,7 @@ def _format_build_log(
 
 
 def uploaded_interface_package_names() -> list[str]:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """현재 업로드 저장소에 등록된 package 이름을 반환합니다."""
     try:
         registry = packages_snapshot()
     except Exception:
@@ -402,7 +402,7 @@ def cleanup_uploaded_package_build_artifacts(
     workspace: Path,
     package_names: list[str],
 ) -> dict[str, Any]:
-    """Interface Lab에서 public API 응답 항목을 조립하는 함수입니다."""
+    """업로드 package의 이전 build·install 산출물만 안전하게 제거합니다."""
     removed: list[str] = []
     for package_name in sorted(set(package_names)):
         if not _PACKAGE_NAME_PATTERN.fullmatch(package_name):
@@ -428,7 +428,7 @@ def duplicate_workspace_packages(
     workspace: Path,
     package_names: list[str],
 ) -> dict[str, list[str]]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """workspace 안에서 같은 package 이름이 여러 경로에 있는지 찾습니다."""
     selected = set(package_names)
     if not selected:
         return {}
@@ -588,7 +588,7 @@ def record_import_check_status(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def refresh_install_python_paths(workspace_path: Path | None = None) -> dict[str, list[str]]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """install의 Python site-packages를 찾아 현재 sys.path에 반영합니다."""
     paths = find_install_site_packages(workspace_path or backend_workspace_path())
     added: list[str] = []
     for path in reversed(paths):
@@ -604,7 +604,7 @@ def refresh_install_python_paths(workspace_path: Path | None = None) -> dict[str
 
 
 def find_install_site_packages(workspace_path: Path | None = None) -> list[Path]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """workspace install 아래의 Python site-packages 경로를 찾습니다."""
     workspace = workspace_path or backend_workspace_path()
     install_root = workspace / 'install'
     current = f'python{sys.version_info.major}.{sys.version_info.minor}'

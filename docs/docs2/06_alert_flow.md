@@ -35,6 +35,10 @@ Topic/Service/Action/Node 상태
 | 4 | `topic/alerts.py` `retain_alerts()` | L60-L127 | L82-L96 | 현재 장애를 active로 갱신 |
 | 5 | 같은 함수 | L60-L127 | L98-L125 | 해결 처리, 60초 보관, history 최대 50개 |
 | 6 | `monitoring.py` `get_ros_alerts()` | L86-L89 | L89 | `/ros/alerts` 반환 |
+| 7 | `rosApi.js` → 각 Dashboard Hook | API L57-L59 | 각 Hook의 `usePolling(fetchAlerts, ...)` | Frontend가 Alert API를 polling하고 화면별 source에 맞는 Alert만 고른다. |
+| 8 | `AlertsPage.jsx` `AlertsPage()` | L5-L102 | L12-L18, L67-L98 | 현재 active Alert와 해결 history를 분리하고 `현재 Alert`·`이전 Alert` 탭으로 표시한다. |
+
+공통 흐름은 1~8로 보고, source별 실제 발생 조건만 아래 두 표에서 확인한다.
 
 ## Topic Alert
 
@@ -58,4 +62,3 @@ Topic/Service/Action/Node 상태
 | Node | `node/alerts.py build_node_alerts()` L13-L43 | L18-L42 | 이전 발견 Node가 현재 Graph에서 사라짐 |
 
 Graph 정보만으로 정상 종료와 비정상 종료를 구분할 수 없으므로 Node Alert는 “비정상 종료”가 아니라 “연결 종료 감지”를 의미한다.
-

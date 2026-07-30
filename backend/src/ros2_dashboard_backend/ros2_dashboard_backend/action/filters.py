@@ -10,7 +10,7 @@ def is_action_included(
     exclude_names: tuple[str, ...] = (),
     exclude_prefixes: tuple[str, ...] = (),
 ) -> bool:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 이름에 include·exclude·prefix 설정을 적용합니다."""
     if include_names and name not in include_names:
         return False
 

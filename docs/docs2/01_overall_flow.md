@@ -15,6 +15,22 @@ ROS2 장비
 → Page/Table
 ```
 
+## 전체 왕복 9단계
+
+| 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
+|---:|---|---:|---:|---|
+| 1 | `main.py` `lifespan()` | L21-L27 | L22-L27 | FastAPI 시작과 종료를 `RosMonitor.start()`·`stop()`에 연결한다. |
+| 2 | `ros_monitor.py` `start()` | L84-L98 | L89-L98 | rclpy Node, Graph timer, 최초 update, spin thread를 시작한다. |
+| 3 | `ros_monitor.py` `_update_graph()` | L681-L685 | L682-L685 | timer가 만료될 때 Node → Topic → Service → Action Runtime 순서로 Graph Cache를 갱신한다. |
+| 4 | 각 Runtime `update()` | 기능별 문서 참고 | 각 `update()` 핵심 L | ROS2 Graph API 결과를 필터링하고 각 기능의 Runtime Cache로 저장한다. |
+| 5 | rclpy subscription callback | 기능별 문서 참고 | Topic·Action callback 핵심 L | 실제 메시지·status·feedback이 도착하면 timer와 별개로 관찰 Cache를 갱신한다. |
+| 6 | `ros_monitor.py` 각 `*_snapshot()` | L126-L446의 기능별 함수 | 각 snapshot 핵심 L | Runtime Cache에 Node 관계 수, Registry 판정, 사용자 실행 요약을 병합한다. |
+| 7 | `routers/monitoring.py` | L16-L89 | 각 endpoint 반환 L | FastAPI가 snapshot을 기존 REST 응답 구조로 포장한다. |
+| 8 | `rosApi.js` → `use*Dashboard.js` | API L45-L72 | 각 Hook의 `usePolling()` L | Frontend가 REST API를 주기적으로 요청해 응답을 React state로 저장한다. |
+| 9 | 각 `*Page.jsx` | 기능별 Page 전체 L | 주요/전체·상태 필터 L | state에 검색·필터를 적용하고 Table과 상세 Panel을 렌더링한다. |
+
+이 표는 프로그램 시작부터 화면까지의 지도다. 실제 계산은 각 기능 문서의 7~9단계 표에서 이어서 본다.
+
 ## 프로그램 시작
 
 | 순서 | 파일·함수 | 함수 전체 L | 핵심 L | 핵심 줄에서 하는 일 |

@@ -11,12 +11,12 @@ from ros2_dashboard_backend.action.models import (
 
 
 def action_status_topic(name: str) -> str:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 이름에 `/_action/status`를 붙여 status Topic 이름을 만듭니다."""
     return f'{name}/_action/status'
 
 
 def action_feedback_topic(name: str) -> str:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 이름에 `/_action/feedback`을 붙여 feedback Topic 이름을 만듭니다."""
     return f'{name}/_action/feedback'
 
 
@@ -35,7 +35,7 @@ def build_action_item(
     result_reason: str | None,
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Graph 관계와 관찰 capability를 하나의 Action API item으로 만듭니다."""
     status, reason = action_status(
         action_type,
         server_count,

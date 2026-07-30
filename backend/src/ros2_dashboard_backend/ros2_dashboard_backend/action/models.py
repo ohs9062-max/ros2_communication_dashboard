@@ -52,7 +52,7 @@ TERMINAL_GOAL_STATUSES = {
 
 
 def is_valid_action_type(action_type: str | None) -> bool:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """값이 `package/action/Type` 형식의 Action 전체 타입인지 확인합니다."""
     if not action_type:
         return False
 
@@ -65,7 +65,7 @@ def action_status(
     server_count: int,
     client_count: int,
 ) -> tuple[str, str]:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Server·Client 수와 타입 유효성으로 Action 상태를 결정합니다."""
     if not is_valid_action_type(action_type):
         return ACTION_STATUS_UNKNOWN, 'action type is unknown'
 
@@ -82,12 +82,12 @@ def action_status(
 
 
 def goal_status_label(status_code: int | None) -> str:
-    """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """ROS Goal status 숫자를 화면용 상태 이름으로 변환합니다."""
     return GOAL_STATUS_LABELS.get(status_code, GOAL_STATUS_UNKNOWN)
 
 
 def goal_id_to_hex(goal_id: Any) -> str | None:
-    """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """Goal UUID 바이트를 비교 가능한 16진수 문자열로 변환합니다."""
     uuid = getattr(goal_id, 'uuid', None)
     if uuid is None:
         return None
@@ -96,7 +96,7 @@ def goal_id_to_hex(goal_id: Any) -> str | None:
 
 
 def default_runtime() -> dict[str, Any]:
-    """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """아직 Goal을 관찰하지 않은 Action의 초기 runtime 값을 만듭니다."""
     return {
         'last_goal_status': GOAL_STATUS_UNKNOWN,
         'last_goal_id': None,
@@ -116,7 +116,7 @@ def action_meta(
     actions: list[dict[str, Any]],
     last_updated: float,
 ) -> dict[str, int | float]:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 목록의 상태·관찰·Server 건수를 요약합니다."""
     return {
         'count': len(actions),
         'active_count': sum(

@@ -18,7 +18,7 @@ class IntrospectionAddTwoIntsServer(Node):
     """Service 모니터링의 IntrospectionAddTwoIntsServer 역할을 담당하는 클래스입니다."""
 
     def __init__(self) -> None:
-        """Service 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """introspection 검증용 AddTwoInts Server와 event 상태를 준비합니다."""
         super().__init__('introspection_add_two_ints_server')
         self._service = self.create_service(
             AddTwoInts,
@@ -50,7 +50,7 @@ class IntrospectionAddTwoIntsClient(Node):
     """Service 모니터링의 IntrospectionAddTwoIntsClient 역할을 담당하는 클래스입니다."""
 
     def __init__(self) -> None:
-        """Service 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """introspection 검증용 AddTwoInts Client와 timer를 준비합니다."""
         super().__init__('introspection_add_two_ints_client')
         self.client = self.create_client(AddTwoInts, SERVICE_NAME)
         self.client.configure_introspection(
@@ -63,7 +63,7 @@ class IntrospectionAddTwoIntsClient(Node):
         )
 
     def call_once(self, a: int, b: int) -> None:
-        """Service 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+        """Server 준비를 확인한 뒤 AddTwoInts 요청을 한 번 보냅니다."""
         if not self.client.wait_for_service(timeout_sec=5.0):
             self.get_logger().error(f'Service not available: {SERVICE_NAME}')
             return
@@ -84,7 +84,7 @@ class IntrospectionAddTwoIntsClient(Node):
 
 
 def server_main(args: list[str] | None = None) -> None:
-    """Service 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """introspection 검증용 AddTwoInts Server Node를 실행합니다."""
     rclpy.init(args=args)
     node = IntrospectionAddTwoIntsServer()
     try:
@@ -98,7 +98,7 @@ def server_main(args: list[str] | None = None) -> None:
 
 
 def client_main(args: list[str] | None = None) -> None:
-    """Service 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """introspection 검증용 AddTwoInts Client Node를 실행합니다."""
     parser = argparse.ArgumentParser()
     parser.add_argument('--a', type=int, default=1)
     parser.add_argument('--b', type=int, default=2)

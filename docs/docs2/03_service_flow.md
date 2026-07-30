@@ -27,11 +27,16 @@ get_service_names_and_types()
 
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
-| 1 | `service/runtime.py` `update()` | L90-L152 | L96-L131 | Graph 목록, include/exclude, endpoint count, 상태 생성 |
-| 2 | 같은 함수 | L90-L152 | L133-L148 | 사라진 Service를 disconnected로 보존 |
-| 3 | `ros_monitor.py` `service_snapshot()` | L173-L232 | L179-L211 | Node 관계 수·endpoint 진단값·등록/호출 가능 여부 병합 |
-| 4 | 같은 함수 | L173-L232 | L212-L231 | 최근 사용자 Call 요약과 effective status 병합 |
-| 5 | `monitoring.py` `get_ros_services()` | L43-L57 | L48-L56 | `include_hidden`을 적용해 API 반환 |
+| 1 | `service/runtime.py` `update()` | L90-L152 | L96-L112 | Graph에서 Service 이름·타입을 읽고 include/exclude 설정을 적용한다. |
+| 2 | 같은 함수 | L90-L152 | L114-L131 | Server·Client endpoint 수와 category를 계산해 Service 상태 item을 만든다. |
+| 3 | 같은 함수 | L90-L152 | L133-L152 | 현재 사라진 기존 Service를 `disconnected`로 보존하고 Runtime Cache를 교체한다. |
+| 4 | `ros_monitor.py` `service_snapshot()` | L173-L232 | L179-L211 | Node 관계를 역집계해 Server/Client Node 수를 추가하고 endpoint 수는 진단값으로 유지한다. |
+| 5 | 같은 함수 | L173-L232 | L212-L231 | Registry 타입 일치·호출 가능 여부와 최근 사용자 Call 결과를 병합한다. |
+| 6 | `monitoring.py` `get_ros_services()` | L43-L57 | L48-L56 | `include_hidden` 조건에 맞는 Service snapshot을 `/ros/services` 응답으로 반환한다. |
+| 7 | `rosApi.js` → `useServiceDashboard.js` | API L61-L64, Hook L7-L78 | Hook L11-L20, L30-L34 | 내부 포함 여부를 query에 넣어 polling하고 응답의 `services` 배열을 React state로 꺼낸다. |
+| 8 | `ServicesPage.jsx` `ServicesPage()` | L50-L213 | L68-L110 | 주요·전체·내부/관리 집합을 선택하고 검색·대기/오류 필터를 적용해 최종 목록을 표시한다. |
+
+전체 목록 흐름은 1~8로 보고, 실제 요청·응답은 아래 사용자 Service Call 표에서 별도로 본다.
 
 `Server Node 수`는 해당 Service를 제공하는 고유 Node 수이고, `server_endpoint_count`는 Graph endpoint 진단값이다.
 
@@ -73,4 +78,3 @@ get_service_names_and_types()
 - 내부/관리 포함: `include_hidden=true`로 다시 요청한 모든 Service.
 
 핵심 판정은 `ServicesPage.jsx`의 `isPrimaryService()` L241-L250, 목록 선택은 L81-L110, 내부·관리 판정은 L298-L319다.
-

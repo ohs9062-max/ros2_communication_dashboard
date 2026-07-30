@@ -97,7 +97,7 @@ def write_manual_definition(
     definition: str,
     registry_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """사용자가 입력한 msg·srv·action 정의를 파일과 Registry에 저장합니다."""
     validated = validate_manual_definition(
         package=package,
         kind=kind,
@@ -190,7 +190,7 @@ def delete_manual_definition(
 
 
 def rebuild_uploaded_interfaces_cmake() -> dict[str, Any]:
-    """Interface Lab에서 public API 응답 항목을 조립하는 함수입니다."""
+    """남아 있는 단일 Interface 파일 기준으로 package metadata를 재생성합니다."""
     package_name = 'uploaded_interfaces'
     package_root = backend_workspace_root() / 'src' / package_name
     package_state = regenerate_uploaded_interfaces_package(package_root)
@@ -210,7 +210,7 @@ def delete_uploaded_interface(
     full_type: str | None = None,
     registry_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """업로드 Interface 파일과 정확히 일치하는 Registry 항목을 함께 삭제합니다."""
     if kind not in ALLOWED_KINDS:
         raise InterfaceUploadError('kind는 msg, srv, action 중 하나여야 합니다.')
     expected_suffix = f'.{kind}'
@@ -272,7 +272,7 @@ def remove_uploaded_interface_registry_entry(
     full_type: str | None,
     registry_path: Path | None = None,
 ) -> None:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """종류·전체 타입·파일 이름이 일치하는 Registry 항목만 제거합니다."""
     path = registry_path or default_registry_path()
     registry = _load_registry(path)
     collection = registry['interface_registry'][KIND_COLLECTIONS[kind]]
@@ -402,7 +402,7 @@ def _ensure_uploaded_interfaces_package(package_root: Path, package_name: str) -
 
 
 def scan_uploaded_interface_files(package_root: Path | None = None) -> list[str]:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """uploaded_interfaces 아래에 실제로 남아 있는 Interface 파일을 스캔합니다."""
     root = package_root or backend_workspace_root() / 'src' / 'uploaded_interfaces'
     interface_paths: list[str] = []
     for folder, suffix in (('msg', '.msg'), ('srv', '.srv'), ('action', '.action')):
@@ -414,7 +414,7 @@ def scan_uploaded_interface_files(package_root: Path | None = None) -> list[str]
 
 
 def regenerate_uploaded_interfaces_package(package_root: Path | None = None) -> dict[str, Any]:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """현재 파일 목록으로 CMakeLists.txt와 package.xml을 함께 재생성합니다."""
     root = package_root or backend_workspace_root() / 'src' / 'uploaded_interfaces'
     package_name = 'uploaded_interfaces'
     _ensure_uploaded_interfaces_package(root, package_name)
@@ -430,7 +430,7 @@ def regenerate_uploaded_interfaces_cmake(
     interface_paths: list[str],
     dependencies: list[str],
 ) -> None:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """현재 Interface 파일과 의존성으로 CMakeLists.txt 전체를 다시 씁니다."""
     if not interface_paths:
         cmake = '''cmake_minimum_required(VERSION 3.8)
 project(uploaded_interfaces)
@@ -465,7 +465,7 @@ def regenerate_uploaded_interfaces_package_xml(
     has_interfaces: bool,
     dependencies: list[str],
 ) -> None:
-    """Interface Lab에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """현재 Interface 유무와 의존성으로 package.xml 전체를 다시 씁니다."""
     rosidl_dependencies = ''
     if has_interfaces:
         dependency_tags = ''.join(f'  <depend>{name}</depend>\n' for name in dependencies)

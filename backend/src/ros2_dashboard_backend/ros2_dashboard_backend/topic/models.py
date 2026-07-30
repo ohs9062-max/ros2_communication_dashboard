@@ -46,7 +46,7 @@ def topic_status(
     publisher_count: int,
     subscriber_count: int,
 ) -> tuple[str, str]:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """Publisher·Subscriber·수신 상태로 Topic의 화면 상태를 결정합니다."""
     if publisher_count > 0 and subscriber_count > 0:
         return TOPIC_STATUS_ACTIVE, 'publisher and subscriber exist'
 
@@ -64,7 +64,7 @@ def topic_status(
 
 
 def topic_primary_type(topic: dict[str, Any]) -> str | None:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """Topic 타입 목록에서 대표로 사용할 첫 번째 전체 타입을 반환합니다."""
     topic_types = topic.get('types')
     if isinstance(topic_types, list) and topic_types:
         return topic_types[0]
@@ -73,7 +73,7 @@ def topic_primary_type(topic: dict[str, Any]) -> str | None:
 
 
 def text_or_empty(value: Any) -> str:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """값이 없으면 빈 문자열, 있으면 문자열로 안전하게 변환합니다."""
     if value is None:
         return ''
 
@@ -84,7 +84,7 @@ def text_or_empty(value: Any) -> str:
 
 
 def copy_message_preview(value: Any) -> dict[str, Any] | None:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """메시지 preview가 dict일 때만 복사해 반환합니다."""
     if not isinstance(value, dict):
         return None
 
@@ -92,7 +92,7 @@ def copy_message_preview(value: Any) -> dict[str, Any] | None:
 
 
 def copy_values(value: Any) -> list[dict[str, Any]]:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """MonitorStatus values 목록에서 유효한 dict 항목만 복사합니다."""
     if not isinstance(value, list):
         return []
 

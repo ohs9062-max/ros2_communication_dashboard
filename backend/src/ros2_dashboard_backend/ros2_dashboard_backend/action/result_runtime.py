@@ -28,7 +28,7 @@ class ActionResultRuntime:
         lock: Any,
         node_getter: Callable[[], Any],
     ) -> None:
-        """Action 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """관찰된 terminal Goal의 Result 조회에 필요한 의존성을 저장합니다."""
         self._action_subscriptions = action_subscriptions
         self._auto_fetch_result_for_observed_goals = (
             auto_fetch_result_for_observed_goals
@@ -43,7 +43,7 @@ class ActionResultRuntime:
         self,
         action_subscriptions: dict[str, dict[str, Any]],
     ) -> None:
-        """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+        """ActionRuntime이 관리하는 subscription Cache를 Result Runtime에 연결합니다."""
         self._action_subscriptions = action_subscriptions
 
     def clear(self) -> None:
@@ -54,7 +54,7 @@ class ActionResultRuntime:
             self._action_result_pending = {}
 
     def cleanup_actions(self, stale_names: list[str]) -> None:
-        """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+        """사라진 Action의 Result client와 대기 future를 정리합니다."""
         if not stale_names:
             return
 
@@ -70,7 +70,7 @@ class ActionResultRuntime:
         self,
         action_type: str | None,
     ) -> tuple[bool, str | None, str | None]:
-        """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+        """Action 타입의 자동 Result 관찰 지원 여부와 이유를 반환합니다."""
         if not self._auto_fetch_result_for_observed_goals:
             return False, None, 'observed goal result fetch disabled'
 

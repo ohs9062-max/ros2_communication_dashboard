@@ -31,12 +31,17 @@ get_topic_names_and_types()
 
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
-| 1 | `topic/runtime.py` `update()` | L125-L230 | L133-L185 | Graph 목록, 필터, endpoint 수, Topic item 생성 |
-| 2 | 같은 함수 | L125-L230 | L187-L219 | 현재 사라진 Topic을 disconnected로 보존 |
-| 3 | `topic/runtime.py` `_ensure_subscription()` | L372-L399 | L382-L399 | 기존 구독 재사용 또는 `create_subscription()` |
-| 4 | `ros_monitor.py` `snapshot()` | L126-L171 | L131-L170 | Topic별 고유 Publisher/Subscriber Node와 endpoint 진단값 병합 |
-| 5 | `monitoring.py` `get_ros_topics()` | L16-L28 | L19-L27 | Topic snapshot을 API JSON으로 반환 |
-| 6 | `TopicsPage.jsx` `TopicsPage()` | L14-L185 | L33-L83 | 주요/전체/상태 필터 적용 |
+| 1 | `topic/runtime.py` `update()` | L125-L230 | L127-L151 | Graph에서 Topic 이름·타입을 읽고 이름·prefix·타입 제외 설정을 적용한다. |
+| 2 | 같은 함수 | L125-L230 | L153-L162 | 지원 타입과 Registry 등록 타입을 판정하고 자동 subscription 여부를 결정한다. |
+| 3 | 같은 함수 | L125-L230 | L163-L186 | Publisher·Subscriber endpoint와 내부·외부 구독 수를 계산해 Topic item을 만든다. |
+| 4 | 같은 함수 | L125-L230 | L187-L219 | 현재 통신 관계가 있으면 발견 상태를 기록하고, 이전에 있었지만 사라진 Topic은 `disconnected`로 보존한다. |
+| 5 | 같은 함수 | L125-L230 | L221-L230 | 완성한 목록을 정렬해 Runtime Cache를 교체하고 불필요한 subscription 정리를 요청한다. |
+| 6 | `topic/runtime.py` `snapshot()` | L75-L104 | L77-L103 | Topic Cache에 latest preview·마지막 수신 시각·수신 여부를 합쳐 Runtime snapshot을 만든다. |
+| 7 | `ros_monitor.py` `snapshot()` | L126-L171 | L128-L170 | Node 관계를 역집계해 Publisher/Subscriber Node 수를 추가하고 endpoint 수는 상세 진단값으로 유지한다. |
+| 8 | `monitoring.py` `get_ros_topics()` | L16-L28 | L19-L27 | Topic snapshot을 기존 `/ros/topics` API 응답 구조로 반환한다. |
+| 9 | `useTopicDashboard.js` → `TopicsPage.jsx` | L17-L163 → L14-L185 | Hook L27-L51, Page L33-L83 | Frontend가 API를 polling하고 응답 배열에 주요·전체·검색·상태 필터를 적용해 최종 목록을 표시한다. |
+
+이 표로 전체 방향을 먼저 파악하고, 자동 구독·외부 구독·Hz 계산처럼 헷갈리는 부분만 아래의 상세 표에서 확인한다.
 
 ## 메시지 수신과 Hz
 

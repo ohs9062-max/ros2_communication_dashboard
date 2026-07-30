@@ -12,7 +12,7 @@ def build_service_alerts(
     services: list[dict[str, Any]],
     detected_at: float,
 ) -> list[dict[str, Any]]:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """주요 Service의 연결 종료와 최근 Call 실패를 Alert로 변환합니다."""
     alerts = []
     for service in services:
         if service.get('category') != SERVICE_CATEGORY_USER:

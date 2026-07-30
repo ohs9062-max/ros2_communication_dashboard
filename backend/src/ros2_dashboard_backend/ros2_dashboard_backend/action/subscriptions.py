@@ -21,7 +21,7 @@ STATUS_TOPIC_TYPE = 'action_msgs/msg/GoalStatusArray'
 
 
 def action_feedback_topic_type(action_type: str | None) -> str | None:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 전체 타입을 대응하는 feedback Message 전체 타입으로 바꿉니다."""
     if action_type is None:
         return None
 
@@ -33,7 +33,7 @@ def action_feedback_topic_type(action_type: str | None) -> str | None:
 
 
 def load_status_message_class() -> type | None:
-    """Action 모니터링에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """GoalStatusArray Message class를 불러오며 실패하면 None을 반환합니다."""
     try:
         module = import_module('action_msgs.msg')
     except ImportError:
@@ -43,7 +43,7 @@ def load_status_message_class() -> type | None:
 
 
 def load_feedback_message_class(action_type: str | None) -> type | None:
-    """Action 모니터링에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """Action 타입에 대응하는 feedback Message class를 불러옵니다."""
     if action_type is None:
         return None
 
@@ -82,7 +82,7 @@ def build_action_subscription_entry(
     status_supported: bool = False,
     feedback_supported: bool = False,
 ) -> dict[str, Any]:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """status·feedback subscription과 관찰 초기값을 하나의 Cache entry로 만듭니다."""
     return {
         'type': action_type,
         'status_subscription': status_subscription,
@@ -103,12 +103,12 @@ def action_entry_matches(
     *,
     action_type: str | None,
 ) -> bool:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """기존 subscription entry가 같은 Action 타입과 관찰 설정인지 확인합니다."""
     return entry is not None and entry.get('type') == action_type
 
 
 def runtime_snapshot(entry: dict[str, Any] | None) -> dict[str, Any]:
-    """Action 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+    """내부 subscription 객체를 제외한 화면용 Action runtime 값을 복사합니다."""
     if entry is None:
         return default_runtime()
 
@@ -177,7 +177,7 @@ def update_feedback_runtime(
 def terminal_goals_ready_for_result(
     entry: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """종료 상태이며 아직 Result를 요청하지 않은 Goal 목록을 반환합니다."""
     goals = entry.get('goals', {})
     return [
         goal for goal in goals.values()
@@ -190,7 +190,7 @@ def mark_goal_result_pending(
     entry: dict[str, Any],
     goal_id: str,
 ) -> None:
-    """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """해당 Goal의 Result 요청이 진행 중임을 Cache에 표시합니다."""
     goal = entry.get('goals', {}).get(goal_id)
     if goal is None:
         return
@@ -217,7 +217,7 @@ def update_goal_result(
 
 
 def message_to_preview(message: Any, *, max_depth: int = 3) -> Any:
-    """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """ROS message를 깊이 제한이 있는 JSON-safe preview로 변환합니다."""
     return _to_json_safe(message, depth=0, max_depth=max_depth)
 
 

@@ -16,7 +16,7 @@ def build_subscription_entry(
     topic_type: str,
     subscription: Any,
 ) -> dict[str, Any]:
-    """Topic 모니터링에서 public API 응답 항목을 조립하는 함수입니다."""
+    """새 subscription과 latest·timestamp 초기값을 하나의 Cache entry로 만듭니다."""
     return {
         'type': topic_type,
         'subscription': subscription,
@@ -61,7 +61,7 @@ def cleanup_candidates(
     now: float,
     cleanup_after_sec: float,
 ) -> list[tuple[str, Any]]:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """정리 제한 시간을 넘기고 유지 대상이 아닌 subscription을 찾습니다."""
     candidates = []
     for name, entry in subscriptions.items():
         if name in retained_topic_names:
@@ -85,7 +85,7 @@ def remove_subscription_entry(
     name: str,
     subscription: Any,
 ) -> bool:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """지정한 subscription이 현재 entry와 같을 때만 Cache에서 제거합니다."""
     entry = subscriptions.get(name)
     if entry is None or entry.get('subscription') is not subscription:
         return False

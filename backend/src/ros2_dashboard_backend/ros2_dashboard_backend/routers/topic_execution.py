@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get('/ros/interfaces/callable-messages')
 def get_callable_messages() -> dict[str, Any]:
-    """FastAPI Router에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+    """Interface Lab에서 사용할 수 있는 Message 타입을 반환합니다."""
     snapshot = ros_monitor.callable_messages()
     return {
         'success': True,
@@ -85,14 +85,14 @@ async def publish_registered_topic(request: Request) -> dict[str, Any]:
 
 @router.get('/ros/interfaces/topic-publish/history')
 def get_topic_publish_history(limit: int | None = Query(default=100)) -> dict[str, Any]:
-    """FastAPI Router에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+    """최근 Topic Publish 실행 이력을 반환합니다."""
     snapshot = ros_monitor.topic_publish_history(limit=limit)
     return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
 
 
 @router.post('/ros/interfaces/topic-publish/history/reset')
 async def reset_topic_publish_history(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+    """선택한 Topic의 Publish 이력을 초기화합니다."""
     try:
         payload = await request.json()
     except ValueError:
@@ -106,7 +106,7 @@ async def reset_topic_publish_history(request: Request) -> dict[str, Any]:
 
 @router.post('/ros/interfaces/receive/topics/start')
 async def start_receive_topic(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 수신 상태와 이력을 관리하는 함수입니다."""
+    """사용자가 선택한 Topic의 수신 subscription을 시작합니다."""
     try:
         payload = await request.json()
     except ValueError as exc:
@@ -124,7 +124,7 @@ async def start_receive_topic(request: Request) -> dict[str, Any]:
 
 @router.post('/ros/interfaces/receive/topics/stop')
 async def stop_receive_topic(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 수신 상태와 이력을 관리하는 함수입니다."""
+    """사용자가 시작한 Topic 수신 subscription을 중지합니다."""
     try:
         payload = await request.json()
     except ValueError as exc:
@@ -138,7 +138,7 @@ async def stop_receive_topic(request: Request) -> dict[str, Any]:
 
 @router.get('/ros/interfaces/receive/topics')
 def get_receive_topics() -> dict[str, Any]:
-    """FastAPI Router에서 수신 상태와 이력을 관리하는 함수입니다."""
+    """현재 Interface Lab에서 수신 중인 Topic 목록을 반환합니다."""
     snapshot = ros_monitor.receive_topics()
     return {'success': True, 'data': snapshot['topics'], 'meta': snapshot['meta']}
 
@@ -150,7 +150,7 @@ def get_receive_topic_history(
     full_type: str | None = Query(default=None),
     limit: int | None = Query(default=500),
 ) -> dict[str, Any]:
-    """FastAPI Router에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+    """조건에 맞는 Topic 수신 메시지 이력을 반환합니다."""
     snapshot = ros_monitor.receive_topic_history(
         topic_name=topic_name,
         topic_type=topic_type or full_type,
@@ -161,7 +161,7 @@ def get_receive_topic_history(
 
 @router.post('/ros/interfaces/receive/topics/history/reset')
 async def reset_receive_topic_history(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+    """선택한 Topic의 수신 메시지 이력을 초기화합니다."""
     try:
         payload = await request.json()
     except ValueError:

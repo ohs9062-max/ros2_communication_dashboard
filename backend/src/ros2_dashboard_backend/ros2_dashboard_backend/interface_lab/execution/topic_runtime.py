@@ -78,7 +78,7 @@ class InterfaceReceiveRuntime:
         }
 
     def callable_messages(self) -> dict[str, Any]:
-        """Interface Lab에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+        """Registry에서 import 가능한 Message 타입을 중복 없이 반환합니다."""
         refresh_install_python_paths()
         messages = []
         graph = self._topic_graph()
@@ -235,7 +235,7 @@ class InterfaceReceiveRuntime:
         topic_name: str | None = None,
         topic_type: str | None = None,
     ) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """선택한 Topic의 수신 메시지 이력을 초기화합니다."""
         cleared = 0
         with self._lock:
             if topic_name and topic_type:
@@ -389,14 +389,14 @@ class InterfaceReceiveRuntime:
         return result
 
     def publish_history(self, *, limit: int | None = None) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """최근 Topic Publish 실행 이력을 제한 개수만큼 반환합니다."""
         normalized_limit = _normalize_limit(limit or MAX_PUBLISH_HISTORY_ITEMS)
         with self._lock:
             items = [item.copy() for item in self._publish_history]
         return {'history': items[:normalized_limit], 'meta': {'count': len(items[:normalized_limit])}}
 
     def reset_publish_history(self, *, topic_name: str | None = None, topic_type: str | None = None) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """선택한 Topic의 Publish 실행 이력을 삭제합니다."""
         with self._lock:
             before = len(self._publish_history)
             if topic_name and topic_type:

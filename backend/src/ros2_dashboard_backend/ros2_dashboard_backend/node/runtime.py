@@ -38,7 +38,7 @@ class NodeRuntime:
         node_getter: Callable[[], Any],
         stale_timeout_sec: float,
     ) -> None:
-        """Node 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """Node별 통신 관계 조회와 Cache에 필요한 설정과 의존성을 저장합니다."""
         self._exclude_names = exclude_names
         self._exclude_prefixes = exclude_prefixes
         self._include_names = include_names
@@ -55,7 +55,7 @@ class NodeRuntime:
             self._last_updated = 0.0
 
     def snapshot(self) -> dict[str, Any]:
-        """Node 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+        """현재 Node별 Topic·Service·Action 관계 Cache를 복사해 반환합니다."""
         with self._lock:
             nodes = [node.copy() for node in self._nodes.values()]
             last_updated = self._last_updated

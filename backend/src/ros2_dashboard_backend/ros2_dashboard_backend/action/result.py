@@ -19,7 +19,7 @@ from rosidl_runtime_py.utilities import get_action
 def load_result_service_class(
     action_type: str | None,
 ) -> tuple[type | None, str | None, str | None]:
-    """Action 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 타입에 대응하는 내부 GetResult Service class를 불러옵니다."""
     if action_type is None:
         return None, None, 'action type is unknown'
 
@@ -43,14 +43,14 @@ def build_get_result_request(
     service_class: type,
     goal_id_message: Any,
 ) -> Any:
-    """Action 모니터링에서 public API 응답 항목을 조립하는 함수입니다."""
+    """Goal ID를 Action GetResult Service request에 채웁니다."""
     request = service_class.Request()
     request.goal_id.uuid = list(getattr(goal_id_message, 'uuid', []))
     return request
 
 
 def build_result_state(response: Any) -> dict[str, Any]:
-    """Action 모니터링에서 public API 응답 항목을 조립하는 함수입니다."""
+    """GetResult 응답을 상태 이름과 JSON result를 가진 Cache 값으로 바꿉니다."""
     status_label = goal_status_label(getattr(response, 'status', None))
     if status_label == GOAL_STATUS_SUCCEEDED:
         result_status = RESULT_STATUS_SUCCESS
@@ -67,7 +67,7 @@ def build_result_state(response: Any) -> dict[str, Any]:
 
 
 def build_result_error_state(message: str) -> dict[str, Any]:
-    """Action 모니터링에서 public API 응답 항목을 조립하는 함수입니다."""
+    """Result 조회 실패 내용을 Cache에 저장할 오류 상태로 만듭니다."""
     return {
         'result_status': RESULT_STATUS_UNAVAILABLE,
         'result_preview': None,

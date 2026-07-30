@@ -26,7 +26,7 @@ class ServiceActiveCheckRuntime:
         lock: Any,
         node_getter: Callable[[], Any],
     ) -> None:
-        """Service 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """허용 목록 Service의 background active check 상태와 client를 준비합니다."""
         self._active_check_config = active_check_config
         self._lock = lock
         self._node_getter = node_getter
@@ -38,11 +38,11 @@ class ServiceActiveCheckRuntime:
 
     @property
     def allowlist(self) -> dict[str, Any]:
-        """Service 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+        """설정에서 만든 Service 이름별 active check 허용 목록을 반환합니다."""
         return self._active_check_allowlist
 
     def cache_snapshot(self) -> dict[str, dict[str, Any]]:
-        """Service 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+        """현재 active check 결과 Cache를 안전하게 복사해 반환합니다."""
         with self._lock:
             return {
                 name: state.copy()

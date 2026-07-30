@@ -16,7 +16,7 @@ ALERT_CODE_NODE_STALE = 'node_stale'
 
 
 def full_node_name(name: str, namespace: str) -> str:
-    """Node 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """namespace와 Node 이름을 결합해 `/namespace/name` 형식으로 만듭니다."""
     normalized_namespace = namespace or '/'
     if normalized_namespace == '/':
         return f'/{name.lstrip("/")}'
@@ -29,7 +29,7 @@ def node_status(
     discovered: bool,
     stale: bool = False,
 ) -> tuple[str, str]:
-    """Node 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """Graph 존재 여부와 발견 이력으로 Node 상태를 결정합니다."""
     if discovered:
         return NODE_STATUS_ACTIVE, 'node discovered in ROS2 graph'
 
@@ -42,7 +42,7 @@ def node_status(
 def graph_entities(
     names_and_types: list[tuple[str, list[str]]],
 ) -> list[dict[str, Any]]:
-    """Node 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """Graph API의 이름·타입 쌍을 Node 관계 item 목록으로 변환합니다."""
     return [
         {
             'name': name,
@@ -58,7 +58,7 @@ def node_meta(
     nodes: list[dict[str, Any]],
     last_updated: float,
 ) -> dict[str, int | float]:
-    """Node 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """Node 목록의 전체·상태별 건수와 마지막 갱신 시각을 요약합니다."""
     return {
         'count': len(nodes),
         'active_count': _status_count(nodes, NODE_STATUS_ACTIVE),

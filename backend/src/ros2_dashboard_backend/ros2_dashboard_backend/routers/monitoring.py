@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get('/ros/topics')
 def get_ros_topics() -> dict[str, Any]:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """현재 Topic 목록과 갱신 시각을 반환합니다."""
     snapshot = ros_monitor.snapshot()
     return {
         'success': True,
@@ -30,13 +30,13 @@ def get_ros_topics() -> dict[str, Any]:
 
 @router.get('/ros/topics/latest')
 def get_latest_ros_topic(name: str = Query(...)) -> dict[str, Any]:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """요청한 Topic의 최신 수신 메시지를 반환합니다."""
     return ros_monitor.latest_message(name)
 
 
 @router.get('/ros/topics/hz')
 def get_ros_topic_hz(name: str = Query(...)) -> dict[str, Any]:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """요청한 Topic의 최근 수신 Hz를 반환합니다."""
     return ros_monitor.topic_hz(name)
 
 
@@ -44,7 +44,7 @@ def get_ros_topic_hz(name: str = Query(...)) -> dict[str, Any]:
 def get_ros_services(
     include_hidden: bool = Query(False),
 ) -> dict[str, Any]:
-    """FastAPI Router에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """현재 Service 목록을 반환하며 필요하면 내부 Service도 포함합니다."""
     snapshot = ros_monitor.service_snapshot(
         include_hidden=include_hidden,
     )
@@ -59,7 +59,7 @@ def get_ros_services(
 
 @router.get('/ros/actions')
 def get_ros_actions() -> dict[str, Any]:
-    """FastAPI Router에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """현재 Action 목록과 관찰 상태를 반환합니다."""
     snapshot = ros_monitor.action_snapshot()
     return {
         'success': True,
@@ -72,7 +72,7 @@ def get_ros_actions() -> dict[str, Any]:
 
 @router.get('/ros/nodes')
 def get_ros_nodes() -> dict[str, Any]:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """현재 Node 목록과 통신 관계 수를 반환합니다."""
     snapshot = ros_monitor.node_snapshot()
     return {
         'success': True,
@@ -85,13 +85,13 @@ def get_ros_nodes() -> dict[str, Any]:
 
 @router.get('/ros/alerts')
 def get_ros_alerts() -> dict[str, Any]:
-    """FastAPI Router에서 Alert 항목을 조립하는 함수입니다."""
+    """현재 active Alert와 최근 해결 이력을 반환합니다."""
     return ros_monitor.alerts()
 
 
 @router.websocket('/ws/monitor')
 async def monitor_websocket(websocket: WebSocket) -> None:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """연결된 브라우저에 1초마다 경량 모니터 snapshot을 전송합니다."""
     await websocket_manager.connect(websocket)
     try:
         while True:

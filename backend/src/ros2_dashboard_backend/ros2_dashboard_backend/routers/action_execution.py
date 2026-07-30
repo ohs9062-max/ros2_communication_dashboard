@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get('/ros/interfaces/callable-actions')
 def get_callable_actions() -> dict[str, Any]:
-    """FastAPI Router에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+    """Registry와 Graph가 일치하는 실행 가능 Action 목록을 반환합니다."""
     snapshot = ros_monitor.callable_actions()
     return {
         'success': True,
@@ -25,7 +25,7 @@ def get_callable_actions() -> dict[str, Any]:
 
 @router.post('/ros/interfaces/action-goal')
 async def send_registered_action_goal(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """요청 JSON을 검증한 뒤 사용자가 선택한 Action에 Goal을 보냅니다."""
     try:
         payload = await request.json()
     except ValueError as exc:
@@ -74,7 +74,7 @@ async def send_registered_action_goal(request: Request) -> dict[str, Any]:
 
 @router.get('/ros/interfaces/action-goal/history')
 def get_action_goal_history() -> dict[str, Any]:
-    """FastAPI Router에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+    """Interface Lab의 Action Goal 실행 이력을 반환합니다."""
     snapshot = ros_monitor.action_goal_history()
     return {
         'success': True,
@@ -86,14 +86,14 @@ def get_action_goal_history() -> dict[str, Any]:
 
 @router.get('/ros/interfaces/receive/actions/history')
 def get_receive_action_history() -> dict[str, Any]:
-    """FastAPI Router에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+    """Action Goal에서 받은 feedback과 result 이력을 반환합니다."""
     snapshot = ros_monitor.receive_action_history()
     return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
 
 
 @router.post('/ros/interfaces/receive/actions/history/reset')
 async def reset_receive_action_history(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+    """선택한 Action의 feedback·result 이력을 초기화합니다."""
     try:
         payload = await request.json()
     except ValueError:

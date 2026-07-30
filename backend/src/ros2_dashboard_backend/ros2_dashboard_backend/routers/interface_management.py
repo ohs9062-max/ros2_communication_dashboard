@@ -39,7 +39,7 @@ router = APIRouter()
 
 @router.post('/ros/interfaces/upload')
 async def upload_ros_interface(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """업로드된 단일 msg·srv·action 파일을 검사해 Registry에 등록합니다."""
     content_length = request.headers.get('content-length')
     if content_length:
         try:
@@ -87,7 +87,7 @@ async def upload_ros_interface(request: Request) -> dict[str, Any]:
 
 @router.get('/ros/interfaces/registry')
 def get_interface_registry() -> dict[str, Any]:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """현재 단일 Interface Registry와 적용 상태를 반환합니다."""
     try:
         registry = registry_snapshot()
     except InterfaceUploadError as exc:
@@ -170,7 +170,7 @@ async def register_manual_interface_type(request: Request) -> dict[str, Any]:
 
 @router.post('/ros/interfaces/manual-definition')
 async def write_manual_interface_definition(request: Request) -> dict[str, Any]:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """사용자가 입력한 Interface 정의를 파일과 Registry에 저장합니다."""
     try:
         payload = await request.json()
     except ValueError as exc:
@@ -263,7 +263,7 @@ def delete_manual_interface_definition(kind: str, type_name: str) -> dict[str, A
 
 @router.post('/ros/interfaces/uploaded-interfaces/rebuild-cmake')
 def rebuild_uploaded_interfaces_cmake_endpoint() -> dict[str, Any]:
-    """FastAPI Router에서 public API 응답 항목을 조립하는 함수입니다."""
+    """현재 업로드 파일을 다시 스캔해 CMakeLists와 package.xml을 재생성합니다."""
     result = rebuild_uploaded_interfaces_cmake()
     mark_interface_change_pending('uploaded_interfaces package metadata 재생성됨; rebuild 필요')
     return {
@@ -278,7 +278,7 @@ async def upload_ros_interface_package(
     request: Request,
     replace: bool = Query(False),
 ) -> dict[str, Any]:
-    """FastAPI Router에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """업로드된 zip을 검증해 Interface package 저장소에 등록합니다."""
     content_length = request.headers.get('content-length')
     if content_length:
         try:
@@ -316,7 +316,7 @@ async def upload_ros_interface_package_folder(
     request: Request,
     replace: bool = Query(False),
 ) -> dict[str, Any]:
-    """FastAPI Router에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """브라우저가 보낸 폴더 파일들을 검증해 Interface package로 등록합니다."""
     content_length = request.headers.get('content-length')
     if content_length:
         try:
@@ -349,7 +349,7 @@ async def upload_ros_interface_package_folder(
 
 @router.get('/ros/interfaces/packages')
 def get_interface_packages() -> dict[str, Any]:
-    """FastAPI Router에서 요청된 처리를 수행하는 함수입니다."""
+    """현재 등록된 Interface package 목록과 적용 상태를 반환합니다."""
     try:
         registry = packages_snapshot()
     except InterfacePackageError as exc:

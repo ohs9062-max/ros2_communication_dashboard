@@ -19,7 +19,7 @@ from ros2_dashboard_backend.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """ROS2 Dashboard Backend에서 요청된 처리를 수행하는 함수입니다."""
+    """FastAPI가 시작될 때 ROS 모니터를 켜고 종료될 때 안전하게 정리합니다."""
     ros_monitor.start()
     try:
         yield
@@ -47,7 +47,7 @@ app.include_router(action_execution.router)
 
 @app.get('/health')
 def health() -> dict[str, Any]:
-    """ROS2 Dashboard Backend에서 요청된 처리를 수행하는 함수입니다."""
+    """Backend와 ROS 모니터의 현재 연결 상태를 반환합니다."""
     return {
         'success': True,
         'data': {

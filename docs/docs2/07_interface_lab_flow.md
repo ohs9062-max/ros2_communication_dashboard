@@ -39,6 +39,11 @@ Interface Lab은 타입이나 패키지를 Registry에 등록하고 필요하면
 | 4 | `manual_interfaces.py` `write_manual_definition()` | L92-L150 | L103-L150 | 정의 파일 생성, metadata 재생성, pending 표시 |
 | 5 | `interface_management.py` package upload 두 함수 | L277-L347 | L286-L310, L324-L346 | zip/folder를 package 관리 함수로 전달 |
 | 6 | `apply/runtime.py` `mark_interface_change_pending()` | L83-L97 | L85-L96 | `rebuild_required`, `build_required=true` 저장 |
+| 7 | `apply/runtime.py` `run_interface_apply()` | L100-L339 | L232-L301 | Apply 시 build하고 install 경로와 Python import 가능 여부를 다시 검사한다. |
+| 8 | 실행 Runtime의 `callable_*()` | Service L56-L83, Action L62-L89 | Service L58-L83, Action L64-L89 | Registry의 import 가능한 타입과 현재 Graph 타입을 exact match해 실제 실행 후보를 만든다. |
+| 9 | `rosApi.js` → `InterfaceLabPage.jsx` | API L74-L98 | Page L45-L137 | Frontend가 Registry·Package·Apply 상태·실행 후보를 조회해 등록 및 실행 작업 화면에 표시한다. |
+
+1~6은 등록 방식별 저장과 pending 처리, 7은 실제 적용, 8은 실행 후보 판정, 9는 화면 반영 단계다.
 
 Registry 등록은 즉시 모든 타입이 사용 가능하다는 뜻이 아니다. `import_available=true`이고 현재 Graph full type과 정확히 일치해야 Call/Goal 후보가 된다.
 

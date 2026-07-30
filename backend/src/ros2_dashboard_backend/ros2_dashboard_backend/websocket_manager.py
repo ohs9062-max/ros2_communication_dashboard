@@ -11,7 +11,7 @@ class WebSocketManager:
     """WebSocket 관리의 WebSocketManager 역할을 담당하는 클래스입니다."""
 
     def __init__(self) -> None:
-        """WebSocket 관리에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """현재 연결된 WebSocket 목록과 동기화 Lock을 준비합니다."""
         self._clients: set[WebSocket] = set()
 
     async def connect(self, websocket: WebSocket) -> None:
@@ -28,7 +28,7 @@ class WebSocketManager:
         websocket: WebSocket,
         payload: dict[str, Any],
     ) -> bool:
-        """WebSocket 관리에서 요청된 처리를 수행하는 함수입니다."""
+        """JSON 전송 성공 여부를 반환하고 실패한 연결은 목록에서 제거합니다."""
         try:
             await websocket.send_json(payload)
         except (RuntimeError, WebSocketDisconnect):

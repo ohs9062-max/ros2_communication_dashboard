@@ -33,7 +33,7 @@ def build_alerts(
     required_stream_names: tuple[str, ...] = (),
     command_names: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
-    """Topic 모니터링에서 Alert 항목을 조립하는 함수입니다."""
+    """Topic 수신 상태와 MonitorStatus 메시지에서 현재 Alert 후보를 만듭니다."""
     alerts_by_id = {}
     for topic in topics:
         for alert_item in _topic_alerts(
@@ -128,7 +128,7 @@ def retain_alerts(
 
 
 def build_alert_meta(alerts: list[dict[str, Any]]) -> dict[str, int]:
-    """Topic 모니터링에서 Alert 항목을 조립하는 함수입니다."""
+    """현재 active Alert를 심각도별로 세고 해결 건수도 반환합니다."""
     active_alerts = [
         alert for alert in alerts
         if alert.get('alert_state') != 'resolved'

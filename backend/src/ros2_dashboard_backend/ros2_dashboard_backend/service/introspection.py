@@ -11,12 +11,12 @@ SERVICE_EVENT_SUFFIX = '/_service_event'
 
 
 def service_event_topic_name(service_name: str) -> str:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Service 이름에 `/_service_event`를 붙여 event Topic 이름을 만듭니다."""
     return f'{service_name.rstrip("/")}{SERVICE_EVENT_SUFFIX}'
 
 
 def service_event_class(service_type: str) -> type:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Service 타입에 대응하는 introspection event Message class를 불러옵니다."""
     return get_service(service_type).Event
 
 
@@ -25,7 +25,7 @@ def build_service_event_subscription_spec(
     service_name: str,
     service_type: str,
 ) -> dict[str, Any]:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Service event Topic을 구독하는 데 필요한 이름·타입·class를 만듭니다."""
     return {
         'topic_name': service_event_topic_name(service_name),
         'event_class': service_event_class(service_type),

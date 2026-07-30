@@ -26,7 +26,7 @@ def build_service_item(
     active_check_allowlist: dict[str, Any],
     active_check_cache: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    """Service 모니터링에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+    """Graph의 Service 타입·관계 수·분류를 하나의 API item으로 만듭니다."""
     category = service_category(name, service_type)
     status, reason = service_status(
         service_type,

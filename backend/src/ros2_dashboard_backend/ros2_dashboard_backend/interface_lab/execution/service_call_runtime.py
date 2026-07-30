@@ -54,7 +54,7 @@ class ServiceCallRuntime:
             self._receive_reset_by_key = {}
 
     def callable_services(self) -> dict[str, Any]:
-        """Interface Lab에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+        """등록·import 가능하고 현재 Graph와 일치하는 Service 후보를 반환합니다."""
         refresh_install_python_paths()
         registered = self._registered_services()
         graph = self._service_graph()
@@ -90,7 +90,7 @@ class ServiceCallRuntime:
         request_data: dict[str, Any],
         timeout_sec: float | None = None,
     ) -> dict[str, Any]:
-        """Interface Lab에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+        """요청값을 ROS request로 변환해 Service를 호출하고 결과를 기록합니다."""
         timeout = _normalized_timeout(timeout_sec)
         refresh_install_python_paths()
         allowed = self._allowed_service(service_name, service_type)
@@ -187,7 +187,7 @@ class ServiceCallRuntime:
         return result
 
     def history(self) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """최근 Service Call 실행 이력을 복사해 반환합니다."""
         with self._lock:
             calls = [item.copy() for item in self._history]
         return {
@@ -198,7 +198,7 @@ class ServiceCallRuntime:
         }
 
     def receive_history(self) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """초기화 경계 이후의 Service 응답 이력을 반환합니다."""
         calls = self.history()['calls']
         events = []
         for index, call in enumerate(calls):
@@ -239,7 +239,7 @@ class ServiceCallRuntime:
         service_name: str | None = None,
         service_type: str | None = None,
     ) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """선택한 Service의 응답 이력 초기화 시각을 갱신합니다."""
         previous = len([
             item for item in self.receive_history()['history']
             if not service_name
@@ -252,7 +252,7 @@ class ServiceCallRuntime:
         return {'cleared': previous}
 
     def summary_by_service(self) -> dict[tuple[str, str], dict[str, Any]]:
-        """Interface Lab에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+        """Service 이름·타입별 최근 Call 결과와 누적 건수를 요약합니다."""
         with self._lock:
             calls = [item.copy() for item in self._history]
         summaries: dict[tuple[str, str], dict[str, Any]] = {}

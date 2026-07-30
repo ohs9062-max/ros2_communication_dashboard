@@ -103,7 +103,7 @@ class BackendConfig:
 
 
 def load_backend_config() -> BackendConfig:
-    """Backend 설정 로딩에서 필요한 ROS2 타입이나 설정을 불러오는 함수입니다."""
+    """환경변수와 monitor.yaml을 읽어 Backend 전체 설정을 만듭니다."""
     backend_root = _backend_root()
     _load_env(backend_root)
 
@@ -402,7 +402,7 @@ def _config_string_tuple(
     *,
     default: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
-    """Backend 설정 로딩에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+    """설정의 새 key를 우선 읽고 기존 *_names key도 호환합니다."""
     explicit_key = f'{base_key}_names'
     if base_key in data:
         return _string_tuple(data.get(base_key), default=default)

@@ -23,7 +23,7 @@ def build_action_alerts(
     actions: list[dict[str, Any]],
     detected_at: float,
 ) -> list[dict[str, Any]]:
-    """Action 모니터링에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+    """Action 연결 종료와 최근 Goal·Result 실패를 Alert로 변환합니다."""
     alerts = []
     for action in actions:
         if (

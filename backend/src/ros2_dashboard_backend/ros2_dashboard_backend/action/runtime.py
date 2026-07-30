@@ -46,7 +46,7 @@ class ActionRuntime:
         lock: Any,
         node_getter: Callable[[], Any],
     ) -> None:
-        """Action 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """Action Graph 조회와 status·feedback 관찰에 필요한 의존성을 저장합니다."""
         self._config = config
         self._lock = lock
         self._node_getter = node_getter
@@ -72,7 +72,7 @@ class ActionRuntime:
         self._result_runtime.clear()
 
     def snapshot(self) -> dict[str, Any]:
-        """Action 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+        """현재 Action Graph와 관찰 상태 Cache를 복사해 반환합니다."""
         with self._lock:
             actions = [action.copy() for action in self._actions]
             last_updated = self._last_updated
@@ -164,7 +164,7 @@ class ActionRuntime:
         return actions
 
     def monitor_subscriber_count(self, topic_name: str) -> int:
-        """Action 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+        """Action status·feedback 관찰용 내부 subscription 수를 반환합니다."""
         count = 0
         with self._lock:
             entries = list(self._subscriptions.items())

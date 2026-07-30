@@ -40,7 +40,7 @@ class InterfaceUploadError(ValueError):
 
 
 def default_registry_path() -> Path:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """단일 Interface Registry YAML의 기본 경로를 반환합니다."""
     backend_root = backend_workspace_root()
     configured = Path(
         os.getenv('INTERFACE_REGISTRY_PATH', 'config/interface_registry.yaml'),
@@ -49,7 +49,7 @@ def default_registry_path() -> Path:
 
 
 def default_interface_package() -> tuple[str, Path]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """단일 업로드 파일을 저장할 기본 ROS package 이름과 경로를 반환합니다."""
     backend_root = backend_workspace_root()
     package_name = os.getenv(
         'INTERFACE_PACKAGE_NAME', 'uploaded_interfaces',
@@ -60,7 +60,7 @@ def default_interface_package() -> tuple[str, Path]:
 
 
 def extract_multipart_file(content_type: str, body: bytes) -> tuple[str, bytes]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """multipart 요청 본문에서 업로드 파일 이름과 내용을 추출합니다."""
     if not content_type.lower().startswith('multipart/form-data'):
         raise InterfaceUploadError('multipart/form-data 요청이 필요합니다.')
 
@@ -372,7 +372,7 @@ def _atomic_write(path: Path, content: str) -> None:
 
 
 def registry_snapshot(registry_path: Path | None = None) -> dict[str, Any]:
-    """Interface Lab에서 cache snapshot을 반환하는 함수입니다."""
+    """Registry YAML을 읽어 화면에 사용할 Interface 목록을 반환합니다."""
     path = registry_path or default_registry_path()
     with _REGISTRY_LOCK:
         return _load_registry(path)
@@ -420,7 +420,7 @@ def delete_registry_entry(
 def mark_registry_build_applied(
     registry_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Interface Lab에서 public API 응답 항목을 조립하는 함수입니다."""
+    """build가 끝난 Registry 항목의 build_required 표시를 해제합니다."""
     path = registry_path or default_registry_path()
     applied_at = datetime.now(timezone.utc).isoformat()
     with _REGISTRY_LOCK:
@@ -492,7 +492,7 @@ def registry_apply_summary(
 
 
 def parse_interface(raw_text: str, kind: str) -> dict[str, Any]:
-    """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+    """msg·srv·action 원문을 section과 필드 schema로 해석합니다."""
     sections = _split_sections(raw_text)
     expected = {'msg': 1, 'srv': 2, 'action': 3}[kind]
     if len(sections) != expected:

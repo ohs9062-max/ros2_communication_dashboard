@@ -35,7 +35,7 @@ class ServiceRuntime:
         lock: Any,
         node_getter: Callable[[], Any],
     ) -> None:
-        """Service 모니터링에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """Service Graph 조회와 상태 Cache에 필요한 설정과 의존성을 저장합니다."""
         self._config = config
         self._lock = lock
         self._node_getter = node_getter
@@ -60,7 +60,7 @@ class ServiceRuntime:
         *,
         include_hidden: bool = False,
     ) -> dict[str, Any]:
-        """Service 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+        """Service Cache를 복사하고 숨김 정책에 맞는 목록과 meta를 반환합니다."""
         with self._lock:
             all_services = [service.copy() for service in self._services]
             last_updated = self._last_updated
@@ -83,7 +83,7 @@ class ServiceRuntime:
         }
 
     def alert_snapshot(self) -> list[dict[str, Any]]:
-        """Service 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+        """Alert 계산에서 사용할 내부 Service까지 포함해 복사합니다."""
         with self._lock:
             return [service.copy() for service in self._services]
 

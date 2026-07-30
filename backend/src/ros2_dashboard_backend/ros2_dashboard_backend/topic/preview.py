@@ -13,7 +13,7 @@ from ros2_dashboard_backend.topic.models import (
 
 
 def build_message_preview(topic_type: str, message: Any) -> dict[str, Any]:
-    """Topic 모니터링에서 public API 응답 항목을 조립하는 함수입니다."""
+    """ROS message를 타입별 요약 또는 일반 JSON dict로 변환합니다."""
     builder = _preview_builders().get(topic_type)
     if builder is None:
         return dict(message_to_ordereddict(message))
@@ -30,7 +30,7 @@ def is_preview_supported(topic_type: str | None) -> bool:
 
 
 def get_supported_preview_types() -> tuple[str, ...]:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """전용 preview 변환기를 제공하는 기본 Message 타입 목록을 반환합니다."""
     return SUPPORTED_PREVIEW_TYPES
 
 

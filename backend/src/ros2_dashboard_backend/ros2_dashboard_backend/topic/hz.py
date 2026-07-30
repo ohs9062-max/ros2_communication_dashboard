@@ -17,7 +17,7 @@ def recent_timestamps(
     now: float,
     window_sec: float,
 ) -> list[float]:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """현재 계산 창 안에 남아 있는 수신 timestamp만 반환합니다."""
     earliest = now - window_sec
     return [timestamp for timestamp in timestamps if timestamp >= earliest]
 
@@ -28,7 +28,7 @@ def hz_status(
     now: float,
     stale_timeout_sec: float,
 ) -> tuple[float | None, bool, str]:
-    """Topic 모니터링에서 요청된 처리를 수행하는 함수입니다."""
+    """마지막 수신 시각으로 정상·미수신·stale 상태를 결정합니다."""
     if last_received_at is None:
         return None, False, HZ_STATUS_NEVER_RECEIVED
 
@@ -47,7 +47,7 @@ def build_hz_snapshot(
     stale_timeout_sec: float,
     now: float,
 ) -> dict[str, Any]:
-    """Topic 모니터링에서 cache snapshot을 반환하는 함수입니다."""
+    """최근 수신 개수를 시간 창으로 나눠 Topic Hz 응답을 만듭니다."""
     message_count = len(timestamps)
     hz = 0.0
     if message_count > 0:

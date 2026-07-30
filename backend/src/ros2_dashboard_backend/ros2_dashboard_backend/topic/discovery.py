@@ -20,7 +20,7 @@ def build_topic_item(
     registered_interface_type: bool,
     deep_monitoring: bool,
 ) -> dict[str, Any]:
-    """Topic 모니터링에서 public API 응답 항목을 조립하는 함수입니다."""
+    """Graph에서 읽은 Topic 정보와 endpoint 수를 API용 item으로 만듭니다."""
     status, reason = topic_status(
         publisher_count,
         external_subscriber_count,

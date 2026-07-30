@@ -35,6 +35,9 @@ get_node_names_and_namespaces()
 | 6 | 같은 파일 `_action_clients_by_node()` | L210-L228 | L215-L220 | Node별 Action Client 조회 |
 | 7 | `ros_monitor.py` `node_snapshot()` | L440-L446 | L442-L446 | Dashboard Node에 `is_internal` 표시 |
 | 8 | `monitoring.py` `get_ros_nodes()` | L73-L83 | L76-L82 | Node API 반환 |
+| 9 | `useNodeDashboard.js` → `NodesPage.jsx` | L6-L66 → L16-L168 | Hook L10-L18, Page L35-L60 | Node API를 polling하고 주요·전체·실행 중·종료 감지·숨김 포함 필터로 최종 목록을 표시한다. |
+
+1~6은 Node별 통신 관계 수집, 7~9는 내부 Node 표시·API·화면 필터 단계다.
 
 `Node 발행 Topic 수`는 메시지 발행 횟수가 아니라 `topic_publishers` 관계 배열의 고유 Topic 수다. Service Server 수와 Action Client 수도 같은 원리다.
 

@@ -60,7 +60,7 @@ class ActionGoalRuntime:
             self._receive_reset_by_key = {}
 
     def callable_actions(self) -> dict[str, Any]:
-        """Interface Lab에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+        """등록·import 가능하고 현재 Graph와 일치하는 Action 후보를 반환합니다."""
         refresh_install_python_paths()
         registered = self._registered_actions()
         graph = self._action_graph()
@@ -96,7 +96,7 @@ class ActionGoalRuntime:
         goal_data: dict[str, Any],
         timeout_sec: float | None = None,
     ) -> dict[str, Any]:
-        """Interface Lab에서 요청된 처리를 수행하는 함수입니다."""
+        """Goal을 보내고 feedback·result를 기다린 뒤 실행 이력을 기록합니다."""
         timeout = _normalized_timeout(timeout_sec)
         refresh_install_python_paths()
         allowed = self._allowed_action(action_name, action_type)
@@ -238,7 +238,7 @@ class ActionGoalRuntime:
         return result
 
     def history(self) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """최근 Action Goal 실행 이력을 복사해 반환합니다."""
         with self._lock:
             goals = [item.copy() for item in self._history]
         return {
@@ -249,7 +249,7 @@ class ActionGoalRuntime:
         }
 
     def receive_history(self) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """초기화 경계 이후에 받은 feedback·result 이력을 반환합니다."""
         goals = self.history()['goals']
         events = []
         for goal_index, goal in enumerate(goals):
@@ -312,7 +312,7 @@ class ActionGoalRuntime:
         action_name: str | None = None,
         action_type: str | None = None,
     ) -> dict[str, Any]:
-        """Interface Lab에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """선택한 Action의 feedback·result 이력 초기화 시각을 갱신합니다."""
         previous = len([
             item for item in self.receive_history()['history']
             if not action_name
@@ -325,7 +325,7 @@ class ActionGoalRuntime:
         return {'cleared': previous}
 
     def summary_by_action(self) -> dict[tuple[str, str], dict[str, Any]]:
-        """Interface Lab에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+        """Action 이름·타입별 최근 Goal 결과와 누적 건수를 요약합니다."""
         with self._lock:
             goals = [item.copy() for item in self._history]
         summaries: dict[tuple[str, str], dict[str, Any]] = {}

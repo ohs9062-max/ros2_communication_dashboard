@@ -15,7 +15,7 @@ def build_node_alerts(
     nodes: list[dict[str, Any]],
     detected_at: float,
 ) -> list[dict[str, Any]]:
-    """Node 모니터링에서 Alert 항목을 조립하는 함수입니다."""
+    """이전에 발견됐지만 현재 사라진 Node를 종료 감지 Alert로 만듭니다."""
     alerts = []
     for node in nodes:
         if node.get('status') != NODE_STATUS_DISCONNECTED:

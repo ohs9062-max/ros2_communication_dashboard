@@ -35,7 +35,7 @@ class RosMonitor:
     """RosMonitor coordinator의 RosMonitor 역할을 담당하는 클래스입니다."""
 
     def __init__(self, config: MonitorConfig | None = None) -> None:
-        """RosMonitor coordinator에서 내부 보조 처리를 수행하는 내부 helper 함수입니다."""
+        """공통 Lock과 Topic·Service·Action·Node Runtime을 조립합니다."""
         self._config = config or MonitorConfig()
         self._node: Node | None = None
         self._thread: Thread | None = None
@@ -82,7 +82,7 @@ class RosMonitor:
         )
 
     def start(self) -> None:
-        """RosMonitor coordinator에서 요청된 처리를 수행하는 함수입니다."""
+        """rclpy Node, Graph 갱신 timer, spin thread를 시작합니다."""
         if self._thread and self._thread.is_alive():
             return
 
@@ -98,7 +98,7 @@ class RosMonitor:
         self._thread.start()
 
     def stop(self) -> None:
-        """RosMonitor coordinator에서 요청된 처리를 수행하는 함수입니다."""
+        """timer와 실행 Runtime을 정리하고 rclpy Node를 종료합니다."""
         node = self._node
 
         if rclpy.ok():
@@ -124,7 +124,7 @@ class RosMonitor:
             self._alert_history = []
 
     def snapshot(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
+        """Topic Cache에 Publisher·Subscriber Node 관계 수를 합쳐 반환합니다."""
         snapshot = self._topic_runtime.snapshot()
         role_nodes = self._role_node_index()
         internal_node = self._monitor_node_full_name()
@@ -175,7 +175,7 @@ class RosMonitor:
         *,
         include_hidden: bool = False,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
+        """Service Cache에 Node 관계와 최근 사용자 Call 결과를 합쳐 반환합니다."""
         snapshot = self._service_runtime.snapshot(
             include_hidden=include_hidden,
         )
@@ -232,7 +232,7 @@ class RosMonitor:
         return snapshot
 
     def callable_services(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+        """Registry 타입과 현재 Graph가 일치하는 호출 가능 Service를 반환합니다."""
         return self._service_call_runtime.callable_services()
 
     def call_service(
@@ -243,7 +243,7 @@ class RosMonitor:
         request_data: dict[str, Any],
         timeout_sec: float | None = None,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 Service 실행 또는 상태를 처리하는 함수입니다."""
+        """사용자 Service 요청을 ServiceCallRuntime에 전달합니다."""
         return self._service_call_runtime.call_service(
             service_name=service_name,
             service_type=service_type,
@@ -252,11 +252,11 @@ class RosMonitor:
         )
 
     def service_call_history(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """Interface Lab에서 실행한 Service Call 이력을 반환합니다."""
         return self._service_call_runtime.history()
 
     def receive_service_history(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """화면에 표시할 Service 응답 수신 이력을 반환합니다."""
         return self._service_call_runtime.receive_history()
 
     def reset_receive_service_history(
@@ -265,14 +265,14 @@ class RosMonitor:
         service_name: str | None = None,
         service_type: str | None = None,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """지정한 시점 이전의 Service 수신 이력을 숨기도록 초기화합니다."""
         return self._service_call_runtime.reset_receive_history(
             service_name=service_name,
             service_type=service_type,
         )
 
     def action_snapshot(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
+        """Action Cache에 Node 관계와 최근 사용자 Goal 결과를 합쳐 반환합니다."""
         snapshot = self._action_runtime.snapshot()
         role_nodes = self._role_node_index()
         summaries = self._action_goal_runtime.summary_by_action()
@@ -318,7 +318,7 @@ class RosMonitor:
         return snapshot
 
     def callable_actions(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+        """Registry 타입과 현재 Graph가 일치하는 실행 가능 Action을 반환합니다."""
         return self._action_goal_runtime.callable_actions()
 
     def send_action_goal(
@@ -329,7 +329,7 @@ class RosMonitor:
         goal_data: dict[str, Any],
         timeout_sec: float | None = None,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 Action 실행 또는 상태를 처리하는 함수입니다."""
+        """사용자 Goal을 ActionGoalRuntime에 전달합니다."""
         return self._action_goal_runtime.send_goal(
             action_name=action_name,
             action_type=action_type,
@@ -338,11 +338,11 @@ class RosMonitor:
         )
 
     def action_goal_history(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """Interface Lab에서 실행한 Action Goal 이력을 반환합니다."""
         return self._action_goal_runtime.history()
 
     def receive_action_history(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """Goal 실행 중 받은 feedback과 result 이력을 반환합니다."""
         return self._action_goal_runtime.receive_history()
 
     def reset_receive_action_history(
@@ -351,14 +351,14 @@ class RosMonitor:
         action_name: str | None = None,
         action_type: str | None = None,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """지정한 Action의 feedback·result 수신 이력을 초기화합니다."""
         return self._action_goal_runtime.reset_receive_history(
             action_name=action_name,
             action_type=action_type,
         )
 
     def start_receive_topic(self, *, topic_name: str, topic_type: str, history_limit: int = 100) -> dict[str, Any]:
-        """RosMonitor coordinator에서 수신 상태와 이력을 관리하는 함수입니다."""
+        """사용자가 선택한 Topic의 Interface Lab 구독을 시작합니다."""
         return self._receive_runtime.start_topic(
             topic_name=topic_name,
             topic_type=topic_type,
@@ -366,11 +366,11 @@ class RosMonitor:
         )
 
     def stop_receive_topic(self, *, topic_name: str, topic_type: str | None = None) -> dict[str, Any]:
-        """RosMonitor coordinator에서 수신 상태와 이력을 관리하는 함수입니다."""
+        """사용자가 시작한 Interface Lab Topic 구독을 중지합니다."""
         return self._receive_runtime.stop_topic(topic_name=topic_name, topic_type=topic_type)
 
     def receive_topics(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 수신 상태와 이력을 관리하는 함수입니다."""
+        """현재 Interface Lab에서 수신 중인 Topic 목록을 반환합니다."""
         return self._receive_runtime.topics()
 
     def receive_topic_history(
@@ -380,7 +380,7 @@ class RosMonitor:
         topic_type: str | None = None,
         limit: int | None = None,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """조건에 맞는 Interface Lab Topic 수신 이력을 반환합니다."""
         return self._receive_runtime.topic_history(
             topic_name=topic_name,
             topic_type=topic_type,
@@ -393,14 +393,14 @@ class RosMonitor:
         topic_name: str | None = None,
         topic_type: str | None = None,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """지정한 Topic의 Interface Lab 수신 이력을 초기화합니다."""
         return self._receive_runtime.reset_topic_history(
             topic_name=topic_name,
             topic_type=topic_type,
         )
 
     def callable_messages(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 현재 실행 가능한 후보를 조회하는 함수입니다."""
+        """Interface Lab에서 사용할 수 있는 import 가능 Message 타입을 반환합니다."""
         return self._receive_runtime.callable_messages()
 
     def message_schema(self, *, message_type: str) -> dict[str, Any]:
@@ -422,7 +422,7 @@ class RosMonitor:
         )
 
     def topic_publish_history(self, *, limit: int | None = None) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """Interface Lab에서 실행한 Topic Publish 이력을 반환합니다."""
         return self._receive_runtime.publish_history(limit=limit)
 
     def reset_topic_publish_history(
@@ -431,14 +431,14 @@ class RosMonitor:
         topic_name: str | None = None,
         topic_type: str | None = None,
     ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 실행 이력을 반환하거나 관리하는 함수입니다."""
+        """지정한 Topic의 Publish 이력을 초기화합니다."""
         return self._receive_runtime.reset_publish_history(
             topic_name=topic_name,
             topic_type=topic_type,
         )
 
     def node_snapshot(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
+        """Node Cache에 Dashboard 내부 Node 여부를 표시해 반환합니다."""
         snapshot = self._node_runtime.snapshot()
         internal_node = self._monitor_node_full_name()
         for node in snapshot['nodes']:
@@ -458,7 +458,7 @@ class RosMonitor:
             return '/ros2_dashboard_topic_monitor'
 
     def websocket_snapshot(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 cache snapshot을 반환하는 함수입니다."""
+        """현재 Cache에서 WebSocket 전송용 경량 요약을 만듭니다."""
         timestamp = time()
         topic_snapshot = self.snapshot()
         service_snapshot = self.service_snapshot()
@@ -490,15 +490,15 @@ class RosMonitor:
         }
 
     def latest_message(self, name: str) -> dict[str, Any]:
-        """RosMonitor coordinator에서 요청된 처리를 수행하는 함수입니다."""
+        """지정한 Topic의 최신 수신 메시지를 TopicRuntime에서 가져옵니다."""
         return self._topic_runtime.latest_message(name)
 
     def topic_hz(self, name: str) -> dict[str, Any]:
-        """RosMonitor coordinator에서 요청된 처리를 수행하는 함수입니다."""
+        """지정한 Topic의 현재 수신 Hz를 TopicRuntime에서 가져옵니다."""
         return self._topic_runtime.topic_hz(name)
 
     def alerts(self) -> dict[str, Any]:
-        """RosMonitor coordinator에서 Alert 항목을 조립하는 함수입니다."""
+        """모든 Runtime의 Alert를 합치고 active·resolved 이력을 갱신합니다."""
         detected_at = time()
         services = self.service_snapshot(include_hidden=True)['services']
         actions = self.action_snapshot()['actions']
