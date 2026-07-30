@@ -26,7 +26,7 @@ Vite + React
 | Runtime 조립 | `RosMonitor` 생성 시 공통 `threading.Lock`과 모든 Runtime을 만든다 | 같은 lock을 Topic, Service, Action, Node와 Interface Lab 실행 Runtime에 전달 | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L37-L82` |
 | FastAPI lifespan | Uvicorn worker 시작·종료 때 실행한다 | startup에서 `start()`, shutdown에서 `stop()` | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/main.py L20-L27` |
 | ROS 시작 | `rclpy.init()` 후 monitor Node를 만든다 | Node → timer → 최초 update → spin thread | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L84-L98` |
-| 주기 timer | `poll_interval_sec`마다 Graph를 다시 읽는다 | `_update_graph()` 호출 | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L84-L98`, `L681-L687` |
+| 주기 timer | `poll_interval_sec`마다 Graph를 다시 읽는다 | `_update_graph()` 호출 | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L84-L98`, `L681-L688` |
 | 종료 | worker 종료 또는 reload 때 실행한다 | timer 취소 → 실행 Runtime clear → `rclpy.shutdown()` → join → Node destroy | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L100-L124` |
 
 핵심 시작 코드는 다음과 같다.
@@ -69,7 +69,7 @@ Frontend 실행은 Vite 개발 서버, Backend 실행은 Uvicorn이다. React는
 | Actions | `ActionsPage` → `useActionDashboard` → `fetchActions` | GET `/ros/actions` → Action Graph/관찰 cache + 사용자 Goal summary merge | `ActionTable`, `ActionDetailPanel`의 goal, feedback, result, 상태 |
 | Nodes | `NodesPage` → `useNodeDashboard` → `fetchNodes` | GET `/ros/nodes` → Node 관계 cache | Node status와 pub/sub/service/action 관계 |
 | Visualization | `VisualizationPage` → `useVisualizationGraph` → 네 목록 API | 별도 Graph API가 아니라 네 REST snapshot을 조합 | `graphTransform.buildCommunicationGraph()`가 React Flow nodes/edges 생성 |
-| Alerts | `AlertsPage`가 App에서 받은 alert dashboard 사용 | GET `/ros/alerts` → `RosMonitor.alert_snapshot()` | `data`는 현재/최근, `history`는 해결 이력. active/resolved 탭과 severity 표시 |
+| Alerts | `AlertsPage`가 App에서 받은 alert dashboard 사용 | GET `/ros/alerts` → `RosMonitor.alerts()` | `data`는 현재/최근, `history`는 해결 이력. active/resolved 탭과 severity 표시 |
 | Interface Lab | `InterfaceLabPage` → 다수 `rosApi` 함수 | `/ros/interfaces/*` router → management/apply/execution Runtime | 등록·업로드·Apply·Publish/Receive/Call/Goal과 history |
 | Settings | 없음 | route, Page, endpoint 없음 | 구현된 기능으로 설명하면 안 됨 |
 
@@ -105,10 +105,10 @@ TopicsPage
 `RosMonitor._update_graph()`의 순서는 다음과 같다.
 
 ```python
-self._node_runtime.update(self._node)
-self._topic_runtime.update(self._node)
-self._service_runtime.update(self._node)
-self._action_runtime.update(self._node)
+self._node_runtime.update()
+self._topic_runtime.update()
+self._service_runtime.update()
+self._action_runtime.update()
 ```
 
 0. **rclpy**Python에서 ROS2를 사용하게 해주는 전체 라이브러리
@@ -117,7 +117,7 @@ self._action_runtime.update(self._node)
 0. **Cache** 최신 상태를 보관하는 저장소, **Snapshot** 그 Cache를 특정 시점에 읽어 만든 응답 데이터.
 0. **Runtime** :프로그램이 실행 중일 때 실제로 동작하면서 ROS2 정보를 수집하고 상태를 계산해 Cache에 저장하는 담당 객체.
 
-파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L681-L687`
+파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L681-L688`
 1. **Node**: Node 목록과 pub/sub/service/action 관계를 읽어 Node cache를 교체한다.
 2. **Topic**: Topic 목록, 타입, publisher/subscriber 수를 읽고 필요한 subscription을 생성·제거한다.
 3. **Service**: Service 이름/타입과 server/client 수를 읽는다.
@@ -150,7 +150,8 @@ node.get_topic_names_and_types()
 ```
 
 - Graph 발견과 item 생성: `topic/runtime.py L125-L231`
-- 설정 병합: `topic/runtime.py L263-L346`, `config_loader.py L191-L330`
+- 설정 로드·병합: `config_loader.py L62-L94`, `L191-L281`, 명시적 빈 목록과 fallback 구분 `L399-L411`
+- Runtime의 include/exclude 및 지원 타입 적용: `topic/runtime.py L141-L162`, `L320-L370`
 - subscription 조정과 내부 endpoint 판정: `topic/runtime.py L372-L505`
 - callback: `topic/runtime.py L506-L523`
 - 변환: `topic/preview.py L1-L21`, `topic/subscriptions.py L1-L60`
@@ -312,11 +313,21 @@ Frontend `nodeFilters.js`는 Node의 관계 full type을 주요 Topic/Service/Ac
 
 Topic, Service, Action 기본 목록은 이 Node 관계 cache를 `topology.py L19-L54`에서 `(역할, 리소스 전체 이름, full_type)`별 고유 Node 집합으로 역집계한다. 따라서 리소스 탭의 Node 수와 Node 탭의 고유 리소스 관계 수는 같은 Topology를 반대 방향에서 표시한다.
 
+### 8.1 화면별 주요/전체/숨김 필터 한 문장 요약
+
+Topic은 지원·등록 타입이거나 실제 통신·상세 감시 흔적이 있는 비내부 Topic을 주요 항목으로 보고 전체 또는 숨김 포함 시 Backend가 반환한 모든 Topic을 표시하며,
+
+Service는 등록 타입·대기/오류·숨김 아닌 사용자 Service를 주요 항목으로 보고 전체에서는 내부·Parameter·Action 내부·관리 Service를 제외하고 내부/관리 포함에서 모두 표시하며,
+
+Action은 등록 타입이거나 Goal·Feedback·Result 관찰 흔적이 있는 Action을 주요 항목으로 보고 전체 또는 대기 Action 포함 시 발견된 모든 Action을 표시하고, Node는 등록·지원 Topic/Service/Action 타입 관계가 있거나 종료가 감지된 비내부 Node를 주요 항목으로 보고 전체에서는 내부 Node를 제외하며 숨김 포함에서 Dashboard 내부 Node까지 모두 표시한다.
+
+파일: 공통 등록 판정 `frontend/src/utils/primaryFilters.js L1-L78`, Topic 적용 `frontend/src/pages/TopicsPage.jsx L33-L83`, Service 적용 `frontend/src/pages/ServicesPage.jsx L68-L110`, `L241-L319`, Action 적용 `frontend/src/pages/ActionsPage.jsx L35-L74`, `L180-L223`, Node 적용 `frontend/src/utils/nodeFilters.js L1-L72`, `frontend/src/pages/NodesPage.jsx L35-L60`
+
 ## 9. Alert 전체 로직
 
 ### 9.1 생성과 lifecycle
 
-각 Runtime은 `{id, level, source, name, code, message, status, ...}` item을 만든다. `RosMonitor.alert_snapshot()`이 Topic, MonitorStatus, Service, Node, Action Alert를 합친 뒤 공통 lifecycle cache에 넣는다.
+각 Runtime은 `{id, level, source, name, code, message, status, ...}` item을 만든다. `RosMonitor.alerts()`가 Topic, MonitorStatus, Service, Node, Action Alert를 합친 뒤 공통 lifecycle cache에 넣는다.
 
 파일: `ros_monitor.py L500-L568`
 
@@ -330,7 +341,7 @@ Topic, Service, Action 기본 목록은 이 Node 관계 cache를 `topology.py L1
 해결 history → 최대 50개
 ```
 
-파일: `topic/alerts.py L68-L168`
+파일: `topic/alerts.py L60-L158`
 
 Alert id는 source/code/name 등 안정된 식별값으로 같은 장애를 재사용한다. `meta.warning/error/critical`은 active만 집계한다. resolved는 목록/history에는 보이지만 현재 장애 수에서는 즉시 빠진다.
 
@@ -364,7 +375,9 @@ Overview는 alert response `meta`와 active item으로 현재 건수를 표시�
 | Backend WebSocket 전송 | 1초 |
 | WebSocket 재연결 | 2.5초 |
 
-파일: `config/polling.js L1-L21`, `useTopicDashboard.js L17-L163`, `useServiceDashboard.js L7-L78`, `useActionDashboard.js L7-L74`, `useNodeDashboard.js L6-L66`, `useVisualizationGraph.js L18-L211`, `useMonitorWebSocket.js L4-L63`
+파일: `config/polling.js L1-L21`, `useTopicDashboard.js L17-L178`, `useServiceDashboard.js L7-L78`, `useActionDashboard.js L7-L74`, `useNodeDashboard.js L6-L66`, `useVisualizationGraph.js L18-L274`, `useMonitorWebSocket.js L4-L63`
+
+세 REST polling 주기는 `frontend/.env.example`의 `VITE_TOPIC_POLL_INTERVAL_MS`, `VITE_DASHBOARD_POLL_INTERVAL_MS`, `VITE_VISUALIZATION_POLL_INTERVAL_MS`로 덮어쓸 수 있고, `config/polling.js L1-L21`이 값을 한 번만 양의 정수로 파싱해 미설정·0·음수·문자열이면 기존 1000/3000/5000ms로 fallback한다.
 
 ### 10.2 역할 차이
 
@@ -464,21 +477,21 @@ Backend import module cache와 실행 history를 삭제 API가 강제로 모두 
 | 2/A | `ros_monitor.py`, `__init__`, L37-L82 | `self._lock = threading.Lock()` | 설정 → 공통 lock과 Runtime 조립 |
 | 3/A | `ros_monitor.py`, `start`, L84-L98 | `rclpy.init(); Node(...); create_timer(...)` | 프로세스 → Node/timer/spin |
 | 4/A | `ros_monitor.py`, `stop`, L100-L124 | `rclpy.shutdown(); thread.join()` | 안전한 callback 종료 |
-| 5/A | `ros_monitor.py`, `_update_graph`, L675-L681 | `node → topic → service → action` | 실제 수집 순서 |
-| 6/A | `topic/runtime.py`, `update`, L124-L222 | `get_topic_names_and_types()` | Graph → Topic cache |
-| 7/A | `topic/runtime.py`, callback, L496-L512 | `latest[...] = message; timestamps...` | ROS message → latest/수신시간 |
+| 5/A | `ros_monitor.py`, `_update_graph`, L681-L688 | `node → topic → service → action` | 실제 수집 순서 |
+| 6/A | `topic/runtime.py`, `update`, L125-L231 | `get_topic_names_and_types()` | Graph → Topic cache |
+| 7/A | `topic/runtime.py`, callback, L506-L523 | `latest[...] = message; timestamps...` | ROS message → latest/수신시간 |
 | 8/A | `topic/hz.py`, `build_hz_snapshot`, L42-L70 | `len(timestamps) / window_sec` | timestamp 창 → Hz |
-| 9/A | `topic/alerts.py`, builders, L169-L287 | `age_sec > stale_timeout_sec` | latest age → missing/stale |
+| 9/A | `topic/alerts.py`, builders, L161-L281 | `age_sec > stale_timeout_sec` | latest age → missing/stale |
 | 10/A | `service_call_runtime.py`, `call_service`, L85-L188 | `(time() - started_at) * 1000` | 사용자 request → response/timeout/history |
 | 11/A | `action_goal_runtime.py`, Goal 실행, L91-L239 | `send_goal_async(...feedback_callback...)` | Goal → accepted/feedback/result |
 | 12/A | `node/runtime.py`, `update`, L72-L159 | `merge_resource_state(...)` | Graph 현재/과거 → disconnected 보존 |
-| 13/A | `ros_monitor.py`, `alert_snapshot`, L496-L562 | `apply_alert_lifecycle(...)` | Runtime Alerts → active/resolved/meta |
-| 14/A | `topic/alerts.py`, lifecycle, L68-L168 | `resolved_at + 60초`, history 50 | 해결·재발·제거 |
+| 13/A | `ros_monitor.py`, `alerts`, L500-L568 | `retain_alerts(...)` | Runtime Alerts → active/resolved/meta |
+| 14/A | `topic/alerts.py`, lifecycle, L60-L127 | `resolved_at + 60초`, history 50 | 해결·재발·제거 |
 | 15/A | `ros_monitor.py`, `websocket_snapshot`, L460-L490 | `return {'timestamp': ..., ...}` | cache → 1초 경량 WS JSON |
 | 16/B | `routers/monitoring.py`, endpoints, L16-L109 | `return ros_monitor.*_snapshot()` | HTTP → public snapshot |
 | 17/A | `rosApi.js`, monitoring API, L41-L72 | `requestJson('/ros/topics')` | UI intent → REST URL |
 | 18/A | `usePolling.js`, `usePolling`, L3-L84 | `setInterval(poll, intervalMs)` | REST result/error → React state |
-| 19/A | `useTopicDashboard.js`, hook, L16-L174 | `usePolling(fetchTopics, 1000)` | Topic API → 목록/선택 state |
+| 19/A | `useTopicDashboard.js`, hook, L17-L178 | `usePolling(fetchTopics, TOPIC_POLL_INTERVAL_MS)` | Topic API → 목록/선택 state |
 | 20/B | `graphTransform.js`, `buildCommunicationGraph`, L18-L175 | `graphNodes`, `graphEdges` 조립 | 네 REST 목록 → React Flow |
 
 이 20개를 알면 startup, 수집, 계산, cache, API, 화면을 연결해 설명할 수 있다.
