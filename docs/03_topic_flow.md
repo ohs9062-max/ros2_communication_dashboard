@@ -34,20 +34,20 @@ ROS2 Publisher
 ### 2) ROS2 Graph에서 Topic을 발견한다
 
 - 파일: `topic/runtime.py L124~L222`
-- 역할: `get_topic_names_and_types()` 결과에 include/exclude를 적용하고 Publisher/Subscriber 수, 타입 지원 여부, 현재 상태를 계산한다.
+- 역할: `get_topic_names_and_types()` 결과에 include/exclude를 적용하고 endpoint 수, 타입 지원 여부, 현재 상태를 계산한다. `RosMonitor.snapshot()`은 활성 Node 관계를 역집계해 Publisher/Subscriber Node 수를 추가한다.
 - 입력: Topic 이름, `full_type`, endpoint 수
 - 출력: Topic item 목록
 
 ### 3) 지원 타입이면 Subscription을 만든다
 
 - 파일: `topic/runtime.py L311~L360`
-- 파일: `topic/runtime.py L362~L412`
+- 파일: `topic/runtime.py L362~L456`
 - 역할: 현재 Graph 타입이 지원 타입과 정확히 같고 Python message class를 import할 수 있으면 Subscription을 생성하거나 기존 것을 재사용한다.
 - 다음 흐름: 메시지가 오면 `_latest_message_callback()`이 실행된다.
 
 ### 4) callback이 메시지를 저장한다
 
-- 파일: `topic/runtime.py L451~L468`
+- 파일: `topic/runtime.py L496~L512`
 - 역할: 수신 시각을 기록하고 메시지를 preview dict로 바꾼 뒤 timestamp window에 추가한다.
 - 파일: `topic/preview.py L15~L21`
 - 역할: 기본 타입은 읽기 쉬운 전용 preview를 사용하고, 등록 custom msg는 `message_to_ordereddict()`로 전체 필드를 dict로 바꾼다.
@@ -66,7 +66,7 @@ ROS2 Publisher
 ### 5) latest와 Hz를 계산한다
 
 - 파일: `topic/runtime.py L223~L310`
-- 파일: `topic/runtime.py L469~L508`
+- 파일: `topic/runtime.py L514~L552`
 - 파일: `topic/hz.py L14~L70`
 - 역할: 마지막 메시지, `last_received_at`, 최근 timestamp 사이 간격으로 Hz를 계산한다.
 - 주의: 지원 타입이어도 첫 메시지가 오기 전에는 “미지원”이 아니라 “아직 수신 없음”이다.
@@ -92,10 +92,10 @@ ROS2 Publisher
 
 - 파일: `hooks/useTopicDashboard.js L13~L174`
 - 역할: Topic 목록은 1초마다, Node 관계는 3초마다 요청한다. 선택 Topic만 latest/Hz를 추가 요청한다.
-- 파일: `components/TopicTable.jsx L44~L144`
-- 역할: 상태, Hz, 상세 감시, 마지막 값, 마지막 확인을 표시한다. 마지막 값 클릭 시 전체 JSON popup을 연다.
-- 파일: `components/TopicDetailPanel.jsx L11~L161`
-- 역할: 선택 Topic의 latest, Hz, 연결 관계를 자세히 표시한다.
+- 파일: `components/TopicTable.jsx L46~L146`
+- 역할: Publisher/Subscriber Node 수, 상태, Hz, 상세 감시, 마지막 값, 마지막 확인을 표시한다. 마지막 값 클릭 시 전체 JSON popup을 연다.
+- 파일: `components/TopicDetailPanel.jsx L11~L192`
+- 역할: 선택 Topic의 latest, Hz, Node 관계 수와 endpoint 진단값을 자세히 표시한다.
 
 ## 4. `/odom` 또는 custom msg의 끝까지 추적
 
@@ -103,14 +103,14 @@ ROS2 Publisher
 /odom Publisher 또는 /demo_cleaning_schedule Publisher
 → topic/runtime.py L124~L222: Graph 발견
 → topic/runtime.py L339~L390: Subscription 준비
-→ topic/runtime.py L451~L468: callback 수신
+→ topic/runtime.py L496~L512: callback 수신
 → topic/preview.py L15~L21: dict 변환
 → topic/runtime.py L74~L104: snapshot에 last_message_preview 포함
 → routers/monitoring.py L16~L28: /ros/topics 응답
 → rosApi.js L45~L55: Frontend API 호출
 → useTopicDashboard.js L16~L161: polling state 저장
-→ TopicTable.jsx L44~L144: 마지막 값 표시
-→ TopicDetailPanel.jsx L11~L161: 상세 표시
+→ TopicTable.jsx L46~L146: 마지막 값 표시
+→ TopicDetailPanel.jsx L11~L192: 상세 표시
 ```
 
 ## 5. 입력 데이터
@@ -122,7 +122,7 @@ ROS2 Publisher
 
 ## 6. 처리 과정
 
-Graph에 있는 Topic만 새 Subscription 후보가 된다. callback은 메시지와 수신 시각을 cache에 저장한다. Graph에서 사라진 Topic은 `resource_state.py L11~L44`의 발견 이력을 이용해 `disconnected`로 남기고 Subscription은 `topic/runtime.py L413~L450`에서 정리한다.
+Graph에 있는 Topic만 새 Subscription 후보가 된다. callback은 메시지와 수신 시각을 cache에 저장한다. Graph에서 사라진 Topic은 `resource_state.py L11~L44`의 발견 이력을 이용해 `disconnected`로 남기고 Subscription은 `topic/runtime.py L458~L495`에서 정리한다.
 
 ## 7. 출력 데이터
 
@@ -131,6 +131,9 @@ Graph에 있는 Topic만 새 Subscription 후보가 된다. callback은 메시�
 - `hz`, `received`, `message_count`
 - `supported_type`, `deep_monitoring`
 - `status`, `graph_present`, `disconnected_at`
+- `publisher_node_count`, `subscriber_node_count`
+- `publisher_endpoint_count`, `subscriber_endpoint_count`
+- 내부/외부 Subscriber Node·endpoint 수
 - Topic Alert
 
 ## 8. 다음 단계와 연결

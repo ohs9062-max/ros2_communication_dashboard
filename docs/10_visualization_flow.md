@@ -29,7 +29,7 @@ React Flow는 관계를 분석하는 도구가 아니라 Frontend가 만든 `nod
 
 ### 2) 관계 참여자를 묶는다
 
-- 파일: `utils/participants.js L1~L88`
+- 파일: `utils/participants.js L1~L90`
 - 역할: Node의 여섯 관계 배열을 리소스 이름별 Server/Client 또는 Publisher/Subscriber 목록으로 바꾼다.
 
 ### 3) 주요 항목을 고른다
@@ -82,7 +82,7 @@ Node ↔ Action      Server / Client
 | 기능 | 코드 위치 |
 |---|---|
 | API 요청과 graph state | `useVisualizationGraph.js L17~L275` |
-| 참여자 map | `participants.js L1~L88` |
+| 참여자 map | `participants.js L1~L90` |
 | graph 생성 | `graphTransform.js L18~L176` |
 | Node 중심 graph | `graphTransform.js L185~L355` |
 | filter/layout | `graphTransform.js L356~L689` |

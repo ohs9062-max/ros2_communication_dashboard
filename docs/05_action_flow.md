@@ -26,7 +26,7 @@ ROS2 Action Graph 발견
 ### 1) Graph에서 Action을 발견한다
 
 - 파일: `action/runtime.py L88~L165`
-- 역할: Action name/type과 Server/Client 수를 가져오고 이전 목록과 비교한다.
+- 역할: Action name/type과 Server/Client 관계를 가져오고 이전 목록과 비교한다.
 - 파일: `action/runtime.py L186~L284`
 - 역할: Node별 Action Server/Client 관계를 센다.
 - 출력: Graph 상태가 담긴 Action item
@@ -106,8 +106,8 @@ Result message 안의 사용자 필드 `success=false`와 ROS terminal status는
 ### 8) Monitoring과 사용자 실행 결과를 합친다
 
 - 파일: `interface_lab/execution/action_goal_runtime.py L240~L355`
-- 파일: `ros_monitor.py L206~L229`
-- 역할: 사용자 Goal history의 최신 summary를 Graph Action item에 `last_goal_summary`로 붙인다.
+- 파일: `ros_monitor.py L274~L318`
+- 역할: 활성 Node 관계를 역집계해 Server/Client Node 수를 추가하고 사용자 Goal history의 최신 summary를 Graph Action item에 `last_goal_summary`로 붙인다.
 - 출력: 서버 상태, Runtime 관찰 상태, 사용자 Goal 결과가 함께 있는 `/ros/actions` item
 
 ### 9) Action Alert를 만든다
@@ -130,8 +130,8 @@ Result message 안의 사용자 필드 `success=false`와 ROS terminal status는
 
 - 파일: `hooks/useActionDashboard.js L6~L76`
 - 파일: `components/ActionTable.jsx L41~L158`
-- 목록: 서버 상태, 마지막 Goal, Goal 전송 시각, Feedback 값, Goal 값, Feedback/Result 상태, 실행 시간을 표시한다.
-- 파일: `components/ActionDetailPanel.jsx L6~L232`
+- 목록: Server/Client Node 수, 서버 상태, 마지막 Goal, Goal 전송 시각, Feedback 값, Goal 값, Feedback/Result 상태, 실행 시간을 표시한다.
+- 파일: `components/ActionDetailPanel.jsx L6~L246`
 - 상세: Goal 상태, Feedback, Result, 실행 시간, 실패 사유와 JSON을 표시한다.
 - 파일: `components/StatusBadge.jsx L1~L125`
 - 역할: 상태를 한국어 문구와 색으로 바꾼다.

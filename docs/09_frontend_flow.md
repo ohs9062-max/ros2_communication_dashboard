@@ -64,14 +64,14 @@ FastAPI REST/WebSocket
 - Topic: `pages/TopicsPage.jsx L14~L186`
 - Service: `pages/ServicesPage.jsx L67~L227`
 - Action: `pages/ActionsPage.jsx L17~L179`
-- Node: `pages/NodesPage.jsx L16~L168`
+- Node: `pages/NodesPage.jsx L16~L169`
 - 각 Page는 API data 자체를 새로 만들기보다 표시할 목록과 선택 항목을 정한다.
 
 ### 7) Table과 Detail이 실제 필드를 표시한다
 
-- Topic: `TopicTable.jsx L44~L144`, `TopicDetailPanel.jsx L11~L161`
-- Service: `ServiceTable.jsx L33~L145`, `ServiceDetailPanel.jsx L6~L207`
-- Action: `ActionTable.jsx L41~L158`, `ActionDetailPanel.jsx L6~L232`
+- Topic: `TopicTable.jsx L46~L146`, `TopicDetailPanel.jsx L11~L192`
+- Service: `ServiceTable.jsx L33~L136`, `ServiceDetailPanel.jsx L6~L159`
+- Action: `ActionTable.jsx L41~L158`, `ActionDetailPanel.jsx L6~L246`
 
 현재 주요 표시:
 

@@ -33,14 +33,14 @@ Uvicorn 실행
 
 ### 2) Runtime 객체를 준비한다
 
-- 파일: `ros_monitor.py L30~L78`
+- 파일: `ros_monitor.py L37~L82`
 - 역할: Topic, Service, Action, Node Monitoring Runtime과 Interface Lab 실행 Runtime을 한곳에서 만든다.
 - 왜 필요한가: 기능별 책임을 나누면서도 하나의 ROS2 Node와 lock을 공유하기 위해서다.
 - 다음 흐름: `RosMonitor.start()`가 ROS2를 실제로 시작한다.
 
 ### 3) ROS2 Node와 timer를 만든다
 
-- 파일: `ros_monitor.py L80~L94`
+- 파일: `ros_monitor.py L84~L98`
 - 역할: `rclpy.init()`을 실행하고 `ros2_dashboard_topic_monitor` Node를 만든다. 설정된 주기마다 `_update_graph()`를 호출할 timer도 등록한다.
 - 입력: `MonitorConfig.poll_interval_sec`
 - 출력: 실행 중인 ROS2 Node와 timer
@@ -48,13 +48,13 @@ Uvicorn 실행
 
 ### 4) spin thread가 ROS callback을 처리한다
 
-- 파일: `ros_monitor.py L562~L572`
+- 파일: `ros_monitor.py L663~L673`
 - 역할: `rclpy.spin()`이 Subscription callback, timer callback, Action/Service future 완료를 처리한다.
 - 왜 필요한가: FastAPI 요청 처리와 ROS2 callback 처리가 서로를 오래 막지 않게 하기 위해서다.
 
 ### 5) 각 Graph Runtime을 갱신한다
 
-- 파일: `ros_monitor.py L574~L581`
+- 파일: `ros_monitor.py L675~L681`
 - 역할: Node → Topic → Service → Action 순서로 `update()`를 호출한다.
 - 중요: Service active check 자동 호출은 이 실행 경로에서 의도적으로 비활성화돼 있다. Service 생존은 Graph로 관찰하고 실제 요청은 Interface Lab 사용자가 실행한다.
 - 출력: Runtime별 최신 cache
@@ -69,7 +69,7 @@ Uvicorn 실행
 
 ### 7) WebSocket이 가벼운 통합 상태를 보낸다
 
-- 파일: `ros_monitor.py L355~L385`
+- 파일: `ros_monitor.py L456~L486`
 - 파일: `routers/monitoring.py L92~L109`
 - 역할: 1초마다 리소스 수와 Alert, Topic latest 요약을 보낸다. 상세 목록과 관계 데이터는 REST가 담당한다.
 
@@ -79,10 +79,10 @@ Uvicorn 실행
 |---|---|
 | app/lifespan/router 등록 | `main.py L20~L48` |
 | 설정과 singleton | `app_state.py L1~L10` |
-| Runtime 조립 | `ros_monitor.py L30~L78` |
-| 시작 | `ros_monitor.py L80~L94` |
-| 종료 | `ros_monitor.py L96~L120` |
-| Graph 갱신 | `ros_monitor.py L574~L581` |
+| Runtime 조립 | `ros_monitor.py L37~L82` |
+| 시작 | `ros_monitor.py L84~L98` |
+| 종료 | `ros_monitor.py L100~L124` |
+| Graph 갱신 | `ros_monitor.py L675~L681` |
 | 공통 발견 상태 | `resource_state.py L11~L44` |
 | Monitoring REST/WS | `routers/monitoring.py L16~L109` |
 
@@ -118,7 +118,7 @@ FastAPI lifespan shutdown
 ```
 
 - 파일: `main.py L20~L27`
-- 파일: `ros_monitor.py L96~L120`
+- 파일: `ros_monitor.py L100~L124`
 
 `--reload`가 발생하면 이 시작과 종료가 모두 다시 실행된다. Topic 상세 흐름은 [03_topic_flow.md](03_topic_flow.md), Service는 [04_service_flow.md](04_service_flow.md), Action은 [05_action_flow.md](05_action_flow.md)로 이어진다.
 

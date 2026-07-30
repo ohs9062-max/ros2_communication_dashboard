@@ -40,8 +40,8 @@ Frontend가 /ws/monitor 연결
 
 ### 4) snapshot을 만든다
 
-- 파일: `ros_monitor.py L355~L385`
-- 파일: `ros_monitor.py L464~L560`
+- 파일: `ros_monitor.py L456~L486`
+- 파일: `ros_monitor.py L565~L661`
 - 포함 데이터:
   - Topic 수와 상태 요약, 수신한 Topic의 latest preview/시각
   - Service 수와 callable/최근 Call 수
@@ -99,7 +99,7 @@ data.alerts
 → connected
 ```
 
-Backend startup/shutdown 위치는 `main.py L20~L27`, `ros_monitor.py L80~L120`이다. 전체 Frontend 흐름은 [09_frontend_flow.md](09_frontend_flow.md)로 이어진다.
+Backend startup/shutdown 위치는 `main.py L20~L27`, `ros_monitor.py L84~L124`이다. 전체 Frontend 흐름은 [09_frontend_flow.md](09_frontend_flow.md)로 이어진다.
 
 ## 9. 핵심 요약
 

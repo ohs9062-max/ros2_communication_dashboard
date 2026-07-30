@@ -21,7 +21,7 @@ ROS2 Graph에서 Node 발견
 ### 1) Node 목록을 가져온다
 
 - 파일: `node/runtime.py L72~L161`
-- 역할: `get_node_names_and_namespaces()`로 현재 Node를 가져오고 내부 monitor Node를 제외한다.
+- 역할: `get_node_names_and_namespaces()`로 현재 Node를 가져온다. 내부 monitor Node도 Backend 관계 집계에는 포함하고 Frontend 주요 항목에서 숨길 수 있다.
 - 입력: Node name과 namespace
 - 다음 흐름: 각 Node의 통신 관계를 조회한다.
 
@@ -66,7 +66,7 @@ ROS2 Graph에서 Node 발견
 
 - 파일: `routers/monitoring.py L73~L83`
 - 파일: `hooks/useNodeDashboard.js L5~L68`
-- 파일: `pages/NodesPage.jsx L16~L168`
+- 파일: `pages/NodesPage.jsx L16~L169`
 - 역할: `/ros/nodes`를 3초마다 읽고 목록, 필터, 상세에 전달한다.
 
 ### 7) 주요 Node를 판정한다
@@ -85,7 +85,7 @@ ROS2 Graph에서 Node 발견
 
 ### 8) Visualization 연결선으로 바꾼다
 
-- 파일: `utils/participants.js L1~L88`
+- 파일: `utils/participants.js L1~L90`
 - 파일: `utils/graphTransform.js L18~L176`
 - 역할: Node 관계 배열을 화면용 node와 edge로 바꾼다.
 - 다음 흐름: `VisualizationPage.jsx`가 React Flow로 그린다.
@@ -111,6 +111,8 @@ ROS2 Graph에서 Node 발견
 ## 6. 처리 과정
 
 Backend는 현재 관계를 하나의 Node item으로 만들고 이전 item과 비교한다. Frontend는 이 관계 타입을 주요 리소스 타입과 비교한다.
+
+통신 탭은 같은 관계를 리소스 방향으로 역집계해 연결된 고유 Node 수를 표시한다. 공통 키는 `(역할, 리소스 전체 이름, full_type)`이고 값은 활성 Node 전체 이름의 집합이다. 구현은 `topology.py L19~L54`, snapshot 병합은 `ros_monitor.py L126~L232`, `L274~L318`이다.
 
 ## 7. 출력 데이터
 

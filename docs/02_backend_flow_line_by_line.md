@@ -23,19 +23,19 @@ main.py lifespan
    - 시작할 때 `ros_monitor.start()`, 종료할 때 `stop()`을 호출한다.
 2. 설정과 singleton: `app_state.py L1~L10`
    - 설정을 한 번 읽고 공유 RosMonitor를 만든다.
-3. Runtime 조립: `ros_monitor.py L30~L78`
+3. Runtime 조립: `ros_monitor.py L37~L82`
    - Topic, Service, Action, Node와 Interface Lab Runtime을 만든다.
-4. ROS2 시작: `ros_monitor.py L80~L94`
+4. ROS2 시작: `ros_monitor.py L84~L98`
    - `rclpy.init()`, Node, timer, 첫 갱신, spin thread 순서다.
-5. ROS callback loop: `ros_monitor.py L562~L572`
+5. ROS callback loop: `ros_monitor.py L663~L673`
    - `rclpy.spin()`이 callback을 실행한다.
-6. Graph 갱신: `ros_monitor.py L574~L581`
+6. Graph 갱신: `ros_monitor.py L675~L681`
    - 네 Monitoring Runtime의 `update()`를 호출한다.
 7. REST 연결: `routers/monitoring.py L16~L89`
    - snapshot을 JSON으로 반환한다.
 8. WebSocket 연결: `routers/monitoring.py L92~L109`
    - 1초마다 `websocket_snapshot()`을 전송한다.
-9. 종료: `ros_monitor.py L96~L120`
+9. 종료: `ros_monitor.py L100~L124`
    - shutdown, join, destroy, cache clear 순서다.
 
 ## 4. 입력·처리·출력
@@ -47,4 +47,4 @@ main.py lifespan
 
 ## 5. 핵심 요약
 
-코드를 처음 읽을 때는 `main.py L20~L30`에서 시작해 `ros_monitor.py L80~L120`, `L562~L581`, 마지막으로 `routers/monitoring.py L16~L109` 순서로 읽으면 된다.
+코드를 처음 읽을 때는 `main.py L20~L30`에서 시작해 `ros_monitor.py L84~L124`, `L663~L681`, 마지막으로 `routers/monitoring.py L16~L109` 순서로 읽으면 된다.
