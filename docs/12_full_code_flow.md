@@ -2,13 +2,6 @@
 
 이 문서는 2026-07-27의 실제 코드 기준으로, 브라우저 요청이 ROS2 통신을 거쳐 다시 화면에 표시될 때까지를 추적한다. `Runtime`은 특정 기능의 실제 동작을 담당하는 객체, `Cache`는 최신 결과를 Backend 메모리에 보관한 값, `Snapshot`은 특정 시점의 상태 묶음이다.
 
-> 기준과 한계
->
-> - 저장소 루트에는 `README.md`가 없다. `frontend/README.md`는 Vite 기본 문서이므로 설계 근거로 사용하지 않았다.
-> - Settings 화면과 route는 현재 없다. 구현된 화면은 Overview, Topics, Services, Actions, Nodes, Visualization, Alerts, Interface Lab이다.
-> - Service background active check 코드는 호환 목적으로 남아 있지만 주기 실행 경로에서는 호출되지 않는다.
-> - 아래 라인은 현재 파일 기준 기능 단위 범위다. 코드가 바뀌면 다시 확인해야 한다.
-
 ## 1. 프로젝트 전체 실행 구조
 
 ### 1.1 큰 흐름
@@ -706,6 +699,36 @@ stale 재현은 `demo_cleaning_schedule.py`를 실행해 수신을 확인한 뒤
 13. active Alert만 현재 severity 집계에 들어간다.
 14. resolved는 60초, history는 최대 50개다.
 15. REST는 상세, WebSocket은 경량 snapshot과 연결 상태다.
+
+## Qos
+**Reliability** = 메시지를 반드시 전달할지 정하는 정책 = 센서 Topic 자동 감시는 일부 손실을 허용해 BEST_EFFORT, 일반/custom Topic·Interface Lab·Action 관찰은 전달 보장을 위해 RELIABLE을 사용합니다.
+
+**Durability** = 늦게 들어온 구독자가 과거 메시지를 받을지 정하는 정책 = 현재 모든 명시적 Topic QoS는 과거 메시지를 보관하지 않는 VOLATILE을 사용합니다.
+
+**History** = 메시지를 어떤 방식으로 보관할지 정하는 정책 = 현재 모두 최근 메시지만 저장하는 KEEP_LAST를 사용합니다.
+
+**Depth** = KEEP_LAST일 때 최근 메시지를 몇 개 보관할지 정하는 값 = 센서 Topic 자동 감시는 5개, 일반/custom Topic·Interface Lab·Action 관찰은 10개를 보관합니다.
+
+**Sensor Data QoS** = 손실보다 최신성이 중요한 센서 통신용 QoS = LaserScan·Imu·JointState·Odometry 자동 감시에 BEST_EFFORT + VOLATILE + KEEP_LAST 5를 적용합니다.
+
+**기본 Depth 10 QoS** = 일반 메시지를 안정적으로 전달하기 위한 기본 QoS = 일반/custom Topic과 Action status·feedback 관찰에 RELIABLE + VOLATILE + KEEP_LAST 10을 적용합니다.
+
+**Interface Lab QoS** = 사용자가 직접 Publish·Receive할 때 적용되는 QoS = 현재 타입과 관계없이 정수 10을 전달하므로 RELIABLE + VOLATILE + KEEP_LAST 10으로 생성됩니다.
+
+**Service QoS** = 요청과 응답을 안정적으로 전달하기 위한 Service 기본 정책 = 별도 설정 없이 rclpy 기본 Service QoS를 사용하며 일반적으로 RELIABLE + VOLATILE + KEEP_LAST 10입니다.
+
+**Action QoS** = Goal·Result·Cancel Service와 Feedback·Status Topic에 적용되는 정책 = ActionClient는 rclpy 기본값을 사용하고, 대시보드의 status·feedback 관찰 구독은 RELIABLE + VOLATILE + KEEP_LAST 10을 사용합니다.
+
+**Deadline** = 정해진 시간 안에 메시지가 계속 도착해야 하는지 정하는 정책 = 현재 코드에서는 직접 설정하지 않습니다.
+
+**Lifespan** = 발행된 메시지가 얼마 동안 유효한지 정하는 정책 = 현재 코드에서는 직접 설정하지 않습니다.
+
+**Liveliness** = 발행자가 살아 있음을 어떤 방식으로 확인할지 정하는 정책 = 현재 코드에서는 수동 설정하지 않고 기본값을 사용합니다.
+
+**TRANSIENT_LOCAL** = 늦게 들어온 구독자에게 이전 메시지를 전달하는 Durability 정책 = 현재 코드에서는 사용하지 않습니다.
+
+**KEEP_ALL** = 수신한 메시지를 제한 없이 보관하는 History 정책 = 현재 코드에서는 사용하지 않습니다.
+
 
 ## 코드 작업에서 내가 알아야 할 것 3줄 요약
 
