@@ -29,6 +29,18 @@ get_topic_names_and_types()
 → Topic 화면
 ```
 
+1. **Topic 발견:** `get_topic_names_and_types()`로 현재 Graph의 Topic 이름과 Message 타입을 가져온다.
+
+2. **감시 대상 판정:** include·exclude 설정을 적용하고 지원 타입 또는 등록 타입인지 확인한다.
+
+3. **endpoint와 자동 구독:** Publisher·Subscriber 수를 읽고 상세 감시 가능한 타입에는 Dashboard subscription을 생성한다.
+
+4. **Topic Cache:** 상태와 endpoint 수를 저장하고 이전에 있었지만 사라진 Topic은 `disconnected`로 보존한다.
+
+5. **Node 관계 병합:** Node Cache에서 Publisher·Subscriber Node를 찾아 Dashboard 내부 Node를 제외한 수를 추가한다.
+
+6. **API와 화면:** `GET /ros/topics`가 snapshot을 반환하고 Frontend가 주요·전체·검색 필터를 적용한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
 | 1 | `topic/runtime.py` `update()` | `topic/runtime.py` L125-L230 | `topic/runtime.py` L127-L151 | Graph에서 Topic 이름·타입을 읽고 이름·prefix·타입 제외 설정을 적용한다. |
@@ -53,6 +65,14 @@ get_topic_names_and_types()
 → /ros/topics/hz
 ```
 
+1. **메시지 수신:** 자동 감시 callback이 최신 값과 현재 수신 시각을 저장한다.
+
+2. **timestamp 관리:** 수신 시각을 추가하고 Hz 계산 창보다 오래된 timestamp는 제거한다.
+
+3. **Hz와 stale:** 계산 창의 메시지 수를 창 길이로 나누고 마지막 수신 경과 시간으로 stale을 판단한다.
+
+4. **Hz API:** Hz, 메시지 수, 마지막 수신 시각과 상태를 `/ros/topics/hz`로 반환한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 실제 핵심 L | 의미 |
 |---:|---|---:|---:|---|
 | 1 | `topic/runtime.py` `_latest_message_callback()` | `topic/runtime.py` L506-L522 | `topic/runtime.py` L507-L520 | 메시지 변환 후 수신 시각과 preview 저장 |
@@ -65,6 +85,16 @@ get_topic_names_and_types()
 현재 기본 5초 창에서 첫 메시지는 `1 ÷ 5 = 0.2 Hz`다. 이는 “마지막 1초 동안 받은 개수”가 아니라 “설정된 5초 창에 남은 개수를 5로 나눈 값”이다.
 
 ## Dashboard 내부 통신 집계 제외
+
+1. **전체 endpoint:** Graph에서 해당 Topic의 전체 Subscriber endpoint 수를 읽는다.
+
+2. **내부 endpoint:** Node 이름과 namespace를 비교해 Dashboard가 만든 감시·Lab 구독 endpoint를 찾는다.
+
+3. **외부 통신 계산:** 전체 Subscriber 수에서 내부 endpoint 수를 빼 Topic 상태 판단에 사용한다.
+
+4. **고유 Node 수:** Node 관계 Cache에서는 Dashboard 내부 Node를 제거한 뒤 Publisher·Subscriber Node 수를 계산한다.
+
+5. **목적별 표시:** 제외한 내부 통신은 `자동 감시`, `Lab 수신`, `Lab 발행` 배지로 따로 표시한다.
 
 | 단계 | 함수 전체 L | 핵심 L | 의미 |
 |---:|---:|---:|---|
@@ -81,6 +111,12 @@ Dashboard에는 자동 상태 감시와 Interface Lab 사용자 실행이라는 
 예를 들어 외부 Subscriber 없이 같은 Dashboard Node가 자동 감시와 Interface Lab Receive로 두 번 구독하면 화면의 `Subscriber Node 수 (Dashboard 제외)`는 `0`이고 `Dashboard 통신`에는 `자동 감시 · Lab 수신`이 표시된다. 이는 구독 endpoint가 전혀 없다는 뜻이 아니라 해당 Topic을 받는 다른 ROS2 Node가 없다는 뜻이다. API의 `subscriber_endpoint_count`는 Dashboard를 포함한 Graph 원본값을 유지한다.
 
 ## 주요/전체 필터
+
+1. **주요 후보:** 지원·등록 타입, 실제 수신, Hz, active 상태처럼 감시 근거가 있는 Topic을 고른다.
+
+2. **내부 Topic 제외:** ROS 관리 Topic과 Action 내부 status·feedback Topic은 주요 목록에서 제외한다.
+
+3. **범위와 상태 적용:** 전체·숨김 포함 선택으로 시작 집합을 넓힌 뒤 검색과 대기·오류 조건을 적용한다.
 
 - 주요: 내부 Topic이 아니면서 지원·등록 타입, active/수신/Hz/상세 감시 등 실제 감시 근거가 하나 이상 있는 Topic.
 - 전체: Backend가 반환한 모든 Topic.

@@ -27,6 +27,16 @@ Topic/Service/Action/Node 상태
 → GET /ros/alerts
 ```
 
+1. **현재 상태 읽기:** Topic, Service, Action, Node snapshot과 최근 사용자 실행 결과를 읽는다.
+
+2. **후보 생성:** 각 source의 Alert builder가 자신의 장애 조건에 맞는 현재 후보를 만든다.
+
+3. **후보 통합:** `RosMonitor.alerts()`가 source별 후보를 하나의 목록으로 합친다.
+
+4. **생명주기 처리:** 이전 active Alert와 비교해 계속 발생 중인지, 해결됐는지, 재발했는지 갱신한다.
+
+5. **API와 화면:** 심각도 meta와 해결 history를 반환하고 화면은 현재 Alert와 이전 Alert로 나눠 표시한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
 | 1 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L674 | `ros_monitor.py` L609-L640 | 숨김 Service 포함 snapshot과 각 source Alert 조립 |
@@ -42,6 +52,16 @@ Topic/Service/Action/Node 상태
 
 ## Topic Alert
 
+1. **대상 판정:** 필수 stream 또는 등록 Interface 타입을 사용하는 Topic인지 확인한다.
+
+2. **명령 Topic 제외:** 필요할 때만 발행되는 command Topic은 missing·stale 검사에서 제외한다.
+
+3. **Graph 연결 확인:** 이전에 발견된 Topic이 사라졌으면 `disconnected` 후보를 만든다.
+
+4. **수신 시간 확인:** 첫 메시지가 없거나 마지막 수신이 제한 시간을 넘었는지 검사한다.
+
+5. **대기 확인:** 외부 Subscriber는 있지만 Publisher가 없으면 `waiting_publisher` 상태를 만든다.
+
 | 판단 | 함수 전체 L | 실제 핵심 L |
 |---|---:|---:|
 | 전체 Topic 후보 조립 | `topic/alerts.py` `build_alerts()` L27-L57 | `topic/alerts.py` L37-L55 |
@@ -54,6 +74,14 @@ Topic/Service/Action/Node 상태
 `required_stream_names`와 등록 Interface 타입만 기본 missing/stale 대상이며, `command_names`는 먼저 제외한다.
 
 ## Service·Action·Node Alert
+
+1. **Service:** 등록 Service 연결 종료와 최근 사용자 Call timeout을 Alert 후보로 만든다.
+
+2. **Action:** 연결 종료, Goal 중단·취소, 전송·Result 오류를 Alert 후보로 만든다.
+
+3. **Node:** 이전에 발견됐지만 현재 Graph에서 사라진 Node를 연결 종료 Alert로 만든다.
+
+4. **공통 처리:** 세 source의 후보도 Topic Alert와 함께 공통 lifecycle 처리로 전달한다.
 
 | Source | Builder 전체 L | 핵심 L | 근거 |
 |---|---:|---:|---|

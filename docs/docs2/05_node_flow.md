@@ -25,6 +25,18 @@ get_node_names_and_namespaces()
 → GET /ros/nodes
 ```
 
+1. **Node 목록 발견:** `get_node_names_and_namespaces()`로 현재 Graph의 Node 이름과 namespace를 가져온다.
+
+2. **Node별 역할 조회:** 각 Node가 발행·구독하는 Topic과 Service·Action의 Server·Client 역할을 조회한다.
+
+3. **관계 배열 생성:** 조회 결과를 Node별 Publisher, Subscriber, Service, Action 연결 목록으로 정리한다.
+
+4. **Node Cache:** 정리한 Node와 관계를 Cache에 저장해 API 요청마다 Graph를 다시 조사하지 않게 한다.
+
+5. **사라진 Node 보존:** 이전 Cache에는 있지만 현재 Graph에서 보이지 않는 Node를 `disconnected`로 남긴다.
+
+6. **Node API:** `/ros/nodes`가 현재 Node와 `disconnected` Node를 포함한 최신 Cache를 반환한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
 | 1 | `node/runtime.py` `update()` | `node/runtime.py` L72-L159 | `node/runtime.py` L78-L90 | Node 목록과 include/exclude 적용 |
@@ -51,6 +63,16 @@ Node Cache
 → Topic/Service/Action API의 Node 수
 ```
 
+1. **활성 관계 읽기:** Node Cache에서 현재 Graph에 존재하는 Node의 여섯 통신 관계를 읽는다.
+
+2. **역할별 인덱스:** 역할, 리소스 이름, exact 타입을 key로 연결된 Node 이름을 고유 집합에 넣는다.
+
+3. **리소스별 조회:** Topic·Service·Action snapshot이 필요한 역할과 이름·타입으로 인덱스를 조회한다.
+
+4. **내부 Node 제외:** 기본 Node 수와 목록에서는 Dashboard 자체 Node를 제거한다.
+
+5. **리소스 탭 반영:** 남은 목록 길이를 Publisher, Subscriber, Server, Client Node 수로 표시한다.
+
 | 파일·함수 | 함수 전체 L | 핵심 L | 의미 |
 |---|---:|---:|---|
 | `topology.py` `build_role_node_index()` | `topology.py` L19-L39 | `topology.py` L24-L38 | 활성 Node의 여섯 관계 배열을 고유 Node 집합으로 변환 |
@@ -60,6 +82,14 @@ Node Cache
 따라서 리소스 탭과 Node 탭은 같은 관계 데이터를 반대 방향에서 보여준다. 단, Topic·Service·Action 탭은 `ros_monitor.py` `_without_internal_node()` L797-L802로 Dashboard 내부 Node를 제외한 수와 목록을 기본값으로 사용하고 `Dashboard 통신` 배지로 내부 목적을 별도 표시한다. Node 탭은 내부 Node에 `is_internal`을 표시한 뒤 화면 필터 정책에 따라 숨기거나 보여준다.
 
 ## 주요/전체/숨김 필터
+
+1. **주요 Node:** 등록·지원 Topic, Service, Action 타입과 관계가 있거나 연결 종료가 감지된 Node를 고른다.
+
+2. **보조 Node 제외:** transform listener, launch helper, Action Client 보조 Node와 Dashboard 내부 Node를 제외한다.
+
+3. **전체 범위:** 전체는 Dashboard 내부 Node와 `ros2cli_daemon`을 제외한 나머지 Node를 표시한다.
+
+4. **숨김 포함:** 숨김 포함은 Dashboard 내부 Node까지 확인하도록 범위를 넓힌다.
 
 - 주요: 숨김 대상이 아니고, 등록·지원 Topic/Service/Action 타입 관계가 있거나 disconnected인 Node.
 - 전체: Dashboard 내부 Node와 `ros2cli_daemon`을 제외한 모든 Node.

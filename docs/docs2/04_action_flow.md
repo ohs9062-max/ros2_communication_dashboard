@@ -27,6 +27,18 @@ get_action_names_and_types()
 → GET /ros/actions
 ```
 
+1. **Action 발견:** Action Graph API로 현재 존재하는 Action 이름과 전체 타입을 가져온다.
+
+2. **Server·Client 관계:** 각 Node의 Action 역할을 조회해 Action별 Server·Client 수를 만든다.
+
+3. **관찰 준비:** 설정과 타입이 허용되면 내부 status와 feedback Topic subscription을 생성한다.
+
+4. **관찰 Cache:** status와 feedback이 들어오면 Goal 상태, 최근 Feedback과 실행 시간을 갱신한다.
+
+5. **결과 병합:** Dashboard 제외 Node 수와 최근 Interface Lab Goal 결과를 Action snapshot에 추가한다.
+
+6. **API와 화면:** `/ros/actions`가 목록을 반환하고 Frontend가 주요·전체·Goal 상태 필터를 적용한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
 | 1 | `action/runtime.py` `update()` | `action/runtime.py` L88-L164 | `action/runtime.py` L94-L134 | Graph, 필터, 관계 수, 관찰 capability, Action item 생성 |
@@ -43,6 +55,18 @@ get_action_names_and_types()
 
 ## 사용자 Goal 실행
 
+1. **사용자 실행:** Interface Lab에서 Action과 Goal 값을 선택하고 실행 버튼을 누른다.
+
+2. **조건 검사:** 등록·import 가능한 exact 타입이며 같은 이름·타입의 Action Server가 있는지 확인한다.
+
+3. **Goal 전송:** 입력 JSON을 generated Goal 객체로 변환하고 `send_goal_async()`로 전송한다.
+
+4. **수락과 Feedback:** Goal 수락 여부를 기다리고 실행 중 들어오는 Feedback을 저장한다.
+
+5. **Result 대기:** 수락된 Goal의 Result를 기다려 성공·취소·중단 상태와 결과 값을 기록한다.
+
+6. **History 반환:** Goal, Feedback, Result, 경과 시간과 오류를 history에 저장한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 실제 핵심 L | 의미 |
 |---:|---|---:|---:|---|
 | 1 | `action_execution.py` `send_registered_action_goal()` | `action_execution.py` L27-L72 | `action_execution.py` L29-L53 | JSON과 Action name/type/goal 검사 |
@@ -58,6 +82,12 @@ get_action_names_and_types()
 Dashboard의 일반 Action Runtime은 관찰 경로이고, `ActionGoalRuntime`은 사용자 실행 경로다. 일반 목록을 열었다는 이유만으로 Goal을 보내지 않는다.
 
 ## 주요/전체 필터
+
+1. **주요 Action:** 등록 타입이거나 Goal·Feedback·Result 관찰 흔적이 있는 Action을 고른다.
+
+2. **전체 범위:** 전체 또는 대기 Action 포함을 선택하면 Graph에서 발견한 모든 Action으로 넓힌다.
+
+3. **Goal 상태와 검색:** 실행 중, 성공, 실패·취소, 미관찰 조건과 이름 검색을 적용한다.
 
 - 주요: 등록된 Action 타입이거나 Goal·Feedback·Result 관찰 흔적이 있는 Action.
 - 전체: Backend가 발견한 모든 Action.

@@ -31,6 +31,18 @@ Interface Lab은 타입이나 패키지를 Registry에 등록하고 필요하면
 → 실행 후보
 ```
 
+1. **Interface 등록:** 설치된 타입을 등록하거나 `.msg`, `.srv`, `.action`, 완성된 package를 업로드한다.
+
+2. **파일과 Registry 저장:** 등록 방식에 따라 source 파일과 타입·schema·build 상태를 기록한다.
+
+3. **변경 대기 표시:** build가 필요하면 `rebuild_required`와 `build_required`를 설정한다.
+
+4. **Apply와 import 검사:** package를 build하고 generated Python 타입을 Backend가 import할 수 있는지 확인한다.
+
+5. **Graph exact match:** 등록·import 가능한 타입과 현재 Graph 타입이 정확히 같은 실행 후보를 찾는다.
+
+6. **사용자 입력 준비:** Topic schema 또는 Service Request·Action Goal 입력 화면을 만든다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
 | 1 | `interface_management.py` `upload_ros_interface()` | `interface_management.py` L41-L85 | `interface_management.py` L43-L75 | 단일 파일 추출·검증·등록 호출 |
@@ -49,6 +61,18 @@ Registry 등록은 즉시 모든 타입이 사용 가능하다는 뜻이 아니�
 
 ## Apply
 
+1. **중복 실행 차단:** Apply lock으로 같은 workspace의 동시 build를 막는다.
+
+2. **등록 상태 점검:** Registry와 업로드 package가 build 가능한 상태인지 검사한다.
+
+3. **Package 충돌 검사:** 중복 package나 source 문제를 확인하고 안전하지 않으면 build 전에 중단한다.
+
+4. **colcon build:** Backend workspace에서 build를 실행하고 결과 log를 저장한다.
+
+5. **import 재검사:** install Python 경로를 반영하고 등록된 generated 타입을 다시 import한다.
+
+6. **최종 상태 저장:** 성공·실패, import 가능 여부와 남은 rebuild 상태를 저장한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 실제 핵심 L | 의미 |
 |---:|---|---:|---:|---|
 | 1 | `interface_apply.py` `apply_ros_interfaces()` | `interface_apply.py` L26-L68 | `interface_apply.py` L28-L36 | Apply 실행과 중복 실행/오류 처리 |
@@ -63,6 +87,18 @@ Apply는 Backend 프로세스를 직접 kill하지 않는다. 성공하면 reloa
 
 ## Topic Publish와 Receive
 
+1. **등록 타입 선택:** Registry에 등록되고 Python import 가능한 Message 타입과 schema를 불러온다.
+
+2. **Publish:** Topic 이름·타입 충돌과 입력값을 검사한 뒤 Publisher를 만들고 메시지를 발행한다.
+
+3. **Receive 시작:** 사용자가 수신 시작을 누르면 선택한 이름과 타입으로 subscription을 생성한다.
+
+4. **수신 이력:** 메시지를 JSON-safe 값으로 변환해 최근 수신 시각과 history에 저장한다.
+
+5. **Receive 중지:** 사용자가 중지를 누르면 subscription을 제거한다.
+
+6. **Dashboard 통신 표시:** 생성한 통신은 일반 Node 수에서 제외하고 `Lab 발행`, `Lab 수신` 배지로 표시한다.
+
 | 동작 | Router 전체/핵심 L | Runtime 전체 L | Runtime 핵심 L |
 |---|---|---:|---:|
 | Publish | `topic_execution.py` L41-L83 / `topic_execution.py` L43-L76 | `topic_runtime.py` `publish_topic()` L290-L406 | `topic_runtime.py` L298-L348 Graph·충돌 검사, `topic_runtime.py` L349-L387 변환·publish, `topic_runtime.py` L388-L406 오류/history |
@@ -72,6 +108,16 @@ Apply는 Backend 프로세스를 직접 kill하지 않는다. 성공하면 reloa
 일반 Topic Runtime 자동 감시와 Interface Lab Receive는 목적이 다르다. `topic_runtime.py` `dashboard_state_by_topic()` L205-L220이 Receive subscription과 Publisher cache를 목적별로 반환하므로 Topic 메인 목록은 `자동 감시`, `Lab 수신`, `Lab 발행`을 구분해 표시한다. Node 수·목록에서는 Dashboard Node를 제외하고 실행 history와 Graph 원본 endpoint 수는 유지한다.
 
 ## Service Call과 Action Goal
+
+1. **실행 후보 선택:** 등록·import 가능하고 Graph에 exact 타입 Server가 있는 Service 또는 Action을 고른다.
+
+2. **입력값 작성:** Service Request나 Action Goal schema에 맞춰 전송 값을 입력한다.
+
+3. **명시적 실행:** 실행 버튼을 눌렀을 때만 Dashboard Client를 생성해 Call 또는 Goal을 전송한다.
+
+4. **응답 관찰:** Service Response 또는 Action Feedback·Result를 기다리고 timeout과 오류를 구분한다.
+
+5. **History 반영:** 요청값, 응답값, 상태와 경과 시간을 저장해 Interface Lab과 통신 탭에 반영한다.
 
 세부 실행은 각각 [Service 문서](03_service_flow.md#사용자-service-call)와 [Action 문서](04_action_flow.md#사용자-goal-실행)를 먼저 본다.
 

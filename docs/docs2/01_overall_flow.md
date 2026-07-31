@@ -17,6 +17,16 @@ ROS2 장비
 
 ## 전체 왕복 9단계
 
+1. **Backend 시작:** FastAPI와 `RosMonitor`가 함께 시작되어 ROS2 Graph를 읽을 준비를 한다.
+
+2. **Graph와 통신 관찰:** Timer가 Node·Topic·Service·Action Cache를 갱신하고, subscription callback은 실제 메시지와 Action 상태를 반영한다.
+
+3. **API용 정보 병합:** `RosMonitor`가 Runtime Cache에 Node 관계, Dashboard 통신, 등록 타입과 사용자 실행 결과를 합친다.
+
+4. **REST API 반환:** FastAPI Router가 병합된 snapshot을 기능별 JSON 응답으로 반환한다.
+
+5. **화면 표시:** React Hook이 API를 반복 요청하고 각 Page가 주요·전체·상태 필터를 적용한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
 | 1 | `main.py` `lifespan()` | `main.py` L21-L27 | `main.py` L22-L27 | FastAPI 시작과 종료를 `RosMonitor.start()`·`stop()`에 연결한다. |
@@ -33,6 +43,12 @@ ROS2 장비
 
 ## 프로그램 시작
 
+1. **lifespan 연결:** 서버 시작과 종료 시점에 `RosMonitor.start()`와 `stop()`을 호출한다.
+
+2. **Monitor Node와 Timer 생성:** Graph를 조회할 rclpy Node를 만들고 주기 갱신 Timer와 최초 update를 실행한다.
+
+3. **Spin thread 실행:** 별도 thread에서 ROS2 spin을 실행해 메시지와 feedback callback이 계속 처리되도록 한다.
+
 | 순서 | 파일·함수 | 함수 전체 L | 핵심 L | 핵심 줄에서 하는 일 |
 |---:|---|---:|---:|---|
 | 1 | `main.py` `lifespan()` | `main.py` L21-L27 | `main.py` L22-L27 | FastAPI 시작 때 `ros_monitor.start()`, 종료 때 `stop()` |
@@ -43,6 +59,12 @@ ROS2 장비
 `timer`는 정해진 간격으로 Graph 목록을 다시 읽는 시계이고, `spin`은 실제 메시지·feedback 같은 통신 callback을 처리하는 반복 실행기다.
 
 ## 목록 API 공통 흐름
+
+1. **Runtime Cache 읽기:** 각 기능 Runtime이 이미 수집한 최신 snapshot을 읽는다.
+
+2. **공통 관계와 실행 상태 추가:** Node 관계를 역집계하고 Dashboard 내부 통신, Registry 판정과 최근 실행 결과를 합친다.
+
+3. **Router 응답:** 각 `/ros/*` Router가 병합 결과를 기존 API 형식으로 반환한다.
 
 | 화면 | Router 전체 L | Router 핵심 L | RosMonitor 전체 L | RosMonitor 핵심 L |
 |---|---:|---:|---:|---:|
@@ -63,6 +85,12 @@ Router JSON
 → Page의 주요/전체 필터
 → Table과 상세 Panel
 ```
+
+1. **API 호출:** `rosApi.js`가 Backend endpoint를 호출해 JSON을 받는다.
+
+2. **Polling과 state 갱신:** Dashboard Hook이 주기적으로 다시 요청해 React state를 최신 상태로 유지한다.
+
+3. **필터와 렌더링:** Page가 주요·전체·검색 조건을 적용하고 Table과 상세 Panel에 결과를 전달한다.
 
 | 기능 | API 함수 전체/핵심 L | Hook 전체 L | Page에서 먼저 볼 핵심 L |
 |---|---|---:|---:|

@@ -25,6 +25,18 @@ get_service_names_and_types()
 → GET /ros/services
 ```
 
+1. **Service 발견:** Graph에서 현재 존재하는 Service 이름과 전체 타입을 가져온다.
+
+2. **상태 계산:** 각 Service의 Server·Client endpoint 수로 active, waiting, inactive 상태를 만든다.
+
+3. **Service Cache:** 분류와 상태를 저장하고 이전에 보였지만 사라진 Service는 `disconnected`로 남긴다.
+
+4. **Topology 역집계:** Node Cache에서 Server·Client Node를 찾아 Dashboard 내부 Node를 제외한다.
+
+5. **실행 상태 병합:** Registry exact type, 최근 Call 결과와 Interface Lab Client 상태를 추가한다.
+
+6. **API와 화면:** `/ros/services`가 목록을 반환하고 Frontend가 주요·전체·내부/관리 필터를 적용한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
 | 1 | `service/runtime.py` `update()` | `service/runtime.py` L90-L152 | `service/runtime.py` L96-L112 | Graph에서 Service 이름·타입을 읽고 include/exclude 설정을 적용한다. |
@@ -53,6 +65,16 @@ get_service_names_and_types()
 → history 저장
 ```
 
+1. **사용자 실행:** Interface Lab에서 Service와 request 값을 선택하고 실행 버튼을 누른다.
+
+2. **조건 검사:** 등록·import 가능한 exact 타입이며 같은 이름·타입의 Graph Server가 있는지 확인한다.
+
+3. **Request 변환:** 입력 JSON을 generated Service Request 객체로 변환하고 필드 타입을 검증한다.
+
+4. **Call 전송:** Dashboard Client가 `call_async()`로 요청을 보내고 응답 또는 timeout을 기다린다.
+
+5. **결과 저장:** 응답, 성공 여부, 경과 시간과 오류를 history에 저장한다.
+
 | 단계 | 파일·함수 | 함수 전체 L | 실제 핵심 L | 의미 |
 |---:|---|---:|---:|---|
 | 1 | `routers/service_execution.py` `call_registered_service()` | `routers/service_execution.py` L27-L64 | `routers/service_execution.py` L29-L45 | JSON과 name/type/request 입력 검사 |
@@ -67,11 +89,25 @@ get_service_names_and_types()
 
 ## active check와 사용자 Call
 
+1. **Graph 관찰:** Service 생존 상태는 자동 요청이 아니라 Server의 Graph 존재 여부로 확인한다.
+
+2. **자동 Call 비활성화:** 장비 동작이나 상태 변경을 피하기 위해 일반 Service를 주기적으로 호출하지 않는다.
+
+3. **명시적 Call:** 실제 request/response 확인은 사용자가 Interface Lab에서 실행한 경우에만 수행한다.
+
 - `ServiceActiveCheckRuntime` 클래스는 남아 있지만 `ros_monitor.py`의 `RosMonitor._update_graph()` L787-L793에서 호출하지 않는다.
 - 따라서 Graph에 보이는 Service를 Backend가 자동 호출하지 않는다.
 - 실제 요청은 위의 Interface Lab 사용자 Call 경로에서만 발생한다.
 
 ## 주요/전체/내부 필터
+
+1. **주요 Service:** 등록 타입, 대기·오류 상태 또는 일반 사용자 Service를 주요 후보로 고른다.
+
+2. **전체 Service:** 기본 숨김 대상이 아닌 Service 전체로 범위를 넓힌다.
+
+3. **내부·관리 포함:** Parameter, Action 내부, ROS 관리 Service까지 다시 요청해 표시한다.
+
+4. **검색·상태 적용:** 선택한 범위에 이름 검색과 대기·오류 조건을 적용한다.
 
 - 주요: 내부·관리 Service가 아니면서 등록 타입, 대기/오류, 또는 숨김 아닌 사용자 Service.
 - 전체: 내부·Parameter·Action 내부·관리 Service를 제외한 목록.
