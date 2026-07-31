@@ -59,11 +59,11 @@ export function ServiceDetailPanel({ participants, service }) {
 
       <DetailSection collapsible title="연결 정보">
         <DetailLine
-          label="Server Node 수"
+          label="Server Node 수 (Dashboard 제외)"
           value={service.server_node_count ?? service.server_count ?? 0}
         />
         <DetailLine
-          label="Client Node 수"
+          label="Client Node 수 (Dashboard 제외)"
           value={service.client_node_count ?? service.client_count ?? 0}
         />
         <DetailLine

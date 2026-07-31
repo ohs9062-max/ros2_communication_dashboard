@@ -59,8 +59,8 @@ export function ServiceTable({
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="category" label="분류" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="server_count" label="Server Node 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="client_count" label="Client Node 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="server_count" label="Server Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" label="Client Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="callable" label="호출 가능" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_call" label="마지막 호출" onSort={onSort} sort={sort} />
             <th>마지막 요청</th>

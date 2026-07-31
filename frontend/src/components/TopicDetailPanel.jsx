@@ -57,11 +57,11 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
 
       <DetailSection collapsible title="연결 정보">
         <div className="detail-line">
-          <span>Publisher Node 수</span>
+          <span>Publisher Node 수 (Dashboard 제외)</span>
           <strong>{topic.publisher_node_count ?? topic.publisher_count ?? 0}</strong>
         </div>
         <div className="detail-line">
-          <span>Subscriber Node 수</span>
+          <span>Subscriber Node 수 (Dashboard 제외)</span>
           <strong>{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</strong>
         </div>
         <div className="detail-line">
@@ -80,9 +80,9 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
         </div>
         {(topic.internal_subscriber_node_count ?? 0) > 0 && (
           <p className="detail-help-text">
-            Dashboard가 상세 감시를 위해 만든 통신은 Publisher·Subscriber
-            Node 수에서 제외됩니다. Endpoint 수는 Dashboard 통신을 포함한
-            Graph 원본 진단값입니다.
+            Dashboard 자체 구독만 있는 경우 Subscriber Node 수는 0으로
+            표시됩니다. Endpoint 수는 Dashboard 통신을 포함한 Graph 원본
+            진단값입니다.
           </p>
         )}
       </DetailSection>

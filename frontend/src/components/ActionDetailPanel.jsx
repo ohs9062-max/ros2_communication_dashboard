@@ -94,11 +94,11 @@ export function ActionDetailPanel({ action, participants }) {
 
       <DetailSection collapsible title="연결 정보">
         <DetailLine
-          label="Server Node 수"
+          label="Server Node 수 (Dashboard 제외)"
           value={action.server_node_count ?? action.server_count ?? 0}
         />
         <DetailLine
-          label="Client Node 수"
+          label="Client Node 수 (Dashboard 제외)"
           value={action.client_node_count ?? action.client_count ?? 0}
         />
         <DetailLine

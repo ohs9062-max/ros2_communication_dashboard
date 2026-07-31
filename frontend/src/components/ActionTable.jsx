@@ -66,8 +66,8 @@ export function ActionTable({
             <SortableHeader columnKey="status" label="서버 상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="server_count" label="Server Node 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="client_count" label="Client Node 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="server_count" label="Server Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" label="Client Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_status" label="마지막 Goal" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="callable" label="실행 가능" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_sent" label="Goal 전송" onSort={onSort} sort={sort} />
