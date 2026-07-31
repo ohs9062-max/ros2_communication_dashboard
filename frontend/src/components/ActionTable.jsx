@@ -78,7 +78,7 @@ export function ActionTable({
           <col className="action-col-callable" />
           <col className="action-col-goal-sent" />
           <col className="action-col-feedback-preview" />
-          <col className="action-col-goal-preview" />
+          <col className="action-col-result-preview" />
           <col className="action-col-feedback" />
           <col className="action-col-result" />
           <col className="action-col-elapsed" />
@@ -92,11 +92,11 @@ export function ActionTable({
             <SortableHeader columnKey="server_count" headerClassName="communication-count-column" label={['Server Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="client_count" headerClassName="communication-count-column" label={['Client Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="dashboard_communication" headerClassName="dashboard-communication-column" label={['Dashboard', '통신']} onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="last_goal_status" label="마지막 Goal" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="last_goal_status" label="Goal 상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="callable" headerClassName="compact-action-column" label={['실행', '가능']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_sent" headerClassName="compact-action-column" label={['Goal', '전송']} onSort={onSort} sort={sort} />
             <th>마지막 Feedback</th>
-            <th>마지막 Goal</th>
+            <th>Result 값</th>
             <SortableHeader columnKey="feedback_supported" label="피드백" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="result_supported" label="결과" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="elapsed_time_ms" label="실행 시간" onSort={onSort} sort={sort} />
@@ -165,11 +165,11 @@ export function ActionTable({
                   <JsonPreviewButton
                     onOpen={() => setPreview({
                       name: action.name,
-                      title: '마지막 Goal',
-                      value: summary?.last_goal_preview,
+                      title: '마지막 Result',
+                      value: actionResultPreview(action),
                     })}
                     previewMode="first-entry"
-                    value={summary?.last_goal_preview}
+                    value={actionResultPreview(action)}
                   />
                 </td>
                 <td>
@@ -201,6 +201,13 @@ function actionFeedbackPreview(action) {
   return (
     action.last_goal_summary?.last_feedback_preview ??
     action.runtime?.feedback_preview
+  )
+}
+
+function actionResultPreview(action) {
+  return (
+    action.last_goal_summary?.last_result_preview ??
+    action.runtime?.result_preview
   )
 }
 

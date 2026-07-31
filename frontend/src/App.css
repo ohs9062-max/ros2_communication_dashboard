@@ -2559,7 +2559,7 @@ h3 {
 .action-col-callable { width: 5%; }
 .action-col-goal-sent { width: 6%; }
 .action-col-feedback-preview { width: 9%; }
-.action-col-goal-preview { width: 9%; }
+.action-col-result-preview { width: 9%; }
 .action-col-feedback { width: 6%; }
 .action-col-result { width: 5%; }
 .action-col-elapsed { width: 6%; }
