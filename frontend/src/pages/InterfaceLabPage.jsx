@@ -394,6 +394,11 @@ export function InterfaceLabPage({ websocket }) {
             단일 타입 등록만으로 없는 package, CMakeLists.txt, package.xml, 의존 msg 파일을 자동 생성하거나
             colcon build 성공을 보장하지 않습니다. 패키지 전체가 필요하면 Package zip/폴더 업로드를 사용하세요.
           </p>
+          <p className="interface-lab-note">
+            Interface Lab이 Publish·Receive·Service Call·Action Goal을 위해 만든
+            Dashboard 내부 통신은 각 통신 탭의 Node 수에서 제외되며, 실행 이력은
+            Interface Lab에 그대로 기록됩니다.
+          </p>
         </div>
         <div className="interface-lab-actions">
           <button

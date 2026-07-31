@@ -406,6 +406,31 @@ Graph 정보만으로 정상 종료와 비정상 종료를 구분할 수 없으�
 처음부터 발견되지 않은 선택적 항목이나 관계없는 항목을 빨간 오류로 만들지 않는다.
 Backend 재시작 시 발견 이력과 메모리 cache가 초기화되는 현재 동작을 유지한다.
 
+기본 Topology의 Dashboard 내부 통신 제외 정책:
+
+```text
+Topic / Service / Action 탭의 Node 수와 연결 Node 목록
+= ROS2 Graph에서 확인한 고유 Node 관계에서 /ros2_dashboard_topic_monitor 관계를 제외
+
+Dashboard 내부 Node가 만드는 관계
+= 자동 Topic 감시, Interface Lab Topic Publish/Receive,
+  Service Call Client, Action Goal Client
+
+원본 publisher_count / subscriber_count / server_count / client_count와
+endpoint 진단 필드
+= 기존 API 호환과 Graph 진단을 위해 Dashboard 통신을 포함한 원본값 유지
+
+Interface Lab 실행 이력
+= Publish / Receive / Call / Goal Activity이므로 차감하지 않음
+
+Node 탭
+= 내부 Node를 is_internal로 표시하고 기존 숨김/숨김 포함 정책 유지
+```
+
+기본 화면에는 내부/외부 구독자를 별도 Topology 열로 나누지 않는다.
+Dashboard 관계를 차감한 값을 일반 Publisher / Subscriber / Server / Client
+Node 수로 표시하고, Dashboard 통신 제외 사실은 화면 설명에 명시한다.
+
 ## 9. Topic 정책
 
 대시보드는 특정 토픽 이름에 의존하면 안 된다.

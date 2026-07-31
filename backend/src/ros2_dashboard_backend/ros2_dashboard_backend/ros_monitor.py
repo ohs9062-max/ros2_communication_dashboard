@@ -130,35 +130,53 @@ class RosMonitor:
         internal_node = self._monitor_node_full_name()
         for topic in snapshot['topics']:
             topic_types = topic.get('types') or []
-            publisher_nodes = related_nodes(
+            all_publisher_nodes = related_nodes(
                 role_nodes,
                 role='topic_publisher',
                 resource_name=str(topic.get('name') or ''),
                 resource_types=topic_types,
             )
-            subscriber_nodes = related_nodes(
+            all_subscriber_nodes = related_nodes(
                 role_nodes,
                 role='topic_subscriber',
                 resource_name=str(topic.get('name') or ''),
                 resource_types=topic_types,
             )
-            internal_subscriber_nodes = [
-                name for name in subscriber_nodes
+            publisher_nodes = _without_internal_node(
+                all_publisher_nodes,
+                internal_node,
+            )
+            subscriber_nodes = _without_internal_node(
+                all_subscriber_nodes,
+                internal_node,
+            )
+            internal_publisher_nodes = [
+                name for name in all_publisher_nodes
                 if name == internal_node
             ]
-            external_subscriber_nodes = [
-                name for name in subscriber_nodes
-                if name != internal_node
+            internal_subscriber_nodes = [
+                name for name in all_subscriber_nodes
+                if name == internal_node
             ]
             topic.update({
                 'publisher_node_count': len(publisher_nodes),
                 'subscriber_node_count': len(subscriber_nodes),
-                'internal_subscriber_node_count': len(internal_subscriber_nodes),
-                'external_subscriber_node_count': len(external_subscriber_nodes),
+                'total_publisher_node_count': len(all_publisher_nodes),
+                'total_subscriber_node_count': len(all_subscriber_nodes),
+                'internal_publisher_node_count': (
+                    len(all_publisher_nodes) - len(publisher_nodes)
+                ),
+                'internal_subscriber_node_count': (
+                    len(all_subscriber_nodes) - len(subscriber_nodes)
+                ),
+                'external_subscriber_node_count': len(subscriber_nodes),
                 'publisher_nodes': publisher_nodes,
                 'subscriber_nodes': subscriber_nodes,
+                'all_publisher_nodes': all_publisher_nodes,
+                'all_subscriber_nodes': all_subscriber_nodes,
+                'internal_publisher_nodes': internal_publisher_nodes,
                 'internal_subscriber_nodes': internal_subscriber_nodes,
-                'external_subscriber_nodes': external_subscriber_nodes,
+                'external_subscriber_nodes': subscriber_nodes,
                 'publisher_endpoint_count': int(topic.get('publisher_count') or 0),
                 'subscriber_endpoint_count': int(topic.get('subscriber_count') or 0),
                 'internal_subscriber_endpoint_count': int(
@@ -180,6 +198,7 @@ class RosMonitor:
             include_hidden=include_hidden,
         )
         role_nodes = self._role_node_index()
+        internal_node = self._monitor_node_full_name()
         summaries = self._service_call_runtime.summary_by_service()
         callable_items = self._service_call_runtime.callable_services()['services']
         allowlisted_types = {item.get('service_type') for item in callable_items}
@@ -190,23 +209,39 @@ class RosMonitor:
         }
         for service in snapshot['services']:
             key = (service.get('name'), service.get('type'))
-            server_nodes = related_nodes(
+            all_server_nodes = related_nodes(
                 role_nodes,
                 role='service_server',
                 resource_name=str(service.get('name') or ''),
                 resource_types=[service.get('type')],
             )
-            client_nodes = related_nodes(
+            all_client_nodes = related_nodes(
                 role_nodes,
                 role='service_client',
                 resource_name=str(service.get('name') or ''),
                 resource_types=[service.get('type')],
+            )
+            server_nodes = _without_internal_node(
+                all_server_nodes,
+                internal_node,
+            )
+            client_nodes = _without_internal_node(
+                all_client_nodes,
+                internal_node,
             )
             service.update({
                 'server_node_count': len(server_nodes),
                 'client_node_count': len(client_nodes),
                 'server_nodes': server_nodes,
                 'client_nodes': client_nodes,
+                'total_server_node_count': len(all_server_nodes),
+                'total_client_node_count': len(all_client_nodes),
+                'internal_server_node_count': (
+                    len(all_server_nodes) - len(server_nodes)
+                ),
+                'internal_client_node_count': (
+                    len(all_client_nodes) - len(client_nodes)
+                ),
                 'server_endpoint_count': int(service.get('server_count') or 0),
                 'client_endpoint_count': int(service.get('client_count') or 0),
             })
@@ -275,6 +310,7 @@ class RosMonitor:
         """Action Cache에 Node 관계와 최근 사용자 Goal 결과를 합쳐 반환합니다."""
         snapshot = self._action_runtime.snapshot()
         role_nodes = self._role_node_index()
+        internal_node = self._monitor_node_full_name()
         summaries = self._action_goal_runtime.summary_by_action()
         callable_items = self._action_goal_runtime.callable_actions()['actions']
         allowlisted_types = {item.get('action_type') for item in callable_items}
@@ -285,23 +321,39 @@ class RosMonitor:
         }
         for action in snapshot['actions']:
             key = (action.get('name'), action.get('type'))
-            server_nodes = related_nodes(
+            all_server_nodes = related_nodes(
                 role_nodes,
                 role='action_server',
                 resource_name=str(action.get('name') or ''),
                 resource_types=[action.get('type')],
             )
-            client_nodes = related_nodes(
+            all_client_nodes = related_nodes(
                 role_nodes,
                 role='action_client',
                 resource_name=str(action.get('name') or ''),
                 resource_types=[action.get('type')],
+            )
+            server_nodes = _without_internal_node(
+                all_server_nodes,
+                internal_node,
+            )
+            client_nodes = _without_internal_node(
+                all_client_nodes,
+                internal_node,
             )
             action.update({
                 'server_node_count': len(server_nodes),
                 'client_node_count': len(client_nodes),
                 'server_nodes': server_nodes,
                 'client_nodes': client_nodes,
+                'total_server_node_count': len(all_server_nodes),
+                'total_client_node_count': len(all_client_nodes),
+                'internal_server_node_count': (
+                    len(all_server_nodes) - len(server_nodes)
+                ),
+                'internal_client_node_count': (
+                    len(all_client_nodes) - len(client_nodes)
+                ),
                 'server_endpoint_count': int(action.get('server_count') or 0),
                 'client_endpoint_count': int(action.get('client_count') or 0),
             })
@@ -686,6 +738,14 @@ class RosMonitor:
         # Service 자동 호출은 의도적으로 비활성화합니다.
         # 생존 상태는 Graph로 관찰하고 실제 요청/응답은 Interface Lab의
         # 사용자 명시 Call 기록으로만 확인합니다.
+
+
+def _without_internal_node(
+    node_names: list[str],
+    internal_node: str,
+) -> list[str]:
+    """Dashboard 내부 Node를 제외한 ROS2 통신 참여 Node를 반환합니다."""
+    return [name for name in node_names if name != internal_node]
 
 
 def _service_effective_status(

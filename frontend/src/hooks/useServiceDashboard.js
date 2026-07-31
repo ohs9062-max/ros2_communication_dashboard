@@ -36,7 +36,7 @@ export function useServiceDashboard({ enabled = true } = {}) {
     [nodeState.data],
   )
   const { serviceParticipants } = useMemo(
-    () => buildParticipantMaps(nodes),
+    () => buildParticipantMaps(nodes, { excludeInternal: true }),
     [nodes],
   )
   const serviceAlerts = useMemo(

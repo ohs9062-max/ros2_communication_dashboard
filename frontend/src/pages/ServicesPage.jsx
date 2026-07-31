@@ -155,6 +155,8 @@ export function ServicesPage({ dashboard }) {
                 기본 화면은 등록된 주요 Service와 대기/오류 상태처럼 먼저
                 확인해야 하는 Service만 표시합니다. 실제 요청/응답 확인은
                 Interface Lab에서 사용자가 직접 호출한 기록을 사용합니다.
+                Server·Client Node 수에서는 Dashboard가 테스트를 위해 만든
+                통신을 제외합니다.
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}

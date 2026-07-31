@@ -136,6 +136,40 @@ def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:
     ]
 
 
+def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> None:
+    monitor = RosMonitor.__new__(RosMonitor)
+    monitor._node = _MonitorNode()
+    monitor._node_runtime = _RelationNodeRuntime()
+    monitor._topic_runtime = _TopicRuntime()
+    monitor._service_runtime = _ServiceRuntime()
+    monitor._service_call_runtime = _ExecutionRuntime()
+    monitor._action_runtime = _ActionRuntime()
+    monitor._action_goal_runtime = _ExecutionRuntime()
+
+    topic = monitor.snapshot()['topics'][0]
+    service = monitor.service_snapshot()['services'][0]
+    action = monitor.action_snapshot()['actions'][0]
+
+    assert topic['total_publisher_node_count'] == 2
+    assert topic['publisher_node_count'] == 1
+    assert topic['total_subscriber_node_count'] == 2
+    assert topic['subscriber_node_count'] == 1
+    assert topic['subscriber_nodes'] == ['/robot']
+    assert topic['external_subscriber_node_count'] == 1
+
+    assert service['total_server_node_count'] == 2
+    assert service['server_node_count'] == 1
+    assert service['total_client_node_count'] == 2
+    assert service['client_node_count'] == 1
+    assert service['client_nodes'] == ['/robot']
+
+    assert action['total_server_node_count'] == 2
+    assert action['server_node_count'] == 1
+    assert action['total_client_node_count'] == 2
+    assert action['client_node_count'] == 1
+    assert action['client_nodes'] == ['/robot']
+
+
 class _MonitorNode:
     def get_fully_qualified_name(self):
         return '/ros2_dashboard_topic_monitor'
@@ -150,3 +184,86 @@ class _NodeRuntime:
             ],
             'meta': {},
         }
+
+
+class _RelationNodeRuntime:
+    def snapshot(self):
+        topic = _entity('/demo', 'demo_msgs/msg/Demo')
+        service = _entity('/Demo', 'demo_interfaces/srv/Demo')
+        action = _entity('/DemoAction', 'demo_interfaces/action/Demo')
+        return {
+            'nodes': [
+                _relation_node('/ros2_dashboard_topic_monitor', topic, service, action),
+                _relation_node('/robot', topic, service, action),
+            ],
+            'meta': {},
+        }
+
+
+def _relation_node(full_name, topic, service, action):
+    return {
+        'full_name': full_name,
+        'graph_present': True,
+        'topic_publishers': [topic],
+        'topic_subscribers': [topic],
+        'service_servers': [service],
+        'service_clients': [service],
+        'action_servers': [action],
+        'action_clients': [action],
+    }
+
+
+class _TopicRuntime:
+    def snapshot(self):
+        return {
+            'topics': [{
+                'name': '/demo',
+                'types': ['demo_msgs/msg/Demo'],
+                'publisher_count': 2,
+                'subscriber_count': 2,
+                'monitor_subscriber_count': 1,
+                'external_subscriber_count': 1,
+            }],
+            'meta': {},
+        }
+
+
+class _ServiceRuntime:
+    def snapshot(self, *, include_hidden=False):
+        return {
+            'services': [{
+                'name': '/Demo',
+                'type': 'demo_interfaces/srv/Demo',
+                'status': 'active',
+                'server_count': 2,
+                'client_count': 2,
+            }],
+            'meta': {},
+        }
+
+
+class _ActionRuntime:
+    def snapshot(self):
+        return {
+            'actions': [{
+                'name': '/DemoAction',
+                'type': 'demo_interfaces/action/Demo',
+                'server_count': 2,
+                'client_count': 2,
+            }],
+            'meta': {},
+        }
+
+
+class _ExecutionRuntime:
+    def summary_by_service(self):
+        return {}
+
+    def summary_by_action(self):
+        return {}
+
+    def callable_services(self):
+        return {'services': []}
+
+    def callable_actions(self):
+        return {'actions': []}

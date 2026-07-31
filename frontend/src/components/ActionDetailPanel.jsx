@@ -113,7 +113,9 @@ export function ActionDetailPanel({ action, participants }) {
         <DetailLine label="피드백 Topic" value={action.feedback_topic ?? '-'} />
         <p className="detail-help-text">
           Goal 요청자 Node는 Goal을 보내고, Goal 실행자 Node는 Goal을 받아
-          실행합니다.
+          실행합니다. Dashboard가 Interface Lab 실행을 위해 만든 Client는
+          Node 수와 목록에서 제외하며 Endpoint 수는 Dashboard 통신을 포함한
+          Graph 원본 진단값입니다.
         </p>
         <ConnectionNodeList
           emptyText="Goal 실행자 Node 없음"

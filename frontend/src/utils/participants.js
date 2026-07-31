@@ -1,10 +1,13 @@
-export function buildParticipantMaps(nodes = []) {
+export function buildParticipantMaps(nodes = [], { excludeInternal = false } = {}) {
   const topicParticipants = {}
   const serviceParticipants = {}
   const actionParticipants = {}
 
   for (const node of nodes) {
-    if (node.graph_present === false) {
+    if (
+      node.graph_present === false ||
+      (excludeInternal && node.is_internal === true)
+    ) {
       continue
     }
     const nodeName = node.full_name || node.name

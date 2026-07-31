@@ -60,7 +60,7 @@ export function useTopicDashboard({
     [nodeState.data],
   )
   const { topicParticipants } = useMemo(
-    () => buildParticipantMaps(nodeItems),
+    () => buildParticipantMaps(nodeItems, { excludeInternal: true }),
     [nodeItems],
   )
   const selectedTopic = useMemo(

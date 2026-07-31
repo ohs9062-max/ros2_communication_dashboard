@@ -18,11 +18,11 @@
 ## L 표기 읽는 법
 
 ```text
-함수 전체 L85-L187
-= call_service() 함수의 시작부터 끝
+`service_call_runtime.py` 함수 전체 L85-L187
+= `service_call_runtime.py`의 `call_service()` 함수 시작부터 끝
 
-핵심 L128-L136
-= 실제 ROS2 요청 전송, 대기, 응답 변환 부분
+`service_call_runtime.py` 핵심 L128-L136
+= `service_call_runtime.py`에서 실제 ROS2 요청 전송, 대기, 응답 변환을 하는 부분
 ```
 
 라인 번호는 2026-07-30 현재 코드 기준이다. 코드가 수정되면 함수 이름을 먼저 검색하고 L 번호를 다시 맞춰야 한다.

@@ -76,6 +76,8 @@ export function ServiceDetailPanel({ participants, service }) {
         />
         <p className="detail-help-text">
           요청자 Node는 요청을 보내고, 응답자 Node는 요청을 받아 응답합니다.
+          Dashboard가 Interface Lab 호출을 위해 만든 Client는 Node 수와 목록에서
+          제외하며 Endpoint 수는 Dashboard 통신을 포함한 Graph 원본 진단값입니다.
         </p>
         <ConnectionNodeList
           emptyText="응답자 Node 없음"

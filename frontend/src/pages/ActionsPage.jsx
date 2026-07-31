@@ -112,7 +112,8 @@ export function ActionsPage({ dashboard }) {
               <h2>Action 상세</h2>
               <p className="muted">
                 Action 목록은 3초마다 갱신됩니다. Goal 전송과 cancel은
-                제공하지 않습니다.
+                제공하지 않습니다. Server·Client Node 수에서는 Dashboard가
+                테스트를 위해 만든 통신을 제외합니다.
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}

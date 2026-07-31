@@ -17,13 +17,6 @@ const TOPIC_SORT_COLUMNS = {
     defaultDirection: 'desc',
     value: (topic) => topic.subscriber_node_count ?? topic.subscriber_count,
   },
-  external_subscriber_count: {
-    defaultDirection: 'desc',
-    value: (topic) =>
-      topic.external_subscriber_node_count ??
-      topic.external_subscriber_count ??
-      topic.subscriber_count,
-  },
   hz: {
     defaultDirection: 'desc',
     value: (topic, context) => context.hzByTopic[topic.name]?.data?.hz,
@@ -79,7 +72,6 @@ export function TopicTable({
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="publisher_count" label="Publisher Node 수" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="subscriber_count" label="Subscriber Node 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="external_subscriber_count" label="외부 Subscriber Node 수" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="hz" label="Hz" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="deep_monitoring" label="상세 감시" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="observed" label="마지막 값" onSort={onSort} sort={sort} />
@@ -109,12 +101,6 @@ export function TopicTable({
                 <td className="topic-type">{topic.types?.[0] ?? '-'}</td>
                 <td>{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>
                 <td>{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</td>
-                <td>
-                  {topic.external_subscriber_node_count ??
-                    topic.external_subscriber_count ??
-                    topic.subscriber_count ??
-                    0}
-                </td>
                 <td>
                   <HzBadge hzData={hzData} topic={topic} />
                 </td>

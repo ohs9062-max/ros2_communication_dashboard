@@ -65,35 +65,12 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
           <strong>{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</strong>
         </div>
         <div className="detail-line">
-          <span>내부 Subscriber Node 수</span>
-          <strong>
-            {topic.internal_subscriber_node_count ?? 0}
-          </strong>
-        </div>
-        <div className="detail-line">
-          <span>외부 Subscriber Node 수</span>
-          <strong>
-            {topic.external_subscriber_node_count ??
-              topic.external_subscriber_count ??
-              topic.subscriber_count ??
-              0}
-          </strong>
-        </div>
-        <div className="detail-line">
-          <span>Publisher Endpoint 수</span>
+          <span>전체 Publisher Endpoint 수</span>
           <strong>{topic.publisher_endpoint_count ?? topic.publisher_count ?? 0}</strong>
         </div>
         <div className="detail-line">
-          <span>Subscriber Endpoint 수</span>
+          <span>전체 Subscriber Endpoint 수</span>
           <strong>{topic.subscriber_endpoint_count ?? topic.subscriber_count ?? 0}</strong>
-        </div>
-        <div className="detail-line">
-          <span>내부 Subscriber Endpoint 수</span>
-          <strong>{topic.internal_subscriber_endpoint_count ?? topic.monitor_subscriber_count ?? 0}</strong>
-        </div>
-        <div className="detail-line">
-          <span>외부 Subscriber Endpoint 수</span>
-          <strong>{topic.external_subscriber_endpoint_count ?? topic.external_subscriber_count ?? 0}</strong>
         </div>
         <div className="detail-line">
           <span>상세 감시</span>
@@ -103,8 +80,9 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
         </div>
         {(topic.internal_subscriber_node_count ?? 0) > 0 && (
           <p className="detail-help-text">
-            Dashboard 내부 Node 관계도 집계에 포함됩니다. 내부 Node는 Node 탭의
-            주요 항목 필터에서 숨겨질 수 있습니다.
+            Dashboard가 상세 감시를 위해 만든 통신은 Publisher·Subscriber
+            Node 수에서 제외됩니다. Endpoint 수는 Dashboard 통신을 포함한
+            Graph 원본 진단값입니다.
           </p>
         )}
       </DetailSection>

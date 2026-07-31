@@ -31,7 +31,7 @@ export function useActionDashboard({ enabled = true } = {}) {
     [nodeState.data],
   )
   const { actionParticipants } = useMemo(
-    () => buildParticipantMaps(nodes),
+    () => buildParticipantMaps(nodes, { excludeInternal: true }),
     [nodes],
   )
   const actionAlerts = useMemo(
