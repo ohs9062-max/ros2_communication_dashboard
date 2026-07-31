@@ -30,8 +30,8 @@ get_service_names_and_types()
 | 1 | `service/runtime.py` `update()` | `service/runtime.py` L90-L152 | `service/runtime.py` L96-L112 | Graph에서 Service 이름·타입을 읽고 include/exclude 설정을 적용한다. |
 | 2 | `service/runtime.py` `update()` | `service/runtime.py` L90-L152 | `service/runtime.py` L114-L131 | Server·Client endpoint 수와 category를 계산해 Service 상태 item을 만든다. |
 | 3 | `service/runtime.py` `update()` | `service/runtime.py` L90-L152 | `service/runtime.py` L133-L152 | 현재 사라진 기존 Service를 `disconnected`로 보존하고 Runtime Cache를 교체한다. |
-| 4 | `ros_monitor.py` `service_snapshot()` | `ros_monitor.py` L211-L299 | `ros_monitor.py` L217-L265 | Node 관계를 역집계하고 Dashboard 내부 Node를 제외한 Server/Client Node 수를 추가하며 endpoint 수는 원본 진단값으로 유지한다. |
-| 5 | `ros_monitor.py` `service_snapshot()` | `ros_monitor.py` L211-L299 | `ros_monitor.py` L266-L298 | Registry·최근 Call 결과와 Interface Lab Client 생성 상태를 `dashboard_communication`으로 병합한다. |
+| 4 | `ros_monitor.py` `service_snapshot()` | `ros_monitor.py` L211-L299 | `ros_monitor.py` L217-L271 | Node 관계를 역집계하고 Dashboard 내부 Node를 제외한 Server/Client Node 수를 추가하며 endpoint 수는 원본 진단값으로 유지한다. |
+| 5 | `ros_monitor.py` `service_snapshot()` | `ros_monitor.py` L211-L299 | `ros_monitor.py` L272-L298 | Registry·최근 Call 결과와 Interface Lab Client 생성 상태를 `dashboard_communication`으로 병합한다. |
 | 6 | `monitoring.py` `get_ros_services()` | `monitoring.py` L43-L57 | `monitoring.py` L48-L56 | `include_hidden` 조건에 맞는 Service snapshot을 `/ros/services` 응답으로 반환한다. |
 | 7 | `rosApi.js` → `useServiceDashboard.js` | `rosApi.js` L61-L64, `useServiceDashboard.js` L7-L78 | `useServiceDashboard.js` L11-L20, L36-L42 | 내부 포함 여부를 query에 넣어 polling하고 상세 참여 Node에서는 `is_internal=true`인 Node를 제외한다. |
 | 8 | `ServicesPage.jsx` `ServicesPage()` | `ServicesPage.jsx` L50-L215 | `ServicesPage.jsx` L68-L110 | 주요·전체·내부/관리 집합을 선택하고 검색·대기/오류 필터를 적용해 최종 목록을 표시한다. |

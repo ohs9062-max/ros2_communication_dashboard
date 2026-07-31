@@ -32,9 +32,9 @@ get_action_names_and_types()
 | 1 | `action/runtime.py` `update()` | `action/runtime.py` L88-L164 | `action/runtime.py` L94-L134 | Graph, 필터, 관계 수, 관찰 capability, Action item 생성 |
 | 2 | `action/runtime.py` `update()` | `action/runtime.py` L88-L164 | `action/runtime.py` L136-L149 | 사라진 Action을 disconnected로 보존 |
 | 3 | `action/runtime.py` `update()` | `action/runtime.py` L88-L164 | `action/runtime.py` L157-L163 | subscription 정리와 Result Runtime 연결 |
-| 4 | `action/runtime.py` `_ensure_subscriptions()` | `action/runtime.py` L285-L425 | `action/runtime.py` L350-L373, `action/runtime.py` L389-L412 | status와 feedback subscription 생성 |
+| 4 | `action/runtime.py` subscription 생성 함수 | `_ensure_subscriptions()` L285-L329, `_maybe_create_status_subscription()` L352-L384, `_maybe_create_feedback_subscription()` L386-L424 | `action/runtime.py` L307-L318, L364-L384, L400-L424 | status와 feedback subscription을 생성하고 Result 관찰 지원 여부를 합친다. |
 | 5 | `action/runtime.py` `_status_callback()` | `action/runtime.py` L430-L444 | `action/runtime.py` L432-L443 | Goal status 수신값을 runtime cache에 반영 |
-| 6 | `action/runtime.py` `_feedback_callback()` | `action/runtime.py` L446-L461 | `action/runtime.py` L448-L460 | feedback preview를 runtime cache에 반영 |
+| 6 | `action/runtime.py` `_feedback_callback()` | `action/runtime.py` L446-L460 | `action/runtime.py` L448-L460 | feedback preview를 runtime cache에 반영 |
 | 7 | `ros_monitor.py` `action_snapshot()` | `ros_monitor.py` L341-L424 | `ros_monitor.py` L343-L423 | Dashboard 제외 Node 수, 원본 endpoint 수, 상태 관찰·Interface Lab Client 상태, 등록·Goal 요약 병합 |
 | 8 | `monitoring.py` `get_ros_actions()` | `monitoring.py` L60-L70 | `monitoring.py` L63-L69 | API JSON 반환 |
 | 9 | `useActionDashboard.js` → `ActionsPage.jsx` | `useActionDashboard.js` L7-L74 → `ActionsPage.jsx` L17-L179 | `useActionDashboard.js` L11-L15, L31-L37, `ActionsPage.jsx` L35-L74 | Action·Node API를 polling하고 상세 참여 Node에서도 내부 Node를 제외한 뒤 주요·전체·Goal 상태·검색 조건으로 최종 목록을 표시한다. |

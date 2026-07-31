@@ -50,7 +50,7 @@ ROS2 장비
 | Service | `monitoring.py` L43-L57 | `monitoring.py` L48-L56 | `ros_monitor.py` `service_snapshot()` L211-L299 | `ros_monitor.py` L217-L298 |
 | Action | `monitoring.py` L60-L70 | `monitoring.py` L63-L69 | `ros_monitor.py` `action_snapshot()` L341-L424 | `ros_monitor.py` L343-L423 |
 | Node | `monitoring.py` L73-L83 | `monitoring.py` L76-L82 | `ros_monitor.py` `node_snapshot()` L546-L552 | `ros_monitor.py` L548-L552 |
-| Alert | `monitoring.py` L86-L89 | `monitoring.py` L89 | `ros_monitor.py` `alerts()` L606-L675 | `ros_monitor.py` L609-L673 |
+| Alert | `monitoring.py` L86-L89 | `monitoring.py` L89 | `ros_monitor.py` `alerts()` L606-L674 | `ros_monitor.py` L609-L673 |
 
 `RosMonitor`의 병합은 원본 Graph를 새로 발견하는 단계가 아니다. 각 Runtime Cache를 읽어 Node 수, 실행 요약, 등록 여부 같은 API용 필드를 더하는 단계다. Topic·Service·Action의 기본 Node 수와 목록에서는 Dashboard 내부 Node를 제외하고 endpoint 수는 Graph 원본을 유지한다. 메인 목록의 `Dashboard 통신`은 Topic의 자동 감시·Lab 수신·Lab 발행과 Service/Action의 Lab Client만 배지로 표시하며, Action status·feedback 자동 관찰은 API 상태에는 남기되 목록 배지에서는 생략한다.
 

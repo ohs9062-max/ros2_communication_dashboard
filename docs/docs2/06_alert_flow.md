@@ -29,9 +29,9 @@ Topic/Service/Action/Node 상태
 
 | 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
 |---:|---|---:|---:|---|
-| 1 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L675 | `ros_monitor.py` L609-L640 | 숨김 Service 포함 snapshot과 각 source Alert 조립 |
-| 2 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L675 | `ros_monitor.py` L641-L663 | active/resolved lifecycle 적용 |
-| 3 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L675 | `ros_monitor.py` L664-L675 | history와 meta를 API 형식으로 반환 |
+| 1 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L674 | `ros_monitor.py` L609-L640 | 숨김 Service 포함 snapshot과 각 source Alert 조립 |
+| 2 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L674 | `ros_monitor.py` L641-L663 | active/resolved lifecycle 적용 |
+| 3 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L674 | `ros_monitor.py` L664-L674 | history와 meta를 API 형식으로 반환 |
 | 4 | `topic/alerts.py` `retain_alerts()` | `topic/alerts.py` L60-L127 | `topic/alerts.py` L82-L96 | 현재 장애를 active로 갱신 |
 | 5 | `topic/alerts.py` `retain_alerts()` | `topic/alerts.py` L60-L127 | `topic/alerts.py` L98-L125 | 해결 처리, 60초 보관, history 최대 50개 |
 | 6 | `monitoring.py` `get_ros_alerts()` | `monitoring.py` L86-L89 | `monitoring.py` L89 | `/ros/alerts` 반환 |

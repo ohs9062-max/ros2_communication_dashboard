@@ -74,7 +74,7 @@ get_topic_names_and_types()
 | Interface Lab 상태 | `topic_runtime.py` `dashboard_state_by_topic()` L205-L220 | `topic_runtime.py` L209-L219 | Topic별 Receive subscription과 Publisher cache 생성 상태를 목적별 boolean으로 반환 |
 | API Node·상태 병합 | `ros_monitor.py` `RosMonitor.snapshot()` L126-L209 | `ros_monitor.py` L128-L208 | Dashboard 제외 Node 수·목록과 원본 endpoint 수를 유지하면서 `dashboard_communication`을 추가 |
 | 상세 참여 Node 집계 | `participants.js` `buildParticipantMaps()` L1-L61 | `participants.js` L6-L12 | Hook이 `excludeInternal=true`를 전달하면 `is_internal=true`인 Node를 상세 목록에서도 제외 |
-| 화면 표기 | `TopicTable.jsx` `TopicTable()` L40-L137 | `TopicTable.jsx` L73-L79, L112-L116 | 외부 Subscriber 전용 숫자 열 대신 `Dashboard 통신` 열에서 `자동 감시`, `Lab 수신`, `Lab 발행`, `미사용` 배지 표시 |
+| 화면 표기 | `TopicTable.jsx` `TopicTable()` L40-L137 | `TopicTable.jsx` L73-L79, L103-L112 | Dashboard 제외 Node 수와 `Dashboard 통신` 열의 `자동 감시`, `Lab 수신`, `Lab 발행`, `미사용` 배지를 표시 |
 
 Dashboard에는 자동 상태 감시와 Interface Lab 사용자 실행이라는 두 목적이 공존한다. 같은 Topic에 자동 감시 subscription과 명시적 Receive subscription이 함께 생기면 내부 endpoint가 두 개가 될 수 있고, 이를 일반 참여 Node로 표시하면 실제 시스템에 Subscriber가 더 있는 것으로 오해할 수 있다. 따라서 기본 표와 상세 목록은 Dashboard 내부 Node를 제외한다.
 
