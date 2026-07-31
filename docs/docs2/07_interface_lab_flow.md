@@ -2,7 +2,7 @@
 
 ## 한 문장으로 보기
 
-Interface Lab은 타입이나 패키지를 Registry에 등록하고 필요하면 build/apply해 Python import 가능 상태로 만든 뒤, 사용자가 버튼을 눌렀을 때만 Topic Publish/Receive, Service Call, Action Goal을 실행한다.
+Interface Lab은 타입이나 패키지를 Registry에 등록하고 필요하면 build/apply해 Python import 가능 상태로 만든 뒤, 사용자가 버튼을 눌렀을 때만 Topic Publish/Receive, Service Call, Action Goal을 실행하며 이때 생긴 Dashboard 내부 통신은 일반 통신 탭의 Node 집계에서 제외한다.
 
 ## 쉬운 용어
 
@@ -41,7 +41,7 @@ Interface Lab은 타입이나 패키지를 Registry에 등록하고 필요하면
 | 6 | `apply/runtime.py` `mark_interface_change_pending()` | `apply/runtime.py` L83-L97 | `apply/runtime.py` L85-L96 | `rebuild_required`, `build_required=true` 저장 |
 | 7 | `apply/runtime.py` `run_interface_apply()` | `apply/runtime.py` L100-L339 | `apply/runtime.py` L232-L301 | Apply 시 build하고 install 경로와 Python import 가능 여부를 다시 검사한다. |
 | 8 | 실행 Runtime의 `callable_*()` | `service_call_runtime.py` L56-L83, `action_goal_runtime.py` L62-L89 | `service_call_runtime.py` L58-L83, `action_goal_runtime.py` L64-L89 | Registry의 import 가능한 타입과 현재 Graph 타입을 exact match해 실제 실행 후보를 만든다. |
-| 9 | `rosApi.js` → `InterfaceLabPage.jsx` | `rosApi.js` L74-L98 | `InterfaceLabPage.jsx` L45-L137 | Frontend가 Registry·Package·Apply 상태·실행 후보를 조회해 등록 및 실행 작업 화면에 표시한다. |
+| 9 | `rosApi.js` → `InterfaceLabPage.jsx` | `rosApi.js` L74-L98 | `InterfaceLabPage.jsx` L45-L137, L385-L402 | Frontend가 Registry·Package·Apply 상태·실행 후보를 조회하고, 상단 노란 안내에서 실행 통신의 Node 집계 제외 정책을 명시한다. 안내 문구와 Interface 배지 크기는 `App.css` L1127-L1138, L1286-L1293에서 관리한다. |
 
 1~6은 등록 방식별 저장과 pending 처리, 7은 실제 적용, 8은 실행 후보 판정, 9는 화면 반영 단계다.
 
@@ -65,11 +65,11 @@ Apply는 Backend 프로세스를 직접 kill하지 않는다. 성공하면 reloa
 
 | 동작 | Router 전체/핵심 L | Runtime 전체 L | Runtime 핵심 L |
 |---|---|---:|---:|
-| Publish | `topic_execution.py` L41-L83 / `topic_execution.py` L43-L76 | `topic_runtime.py` `publish_topic()` L273-L389 | `topic_runtime.py` L281-L331 Graph·충돌 검사, `topic_runtime.py` L332-L370 변환·publish, `topic_runtime.py` L371-L389 오류/history |
+| Publish | `topic_execution.py` L41-L83 / `topic_execution.py` L43-L76 | `topic_runtime.py` `publish_topic()` L290-L406 | `topic_runtime.py` L298-L348 Graph·충돌 검사, `topic_runtime.py` L349-L387 변환·publish, `topic_runtime.py` L388-L406 오류/history |
 | Receive 시작 | `topic_execution.py` L108-L122 / `topic_execution.py` L110-L122 | `topic_runtime.py` `start_topic()` L113-L165 | `topic_runtime.py` L120-L147 타입 검사·subscription 생성, `topic_runtime.py` L148-L165 상태 저장 |
 | Receive 중지 | `topic_execution.py` L126-L136 / `topic_execution.py` L128-L136 | `topic_runtime.py` `stop_topic()` L167-L195 | `topic_runtime.py` L170-L191 대상 탐색·subscription 제거, `topic_runtime.py` L192-L195 상태 저장 |
 
-일반 Topic Runtime 자동 감시와 Interface Lab Receive는 목적이 다르다. 전자는 Dashboard 상태 감시이고, 후자는 사용자가 명시적으로 시작한 수신 history다.
+일반 Topic Runtime 자동 감시와 Interface Lab Receive는 목적이 다르다. `topic_runtime.py` `dashboard_state_by_topic()` L205-L220이 Receive subscription과 Publisher cache를 목적별로 반환하므로 Topic 메인 목록은 `자동 감시`, `Lab 수신`, `Lab 발행`을 구분해 표시한다. Node 수·목록에서는 Dashboard Node를 제외하고 실행 history와 Graph 원본 endpoint 수는 유지한다.
 
 ## Service Call과 Action Goal
 

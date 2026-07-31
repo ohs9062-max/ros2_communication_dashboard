@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { formatMs, formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
+import { DashboardCommunicationBadges } from './DashboardCommunicationBadges.jsx'
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
@@ -16,6 +17,11 @@ const ACTION_SORT_COLUMNS = {
   client_count: {
     defaultDirection: 'desc',
     value: (action) => action.client_node_count ?? action.client_count,
+  },
+  dashboard_communication: {
+    defaultDirection: 'desc',
+    value: (action) =>
+      action.dashboard_communication?.interface_client_created ? 1 : 0,
   },
   last_goal_status: { value: (action) => action.runtime?.last_goal_status },
   callable: { value: (action) => (action.callable ? 1 : 0), defaultDirection: 'desc' },
@@ -61,16 +67,34 @@ export function ActionTable({
   return (
     <div className="table-wrap">
       <table className="topic-table action-table">
+        <colgroup>
+          <col className="action-col-status" />
+          <col className="action-col-name" />
+          <col className="action-col-type" />
+          <col className="action-col-node" />
+          <col className="action-col-node" />
+          <col className="action-col-dashboard" />
+          <col className="action-col-last-goal-status" />
+          <col className="action-col-callable" />
+          <col className="action-col-goal-sent" />
+          <col className="action-col-feedback-preview" />
+          <col className="action-col-goal-preview" />
+          <col className="action-col-feedback" />
+          <col className="action-col-result" />
+          <col className="action-col-elapsed" />
+          <col className="action-col-observed" />
+        </colgroup>
         <thead>
           <tr>
             <SortableHeader columnKey="status" label="서버 상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="server_count" label="Server Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="client_count" label="Client Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="server_count" headerClassName="communication-count-column" label={['Server Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" headerClassName="communication-count-column" label={['Client Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="dashboard_communication" headerClassName="dashboard-communication-column" label={['Dashboard', '통신']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_status" label="마지막 Goal" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="callable" label="실행 가능" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="last_goal_sent" label="Goal 전송" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="callable" headerClassName="compact-action-column" label={['실행', '가능']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="last_goal_sent" headerClassName="compact-action-column" label={['Goal', '전송']} onSort={onSort} sort={sort} />
             <th>마지막 Feedback</th>
             <th>마지막 Goal</th>
             <SortableHeader columnKey="feedback_supported" label="피드백" onSort={onSort} sort={sort} />
@@ -96,8 +120,19 @@ export function ActionTable({
                 </td>
                 <td className="topic-name action-name">{action.name}</td>
                 <td className="topic-type action-type">{action.type ?? '-'}</td>
-                <td>{action.server_node_count ?? action.server_count ?? 0}</td>
-                <td>{action.client_node_count ?? action.client_count ?? 0}</td>
+                <td className="communication-count-cell">{action.server_node_count ?? action.server_count ?? 0}</td>
+                <td className="communication-count-cell">{action.client_node_count ?? action.client_count ?? 0}</td>
+                <td className="dashboard-communication-cell">
+                  <DashboardCommunicationBadges
+                    items={[
+                      {
+                        active: action.dashboard_communication?.interface_client_created,
+                        label: 'Lab Client',
+                        tone: 'client',
+                      },
+                    ]}
+                  />
+                </td>
                 <td>
                   <StatusBadge
                     value={
@@ -109,8 +144,12 @@ export function ActionTable({
                     }
                   />
                 </td>
-                <td>{action.callable ? '예' : action.allowlisted ? '등록됨' : '아니오'}</td>
-                <td>{formatRelativeTime(summary?.last_goal_sent_at)}</td>
+                <td className="compact-action-cell">
+                  {action.callable ? '예' : action.allowlisted ? '등록됨' : '아니오'}
+                </td>
+                <td className="compact-action-cell">
+                  {formatRelativeTime(summary?.last_goal_sent_at)}
+                </td>
                 <td>
                   <JsonPreviewButton
                     onOpen={() => setPreview({
@@ -118,6 +157,7 @@ export function ActionTable({
                       title: '마지막 Feedback',
                       value: actionFeedbackPreview(action),
                     })}
+                    previewMode="first-entry"
                     value={actionFeedbackPreview(action)}
                   />
                 </td>
@@ -128,6 +168,7 @@ export function ActionTable({
                       title: '마지막 Goal',
                       value: summary?.last_goal_preview,
                     })}
+                    previewMode="first-entry"
                     value={summary?.last_goal_preview}
                   />
                 </td>

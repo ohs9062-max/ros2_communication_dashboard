@@ -202,6 +202,23 @@ class InterfaceReceiveRuntime:
             ]
         return {'topics': items, 'meta': {'count': len(items)}}
 
+    def dashboard_state_by_topic(
+        self,
+    ) -> dict[tuple[str, str], dict[str, bool]]:
+        """Topic별 Interface Lab Publisher·Receive 생성 상태를 반환합니다."""
+        with self._lock:
+            keys = set(self._topics) | set(self._publishers)
+            return {
+                key: {
+                    'interface_receive_active': bool(
+                        self._topics.get(key, {}).get('receiving')
+                        and self._topics.get(key, {}).get('subscription') is not None
+                    ),
+                    'interface_publisher_created': key in self._publishers,
+                }
+                for key in keys
+            }
+
     def topic_history(
         self,
         *,

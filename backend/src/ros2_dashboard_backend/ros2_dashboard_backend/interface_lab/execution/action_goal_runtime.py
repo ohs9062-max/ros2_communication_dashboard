@@ -353,6 +353,16 @@ class ActionGoalRuntime:
             summary.update(goal_summary)
         return summaries
 
+    def dashboard_state_by_action(
+        self,
+    ) -> dict[tuple[str, str], dict[str, bool]]:
+        """Action별 Interface Lab Client 생성 상태를 반환합니다."""
+        with self._lock:
+            return {
+                key: {'interface_client_created': True}
+                for key in self._clients
+            }
+
     def _allowed_action(
         self,
         action_name: str,

@@ -33,7 +33,7 @@ get_node_names_and_namespaces()
 | 4 | `node/runtime.py` `_graph_by_node()` | `node/runtime.py` L170-L186 | `node/runtime.py` L176-L186 | Topic/Service별 Node Graph API 공통 호출 |
 | 5 | `node/runtime.py` `_action_servers_by_node()` | `node/runtime.py` L189-L207 | `node/runtime.py` L194-L199 | Node별 Action Server 조회 |
 | 6 | `node/runtime.py` `_action_clients_by_node()` | `node/runtime.py` L210-L228 | `node/runtime.py` L215-L220 | Node별 Action Client 조회 |
-| 7 | `ros_monitor.py` `node_snapshot()` | `ros_monitor.py` L492-L498 | `ros_monitor.py` L494-L498 | Dashboard Node에 `is_internal` 표시 |
+| 7 | `ros_monitor.py` `node_snapshot()` | `ros_monitor.py` L546-L552 | `ros_monitor.py` L548-L552 | Dashboard Node에 `is_internal` 표시 |
 | 8 | `monitoring.py` `get_ros_nodes()` | `monitoring.py` L73-L83 | `monitoring.py` L76-L82 | Node API 반환 |
 | 9 | `useNodeDashboard.js` → `NodesPage.jsx` | `useNodeDashboard.js` L6-L66 → `NodesPage.jsx` L16-L168 | `useNodeDashboard.js` L10-L18, `NodesPage.jsx` L35-L60 | Node API를 polling하고 주요·전체·실행 중·종료 감지·숨김 포함 필터로 최종 목록을 표시한다. |
 
@@ -54,10 +54,10 @@ Node Cache
 | 파일·함수 | 함수 전체 L | 핵심 L | 의미 |
 |---|---:|---:|---|
 | `topology.py` `build_role_node_index()` | `topology.py` L19-L39 | `topology.py` L24-L38 | 활성 Node의 여섯 관계 배열을 고유 Node 집합으로 변환 |
-| `topology.py` `related_nodes()` | `topology.py` L46-L54 | `topology.py` L51-L54 | 역할·이름·타입이 맞는 Node 이름 정렬 |
-| `ros_monitor.py` `_role_node_index()` | `ros_monitor.py` L500-L501 | `ros_monitor.py` L501 | Node snapshot을 공통 인덱스로 변환 |
+| `topology.py` `related_nodes()` | `topology.py` L42-L54 | `topology.py` L50-L54 | 역할·이름·타입이 맞는 Node 이름 정렬 |
+| `ros_monitor.py` `_role_node_index()` | `ros_monitor.py` L554-L555 | `ros_monitor.py` L555 | Node snapshot을 공통 인덱스로 변환 |
 
-따라서 리소스 탭과 Node 탭은 같은 관계 데이터를 반대 방향에서 보여준다.
+따라서 리소스 탭과 Node 탭은 같은 관계 데이터를 반대 방향에서 보여준다. 단, Topic·Service·Action 탭은 `ros_monitor.py` `_without_internal_node()` L797-L802로 Dashboard 내부 Node를 제외한 수와 목록을 기본값으로 사용하고 `Dashboard 통신` 배지로 내부 목적을 별도 표시한다. Node 탭은 내부 Node에 `is_internal`을 표시한 뒤 화면 필터 정책에 따라 숨기거나 보여준다.
 
 ## 주요/전체/숨김 필터
 

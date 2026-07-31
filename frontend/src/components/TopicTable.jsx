@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
+import { DashboardCommunicationBadges } from './DashboardCommunicationBadges.jsx'
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
@@ -21,9 +22,9 @@ const TOPIC_SORT_COLUMNS = {
     defaultDirection: 'desc',
     value: (topic, context) => context.hzByTopic[topic.name]?.data?.hz,
   },
-  deep_monitoring: {
+  dashboard_communication: {
     defaultDirection: 'desc',
-    value: (topic) => (topic.deep_monitoring ? 1 : 0),
+    value: (topic) => dashboardCommunicationCount(topic.dashboard_communication),
   },
   observed: {
     defaultDirection: 'desc',
@@ -70,10 +71,10 @@ export function TopicTable({
             <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="publisher_count" label="Publisher Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="subscriber_count" label="Subscriber Node 수 (Dashboard 제외)" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="hz" label="Hz" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="deep_monitoring" label="상세 감시" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="publisher_count" headerClassName="communication-count-column" label={['Publisher Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="subscriber_count" headerClassName="communication-count-column" label={['Subscriber Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="hz" headerClassName="metric-column" label="Hz" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="dashboard_communication" headerClassName="dashboard-communication-column" label={['Dashboard', '통신']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="observed" label="마지막 값" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_updated" label="마지막 확인" onSort={onSort} sort={sort} />
           </tr>
@@ -94,17 +95,21 @@ export function TopicTable({
                 key={topic.name}
                 onClick={() => onSelectTopic(topic.name)}
               >
-                <td>
+                <td className="metric-cell">
                   <StatusBadge value={topic.status} />
                 </td>
                 <td className="topic-name">{topic.name}</td>
                 <td className="topic-type">{topic.types?.[0] ?? '-'}</td>
-                <td>{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>
-                <td>{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</td>
-                <td>
+                <td className="communication-count-cell">{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>
+                <td className="communication-count-cell">{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</td>
+                <td className="dashboard-communication-cell">
                   <HzBadge hzData={hzData} topic={topic} />
                 </td>
-                <td>{topic.deep_monitoring ? '예' : '아니오'}</td>
+                <td>
+                  <DashboardCommunicationBadges
+                    items={topicDashboardCommunicationItems(topic)}
+                  />
+                </td>
                 <td>
                   <JsonPreviewButton
                     onOpen={() => setPreviewTopic(topic)}
@@ -136,6 +141,31 @@ function HzBadge({ hzData, topic }) {
   const label = hzLabel(hzData, state)
 
   return <span className={`hz-badge ${state}`}>{label}</span>
+}
+
+function topicDashboardCommunicationItems(topic) {
+  const state = topic.dashboard_communication ?? {}
+  return [
+    {
+      active: state.auto_monitoring_active ?? topic.deep_monitoring,
+      label: '자동 감시',
+      tone: 'monitoring',
+    },
+    {
+      active: state.interface_receive_active,
+      label: 'Lab 수신',
+      tone: 'receive',
+    },
+    {
+      active: state.interface_publisher_created,
+      label: 'Lab 발행',
+      tone: 'publish',
+    },
+  ]
+}
+
+function dashboardCommunicationCount(state = {}) {
+  return Object.values(state).filter((value) => value === true).length
 }
 
 function hzState(hzData, topic) {

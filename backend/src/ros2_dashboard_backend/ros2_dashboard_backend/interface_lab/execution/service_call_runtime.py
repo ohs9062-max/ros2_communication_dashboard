@@ -276,6 +276,16 @@ class ServiceCallRuntime:
             summary.update(_call_summary(call))
         return summaries
 
+    def dashboard_state_by_service(
+        self,
+    ) -> dict[tuple[str, str], dict[str, bool]]:
+        """Service별 Interface Lab Client 생성 상태를 반환합니다."""
+        with self._lock:
+            return {
+                key: {'interface_client_created': True}
+                for key in self._clients
+            }
+
     def _allowed_service(
         self,
         service_name: str,

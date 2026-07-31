@@ -128,8 +128,17 @@ class RosMonitor:
         snapshot = self._topic_runtime.snapshot()
         role_nodes = self._role_node_index()
         internal_node = self._monitor_node_full_name()
+        interface_states = _runtime_state_map(
+            getattr(self, '_receive_runtime', None),
+            'dashboard_state_by_topic',
+        )
         for topic in snapshot['topics']:
             topic_types = topic.get('types') or []
+            topic_name = str(topic.get('name') or '')
+            interface_topic_states = [
+                interface_states.get((topic_name, str(topic_type)), {})
+                for topic_type in topic_types
+            ]
             all_publisher_nodes = related_nodes(
                 role_nodes,
                 role='topic_publisher',
@@ -185,6 +194,17 @@ class RosMonitor:
                 'external_subscriber_endpoint_count': int(
                     topic.get('external_subscriber_count') or 0
                 ),
+                'dashboard_communication': {
+                    'auto_monitoring_active': topic.get('deep_monitoring') is True,
+                    'interface_receive_active': any(
+                        state.get('interface_receive_active') is True
+                        for state in interface_topic_states
+                    ),
+                    'interface_publisher_created': any(
+                        state.get('interface_publisher_created') is True
+                        for state in interface_topic_states
+                    ),
+                },
             })
         return snapshot
 
@@ -200,6 +220,10 @@ class RosMonitor:
         role_nodes = self._role_node_index()
         internal_node = self._monitor_node_full_name()
         summaries = self._service_call_runtime.summary_by_service()
+        dashboard_states = _runtime_state_map(
+            self._service_call_runtime,
+            'dashboard_state_by_service',
+        )
         callable_items = self._service_call_runtime.callable_services()['services']
         allowlisted_types = {item.get('service_type') for item in callable_items}
         callable_names = {
@@ -264,6 +288,14 @@ class RosMonitor:
             service['call_count'] = summary.get('call_count', 0) if summary else 0
             service['success_count'] = summary.get('success_count', 0) if summary else 0
             service['failure_count'] = summary.get('failure_count', 0) if summary else 0
+            service['dashboard_communication'] = {
+                'interface_client_created': (
+                    dashboard_states.get(key, {}).get(
+                        'interface_client_created',
+                    ) is True
+                ),
+                'has_call_history': summary is not None,
+            }
         return snapshot
 
     def callable_services(self) -> dict[str, Any]:
@@ -312,6 +344,10 @@ class RosMonitor:
         role_nodes = self._role_node_index()
         internal_node = self._monitor_node_full_name()
         summaries = self._action_goal_runtime.summary_by_action()
+        dashboard_states = _runtime_state_map(
+            self._action_goal_runtime,
+            'dashboard_state_by_action',
+        )
         callable_items = self._action_goal_runtime.callable_actions()['actions']
         allowlisted_types = {item.get('action_type') for item in callable_items}
         callable_names = {
@@ -367,6 +403,24 @@ class RosMonitor:
             action['success_count'] = summary.get('success_count', 0) if summary else 0
             action['failure_count'] = summary.get('failure_count', 0) if summary else 0
             action['canceled_count'] = summary.get('canceled_count', 0) if summary else 0
+            action['dashboard_communication'] = {
+                'monitoring_active': (
+                    action.get('status_supported') is True
+                    or action.get('feedback_supported') is True
+                ),
+                'status_monitoring_active': (
+                    action.get('status_supported') is True
+                ),
+                'feedback_monitoring_active': (
+                    action.get('feedback_supported') is True
+                ),
+                'interface_client_created': (
+                    dashboard_states.get(key, {}).get(
+                        'interface_client_created',
+                    ) is True
+                ),
+                'has_goal_history': summary is not None,
+            }
         return snapshot
 
     def callable_actions(self) -> dict[str, Any]:
@@ -746,6 +800,14 @@ def _without_internal_node(
 ) -> list[str]:
     """Dashboard 내부 Node를 제외한 ROS2 통신 참여 Node를 반환합니다."""
     return [name for name in node_names if name != internal_node]
+
+
+def _runtime_state_map(runtime: Any, method_name: str) -> dict[Any, Any]:
+    """선택 Runtime이 제공하는 Dashboard 통신 상태를 안전하게 읽습니다."""
+    method = getattr(runtime, method_name, None)
+    if not callable(method):
+        return {}
+    return method()
 
 
 def _service_effective_status(

@@ -39,11 +39,11 @@
 | Cache | 최근 수집 결과를 잠시 보관하는 메모리 저장소 |
 | Snapshot | Cache를 특정 시점에 복사해 API 응답용으로 만든 값 |
 | Endpoint | Publisher·Subscriber·Service Server 같은 실제 DDS 통신 끝점 하나 |
-| Node 관계 수 | endpoint 수가 아니라 해당 역할을 가진 고유 Node 수 |
+| Node 관계 수 | endpoint 수가 아니라 해당 역할을 가진 고유 Node 수; Topic·Service·Action 기본 화면의 `(Dashboard 제외)` 값은 내부 Dashboard Node를 뺀 수 |
 | Router | HTTP 요청을 받고 실제 담당 Runtime으로 연결하는 입구 |
 | Coordinator | `RosMonitor`; 여러 Runtime을 조립하고 결과를 합치는 중간 관리자 |
 | Registry | Interface Lab에 등록된 msg/srv/action 타입 목록 |
-| Activity | 실제 Call·Goal 실행 이력; Graph 관계 수와 다른 값 |
+| Activity | 실제 Publish·Receive·Call·Goal 실행 이력; Dashboard 내부 Node를 기본 관계 집계에서 제외해도 Interface Lab에 유지되는 값 |
 
 ## 변수·함수 이름을 읽는 법
 

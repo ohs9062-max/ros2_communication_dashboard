@@ -427,9 +427,24 @@ Node 탭
 = 내부 Node를 is_internal로 표시하고 기존 숨김/숨김 포함 정책 유지
 ```
 
-기본 화면에는 내부/외부 구독자를 별도 Topology 열로 나누지 않는다.
+기본 화면에는 내부/외부 구독자를 별도 Topology 숫자 열로 나누지 않는다.
 Dashboard 관계를 차감한 값을 일반 Publisher / Subscriber / Server / Client
-Node 수로 표시하고, Dashboard 통신 제외 사실은 화면 설명에 명시한다.
+Node 수로 표시하고, 별도 `Dashboard 통신` 열에서 내부 통신 목적을 배지로 표시한다.
+
+```text
+Topic
+= 자동 감시 / Interface Lab 수신 / Interface Lab 발행
+
+Service
+= Interface Lab Client 생성 여부
+
+Action
+= Interface Lab Client 생성 여부
+```
+
+Dashboard 통신 배지는 Node 수에 다시 더하지 않는다.
+Action의 status·feedback 자동 관찰은 계속 동작하지만 메인 목록 배지에는 표시하지 않는다.
+Graph 원본 endpoint 수와 Interface Lab 실행 이력 유지 정책도 바꾸지 않는다.
 
 ## 9. Topic 정책
 

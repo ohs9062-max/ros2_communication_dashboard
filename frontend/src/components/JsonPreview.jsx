@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-export function JsonPreviewButton({ onOpen, value }) {
+export function JsonPreviewButton({ onOpen, previewMode = 'json', value }) {
   if (value === undefined || value === null || value === '') {
     return <span className="muted">-</span>
   }
@@ -15,7 +15,11 @@ export function JsonPreviewButton({ onOpen, value }) {
       title="전체 데이터 보기"
       type="button"
     >
-      <code className="table-preview-text">{previewText(value)}</code>
+      <code className="table-preview-text">
+        {previewMode === 'first-entry'
+          ? firstEntryPreviewText(value)
+          : previewText(value)}
+      </code>
     </button>
   )
 }
@@ -68,6 +72,35 @@ export function JsonPreviewModal({ name, onClose, title, value }) {
 
 function previewText(value) {
   return typeof value === 'string' ? value : JSON.stringify(value)
+}
+
+function firstEntryPreviewText(value) {
+  if (!value || typeof value !== 'object') {
+    return previewText(value)
+  }
+
+  const entries = Object.entries(value)
+  if (!entries.length) {
+    return Array.isArray(value) ? '[]' : '{}'
+  }
+
+  const [key, firstValue] = entries[0]
+  const suffix = entries.length > 1 ? ', …' : ''
+  const preview = `${JSON.stringify(key)}: ${compactValue(firstValue)}${suffix}`
+  return Array.isArray(value) ? `[${preview}]` : `{${preview}}`
+}
+
+function compactValue(value) {
+  if (Array.isArray(value)) {
+    return value.length ? '[…]' : '[]'
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value).length ? '{…}' : '{}'
+  }
+  if (typeof value === 'string') {
+    return JSON.stringify(value)
+  }
+  return JSON.stringify(value)
 }
 
 function fullPreviewText(value) {

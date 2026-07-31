@@ -2,7 +2,7 @@
 
 ## 한 문장으로 보기
 
-Topic Runtime은 Graph에서 Topic과 endpoint 수를 발견하고 지원 타입을 자동 구독해 메시지·수신 시각을 저장하며, `RosMonitor`는 Node 관계 Cache를 반대로 집계해 Publisher/Subscriber Node 수를 API에 추가한다.
+Topic Runtime은 Graph에서 Topic과 endpoint 수를 발견하고 지원 타입을 자동 구독해 메시지·수신 시각을 저장하며, `RosMonitor`는 Node 관계 Cache를 반대로 집계하되 Dashboard 내부 Node를 제외한 Publisher/Subscriber Node 수를 API에 추가한다.
 
 ## 쉬운 용어
 
@@ -13,8 +13,8 @@ Topic Runtime은 Graph에서 Topic과 endpoint 수를 발견하고 지원 타입
 | subscription | Subscriber endpoint를 실제로 생성한 객체 |
 | deep monitoring | Dashboard가 직접 구독해 latest·Hz·stale까지 확인하는 감시 |
 | Hz window | 최근 몇 초의 수신 시각을 계산에 사용할지 정한 창 |
-| internal subscriber | Dashboard 내부 Node가 만든 구독 endpoint |
-| external subscriber | Dashboard 외부 Node가 소유한 구독 endpoint |
+| Dashboard 내부 통신 | 자동 감시 또는 Interface Lab 실행을 위해 Dashboard Node가 만든 publisher/subscriber endpoint |
+| Dashboard 제외 Node 수 | 실제 ROS2 시스템의 참여 관계를 보기 위해 Dashboard 내부 Node를 빼고 계산한 고유 Node 수 |
 
 ## Graph 발견부터 목록 표시까지
 
@@ -37,9 +37,9 @@ get_topic_names_and_types()
 | 4 | `topic/runtime.py` `update()` | `topic/runtime.py` L125-L230 | `topic/runtime.py` L187-L219 | 현재 통신 관계가 있으면 발견 상태를 기록하고, 이전에 있었지만 사라진 Topic은 `disconnected`로 보존한다. |
 | 5 | `topic/runtime.py` `update()` | `topic/runtime.py` L125-L230 | `topic/runtime.py` L221-L230 | 완성한 목록을 정렬해 Runtime Cache를 교체하고 불필요한 subscription 정리를 요청한다. |
 | 6 | `topic/runtime.py` `snapshot()` | `topic/runtime.py` L75-L104 | `topic/runtime.py` L77-L103 | Topic Cache에 latest preview·마지막 수신 시각·수신 여부를 합쳐 Runtime snapshot을 만든다. |
-| 7 | `ros_monitor.py` `snapshot()` | `ros_monitor.py` L126-L189 | `ros_monitor.py` L128-L188 | Node 관계를 역집계하고 Dashboard 내부 Node를 제외한 Publisher/Subscriber Node 수를 추가하며 endpoint 수는 원본 진단값으로 유지한다. |
+| 7 | `ros_monitor.py` `snapshot()` | `ros_monitor.py` L126-L209 | `ros_monitor.py` L128-L208 | Dashboard 내부 Node를 제외한 Node 수·목록, 원본 endpoint 수, 자동 감시와 Interface Lab 수신·발행 상태를 병합한다. |
 | 8 | `monitoring.py` `get_ros_topics()` | `monitoring.py` L16-L28 | `monitoring.py` L19-L27 | Topic snapshot을 기존 `/ros/topics` API 응답 구조로 반환한다. |
-| 9 | `useTopicDashboard.js` → `TopicsPage.jsx` | `useTopicDashboard.js` L17-L163 → `TopicsPage.jsx` L14-L185 | `useTopicDashboard.js` L27-L51, `TopicsPage.jsx` L33-L83 | Frontend가 API를 polling하고 응답 배열에 주요·전체·검색·상태 필터를 적용해 최종 목록을 표시한다. |
+| 9 | `useTopicDashboard.js` → `TopicsPage.jsx` | `useTopicDashboard.js` L17-L164 → `TopicsPage.jsx` L14-L187 | `useTopicDashboard.js` L25-L65, `TopicsPage.jsx` L33-L83 | Frontend가 Topic·Node API를 polling하고 상세 참여 Node에서도 내부 Node를 제외한 뒤 주요·전체·검색·상태 필터를 적용한다. |
 
 이 표로 전체 방향을 먼저 파악하고, 자동 구독·Dashboard 내부 endpoint 분류·Hz 계산처럼 헷갈리는 부분만 아래의 상세 표에서 확인한다.
 
@@ -64,16 +64,21 @@ get_topic_names_and_types()
 
 현재 기본 5초 창에서 첫 메시지는 `1 ÷ 5 = 0.2 Hz`다. 이는 “마지막 1초 동안 받은 개수”가 아니라 “설정된 5초 창에 남은 개수를 5로 나눈 값”이다.
 
-## Dashboard 내부 구독 차감
+## Dashboard 내부 통신 집계 제외
 
 | 단계 | 함수 전체 L | 핵심 L | 의미 |
 |---:|---:|---:|---|
 | 내부 endpoint 조사 | `topic/runtime.py` `_monitor_subscriber_count()` L406-L426 | `topic/runtime.py` L414-L417 | Graph 기반 소유 endpoint 계산을 우선 사용 |
 | endpoint 소유 Node 비교 | `topic/runtime.py` `_owned_subscription_endpoint_count()` L429-L466 | `topic/runtime.py` L451-L466 | `node_name + namespace`가 Dashboard Node와 같은 endpoint 수 계산 |
 | 외부 endpoint 계산 | `topic/runtime.py` `update()` L125-L230 | `topic/runtime.py` L163-L172 | 전체 subscriber endpoint − 내부 endpoint |
-| API 진단 필드 | `ros_monitor.py` `RosMonitor.snapshot()` L126-L189 | `ros_monitor.py` L161-L187 | Dashboard 내부 Node를 제외한 기본 Node 수와 전체 endpoint 진단값을 별도 필드로 제공 |
+| Interface Lab 상태 | `topic_runtime.py` `dashboard_state_by_topic()` L205-L220 | `topic_runtime.py` L209-L219 | Topic별 Receive subscription과 Publisher cache 생성 상태를 목적별 boolean으로 반환 |
+| API Node·상태 병합 | `ros_monitor.py` `RosMonitor.snapshot()` L126-L209 | `ros_monitor.py` L128-L208 | Dashboard 제외 Node 수·목록과 원본 endpoint 수를 유지하면서 `dashboard_communication`을 추가 |
+| 상세 참여 Node 집계 | `participants.js` `buildParticipantMaps()` L1-L61 | `participants.js` L6-L12 | Hook이 `excludeInternal=true`를 전달하면 `is_internal=true`인 Node를 상세 목록에서도 제외 |
+| 화면 표기 | `TopicTable.jsx` `TopicTable()` L40-L137 | `TopicTable.jsx` L73-L79, L112-L116 | 외부 Subscriber 전용 숫자 열 대신 `Dashboard 통신` 열에서 `자동 감시`, `Lab 수신`, `Lab 발행`, `미사용` 배지 표시 |
 
-예: 같은 Dashboard Node가 자동 감시와 Interface Lab Receive로 같은 Topic을 두 번 구독하면 기본 화면은 `Subscriber Node=0`이고, API 원본 진단값은 `전체 Subscriber endpoint=2`, `내부 endpoint=2`, `외부 endpoint=0`이다.
+Dashboard에는 자동 상태 감시와 Interface Lab 사용자 실행이라는 두 목적이 공존한다. 같은 Topic에 자동 감시 subscription과 명시적 Receive subscription이 함께 생기면 내부 endpoint가 두 개가 될 수 있고, 이를 일반 참여 Node로 표시하면 실제 시스템에 Subscriber가 더 있는 것으로 오해할 수 있다. 따라서 기본 표와 상세 목록은 Dashboard 내부 Node를 제외한다.
+
+예를 들어 외부 Subscriber 없이 같은 Dashboard Node가 자동 감시와 Interface Lab Receive로 두 번 구독하면 화면의 `Subscriber Node 수 (Dashboard 제외)`는 `0`이고 `Dashboard 통신`에는 `자동 감시 · Lab 수신`이 표시된다. 이는 구독 endpoint가 전혀 없다는 뜻이 아니라 해당 Topic을 받는 다른 ROS2 Node가 없다는 뜻이다. API의 `subscriber_endpoint_count`는 Dashboard를 포함한 Graph 원본값을 유지한다.
 
 ## 주요/전체 필터
 

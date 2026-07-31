@@ -145,6 +145,7 @@ def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> Non
     monitor._service_call_runtime = _ExecutionRuntime()
     monitor._action_runtime = _ActionRuntime()
     monitor._action_goal_runtime = _ExecutionRuntime()
+    monitor._receive_runtime = _ReceiveRuntime()
 
     topic = monitor.snapshot()['topics'][0]
     service = monitor.service_snapshot()['services'][0]
@@ -156,18 +157,34 @@ def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> Non
     assert topic['subscriber_node_count'] == 1
     assert topic['subscriber_nodes'] == ['/robot']
     assert topic['external_subscriber_node_count'] == 1
+    assert topic['dashboard_communication'] == {
+        'auto_monitoring_active': True,
+        'interface_receive_active': True,
+        'interface_publisher_created': True,
+    }
 
     assert service['total_server_node_count'] == 2
     assert service['server_node_count'] == 1
     assert service['total_client_node_count'] == 2
     assert service['client_node_count'] == 1
     assert service['client_nodes'] == ['/robot']
+    assert service['dashboard_communication'] == {
+        'interface_client_created': True,
+        'has_call_history': False,
+    }
 
     assert action['total_server_node_count'] == 2
     assert action['server_node_count'] == 1
     assert action['total_client_node_count'] == 2
     assert action['client_node_count'] == 1
     assert action['client_nodes'] == ['/robot']
+    assert action['dashboard_communication'] == {
+        'monitoring_active': True,
+        'status_monitoring_active': True,
+        'feedback_monitoring_active': True,
+        'interface_client_created': True,
+        'has_goal_history': False,
+    }
 
 
 class _MonitorNode:
@@ -223,6 +240,7 @@ class _TopicRuntime:
                 'subscriber_count': 2,
                 'monitor_subscriber_count': 1,
                 'external_subscriber_count': 1,
+                'deep_monitoring': True,
             }],
             'meta': {},
         }
@@ -250,6 +268,8 @@ class _ActionRuntime:
                 'type': 'demo_interfaces/action/Demo',
                 'server_count': 2,
                 'client_count': 2,
+                'status_supported': True,
+                'feedback_supported': True,
             }],
             'meta': {},
         }
@@ -267,3 +287,27 @@ class _ExecutionRuntime:
 
     def callable_actions(self):
         return {'actions': []}
+
+    def dashboard_state_by_service(self):
+        return {
+            ('/Demo', 'demo_interfaces/srv/Demo'): {
+                'interface_client_created': True,
+            },
+        }
+
+    def dashboard_state_by_action(self):
+        return {
+            ('/DemoAction', 'demo_interfaces/action/Demo'): {
+                'interface_client_created': True,
+            },
+        }
+
+
+class _ReceiveRuntime:
+    def dashboard_state_by_topic(self):
+        return {
+            ('/demo', 'demo_msgs/msg/Demo'): {
+                'interface_receive_active': True,
+                'interface_publisher_created': True,
+            },
+        }
