@@ -272,6 +272,9 @@ GET    /ros/interfaces/action-goal/history
 GET    /ros/interfaces/callable-messages
 GET    /ros/interfaces/message-schema
 POST   /ros/interfaces/topic-publish
+POST   /ros/interfaces/topic-publish/continuous/start
+POST   /ros/interfaces/topic-publish/continuous/stop
+GET    /ros/interfaces/topic-publish/continuous
 GET    /ros/interfaces/topic-publish/history
 POST   /ros/interfaces/topic-publish/history/reset
 
@@ -533,6 +536,17 @@ interface_lab/execution/topic_runtime.py의 publish_topic()이 Publisher 생성 
 error_type=action_internal_topic 또는 topic_type_conflict와 graph_state를
 기존 Publish history 형식으로 기록한다.
 Frontend 경고는 사용자 안내용이며 Backend Graph 검증을 대체하지 않는다.
+```
+
+Interface Lab Topic 지속 발행 정책:
+
+```text
+기본 실행은 1회 발행이며, 지속 발행은 사용자가 별도 버튼으로 명시적으로 시작한다.
+지속 발행 주기는 0.1~50 Hz 범위에서만 허용한다.
+같은 topic_name/full_type 조합의 중복 지속 발행을 허용하지 않는다.
+사용자 중지 요청과 Backend Runtime cleanup 시 발행 thread를 종료한다.
+지속 발행도 1회 발행과 동일한 Action 내부 Topic 차단, Graph type 충돌 검사,
+payload validation을 거쳐야 한다.
 ```
 
 ## 10. Service 정책

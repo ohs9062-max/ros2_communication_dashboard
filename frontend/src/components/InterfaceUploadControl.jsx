@@ -15,6 +15,7 @@ import {
   fetchCallableActions,
   fetchCallableMessages,
   fetchCallableServices,
+  fetchContinuousTopicPublishes,
   fetchInterfaceApplyStatus,
   fetchInterfacePackages,
   fetchInterfaceRegistry,
@@ -34,6 +35,8 @@ import {
   resetTopicPublishHistory,
   sendActionGoal,
   startReceiveTopic,
+  startContinuousTopicPublish,
+  stopContinuousTopicPublish,
   stopReceiveTopic,
   uploadInterface,
   uploadInterfacePackage,
@@ -109,11 +112,13 @@ export function InterfaceUploadControl({
   const [topicImportableOnly, setTopicImportableOnly] = useState(false)
   const [selectedMessageKey, setSelectedMessageKey] = useState('')
   const [topicPublishName, setTopicPublishName] = useState('')
+  const [topicPublishHz, setTopicPublishHz] = useState(10)
   const topicPublishNameSourceRef = useRef('empty')
   const [topicMessageValues, setTopicMessageValues] = useState({})
   const [topicPublishBusy, setTopicPublishBusy] = useState(false)
   const [topicPublishResult, setTopicPublishResult] = useState(null)
   const [topicPublishHistory, setTopicPublishHistory] = useState([])
+  const [continuousTopicPublishes, setContinuousTopicPublishes] = useState([])
   const [selectedReceiveServiceKey, setSelectedReceiveServiceKey] = useState('')
   const [activeReceiveServiceKey, setActiveReceiveServiceKey] = useState('')
   const [receiveServiceSearch, setReceiveServiceSearch] = useState('')
@@ -170,6 +175,10 @@ export function InterfaceUploadControl({
     topicPublishName,
     selectedMessage?.message_type,
   )
+  const activeContinuousPublish = continuousTopicPublishes.find((item) =>
+    item.active
+    && item.topic_name === topicPublishName.trim()
+    && item.topic_type === selectedMessage?.message_type)
   const visibleCallableMessages = topicImportableOnly
     ? callableMessages.filter((message) => message.import_available)
     : callableMessages
@@ -588,6 +597,7 @@ export function InterfaceUploadControl({
         actionPayload,
         messagesPayload,
         publishHistoryPayload,
+        continuousPublishPayload,
         callableServicesPayload,
         callableActionsPayload,
       ] = await Promise.all([
@@ -598,6 +608,7 @@ export function InterfaceUploadControl({
         fetchReceiveActionHistory(),
         fetchCallableMessages(),
         fetchTopicPublishHistory({ limit: 100 }),
+        fetchContinuousTopicPublishes(),
         fetchCallableServices(),
         fetchCallableActions(),
       ])
@@ -612,6 +623,7 @@ export function InterfaceUploadControl({
       setReceiveActionHistory(actionPayload.data ?? [])
       setCallableMessages(messages)
       setTopicPublishHistory(publishHistoryPayload.data ?? [])
+      setContinuousTopicPublishes(continuousPublishPayload.data ?? [])
       setCallableServices(services)
       setCallableActions(actions)
       if (!selectedMessageKey && messages[0]) {
@@ -674,11 +686,16 @@ export function InterfaceUploadControl({
       return
     }
     try {
-      const payload = await resetReceiveTopicHistory(selectedReceiveTopic, selectedMessage?.message_type)
+      const selectedType = selectedMessage?.message_type
+      const payload = await resetReceiveTopicHistory(selectedReceiveTopic, selectedType)
+      setReceiveTopics(payload.data?.topics ?? [])
+      setReceiveTopicHistory((items) => items.filter((event) =>
+        event.topic_name !== selectedReceiveTopic
+        || (selectedType && event.topic_type !== selectedType)))
       await loadReceiveState()
       setFeedback({
         tone: 'success',
-        text: `${selectedReceiveTopic} 수신 이력 ${payload.data?.cleared ?? 0}개를 리셋했습니다.`,
+        text: `${selectedReceiveTopic} 수신 항목 ${payload.data?.removed ?? 0}개와 이력 ${payload.data?.cleared ?? 0}개를 삭제했습니다.`,
       })
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message })
@@ -714,6 +731,51 @@ export function InterfaceUploadControl({
     }
   }
 
+  const startSelectedContinuousTopicPublish = async () => {
+    if (!topicPublishName.trim() || !selectedMessage?.message_type) {
+      setTopicPublishResult({ success: false, error: 'Publish Topic 이름과 Message full_type을 선택하세요.' })
+      return
+    }
+    setTopicPublishBusy(true)
+    setTopicPublishResult(null)
+    try {
+      const result = await startContinuousTopicPublish({
+        topic_name: topicPublishName.trim(),
+        topic_type: selectedMessage.message_type,
+        full_type: selectedMessage.message_type,
+        message: normalizeNumericValues(topicMessageValues, selectedMessage.message_schema),
+        hz: Number(topicPublishHz),
+      })
+      setTopicPublishResult(result)
+      const state = await fetchContinuousTopicPublishes()
+      setContinuousTopicPublishes(state.data ?? [])
+      onStateChanged?.()
+    } catch (error) {
+      setTopicPublishResult({ success: false, error: error.message })
+    } finally {
+      setTopicPublishBusy(false)
+    }
+  }
+
+  const stopSelectedContinuousTopicPublish = async () => {
+    if (!topicPublishName.trim() || !selectedMessage?.message_type) return
+    setTopicPublishBusy(true)
+    try {
+      const result = await stopContinuousTopicPublish({
+        topic_name: topicPublishName.trim(),
+        topic_type: selectedMessage.message_type,
+      })
+      setTopicPublishResult(result)
+      const state = await fetchContinuousTopicPublishes()
+      setContinuousTopicPublishes(state.data ?? [])
+      onStateChanged?.()
+    } catch (error) {
+      setTopicPublishResult({ success: false, error: error.message })
+    } finally {
+      setTopicPublishBusy(false)
+    }
+  }
+
   const resetSelectedTopicPublishHistory = async () => {
     try {
       const payload = await resetTopicPublishHistory({
@@ -734,10 +796,12 @@ export function InterfaceUploadControl({
   const resetAllTopicReceiveHistory = async () => {
     try {
       const payload = await resetReceiveTopicHistory()
+      setReceiveTopics(payload.data?.topics ?? [])
+      setReceiveTopicHistory([])
       await loadReceiveState()
       setFeedback({
         tone: 'success',
-        text: `Topic 수신 이력 ${payload.data?.cleared ?? 0}개를 전체 리셋했습니다.`,
+        text: `수신 중 Topic ${payload.data?.removed ?? 0}개와 이력 ${payload.data?.cleared ?? 0}개를 전체 삭제했습니다.`,
       })
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message })
@@ -1383,6 +1447,19 @@ export function InterfaceUploadControl({
   ])
 
   useEffect(() => {
+    if (!activeContinuousPublish) return undefined
+    const timer = window.setInterval(async () => {
+      try {
+        const payload = await fetchContinuousTopicPublishes()
+        setContinuousTopicPublishes(payload.data ?? [])
+      } catch {
+        // The regular page refresh and explicit stop action will surface API errors.
+      }
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [activeContinuousPublish?.topic_name, activeContinuousPublish?.topic_type])
+
+  useEffect(() => {
     onTopicWorkspaceExpandedChange?.(topicExpandedActive)
     return () => onTopicWorkspaceExpandedChange?.(false)
   }, [onTopicWorkspaceExpandedChange, topicExpandedActive])
@@ -1967,7 +2044,7 @@ export function InterfaceUploadControl({
               {selectedMessage && (
                 <div className="interface-package-help">
                   선택 Message {selectedMessage.message_type}의 schema {selectedMessage.message_schema?.length ?? 0}개 필드로 payload 폼을 생성합니다.
-                  사용자가 Publish 버튼을 누를 때만 1회 전송합니다.
+                  사용자가 1회 발행 또는 지속 발행을 명시적으로 실행할 때만 전송합니다.
                 </div>
               )}
               {topicPublishWarning ? (
@@ -1987,14 +2064,41 @@ export function InterfaceUploadControl({
                   value={topicMessageValues[field.name]}
                 />
               ))}
-              <button
-                className="interface-service-call-button"
-                disabled={topicPublishBusy || !selectedMessage?.import_available}
-                onClick={publishSelectedTopicMessage}
-                type="button"
-              >
-                {topicPublishBusy ? 'Publish 중…' : 'Publish'}
-              </button>
+              <label className="interface-service-field">
+                <span>지속 발행 주기 (Hz)</span>
+                <input
+                  disabled={Boolean(activeContinuousPublish)}
+                  max="50"
+                  min="0.1"
+                  onChange={(event) => setTopicPublishHz(Number(event.target.value))}
+                  step="0.1"
+                  type="number"
+                  value={topicPublishHz}
+                />
+              </label>
+              <div className="interface-receive-actions">
+                <button
+                  className="interface-service-call-button"
+                  disabled={topicPublishBusy || !selectedMessage?.import_available}
+                  onClick={publishSelectedTopicMessage}
+                  type="button"
+                >
+                  {topicPublishBusy ? '처리 중…' : '1회 발행'}
+                </button>
+                <button
+                  className={activeContinuousPublish ? 'interface-receive-action-button warning' : 'interface-service-call-button'}
+                  disabled={topicPublishBusy || !selectedMessage?.import_available}
+                  onClick={activeContinuousPublish ? stopSelectedContinuousTopicPublish : startSelectedContinuousTopicPublish}
+                  type="button"
+                >
+                  {activeContinuousPublish ? '지속 발행 중지' : '지속 발행'}
+                </button>
+              </div>
+              {activeContinuousPublish ? (
+                <div className="interface-service-state warning">
+                  {activeContinuousPublish.hz} Hz로 지속 발행 중 · {activeContinuousPublish.message_count ?? 0}회 전송
+                </div>
+              ) : null}
               <div className="interface-receive-actions">
                 <button className="interface-receive-action-button warning" onClick={resetSelectedTopicPublishHistory} type="button">Publish 이력 리셋</button>
               </div>

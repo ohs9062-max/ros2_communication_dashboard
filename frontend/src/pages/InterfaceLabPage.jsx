@@ -10,6 +10,7 @@ import {
   fetchCallableActions,
   fetchCallableMessages,
   fetchCallableServices,
+  fetchContinuousTopicPublishes,
   fetchActions,
   fetchTopics,
   fetchInterfaceApplyStatus,
@@ -26,6 +27,8 @@ import {
   resetTopicPublishHistory,
   sendActionGoal,
   startReceiveTopic,
+  startContinuousTopicPublish,
+  stopContinuousTopicPublish,
   stopReceiveTopic,
 } from '../api/rosApi.js'
 
@@ -54,6 +57,7 @@ export function InterfaceLabPage({ websocket }) {
   const [serviceHistory, setServiceHistory] = useState([])
   const [actionHistory, setActionHistory] = useState([])
   const [topicPublishHistory, setTopicPublishHistory] = useState([])
+  const [continuousTopicPublishes, setContinuousTopicPublishes] = useState([])
   const [topicReceiveHistory, setTopicReceiveHistory] = useState([])
   const [receiveTopics, setReceiveTopics] = useState([])
   const [topics, setTopics] = useState([])
@@ -64,6 +68,7 @@ export function InterfaceLabPage({ websocket }) {
   const [goalValues, setGoalValues] = useState({})
   const [messageValues, setMessageValues] = useState({})
   const [topicPublishName, setTopicPublishName] = useState('')
+  const [topicPublishHz, setTopicPublishHz] = useState(10)
   const [topicSubscribeName, setTopicSubscribeName] = useState('')
   const topicPublishNameSourceRef = useRef('empty')
   const [timeoutSec, setTimeoutSec] = useState(2)
@@ -89,6 +94,7 @@ export function InterfaceLabPage({ websocket }) {
       ['serviceHistory', fetchServiceCallHistory()],
       ['actionHistory', fetchActionGoalHistory()],
       ['topicPublishHistory', fetchTopicPublishHistory()],
+      ['continuousTopicPublishes', fetchContinuousTopicPublishes()],
       ['topicReceiveHistory', fetchReceiveTopicHistory()],
       ['receiveTopics', fetchReceiveTopics()],
       ['topics', fetchTopics()],
@@ -110,6 +116,7 @@ export function InterfaceLabPage({ websocket }) {
       if (payloads.serviceHistory) setServiceHistory(payloads.serviceHistory.data ?? [])
       if (payloads.actionHistory) setActionHistory(payloads.actionHistory.data ?? [])
       if (payloads.topicPublishHistory) setTopicPublishHistory(payloads.topicPublishHistory.data ?? [])
+      if (payloads.continuousTopicPublishes) setContinuousTopicPublishes(payloads.continuousTopicPublishes.data ?? [])
       if (payloads.topicReceiveHistory) setTopicReceiveHistory(payloads.topicReceiveHistory.data ?? [])
       if (payloads.receiveTopics) setReceiveTopics(payloads.receiveTopics.data ?? [])
       if (payloads.topics) setTopics(payloads.topics.data?.topics ?? payloads.topics.data ?? [])
@@ -142,6 +149,7 @@ export function InterfaceLabPage({ websocket }) {
     setMessageValues({})
     topicPublishNameSourceRef.current = 'empty'
     setTopicPublishName('')
+    setTopicPublishHz(10)
     setTopicSubscribeName('')
     setTimeoutSec(2)
     setGoalTimeoutSec(10)
@@ -196,10 +204,27 @@ export function InterfaceLabPage({ websocket }) {
     topicPublishName,
     selectedDetail?.fullType,
   )
+  const activeContinuousPublish = continuousTopicPublishes.find((item) =>
+    item.active
+    && item.topic_name === topicPublishName
+    && item.topic_type === selectedDetail?.fullType)
   const relatedItems = useMemo(
     () => relatedWorkspaceItems(selectedDetail, workspaceItems),
     [selectedDetail, workspaceItems],
   )
+
+  useEffect(() => {
+    if (!activeContinuousPublish) return undefined
+    const timer = window.setInterval(async () => {
+      try {
+        const payload = await fetchContinuousTopicPublishes()
+        setContinuousTopicPublishes(payload.data ?? [])
+      } catch {
+        // Explicit actions and the regular refresh surface connection errors.
+      }
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [activeContinuousPublish?.topic_name, activeContinuousPublish?.topic_type])
 
   useEffect(() => {
     setSelectedHistoryItem(null)
@@ -329,6 +354,47 @@ export function InterfaceLabPage({ websocket }) {
     }
   }
 
+  const startSelectedContinuousTopicPublish = async () => {
+    if (!selectedDetail?.fullType || !topicPublishName) {
+      setInlineResult({ success: false, error: 'Message full_type과 Publish Topic 이름이 필요합니다.' })
+      return
+    }
+    setExecuting(true)
+    setInlineResult(null)
+    try {
+      const result = await startContinuousTopicPublish({
+        topic_name: topicPublishName,
+        topic_type: selectedDetail.fullType,
+        full_type: selectedDetail.fullType,
+        message: normalizeNumericValues(messageValues, selectedDetail.schema),
+        hz: Number(topicPublishHz),
+      })
+      setInlineResult(result)
+      await refresh({ notifyWorkbench: false })
+    } catch (nextError) {
+      setInlineResult({ success: false, error: nextError.message, sent_to_topic: false })
+    } finally {
+      setExecuting(false)
+    }
+  }
+
+  const stopSelectedContinuousTopicPublish = async () => {
+    if (!selectedDetail?.fullType || !topicPublishName) return
+    setExecuting(true)
+    try {
+      const result = await stopContinuousTopicPublish({
+        topic_name: topicPublishName,
+        topic_type: selectedDetail.fullType,
+      })
+      setInlineResult(result)
+      await refresh({ notifyWorkbench: false })
+    } catch (nextError) {
+      setInlineResult({ success: false, error: nextError.message })
+    } finally {
+      setExecuting(false)
+    }
+  }
+
   const startSelectedTopicSubscribe = async () => {
     if (!selectedDetail?.fullType || !topicSubscribeName) {
       setInlineResult({ success: false, error: 'Topic 이름과 Message full_type이 필요합니다.' })
@@ -375,7 +441,7 @@ export function InterfaceLabPage({ websocket }) {
           : {},
       ),
     ])
-    setInlineResult({ success: true, message: 'Topic Publish/Subscribe 이력을 초기화했습니다.' })
+    setInlineResult({ success: true, message: 'Topic 수신 항목과 Publish/Subscribe 이력을 초기화했습니다.' })
     await refresh({ notifyWorkbench: false })
   }
 
@@ -509,6 +575,8 @@ export function InterfaceLabPage({ websocket }) {
                     }}
                     onRequestChange={setRequestValues}
                     onTopicPublish={publishSelectedTopic}
+                    onTopicContinuousStart={startSelectedContinuousTopicPublish}
+                    onTopicContinuousStop={stopSelectedContinuousTopicPublish}
                     onServiceExecute={executeSelectedService}
                     onTopicReset={resetSelectedTopicHistories}
                     onTopicSubscribeStart={startSelectedTopicSubscribe}
@@ -519,10 +587,13 @@ export function InterfaceLabPage({ websocket }) {
                     selectedHistoryItem={selectedHistoryItem}
                     setGoalTimeoutSec={setGoalTimeoutSec}
                     setTopicPublishName={updateTopicPublishName}
+                    setTopicPublishHz={setTopicPublishHz}
                     selectPublishGraphTopic={selectPublishGraphTopic}
                     setTopicSubscribeName={setTopicSubscribeName}
                     setTimeoutSec={setTimeoutSec}
                     topicPublishName={topicPublishName}
+                    topicPublishHz={topicPublishHz}
+                    activeContinuousPublish={activeContinuousPublish}
                     publishGraphTopics={publishGraphTopics}
                     topicPublishWarning={topicPublishWarning}
                     topicSubscribeName={topicSubscribeName}
@@ -623,6 +694,7 @@ function CountBadge({ label, tone, value }) {
 }
 
 function InlineWorkspace({
+  activeContinuousPublish,
   executing,
   goalTimeoutSec,
   goalValues,
@@ -636,6 +708,8 @@ function InlineWorkspace({
   onRequestChange,
   onServiceExecute,
   onTopicPublish,
+  onTopicContinuousStart,
+  onTopicContinuousStop,
   onTopicReset,
   onTopicSubscribeStart,
   onTopicSubscribeStop,
@@ -646,9 +720,11 @@ function InlineWorkspace({
   selectPublishGraphTopic,
   setGoalTimeoutSec,
   setTopicPublishName,
+  setTopicPublishHz,
   setTopicSubscribeName,
   setTimeoutSec,
   topicPublishName,
+  topicPublishHz,
   publishGraphTopics,
   topicPublishWarning,
   topicSubscribeName,
@@ -684,6 +760,7 @@ function InlineWorkspace({
       )}
       {showDetail && (
         <InterfaceDetailPanel
+          activeContinuousPublish={activeContinuousPublish}
           executing={executing}
           goalTimeoutSec={goalTimeoutSec}
           goalValues={goalValues}
@@ -696,6 +773,8 @@ function InlineWorkspace({
           onRequestChange={onRequestChange}
           onServiceExecute={onServiceExecute}
           onTopicPublish={onTopicPublish}
+          onTopicContinuousStart={onTopicContinuousStart}
+          onTopicContinuousStop={onTopicContinuousStop}
           onTopicReset={onTopicReset}
           onTopicSubscribeStart={onTopicSubscribeStart}
           onTopicSubscribeStop={onTopicSubscribeStop}
@@ -705,9 +784,11 @@ function InlineWorkspace({
           selectPublishGraphTopic={selectPublishGraphTopic}
           setGoalTimeoutSec={setGoalTimeoutSec}
           setTopicPublishName={setTopicPublishName}
+          setTopicPublishHz={setTopicPublishHz}
           setTopicSubscribeName={setTopicSubscribeName}
           setTimeoutSec={setTimeoutSec}
           topicPublishName={topicPublishName}
+          topicPublishHz={topicPublishHz}
           publishGraphTopics={publishGraphTopics}
           topicPublishWarning={topicPublishWarning}
           topicSubscribeName={topicSubscribeName}
@@ -719,6 +800,7 @@ function InlineWorkspace({
 }
 
 function InterfaceDetailPanel({
+  activeContinuousPublish,
   executing,
   goalTimeoutSec,
   goalValues,
@@ -731,6 +813,8 @@ function InterfaceDetailPanel({
   onRequestChange,
   onServiceExecute,
   onTopicPublish,
+  onTopicContinuousStart,
+  onTopicContinuousStop,
   onTopicReset,
   onTopicSubscribeStart,
   onTopicSubscribeStop,
@@ -740,9 +824,11 @@ function InterfaceDetailPanel({
   selectPublishGraphTopic,
   setGoalTimeoutSec,
   setTopicPublishName,
+  setTopicPublishHz,
   setTopicSubscribeName,
   setTimeoutSec,
   topicPublishName,
+  topicPublishHz,
   publishGraphTopics,
   topicPublishWarning,
   topicSubscribeName,
@@ -786,6 +872,7 @@ function InterfaceDetailPanel({
       <CollapsibleText title="raw_text" value={item.raw_text ?? ''} />
       {item.kind === 'message' && (
         <TopicWorkspaceDetail
+          activeContinuousPublish={activeContinuousPublish}
           executing={executing}
           inlineResult={inlineResult}
           item={item}
@@ -793,14 +880,18 @@ function InterfaceDetailPanel({
           onHistorySelect={onHistorySelect}
           onMessageChange={onMessageChange}
           onPublish={onTopicPublish}
+          onContinuousStart={onTopicContinuousStart}
+          onContinuousStop={onTopicContinuousStop}
           onReset={onTopicReset}
           onSubscribeStart={onTopicSubscribeStart}
           onSubscribeStop={onTopicSubscribeStop}
           selectedHistoryItem={selectedHistoryItem}
           selectPublishGraphTopic={selectPublishGraphTopic}
           setTopicPublishName={setTopicPublishName}
+          setTopicPublishHz={setTopicPublishHz}
           setTopicSubscribeName={setTopicSubscribeName}
           topicPublishName={topicPublishName}
+          topicPublishHz={topicPublishHz}
           publishGraphTopics={publishGraphTopics}
           topicPublishWarning={topicPublishWarning}
           topicSubscribeName={topicSubscribeName}
@@ -909,6 +1000,7 @@ function ServiceWorkspaceDetail({
 }
 
 function TopicWorkspaceDetail({
+  activeContinuousPublish,
   executing,
   inlineResult,
   item,
@@ -916,6 +1008,8 @@ function TopicWorkspaceDetail({
   onHistorySelect,
   onMessageChange,
   onPublish,
+  onContinuousStart,
+  onContinuousStop,
   onReset,
   onSubscribeStart,
   onSubscribeStop,
@@ -923,8 +1017,10 @@ function TopicWorkspaceDetail({
   selectedHistoryItem,
   selectPublishGraphTopic,
   setTopicPublishName,
+  setTopicPublishHz,
   setTopicSubscribeName,
   topicPublishName,
+  topicPublishHz,
   topicPublishWarning,
   topicSubscribeName,
 }) {
@@ -995,14 +1091,41 @@ function TopicWorkspaceDetail({
           value={messageValues[field.name]}
         />
       ))}
-      <button
-        className="interface-service-call-button"
-        disabled={executing || !item.importAvailable}
-        onClick={onPublish}
-        type="button"
-      >
-        {executing ? 'Publish 중…' : '1회 Publish'}
-      </button>
+      <label className="interface-service-field">
+        <span>지속 발행 주기 (Hz)</span>
+        <input
+          disabled={Boolean(activeContinuousPublish)}
+          max="50"
+          min="0.1"
+          onChange={(event) => setTopicPublishHz(Number(event.target.value))}
+          step="0.1"
+          type="number"
+          value={topicPublishHz}
+        />
+      </label>
+      <div className="interface-inline-actions">
+        <button
+          className="interface-service-call-button"
+          disabled={executing || !item.importAvailable}
+          onClick={onPublish}
+          type="button"
+        >
+          {executing ? '처리 중…' : '1회 발행'}
+        </button>
+        <button
+          className={activeContinuousPublish ? 'interface-receive-action-button warning' : 'interface-service-call-button'}
+          disabled={executing || !item.importAvailable}
+          onClick={activeContinuousPublish ? onContinuousStop : onContinuousStart}
+          type="button"
+        >
+          {activeContinuousPublish ? '지속 발행 중지' : '지속 발행'}
+        </button>
+      </div>
+      {activeContinuousPublish && (
+        <p className="interface-service-state warning">
+          {activeContinuousPublish.hz} Hz로 지속 발행 중 · {activeContinuousPublish.message_count ?? 0}회 전송
+        </p>
+      )}
 
       <SectionTitle title="Topic Subscribe" />
       <label className="interface-service-field">

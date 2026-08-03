@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from threading import Event, Thread
 from time import sleep, time
 from typing import Any, Callable
 
@@ -21,6 +22,9 @@ from ros2_dashboard_backend.interface_lab.common.value_converter import (
 DEFAULT_TOPIC_HISTORY_LIMIT = 500
 MAX_TOPIC_HISTORY_LIMIT = 500
 MAX_PUBLISH_HISTORY_ITEMS = 100
+DEFAULT_CONTINUOUS_PUBLISH_HZ = 10.0
+MIN_CONTINUOUS_PUBLISH_HZ = 0.1
+MAX_CONTINUOUS_PUBLISH_HZ = 50.0
 
 
 class InterfaceReceiveError(ValueError):
@@ -36,15 +40,18 @@ class InterfaceReceiveRuntime:
         self._topics: dict[tuple[str, str], dict[str, Any]] = {}
         self._publishers: dict[tuple[str, str], Any] = {}
         self._publish_history: list[dict[str, Any]] = []
+        self._continuous_publishes: dict[tuple[str, str], dict[str, Any]] = {}
         self._sequence = 0
 
     def clear(self) -> None:
+        self.stop_all_continuous_publishes()
         with self._lock:
             topics = list(self._topics.values())
             self._topics = {}
             publishers = list(self._publishers.values())
             self._publishers = {}
             self._publish_history = []
+            self._continuous_publishes = {}
         node = self._node_getter()
         if node is None:
             return
@@ -252,40 +259,41 @@ class InterfaceReceiveRuntime:
         topic_name: str | None = None,
         topic_type: str | None = None,
     ) -> dict[str, Any]:
-        """선택한 Topic의 수신 메시지 이력을 초기화합니다."""
+        """선택한 Topic의 수신 이력과 subscription 상태를 제거합니다."""
         cleared = 0
+        removed_items: list[dict[str, Any]] = []
         with self._lock:
             if topic_name and topic_type:
-                item = self._topics.get((topic_name, topic_type))
+                item = self._topics.pop((topic_name, topic_type), None)
                 if item is None:
-                    return {'cleared': 0, 'topic_name': topic_name, 'topic_type': topic_type}
+                    return {'cleared': 0, 'removed': 0, 'topic_name': topic_name, 'topic_type': topic_type}
                 cleared = len(item.get('history', []))
-                item['history'] = []
-                item['last_message'] = None
-                item['last_received_at'] = None
-                item['error'] = None
-                item['message_count'] = 0
-                return {'cleared': cleared, 'topic_name': topic_name, 'topic_type': topic_type}
-            if topic_name:
-                for key, item in self._topics.items():
-                    if key[0] != topic_name:
-                        continue
-                    cleared += len(item.get('history', []))
-                    item['history'] = []
-                    item['last_message'] = None
-                    item['last_received_at'] = None
-                    item['error'] = None
-                    item['message_count'] = 0
-                return {'cleared': cleared, 'topic_name': topic_name, 'topic_type': None}
+                removed_items = [item]
+            elif topic_name:
+                matching_keys = [key for key in self._topics if key[0] == topic_name]
+                removed_items = [self._topics.pop(key) for key in matching_keys]
+                cleared = sum(len(item.get('history', [])) for item in removed_items)
+            else:
+                removed_items = list(self._topics.values())
+                self._topics = {}
+                cleared = sum(len(item.get('history', [])) for item in removed_items)
 
-            for item in self._topics.values():
-                cleared += len(item.get('history', []))
-                item['history'] = []
-                item['last_message'] = None
-                item['last_received_at'] = None
-                item['error'] = None
-                item['message_count'] = 0
-        return {'cleared': cleared, 'topic_name': None, 'topic_type': None}
+        node = self._node_getter()
+        if node is not None:
+            for item in removed_items:
+                subscription = item.get('subscription')
+                if subscription is None:
+                    continue
+                try:
+                    node.destroy_subscription(subscription)
+                except Exception:
+                    pass
+        return {
+            'cleared': cleared,
+            'removed': len(removed_items),
+            'topic_name': topic_name,
+            'topic_type': topic_type,
+        }
 
     def publish_topic(
         self,
@@ -411,6 +419,149 @@ class InterfaceReceiveRuntime:
         with self._lock:
             items = [item.copy() for item in self._publish_history]
         return {'history': items[:normalized_limit], 'meta': {'count': len(items[:normalized_limit])}}
+
+    def start_continuous_publish(
+        self,
+        *,
+        topic_name: str,
+        topic_type: str,
+        payload: dict[str, Any],
+        hz: float = DEFAULT_CONTINUOUS_PUBLISH_HZ,
+    ) -> dict[str, Any]:
+        """사용자가 명시적으로 시작한 Topic 주기 발행을 시작합니다."""
+        topic_name = topic_name.strip()
+        topic_type = topic_type.strip()
+        normalized_hz = _normalize_publish_hz(hz)
+        key = (topic_name, topic_type)
+        with self._lock:
+            active = self._continuous_publishes.get(key)
+            if active and active.get('active'):
+                raise InterfaceReceiveError('이미 지속 발행 중인 Topic입니다. 먼저 중지하세요.')
+
+        first_result = self.publish_topic(
+            topic_name=topic_name,
+            topic_type=topic_type,
+            payload=payload,
+        )
+        if first_result.get('success') is not True:
+            return {
+                **first_result,
+                'continuous': False,
+                'active': False,
+                'hz': normalized_hz,
+            }
+
+        stop_event = Event()
+        state = {
+            'topic_name': topic_name,
+            'topic_type': topic_type,
+            'payload': payload,
+            'hz': normalized_hz,
+            'active': True,
+            'continuous': True,
+            'started_at': time(),
+            'stopped_at': None,
+            'message_count': 1,
+            'last_published_at': first_result.get('published_at'),
+            'error': None,
+            'stop_event': stop_event,
+            'thread': None,
+        }
+        thread = Thread(
+            target=self._continuous_publish_loop,
+            args=(key,),
+            daemon=True,
+            name=f'interface-topic-publish:{topic_name}',
+        )
+        state['thread'] = thread
+        with self._lock:
+            self._continuous_publishes[key] = state
+        thread.start()
+        return self._continuous_publish_state(state)
+
+    def stop_continuous_publish(self, *, topic_name: str, topic_type: str) -> dict[str, Any]:
+        """선택한 Topic의 주기 발행을 중지합니다."""
+        key = (topic_name.strip(), topic_type.strip())
+        with self._lock:
+            state = self._continuous_publishes.get(key)
+        if state is None:
+            return {
+                'topic_name': key[0],
+                'topic_type': key[1],
+                'active': False,
+                'continuous': True,
+                'message_count': 0,
+            }
+        state['stop_event'].set()
+        thread = state.get('thread')
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=2.0)
+        with self._lock:
+            state['active'] = False
+            state['stopped_at'] = state.get('stopped_at') or time()
+            return self._continuous_publish_state(state)
+
+    def continuous_publishes(self) -> dict[str, Any]:
+        """현재 및 최근 주기 발행 상태를 반환합니다."""
+        with self._lock:
+            items = [
+                self._continuous_publish_state(item)
+                for _key, item in sorted(self._continuous_publishes.items())
+            ]
+        return {
+            'publishes': items,
+            'meta': {
+                'count': len(items),
+                'active_count': sum(1 for item in items if item['active']),
+            },
+        }
+
+    def stop_all_continuous_publishes(self) -> None:
+        """Runtime 정리 전에 실행 중인 모든 주기 발행 thread를 중지합니다."""
+        with self._lock:
+            states = list(self._continuous_publishes.values())
+        for state in states:
+            state['stop_event'].set()
+        for state in states:
+            thread = state.get('thread')
+            if thread is not None and thread.is_alive():
+                thread.join(timeout=2.0)
+
+    def _continuous_publish_loop(self, key: tuple[str, str]) -> None:
+        with self._lock:
+            state = self._continuous_publishes.get(key)
+        if state is None:
+            return
+        interval_sec = 1.0 / state['hz']
+        stop_event = state['stop_event']
+        while not stop_event.wait(interval_sec):
+            try:
+                result = self.publish_topic(
+                    topic_name=state['topic_name'],
+                    topic_type=state['topic_type'],
+                    payload=state['payload'],
+                )
+                with self._lock:
+                    state['message_count'] += 1 if result.get('success') is True else 0
+                    state['last_published_at'] = result.get('published_at')
+                    if result.get('success') is not True:
+                        state['error'] = result.get('error') or '지속 발행에 실패했습니다.'
+                        stop_event.set()
+            except Exception as exc:
+                with self._lock:
+                    state['error'] = str(exc)
+                stop_event.set()
+        with self._lock:
+            state['active'] = False
+            state['stopped_at'] = state.get('stopped_at') or time()
+
+    @staticmethod
+    def _continuous_publish_state(state: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: value
+            for key, value in state.items()
+            if key not in {'stop_event', 'thread'}
+        }
 
     def reset_publish_history(self, *, topic_name: str | None = None, topic_type: str | None = None) -> dict[str, Any]:
         """선택한 Topic의 Publish 실행 이력을 삭제합니다."""
@@ -587,6 +738,18 @@ def _normalize_limit(value: int) -> int:
     except (TypeError, ValueError):
         limit = DEFAULT_TOPIC_HISTORY_LIMIT
     return max(1, min(limit, MAX_TOPIC_HISTORY_LIMIT))
+
+
+def _normalize_publish_hz(value: float) -> float:
+    try:
+        hz = float(value)
+    except (TypeError, ValueError) as exc:
+        raise InterfaceReceiveError('hz는 숫자여야 합니다.') from exc
+    if hz < MIN_CONTINUOUS_PUBLISH_HZ or hz > MAX_CONTINUOUS_PUBLISH_HZ:
+        raise InterfaceReceiveError(
+            f'hz는 {MIN_CONTINUOUS_PUBLISH_HZ:g} 이상 {MAX_CONTINUOUS_PUBLISH_HZ:g} 이하여야 합니다.',
+        )
+    return hz
 
 
 def _default_qos(topic_type: str) -> int:

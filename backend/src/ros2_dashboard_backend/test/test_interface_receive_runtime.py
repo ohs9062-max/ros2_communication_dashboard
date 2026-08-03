@@ -1,4 +1,5 @@
 import sys
+import time
 import types
 
 
@@ -119,9 +120,15 @@ def test_topic_receive_history_reset(monkeypatch):
 
     result = runtime.reset_topic_history(topic_name='/demo')
 
-    assert result == {'cleared': 2, 'topic_name': '/demo', 'topic_type': None}
+    assert result == {
+        'cleared': 2,
+        'removed': 1,
+        'topic_name': '/demo',
+        'topic_type': None,
+    }
     assert runtime.topic_history(topic_name='/demo')['history'] == []
-    assert runtime.topics()['topics'][0]['last_message'] is None
+    assert runtime.topics()['topics'] == []
+    assert node.subscriptions == []
 
 
 def test_topic_receive_allows_same_name_with_different_full_type(monkeypatch):
@@ -170,6 +177,57 @@ def test_topic_publish_records_success_and_reuses_publisher(monkeypatch):
     assert len(node.publishers) == 1
     assert [message.data for message in node.publishers[0].messages] == ['one', 'two']
     assert runtime.publish_history()['meta']['count'] == 2
+
+
+def test_continuous_topic_publish_repeats_and_stops(monkeypatch):
+    node = FakeNode()
+    runtime = InterfaceReceiveRuntime(lock=DummyLock(), node_getter=lambda: node)
+    _registered_message(monkeypatch)
+    monkeypatch.setattr(
+        'ros2_dashboard_backend.interface_lab.execution.topic_runtime.get_message',
+        lambda _type: FakeMessage,
+    )
+
+    started = runtime.start_continuous_publish(
+        topic_name='/demo',
+        topic_type='std_msgs/msg/String',
+        payload={'data': 'repeat'},
+        hz=50,
+    )
+    deadline = time.monotonic() + 1.0
+    while len(node.publishers[0].messages) < 3 and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    stopped = runtime.stop_continuous_publish(
+        topic_name='/demo',
+        topic_type='std_msgs/msg/String',
+    )
+    published_count = len(node.publishers[0].messages)
+    time.sleep(0.04)
+
+    assert started['active'] is True
+    assert published_count >= 3
+    assert len(node.publishers[0].messages) == published_count
+    assert stopped['active'] is False
+    assert stopped['message_count'] == published_count
+
+
+def test_continuous_topic_publish_rejects_invalid_hz(monkeypatch):
+    node = FakeNode()
+    runtime = InterfaceReceiveRuntime(lock=DummyLock(), node_getter=lambda: node)
+    _registered_message(monkeypatch)
+
+    try:
+        runtime.start_continuous_publish(
+            topic_name='/demo',
+            topic_type='std_msgs/msg/String',
+            payload={'data': 'repeat'},
+            hz=100,
+        )
+    except ValueError as exc:
+        assert '0.1 이상 50 이하' in str(exc)
+    else:
+        raise AssertionError('invalid hz must fail')
 
 
 def test_topic_publish_validation_error_does_not_publish(monkeypatch):

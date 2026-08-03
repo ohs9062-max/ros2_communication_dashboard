@@ -100,6 +100,7 @@ class RosMonitor:
     def stop(self) -> None:
         """timer와 실행 Runtime을 정리하고 rclpy Node를 종료합니다."""
         node = self._node
+        self._receive_runtime.stop_all_continuous_publishes()
 
         if rclpy.ok():
             rclpy.shutdown()
@@ -526,6 +527,38 @@ class RosMonitor:
             topic_type=topic_type,
             payload=payload,
         )
+
+    def start_continuous_topic_publish(
+        self,
+        *,
+        topic_name: str,
+        topic_type: str,
+        payload: dict[str, Any],
+        hz: float,
+    ) -> dict[str, Any]:
+        """Interface Lab의 사용자 명시 주기 발행을 시작합니다."""
+        return self._receive_runtime.start_continuous_publish(
+            topic_name=topic_name,
+            topic_type=topic_type,
+            payload=payload,
+            hz=hz,
+        )
+
+    def stop_continuous_topic_publish(
+        self,
+        *,
+        topic_name: str,
+        topic_type: str,
+    ) -> dict[str, Any]:
+        """Interface Lab의 사용자 명시 주기 발행을 중지합니다."""
+        return self._receive_runtime.stop_continuous_publish(
+            topic_name=topic_name,
+            topic_type=topic_type,
+        )
+
+    def continuous_topic_publishes(self) -> dict[str, Any]:
+        """Interface Lab의 주기 발행 상태를 반환합니다."""
+        return self._receive_runtime.continuous_publishes()
 
     def topic_publish_history(self, *, limit: int | None = None) -> dict[str, Any]:
         """Interface Lab에서 실행한 Topic Publish 이력을 반환합니다."""

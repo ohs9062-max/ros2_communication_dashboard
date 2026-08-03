@@ -147,6 +147,32 @@ export async function publishTopicMessage(payload) {
   return responseJson(response)
 }
 
+export async function startContinuousTopicPublish(payload) {
+  const response = await fetch(`${API_BASE_URL}/ros/interfaces/topic-publish/continuous/start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  return responseJson(response)
+}
+
+export async function stopContinuousTopicPublish(payload) {
+  const response = await fetch(`${API_BASE_URL}/ros/interfaces/topic-publish/continuous/stop`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  return responseJson(response)
+}
+
+export function fetchContinuousTopicPublishes() {
+  return requestJson('/ros/interfaces/topic-publish/continuous')
+}
+
 export function fetchTopicPublishHistory({ limit = 100 } = {}) {
   const query = new URLSearchParams()
   if (limit) query.set('limit', String(limit))
