@@ -164,7 +164,7 @@ function effectiveStatusLabel(service) {
   if (status === 'timeout') return 'Timeout'
   if (status === 'failed') return '호출 실패'
   if (status === 'active' && service.call_status === 'not_called') {
-    return '호출 가능'
+    return '서버 있음'
   }
   if (status === 'active') return '정상'
   return undefined
