@@ -1,4 +1,3 @@
-# ROS2 Communication Monitor Dashboard 프로젝트 개요
 
 ## Server
  python3 -m uvicorn ros2_dashboard_backend.main:app --host 127.0.0.1 --port 8000 --reload
@@ -58,3 +57,24 @@ tmux kill-session -t ros2_dashboard
     "is_active": true
   }
 ]
+
+## test
+cd /home/hs/rang/ros2_dashboard/backend
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+python3 demo_nodes/demo_robot_control_outcome_server.py
+
+python3 demo_nodes/demo_robot_control_outcome_client.py failure
+python3 demo_nodes/demo_robot_control_outcome_client.py timeout --timeout-sec 1.0
+
+
+python3 demo_nodes/demo_can_control_outcome_server.py
+
+python3 demo_nodes/demo_can_control_outcome_client.py failure
+python3 demo_nodes/demo_can_control_outcome_client.py cancel
+
+python3 demo_robot_control_failure_client.py
+python3 demo_robot_control_timeout_client.py
+python3 demo_can_control_failure_client.py
+python3 demo_can_control_cancel_client.py

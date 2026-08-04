@@ -152,7 +152,7 @@ export function ServiceTable({
                     value={summary?.last_request_preview}
                   />
                 </td>
-                <td className="service-preview-cell">
+                <td className="service-preview-cell service-response-preview-cell">
                   <JsonPreviewButton
                     onOpen={() => setPreview({
                       name: service.name,

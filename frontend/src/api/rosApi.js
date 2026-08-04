@@ -58,6 +58,20 @@ export function fetchAlerts() {
   return requestJson('/ros/alerts')
 }
 
+export async function resetAlertHistory() {
+  const response = await fetch(`${API_BASE_URL}/ros/alerts/history/reset`, {
+    method: 'POST',
+  })
+  return responseJson(response)
+}
+
+export async function resetCurrentAlerts() {
+  const response = await fetch(`${API_BASE_URL}/ros/alerts/current/reset`, {
+    method: 'POST',
+  })
+  return responseJson(response)
+}
+
 export function fetchServices({ includeHidden = false } = {}) {
   const query = includeHidden ? '?include_hidden=true' : ''
   return requestJson(`/ros/services${query}`)

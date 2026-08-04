@@ -45,6 +45,35 @@ def build_service_alerts(
             })
 
         if (
+            isinstance(call_summary, dict)
+            and call_summary.get('sent_to_server') is True
+            and call_summary.get('last_call_status') in {
+                'failed',
+                'response_failed',
+                'service_call_error',
+            }
+        ):
+            last_called_at = call_summary.get('last_called_at')
+            age_sec = None
+            if isinstance(last_called_at, (int, float)):
+                age_sec = max(0.0, detected_at - last_called_at)
+            alerts.append({
+                'id': f'service:{service["name"]}:service_call_failed',
+                'level': 'error',
+                'source': 'service',
+                'name': service['name'],
+                'code': 'service_call_failed',
+                'message': (
+                    call_summary.get('last_error')
+                    or 'The latest user Service call failed.'
+                ),
+                'status': 'failed',
+                'last_received_at': last_called_at,
+                'age_sec': age_sec,
+                'detected_at': detected_at,
+            })
+
+        if (
             service.get('status') == 'disconnected'
             and service.get('allowlisted') is True
         ):

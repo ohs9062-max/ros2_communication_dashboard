@@ -49,6 +49,8 @@ class RosMonitor:
         self._lock = Lock()
         self._retained_alerts: dict[str, dict[str, Any]] = {}
         self._alert_history: list[dict[str, Any]] = []
+        self._dismissed_alert_ids: set[str] = set()
+        self._visible_alert_ids: set[str] = set()
         self._action_runtime = ActionRuntime(
             config=self._config,
             lock=self._lock,
@@ -131,6 +133,8 @@ class RosMonitor:
         with self._lock:
             self._retained_alerts = {}
             self._alert_history = []
+            self._dismissed_alert_ids = set()
+            self._visible_alert_ids = set()
 
     def snapshot(self) -> dict[str, Any]:
         """Topic Cache에 Publisher·Subscriber Node 관계 수를 합쳐 반환합니다."""
@@ -802,6 +806,14 @@ class RosMonitor:
             ),
         )
         with self._lock:
+            current_ids = {
+                alert['id'] for alert in alerts if alert.get('id')
+            }
+            self._dismissed_alert_ids.intersection_update(current_ids)
+            alerts = [
+                alert for alert in alerts
+                if alert.get('id') not in self._dismissed_alert_ids
+            ]
             alerts = retain_alerts(
                 alert_history=self._alert_history,
                 current_alerts=alerts,
@@ -812,6 +824,7 @@ class RosMonitor:
                     'topic_stale',
                     'topic_disconnected',
                     'service_disconnected',
+                    'service_call_failed',
                     'service_call_timeout',
                     'action_disconnected',
                     'action_goal_aborted',
@@ -827,6 +840,11 @@ class RosMonitor:
             alert_history = [
                 alert.copy() for alert in self._alert_history
             ]
+            self._visible_alert_ids = {
+                alert['id'] for alert in alerts
+                if alert.get('id')
+                and alert.get('alert_state') != 'resolved'
+            }
 
         return {
             'success': True,
@@ -835,6 +853,23 @@ class RosMonitor:
             'meta': build_alert_meta(alerts),
             'message': 'ROS2 alerts fetched successfully',
         }
+
+    def reset_alert_history(self) -> dict[str, int]:
+        """해결된 Alert의 메모리 history만 삭제합니다."""
+        with self._lock:
+            cleared = len(self._alert_history)
+            self._alert_history = []
+        return {'cleared': cleared}
+
+    def reset_current_alerts(self) -> dict[str, int]:
+        """현재 Alert를 확인 처리하고 동일 발생 건을 숨깁니다."""
+        with self._lock:
+            dismissed_ids = set(self._visible_alert_ids)
+            self._dismissed_alert_ids.update(dismissed_ids)
+            for alert_id in dismissed_ids:
+                self._retained_alerts.pop(alert_id, None)
+            self._visible_alert_ids = set()
+        return {'cleared': len(dismissed_ids)}
 
     @staticmethod
     def _websocket_topic_meta(

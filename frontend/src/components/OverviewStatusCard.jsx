@@ -4,7 +4,7 @@ export function OverviewStatusCard({ status, alertMeta }) {
   const warningCount = alertMeta?.warning_count ?? 0
   const errorCount = alertMeta?.error_count ?? 0
   const criticalCount = alertMeta?.critical_count ?? 0
-  const total = alertMeta?.count ?? 0
+  const total = alertMeta?.active_count ?? alertMeta?.count ?? 0
 
   return (
     <section className="overview-status-card">

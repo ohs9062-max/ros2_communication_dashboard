@@ -24,15 +24,31 @@ export function OverviewPage({
 }) {
   const [chartValueMode, setChartValueMode] = useState('percent')
   const { alerts, setSelectedTopicName, topicItems } = dashboard
+  const alertMeta = alerts.data?.meta ?? {}
+  const alertItems = alerts.data?.data ?? []
+  const activeAlertItems = alertItems.filter(
+    (alert) => alert.alert_state !== 'resolved',
+  )
   const primaryTopics = topicItems.filter((topic) => isPrimaryTopic(topic))
-  const summary = getTopicSummary(primaryTopics)
+  const summary = applyAlertsToResourceSummary(
+    getTopicSummary(primaryTopics),
+    primaryTopics,
+    activeAlertItems,
+    new Set(['topic', 'monitor_status']),
+  )
   const primaryServices = serviceDashboard.services.filter(isPrimaryService)
-  const serviceSummary = getServiceSummary(
+  const serviceSummary = applyAlertsToResourceSummary(
+    getServiceSummary(primaryServices),
     primaryServices,
+    activeAlertItems,
+    new Set(['service']),
   )
   const primaryActions = actionDashboard.actions.filter(isPrimaryAction)
-  const actionSummary = getActionSummary(
+  const actionSummary = applyAlertsToResourceSummary(
+    getActionSummary(primaryActions),
     primaryActions,
+    activeAlertItems,
+    new Set(['action']),
   )
   const primaryNodes = nodeDashboard.nodes.filter(
     (node) => isPrimaryNode(node, {
@@ -41,10 +57,13 @@ export function OverviewPage({
       topics: topicItems,
     }),
   )
-  const nodeSummary = getNodeSummary(primaryNodes)
-  const alertMeta = alerts.data?.meta ?? {}
-  const alertItems = alerts.data?.data ?? []
-  const alertSummary = getAlertSummary(alertMeta, alertItems)
+  const nodeSummary = applyAlertsToResourceSummary(
+    getNodeSummary(primaryNodes),
+    primaryNodes,
+    activeAlertItems,
+    new Set(['node']),
+  )
+  const alertSummary = getAlertSummary(alertMeta, activeAlertItems)
   const status = overallStatus(alertMeta)
   const chartItems = [
     {
@@ -100,14 +119,31 @@ export function OverviewPage({
   ]
 
   const openAlert = (alert) => {
-    if (alert.source === 'topic') {
+    if (alert.source === 'topic' || alert.source === 'monitor_status') {
       setSelectedTopicName(alert.name)
       onNavigate('topics')
       return
     }
 
     if (alert.source === 'service') {
+      serviceDashboard.setIncludeHidden(true)
+      serviceDashboard.setSelectedServiceName(alert.name)
       onNavigate('services')
+      return
+    }
+
+    if (alert.source === 'action') {
+      actionDashboard.setIncludeIdleActions(true)
+      actionDashboard.setSelectedActionName(alert.name)
+      onNavigate('actions')
+      return
+    }
+
+    if (alert.source === 'node' || alert.code === 'node_stale') {
+      nodeDashboard.setIncludeInternalNodes(true)
+      nodeDashboard.setStatusFilter('all')
+      nodeDashboard.setSelectedNodeName(alert.name)
+      onNavigate('nodes')
       return
     }
 
@@ -372,7 +408,7 @@ function getAlertSummary(meta, alerts) {
   const warning = meta.warning_count ?? countAlertsByLevel(alerts, 'warning')
   const error = meta.error_count ?? countAlertsByLevel(alerts, 'error')
   const critical = meta.critical_count ?? countAlertsByLevel(alerts, 'critical')
-  const total = meta.count ?? alerts.length
+  const total = meta.active_count ?? alerts.length
 
   return {
     total,
@@ -380,6 +416,88 @@ function getAlertSummary(meta, alerts) {
     error,
     critical,
   }
+}
+
+function applyAlertsToResourceSummary(
+  originalSummary,
+  resources,
+  alerts,
+  sources,
+) {
+  const summary = { ...originalSummary }
+  const severityByName = new Map()
+
+  for (const alert of alerts) {
+    if (!sources.has(alert.source)) {
+      continue
+    }
+    const name = String(alert.name ?? '')
+    const severity = alertSeverity(alert.level)
+    if (!name || !severity) {
+      continue
+    }
+    if (
+      severity === 'error' ||
+      severityByName.get(name) !== 'error'
+    ) {
+      severityByName.set(name, severity)
+    }
+  }
+
+  for (const resource of resources) {
+    const names = [resource.name, resource.full_name]
+      .map((name) => String(name ?? ''))
+      .filter(Boolean)
+    const alertBucket = names.reduce((bucket, name) => {
+      const severity = severityByName.get(name)
+      if (severity === 'error') return 'error'
+      if (severity === 'warning' && bucket !== 'error') return 'warning'
+      return bucket
+    }, null)
+    if (!alertBucket) {
+      continue
+    }
+
+    const currentBucket = resourceSummaryBucket(resource.status)
+    if (
+      currentBucket === alertBucket ||
+      summaryBucketRank(alertBucket) <= summaryBucketRank(currentBucket)
+    ) {
+      continue
+    }
+    if ((summary[currentBucket] ?? 0) > 0) {
+      summary[currentBucket] -= 1
+    }
+    summary[alertBucket] = (summary[alertBucket] ?? 0) + 1
+  }
+
+  return summary
+}
+
+function alertSeverity(level) {
+  const value = String(level ?? '').toLowerCase()
+  if (value === 'error' || value === 'critical') return 'error'
+  if (value === 'warning') return 'warning'
+  return null
+}
+
+function resourceSummaryBucket(status) {
+  const value = String(status ?? 'unknown').toLowerCase()
+  if (value === 'active') return 'active'
+  if (
+    ['warning', 'stale', 'no_subscriber', 'waiting_publisher', 'waiting_server']
+      .includes(value)
+  ) {
+    return 'warning'
+  }
+  if (['error', 'critical', 'disconnected'].includes(value)) return 'error'
+  return 'inactive'
+}
+
+function summaryBucketRank(bucket) {
+  if (bucket === 'error' || bucket === 'inactive') return 3
+  if (bucket === 'warning') return 2
+  return 1
 }
 
 function getNodeSummary(nodes, meta = {}) {

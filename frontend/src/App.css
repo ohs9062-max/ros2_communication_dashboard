@@ -1915,6 +1915,63 @@ h3 {
   padding: 10px 16px 0;
 }
 
+.alert-history-delete-button {
+  border-bottom-color: transparent !important;
+  color: #fca5a5 !important;
+  margin-left: auto;
+}
+
+.alert-history-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.alert-history-delete-confirm {
+  align-items: center;
+  background: rgba(127, 29, 29, 0.18);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 8px;
+  color: #fecaca;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+}
+
+.alert-history-delete-confirm > div {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.alert-history-delete-confirm button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 6px 11px;
+}
+
+.alert-history-delete-cancel {
+  background: var(--panel-strong);
+  color: var(--text);
+}
+
+.alert-history-delete-confirm-button {
+  background: #b91c1c;
+  border-color: #ef4444 !important;
+  color: #fff;
+}
+
+.alert-history-delete-confirm button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.alert-history-delete-error {
+  margin: 10px 16px 0;
+}
+
 .alert-tabs button {
   align-items: center;
   background: transparent;
@@ -2524,6 +2581,20 @@ h3 {
 .service-table td.service-name-cell,
 .service-table td.service-type-cell {
   overflow-wrap: anywhere;
+}
+
+.service-table td.service-response-preview-cell {
+  overflow: hidden;
+}
+
+.service-response-preview-cell .table-preview-button,
+.service-response-preview-cell .table-preview-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 .service-col-status { width: 6%; }

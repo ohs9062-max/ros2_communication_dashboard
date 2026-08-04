@@ -89,6 +89,28 @@ def get_ros_alerts() -> dict[str, Any]:
     return ros_monitor.alerts()
 
 
+@router.post('/ros/alerts/history/reset')
+def reset_ros_alert_history() -> dict[str, Any]:
+    """해결된 이전 Alert history를 메모리에서 삭제합니다."""
+    result = ros_monitor.reset_alert_history()
+    return {
+        'success': True,
+        'data': result,
+        'message': '이전 Alert 이력을 삭제했습니다.',
+    }
+
+
+@router.post('/ros/alerts/current/reset')
+def reset_current_ros_alerts() -> dict[str, Any]:
+    """현재 Alert를 확인 처리해 동일 발생 건을 숨깁니다."""
+    result = ros_monitor.reset_current_alerts()
+    return {
+        'success': True,
+        'data': result,
+        'message': '현재 Alert를 확인 처리했습니다.',
+    }
+
+
 @router.websocket('/ws/monitor')
 async def monitor_websocket(websocket: WebSocket) -> None:
     """연결된 브라우저에 1초마다 경량 모니터 snapshot을 전송합니다."""

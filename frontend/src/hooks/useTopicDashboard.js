@@ -19,13 +19,16 @@ const topicName = (topic) => topic.name
 
 export function useTopicDashboard({
   enabled = true,
+  healthEnabled = true,
   pollSelectedTopicDetails = true,
 } = {}) {
   const [includeAllTopics, setIncludeAllTopics] = useState(false)
   const [selectedTopicName, setSelectedTopicName] = useState('')
   const [topicHzByName, setTopicHzByName] = useState({})
 
-  const health = usePolling(fetchHealth, TOPIC_POLL_INTERVAL_MS, { enabled })
+  const health = usePolling(fetchHealth, TOPIC_POLL_INTERVAL_MS, {
+    enabled: healthEnabled,
+  })
   const topics = usePolling(fetchTopics, TOPIC_POLL_INTERVAL_MS, {
     enabled,
     initialData: { data: [], meta: {} },

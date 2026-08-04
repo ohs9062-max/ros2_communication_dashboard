@@ -20,7 +20,6 @@ function statusClass(value) {
     status === 'type_mismatch' ||
     status === 'pending' ||
     status === 'canceling' ||
-    status === 'canceled' ||
     status === 'goal_rejected' ||
     status === 'result_timeout' ||
     status === 'cancel_failed' ||
@@ -42,6 +41,8 @@ function statusClass(value) {
     status === 'critical' ||
     status === 'failed' ||
     status === 'aborted' ||
+    status === 'canceled' ||
+    status === 'result_canceled' ||
     status === 'unavailable' ||
     status === 'timeout' ||
     status === 'never_received' ||
