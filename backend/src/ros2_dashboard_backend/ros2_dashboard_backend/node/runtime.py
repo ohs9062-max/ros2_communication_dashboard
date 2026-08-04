@@ -34,6 +34,7 @@ class NodeRuntime:
         exclude_names: tuple[str, ...],
         exclude_prefixes: tuple[str, ...],
         include_names: tuple[str, ...],
+        primary_names: tuple[str, ...],
         lock: Any,
         node_getter: Callable[[], Any],
         stale_timeout_sec: float,
@@ -42,6 +43,7 @@ class NodeRuntime:
         self._exclude_names = exclude_names
         self._exclude_prefixes = exclude_prefixes
         self._include_names = include_names
+        self._primary_names = primary_names
         self._lock = lock
         self._node_getter = node_getter
         self._stale_timeout_sec = stale_timeout_sec
@@ -127,6 +129,10 @@ class NodeRuntime:
                     namespace,
                 ),
                 updated_at=updated_at,
+            )
+            item['primary'] = (
+                item['full_name'] in self._primary_names
+                or item['name'] in self._primary_names
             )
             next_nodes[item['full_name']] = mark_graph_present(
                 item,

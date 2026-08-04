@@ -67,6 +67,21 @@ def test_explicit_topic_exclude_names_uses_only_configured_values() -> None:
     assert config.topics_exclude == ('/rosout',)
 
 
+def test_primary_resource_names_are_loaded_separately_from_include_filters() -> None:
+    config = _monitor_config({
+        'services': {'primary_names': ['/robot/reset']},
+        'actions': {'primary_names': ['/robot/navigate']},
+        'nodes': {'primary_names': ['/robot/controller']},
+    })
+
+    assert config.services_primary_names == ('/robot/reset',)
+    assert config.actions_primary_names == ('/robot/navigate',)
+    assert config.nodes_primary_names == ('/robot/controller',)
+    assert config.services_include == ()
+    assert config.actions_include == ()
+    assert config.nodes_include == ()
+
+
 def test_topic_exclude_prefixes_are_applied_by_runtime() -> None:
     runtime = _topic_runtime(
         node=_TopicNode('/internal/data', 'std_msgs/msg/String'),

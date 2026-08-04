@@ -324,6 +324,7 @@ supported_types
 auto_subscribe_supported_types
 topic required_stream_names
 topic command_names
+service/action/node primary_names
 service active_check allowlist
 ```
 
@@ -1159,31 +1160,37 @@ ROS2 고유 용어 Topic / Service / Action / Node / Goal은 그대로 사용할
 긴 Topic/Service/Action/Node 이름은 줄바꿈 처리하고 가로 스크롤을 만들지 않는다.
 ```
 
-주요 항목 판정은 `frontend/src/utils/primaryFilters.js`와
-`frontend/src/utils/nodeFilters.js`의 공통 기준을 사용한다.
+주요 항목 판정은 Interface Registry/Package YAML의 승인 타입을 최우선으로 하고,
+Backend가 `monitor.yaml`의 보조 운영 정책으로 만든 `primary` 신호와
+`frontend/src/utils/primaryFilters.js`, `frontend/src/utils/nodeFilters.js`의 공통 기준을 사용한다.
 
 ```text
-YAML 등록 msg 타입과 Graph Topic type exact match
-→ Backend supported_type=true
-→ 주요 Topic
+interface_registry.yaml 또는 interface_packages.yaml에서 import_available=true인 타입
++ 현재 Graph의 Topic / Service / Action full_type exact match
+→ primary_priority=1, 주요 항목. msg는 자동 구독해 Hz·마지막 값·stale을 감시한다.
 
-YAML 등록 srv 타입과 Graph Service type exact match
-→ Backend allowlisted=true
+topics.required_stream_names / command_names / supported_types와 일치하는 Topic
+→ primary_priority=2, 주요 Topic과 자동 구독·Hz·마지막 값 감시
+
+services.primary_names에 등록된 Service
+→ primary_priority=2
 → 주요 Service
 
-YAML 등록 action 타입과 Graph Action type exact match
-→ Backend allowlisted=true
+actions.primary_names에 등록된 Action
+→ primary_priority=2
 → 주요 Action
 
-위 주요 Topic / Service / Action을 실제 관계 타입 exact match로 사용하는 Node
+nodes.primary_names에 등록됐거나 위 주요 통신을 실제 관계 이름과 full_type exact match로 사용하는 Node
 → 주요 Node
+
+일반 사용자 Service, Service 문제 상태, Action 관찰 이력, Node disconnected
+→ 운영 가시성을 위한 보조 주요 항목 기준으로 유지
 ```
 
 Node 관계는 `/ros/nodes`의 `topic_publishers`, `topic_subscribers`,
 `service_servers`, `service_clients`, `action_servers`, `action_clients`를 사용한다.
-이름만 같거나 YAML에 타입이 등록됐다는 이유만으로 관계없는 Node를 포함하지 않는다.
-기존 기본 주요 항목, active / observed 결과, disconnected 조건은 유지하며
-dashboard monitor 내부 Node와 숨김 / 내부 항목 제외 정책도 유지한다.
+등록 타입과 monitor.yaml 정책을 분리하고 등록 타입을 항상 우선한다.
+dashboard monitor 내부 Node와 숨김 / 내부 항목 제외 정책은 유지한다.
 Topics / Services / Actions / Nodes / Overview / Visualization은 같은 기준을 재사용하고,
 각 화면에서 등록 타입 또는 로봇 이름을 새로 하드코딩하지 않는다.
 기존 호환용 이름 fallback은 새로운 주요 항목 정책의 근거로 확대하지 않는다.
@@ -1203,7 +1210,7 @@ Topic 상세 기본 선택 후보와 목록용 Hz polling 후보에서 제외한
 숨김 포함 해제 후 표시 Topic이 0개이면 selectedTopicName은 빈 값으로 안정화하고
 다른 hook이 다시 내부 Topic을 기본 선택하지 않게 한다.
 App.jsx는 activePage 기준으로 필요한 dashboard hook만 polling enabled 처리한다.
-Nodes 주요 항목은 실제 관계 타입 판정에 Topic / Service / Action 데이터가 필요하므로
+Nodes 주요 항목은 실제 관계 이름 판정에 Topic / Service / Action 데이터가 필요하므로
 Nodes 화면에서는 Node와 세 리소스 polling을 함께 활성화한다.
 WebSocket reconnect가 REST polling timer를 추가 생성하면 안 된다.
 filtered 목록에 맞춰 selected item을 보정하는 effect는 빈 목록에서 다른 hook의

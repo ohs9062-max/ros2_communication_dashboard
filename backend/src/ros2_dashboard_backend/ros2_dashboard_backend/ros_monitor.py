@@ -63,6 +63,7 @@ class RosMonitor:
             exclude_names=self._config.nodes_exclude,
             exclude_prefixes=self._config.nodes_exclude_prefixes,
             include_names=self._config.nodes_include,
+            primary_names=self._config.nodes_primary_names,
             lock=self._lock,
             node_getter=lambda: self._node,
             stale_timeout_sec=self._config.nodes_stale_timeout_sec,
@@ -286,6 +287,31 @@ class RosMonitor:
                 server_count=service.get('server_count'),
                 summary=summary,
             )
+            configured_primary = (
+                service.get('name') in self._config.services_primary_names
+            )
+            issue_primary = service['effective_status'] in {
+                'waiting_server', 'disconnected', 'error', 'failed', 'timeout',
+            }
+            user_primary = (
+                service.get('category') == 'user'
+                and service.get('hidden_by_default') is not True
+            )
+            if allowlisted:
+                service['primary_priority'] = 1
+                service['primary_source'] = 'registered_interface'
+            elif configured_primary:
+                service['primary_priority'] = 2
+                service['primary_source'] = 'monitor_config'
+            elif issue_primary or user_primary:
+                service['primary_priority'] = 3
+                service['primary_source'] = (
+                    'issue' if issue_primary else 'user_service'
+                )
+            else:
+                service['primary_priority'] = None
+                service['primary_source'] = None
+            service['primary'] = service['primary_priority'] is not None
             service['call_count'] = summary.get('call_count', 0) if summary else 0
             service['success_count'] = summary.get('success_count', 0) if summary else 0
             service['failure_count'] = summary.get('failure_count', 0) if summary else 0
@@ -404,6 +430,32 @@ class RosMonitor:
             action['success_count'] = summary.get('success_count', 0) if summary else 0
             action['failure_count'] = summary.get('failure_count', 0) if summary else 0
             action['canceled_count'] = summary.get('canceled_count', 0) if summary else 0
+            configured_primary = (
+                action.get('name') in self._config.actions_primary_names
+            )
+            runtime = action.get('runtime') or {}
+            observed_primary = (
+                int(runtime.get('observed_goal_count') or 0) > 0
+                or str(runtime.get('last_goal_status') or '').lower()
+                not in {'', 'unknown'}
+                or bool(runtime.get('feedback_preview'))
+                or bool(runtime.get('result_preview'))
+                or bool(runtime.get('result_status'))
+                or bool(runtime.get('result_error'))
+            )
+            if allowlisted:
+                action['primary_priority'] = 1
+                action['primary_source'] = 'registered_interface'
+            elif configured_primary:
+                action['primary_priority'] = 2
+                action['primary_source'] = 'monitor_config'
+            elif observed_primary:
+                action['primary_priority'] = 3
+                action['primary_source'] = 'observed_activity'
+            else:
+                action['primary_priority'] = None
+                action['primary_source'] = None
+            action['primary'] = action['primary_priority'] is not None
             action['dashboard_communication'] = {
                 'monitoring_active': (
                     action.get('status_supported') is True

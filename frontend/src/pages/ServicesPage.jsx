@@ -3,7 +3,7 @@ import { AlertsPreview } from '../components/AlertsPreview.jsx'
 import { ServiceDetailPanel } from '../components/ServiceDetailPanel.jsx'
 import { ServiceSummaryCards } from '../components/ServiceSummaryCards.jsx'
 import { ServiceTable } from '../components/ServiceTable.jsx'
-import { isRegisteredService } from '../utils/primaryFilters.js'
+import { isPrimaryService } from '../utils/primaryFilters.js'
 import { matchesServiceStatusFilter } from '../utils/status.js'
 
 const SERVICE_FILTERS = [
@@ -237,17 +237,6 @@ function focusMonitorRowAttempt(name, select, attempt) {
 function findMonitorRow(name) {
   return [...document.querySelectorAll('[data-monitor-name]')].find(
     (row) => row.getAttribute('data-monitor-name') === name,
-  )
-}
-
-function isPrimaryService(service) {
-  return (
-    isRegisteredService(service) ||
-    isIssueService(service) ||
-    (
-      service.category === 'user' &&
-      service.hidden_by_default !== true
-    )
   )
 }
 

@@ -77,16 +77,19 @@ class MonitorConfig:
     topics_required_stream_names: tuple[str, ...] = ()
     topics_command_names: tuple[str, ...] = ()
     services_include: tuple[str, ...] = ()
+    services_primary_names: tuple[str, ...] = ()
     services_exclude: tuple[str, ...] = ()
     services_exclude_prefixes: tuple[str, ...] = ()
     services_active_check: ServiceActiveCheckConfig = field(
         default_factory=ServiceActiveCheckConfig,
     )
     nodes_include: tuple[str, ...] = ()
+    nodes_primary_names: tuple[str, ...] = ()
     nodes_exclude: tuple[str, ...] = ()
     nodes_exclude_prefixes: tuple[str, ...] = ()
     nodes_stale_timeout_sec: float = 5.0
     actions_include: tuple[str, ...] = ()
+    actions_primary_names: tuple[str, ...] = ()
     actions_exclude: tuple[str, ...] = ()
     actions_exclude_prefixes: tuple[str, ...] = ()
     actions_auto_monitor_status: bool = True
@@ -247,6 +250,7 @@ def _monitor_config(
         ),
         topics_command_names=_string_tuple(topics.get('command_names')),
         services_include=_config_string_tuple(services, 'include'),
+        services_primary_names=_config_string_tuple(services, 'primary_names'),
         services_exclude=_config_string_tuple(services, 'exclude'),
         services_exclude_prefixes=_config_string_tuple(
             services,
@@ -256,6 +260,7 @@ def _monitor_config(
             services.get('active_check'),
         ),
         nodes_include=_config_string_tuple(nodes, 'include'),
+        nodes_primary_names=_config_string_tuple(nodes, 'primary_names'),
         nodes_exclude=_config_string_tuple(nodes, 'exclude'),
         nodes_exclude_prefixes=_config_string_tuple(
             nodes,
@@ -266,6 +271,7 @@ def _monitor_config(
             default=5.0,
         ),
         actions_include=_config_string_tuple(actions, 'include'),
+        actions_primary_names=_config_string_tuple(actions, 'primary_names'),
         actions_exclude=_config_string_tuple(actions, 'exclude'),
         actions_exclude_prefixes=_config_string_tuple(
             actions,

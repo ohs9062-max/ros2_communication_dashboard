@@ -20,40 +20,49 @@ export function isPrimaryNode(
 
   return (
     node.status === 'disconnected' ||
-    nodeUsesRegisteredInterface(node, { actions, services, topics })
+    node.primary === true ||
+    nodeUsesPrimaryCommunication(node, { actions, services, topics })
   )
 }
 
-function nodeUsesRegisteredInterface(node, resources) {
+function nodeUsesPrimaryCommunication(node, resources) {
   return (
-    relationsUseTypes(
+    relationsUseResources(
       [...(node.topic_publishers ?? []), ...(node.topic_subscribers ?? [])],
-      registeredTypes(resources.topics, isRegisteredTopic),
+      primaryResources(resources.topics, isPrimaryTopic),
     ) ||
-    relationsUseTypes(
+    relationsUseResources(
       [...(node.service_servers ?? []), ...(node.service_clients ?? [])],
-      registeredTypes(resources.services, isRegisteredService),
+      primaryResources(resources.services, isPrimaryService),
     ) ||
-    relationsUseTypes(
+    relationsUseResources(
       [...(node.action_servers ?? []), ...(node.action_clients ?? [])],
-      registeredTypes(resources.actions, isRegisteredAction),
+      primaryResources(resources.actions, isPrimaryAction),
     )
   )
 }
 
-function registeredTypes(items, predicate) {
+function primaryResources(items, predicate) {
   return new Set(
     items
       .filter(predicate)
-      .flatMap((item) => item.types ?? [item.type])
+      .flatMap((item) =>
+        (item.types ?? [item.type]).map((type) => resourceKey(item.name, type)),
+      )
       .filter(Boolean),
   )
 }
 
-function relationsUseTypes(relations, types) {
-  return types.size > 0 && relations.some((relation) =>
-    (relation.types ?? [relation.type]).some((type) => types.has(type)),
+function relationsUseResources(relations, resources) {
+  return resources.size > 0 && relations.some((relation) =>
+    (relation?.types ?? [relation?.type]).some((type) =>
+      resources.has(resourceKey(relation?.name, type)),
+    ),
   )
+}
+
+function resourceKey(name, type) {
+  return name && type ? `${name}\n${type}` : ''
 }
 
 function isHiddenFromPrimary(node, fullName) {
@@ -70,8 +79,9 @@ function normalizeNodeName(name) {
   const value = String(name ?? '')
   return value.startsWith('/') ? value : `/${value}`
 }
+
 import {
-  isRegisteredAction,
-  isRegisteredService,
-  isRegisteredTopic,
+  isPrimaryAction,
+  isPrimaryService,
+  isPrimaryTopic,
 } from './primaryFilters.js'

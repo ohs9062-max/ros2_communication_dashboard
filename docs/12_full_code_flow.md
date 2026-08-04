@@ -310,17 +310,17 @@ cancel 전송 UI/API는 현재 지원하지 않는다. 관찰된 `canceled` 상�
 
 현재 Graph에서 보이면 `ever_discovered=true`, `last_seen_at=now`다. 사라진 Node를 cache에서 즉시 버리지 않는 이유는 “이전에는 있었지만 지금 연결이 끊김”을 표시하고 Alert와 Visualization에 남기기 위해서다. Backend 재시작 시 이 메모리 이력은 초기화된다.
 
-Frontend `nodeFilters.js`는 Node의 관계 full type을 주요 Topic/Service/Action type과 exact match해 주요 Node를 판단한다. Nav2/TurtleBot 이름 fallback은 사용하지 않으며 Backend `is_internal`로 Dashboard Node를 숨긴다. Visualization은 Node 관계 배열을 edge로 바꾼다.
+Frontend `nodeFilters.js`는 Node가 승인 등록 타입 또는 monitor.yaml 주요 Topic/Service/Action과 실제 이름·full_type 관계가 있거나 `nodes.primary_names`에 직접 등록됐는지 확인해 주요 Node를 판단한다. disconnected 보조 기준도 유지한다. Nav2/TurtleBot 이름 fallback은 사용하지 않으며 Backend `is_internal`로 Dashboard Node를 숨긴다. Visualization은 Node 관계 배열을 edge로 바꾼다.
 
 Topic, Service, Action 기본 목록은 이 Node 관계 cache를 `topology.py L19-L54`에서 `(역할, 리소스 전체 이름, full_type)`별 고유 Node 집합으로 역집계한다. 따라서 리소스 탭의 Node 수와 Node 탭의 고유 리소스 관계 수는 같은 Topology를 반대 방향에서 표시한다.
 
 ### 8.1 화면별 주요/전체/숨김 필터 한 문장 요약
 
-Topic은 지원·등록 타입이거나 실제 통신·상세 감시 흔적이 있는 비내부 Topic을 주요 항목으로 보고 전체 또는 숨김 포함 시 Backend가 반환한 모든 Topic을 표시하며,
+Topic은 승인된 등록 msg 타입을 1순위, `required_stream_names`·`command_names`·`supported_types`를 2순위로 보고 import 가능한 대상은 자동 구독해 Hz와 마지막 값을 수집하며,
 
-Service는 등록 타입·대기/오류·숨김 아닌 사용자 Service를 주요 항목으로 보고 전체에서는 내부·Parameter·Action 내부·관리 Service를 제외하고 내부/관리 포함에서 모두 표시하며,
+Service는 승인된 등록 srv 타입을 1순위, `services.primary_names`를 2순위로 보고 일반 사용자 Service와 문제 상태도 보조 주요 항목으로 유지하며,
 
-Action은 등록 타입이거나 Goal·Feedback·Result 관찰 흔적이 있는 Action을 주요 항목으로 보고 전체 또는 대기 Action 포함 시 발견된 모든 Action을 표시하고, Node는 등록·지원 Topic/Service/Action 타입 관계가 있거나 종료가 감지된 비내부 Node를 주요 항목으로 보고 전체에서는 내부 Node를 제외하며 숨김 포함에서 Dashboard 내부 Node까지 모두 표시한다.
+Action은 승인된 등록 action 타입을 1순위, `actions.primary_names`를 2순위로 보고 Goal·Feedback·Result 관찰 이력을 보조 기준으로 유지한다. Node는 직접 등록 또는 주요 통신과 실제 이름·full_type 관계가 있거나 disconnected인 비내부 Node를 주요 항목으로 본다.
 
 파일: 공통 등록 판정 `frontend/src/utils/primaryFilters.js L1-L78`, Topic 적용 `frontend/src/pages/TopicsPage.jsx L33-L83`, Service 적용 `frontend/src/pages/ServicesPage.jsx L68-L110`, `L241-L319`, Action 적용 `frontend/src/pages/ActionsPage.jsx L35-L74`, `L180-L223`, Node 적용 `frontend/src/utils/nodeFilters.js L1-L72`, `frontend/src/pages/NodesPage.jsx L35-L60`
 

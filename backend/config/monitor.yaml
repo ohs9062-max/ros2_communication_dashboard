@@ -39,6 +39,7 @@ topics:
     - ros2_dashboard_interfaces/msg/MonitorStatus
 
 services:
+  primary_names: []
   include_names: []
   exclude_names: []
   exclude_prefixes: []
@@ -55,12 +56,14 @@ services:
     allowlist: []
 
 nodes:
+  primary_names: []
   include_names: []
   exclude_names: []
   exclude_prefixes: []
   stale_timeout_sec: 5.0
 
 actions:
+  primary_names: []
   include_names: []
   exclude_names: []
   exclude_prefixes: []

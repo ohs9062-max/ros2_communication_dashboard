@@ -18,6 +18,29 @@ export function isRegisteredAction(action) {
   return action?.allowlisted === true
 }
 
+export function isPrimaryService(service) {
+  const status = String(
+    service?.effective_status ?? service?.status ?? 'unknown',
+  ).toLowerCase()
+  const issue = [
+    'waiting_server',
+    'disconnected',
+    'error',
+    'failed',
+    'timeout',
+  ].includes(status)
+
+  return (
+    service?.primary === true ||
+    isRegisteredService(service) ||
+    issue ||
+    (
+      service?.category === 'user' &&
+      service?.hidden_by_default !== true
+    )
+  )
+}
+
 export function isPrimaryTopic(topic) {
   if (isInternalTopic(topic?.name)) {
     return false
@@ -35,6 +58,7 @@ export function isPrimaryAction(action) {
   ).toLowerCase()
 
   return (
+    action?.primary === true ||
     isRegisteredAction(action) ||
     observedGoalCount > 0 ||
     Boolean(lastGoalStatus && lastGoalStatus !== 'unknown') ||

@@ -7,7 +7,12 @@ from importlib import import_module
 from time import time
 from typing import Any, Callable
 
-from rclpy.qos import QoSProfile, qos_profile_sensor_data
+from rclpy.qos import (
+    DurabilityPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+    qos_profile_sensor_data,
+)
 
 from ros2_dashboard_backend.config_loader import MonitorConfig
 from ros2_dashboard_backend.resource_state import (
@@ -64,6 +69,7 @@ class TopicRuntime:
         self._topics: list[dict[str, Any]] = []
         self._last_updated = 0.0
         self._subscriptions: dict[str, dict[str, Any]] = {}
+        self._subscription_errors: dict[str, str] = {}
 
     def clear(self) -> None:
         """Topic 모니터링에서 cache와 runtime 상태를 초기화하는 함수입니다."""
@@ -71,6 +77,7 @@ class TopicRuntime:
             self._topics = []
             self._last_updated = 0.0
             self._subscriptions = {}
+            self._subscription_errors = {}
 
     def snapshot(self) -> dict[str, Any]:
         """Topic Graph Cache에 최신 메시지와 마지막 수신 시각을 합쳐 반환합니다."""
@@ -84,6 +91,7 @@ class TopicRuntime:
                 }
                 for name, entry in self._subscriptions.items()
             }
+            subscription_errors = self._subscription_errors.copy()
             last_updated = self._last_updated
 
         configured_names = dict.fromkeys((
@@ -124,24 +132,37 @@ class TopicRuntime:
                 monitoring_role = 'required_stream'
             elif command:
                 monitoring_role = 'command'
+            elif topic.get('registered_interface_type') is True:
+                monitoring_role = 'registered_interface'
+            elif topic.get('supported_type') is True:
+                monitoring_role = 'configured_type'
             else:
                 monitoring_role = 'discovered'
 
-            if not required_stream:
-                hz_monitoring_status = 'not_configured'
-            elif topic.get('graph_present') is False:
+            if required_stream and topic.get('graph_present') is False:
                 hz_monitoring_status = 'topic_not_discovered'
-            elif topic.get('supported_type') is not True:
+            elif required_stream and topic.get('supported_type') is not True:
                 hz_monitoring_status = 'unsupported_type'
             elif topic.get('deep_monitoring') is True:
                 hz_monitoring_status = 'active'
-            else:
+            elif topic.get('supported_type') is True:
                 hz_monitoring_status = 'subscription_failed'
+            else:
+                hz_monitoring_status = 'not_configured'
 
             topic['allowlisted'] = bool(topic.get('supported_type') or topic.get('deep_monitoring'))
-            topic['primary'] = required_stream or command
+            if topic.get('registered_interface_type') is True:
+                primary_priority = 1
+            elif required_stream or command or topic.get('supported_type') is True:
+                primary_priority = 2
+            else:
+                primary_priority = None
+            topic['primary'] = primary_priority is not None
+            topic['primary_priority'] = primary_priority
             topic['monitoring_role'] = monitoring_role
-            topic['hz_monitoring_configured'] = required_stream
+            topic['hz_monitoring_configured'] = (
+                required_stream or topic.get('supported_type') is True
+            )
             topic['hz_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
             topic['hz_monitoring_status'] = hz_monitoring_status
             topic['observed'] = preview is not None
@@ -149,7 +170,7 @@ class TopicRuntime:
             topic['last_received_at'] = latest.get('last_received_at')
             topic['message_count'] = latest.get('message_count', 0)
             topic['detailed_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
-            topic['last_error'] = None
+            topic['last_error'] = subscription_errors.get(name)
 
         return {
             'topics': topics,
@@ -292,13 +313,6 @@ class TopicRuntime:
                 message='ROS2 monitor is not running',
             )
 
-        if name not in self._config.topics_required_stream_names:
-            return self._latest_response(
-                success=False,
-                name=name,
-                message='Topic is not configured for message monitoring',
-            )
-
         topic_type = self._topic_type(name)
         if topic_type is None:
             return self._latest_response(
@@ -348,13 +362,6 @@ class TopicRuntime:
                 success=False,
                 name=name,
                 message='ROS2 monitor is not running',
-            )
-
-        if name not in self._config.topics_required_stream_names:
-            return self._hz_response(
-                success=False,
-                name=name,
-                message='Topic is not configured for Hz monitoring',
             )
 
         topic_type = self._topic_type(name)
@@ -420,9 +427,6 @@ class TopicRuntime:
         topic_type: str | None,
         supported_type: bool,
     ) -> bool:
-        if name not in self._config.topics_required_stream_names:
-            return False
-
         if not should_deep_monitor(
             auto_discover=self._config.topics_auto_discover,
             auto_subscribe_supported_types=(
@@ -437,7 +441,20 @@ class TopicRuntime:
         if message_class is None:
             return False
 
-        self._ensure_subscription(name, topic_type, message_class)
+        try:
+            self._ensure_subscription(name, topic_type, message_class)
+        except Exception as exc:
+            with self._lock:
+                self._subscription_errors[name] = str(exc)
+            LOGGER.warning(
+                'Failed to auto-subscribe Topic %s (%s): %s',
+                name,
+                topic_type,
+                exc,
+            )
+            return False
+        with self._lock:
+            self._subscription_errors.pop(name, None)
         return self._has_subscription(name, topic_type)
 
     def _ensure_subscription(
@@ -462,7 +479,7 @@ class TopicRuntime:
                 message_class,
                 name,
                 self._latest_message_callback(name, topic_type),
-                self._qos_profile(topic_type),
+                self._qos_profile(name, topic_type),
             )
             self._subscriptions[name] = build_subscription_entry(
                 topic_type=topic_type,
@@ -644,8 +661,38 @@ class TopicRuntime:
 
         return getattr(module, parts[2], None)
 
-    @staticmethod
-    def _qos_profile(topic_type: str):
+    def _qos_profile(self, topic_name: str, topic_type: str):
+        node = self._node_getter()
+        endpoint_reader = getattr(node, 'get_publishers_info_by_topic', None)
+        if endpoint_reader is not None:
+            try:
+                endpoints = endpoint_reader(topic_name)
+            except Exception:
+                endpoints = []
+            for endpoint in endpoints:
+                publisher_qos = getattr(endpoint, 'qos_profile', None)
+                if publisher_qos is None:
+                    continue
+                reliability = getattr(
+                    publisher_qos,
+                    'reliability',
+                    ReliabilityPolicy.UNKNOWN,
+                )
+                durability = getattr(
+                    publisher_qos,
+                    'durability',
+                    DurabilityPolicy.UNKNOWN,
+                )
+                if reliability == ReliabilityPolicy.UNKNOWN:
+                    reliability = ReliabilityPolicy.RELIABLE
+                if durability == DurabilityPolicy.UNKNOWN:
+                    durability = DurabilityPolicy.VOLATILE
+                return QoSProfile(
+                    depth=10,
+                    reliability=reliability,
+                    durability=durability,
+                )
+
         if topic_type in SENSOR_PREVIEW_TYPES:
             return qos_profile_sensor_data
 

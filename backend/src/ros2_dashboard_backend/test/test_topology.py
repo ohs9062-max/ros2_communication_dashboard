@@ -2,6 +2,7 @@ from ros2_dashboard_backend.topology import (
     build_role_node_index,
     related_nodes,
 )
+from ros2_dashboard_backend.config_loader import MonitorConfig
 from ros2_dashboard_backend.ros_monitor import RosMonitor
 
 
@@ -138,6 +139,7 @@ def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:
 
 def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> None:
     monitor = RosMonitor.__new__(RosMonitor)
+    monitor._config = MonitorConfig()
     monitor._node = _MonitorNode()
     monitor._node_runtime = _RelationNodeRuntime()
     monitor._topic_runtime = _TopicRuntime()
