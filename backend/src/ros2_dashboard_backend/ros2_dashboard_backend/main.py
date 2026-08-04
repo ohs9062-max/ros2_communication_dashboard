@@ -14,6 +14,7 @@ from ros2_dashboard_backend.routers import (
     monitoring,
     service_execution,
     topic_execution,
+    user_preferences,
 )
 
 
@@ -43,6 +44,7 @@ app.include_router(interface_apply.router)
 app.include_router(topic_execution.router)
 app.include_router(service_execution.router)
 app.include_router(action_execution.router)
+app.include_router(user_preferences.router)
 
 
 @app.get('/health')

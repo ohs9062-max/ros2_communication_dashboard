@@ -242,6 +242,10 @@ GET    /ros/actions
 GET    /ros/nodes
 GET    /ros/alerts
 
+GET    /ros/preferences/priority
+PUT    /ros/preferences/priority/{kind}
+DELETE /ros/preferences/priority/{kind}
+
 POST   /ros/interfaces/upload
 GET    /ros/interfaces/registry
 DELETE /ros/interfaces/registry/{kind}/{file_name}
@@ -327,6 +331,10 @@ topic command_names
 service/action/node primary_names
 service active_check allowlist
 ```
+
+`backend/config/user_preferences.yaml`은 사용자가 별표로 지정한 주요 Topic / Service /
+Action / Node 이름을 저장한다. `monitor.yaml`과 Interface Registry를 수정하지 않으며,
+중복 없는 목록을 원자적으로 저장하고 Backend 재시작 후에도 유지한다.
 
 Topic Runtime의 최종 지원 타입은 아래 원천을 합쳐 중복 제거한다.
 
@@ -1185,7 +1193,15 @@ nodes.primary_names에 등록됐거나 위 주요 통신을 실제 관계 이름
 
 일반 사용자 Service, Service 문제 상태, Action 관찰 이력, Node disconnected
 → 운영 가시성을 위한 보조 주요 항목 기준으로 유지
+
+각 리소스 응답의 최종 판정
+→ system_primary = 기존 자동 주요 판정
+→ user_primary = user_preferences.yaml 별표 지정
+→ is_primary = system_primary OR user_primary
 ```
+
+Frontend 주요 필터는 `is_primary`를 사용한다. 별표 해제는 `user_primary`만 제거하며
+`system_primary=true`인 자동 주요 항목을 주요 목록에서 제거하지 않는다.
 
 Node 관계는 `/ros/nodes`의 `topic_publishers`, `topic_subscribers`,
 `service_servers`, `service_clients`, `action_servers`, `action_clients`를 사용한다.

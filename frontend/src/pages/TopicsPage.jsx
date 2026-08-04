@@ -28,6 +28,9 @@ export function TopicsPage({ dashboard }) {
     topicItems,
     topicParticipants,
     topics,
+    priorityError,
+    toggleUserPriority,
+    isPriorityPending,
   } = dashboard
 
   const summary = getTopicSummary(topicItems)
@@ -162,6 +165,7 @@ export function TopicsPage({ dashboard }) {
             표시됩니다. 이는 해당 Topic을 받는 다른 ROS2 Node가 없다는 뜻이며,
             센서 출력·로그·이벤트성 Topic에서는 장애가 아닐 수 있습니다.
           </p>
+          {priorityError && <p className="error-text">{priorityError}</p>}
           <TopicTable
             emptyMessage={
               includeAllTopics
@@ -172,6 +176,8 @@ export function TopicsPage({ dashboard }) {
             onSelectTopic={setSelectedTopicName}
             selectedTopicName={selectedTopicName}
             topics={filteredTopics}
+            onTogglePriority={toggleUserPriority}
+            isPriorityPending={isPriorityPending}
           />
         </section>
       </section>

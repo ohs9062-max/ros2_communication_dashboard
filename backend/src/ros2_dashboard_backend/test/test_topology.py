@@ -129,10 +129,18 @@ def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:
         {
             'full_name': '/ros2_dashboard_topic_monitor',
             'is_internal': True,
+            'primary': False,
+            'system_primary': False,
+            'user_primary': False,
+            'is_primary': False,
         },
         {
             'full_name': '/robot',
             'is_internal': False,
+            'primary': False,
+            'system_primary': False,
+            'user_primary': False,
+            'is_primary': False,
         },
     ]
 

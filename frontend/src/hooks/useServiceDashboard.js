@@ -3,6 +3,9 @@ import { fetchAlerts, fetchNodes, fetchServices } from '../api/rosApi.js'
 import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
+import { useUserPriority } from './useUserPriority.js'
+
+const serviceName = (service) => service.name
 
 export function useServiceDashboard({ enabled = true } = {}) {
   const [includeHidden, setIncludeHidden] = useState(false)
@@ -26,10 +29,17 @@ export function useServiceDashboard({ enabled = true } = {}) {
     initialData: { data: { nodes: [], meta: {} } },
   })
 
-  const services = useMemo(
+  const rawServices = useMemo(
     () => servicesState.data?.data?.services ?? [],
     [servicesState.data],
   )
+  const priority = useUserPriority({
+    items: rawServices,
+    kind: 'services',
+    nameOf: serviceName,
+    refresh: servicesState.refresh,
+  })
+  const services = priority.items
   const meta = servicesState.data?.data?.meta ?? {}
   const nodes = useMemo(
     () => nodeState.data?.data?.nodes ?? [],
@@ -74,5 +84,8 @@ export function useServiceDashboard({ enabled = true } = {}) {
     services,
     setIncludeHidden,
     setSelectedServiceName,
+    priorityError: priority.priorityError,
+    toggleUserPriority: priority.toggleUserPriority,
+    isPriorityPending: priority.isPriorityPending,
   }
 }

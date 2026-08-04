@@ -2857,6 +2857,36 @@ h3 {
   padding: 4px 8px;
 }
 
+.priority-column,
+.priority-cell {
+  min-width: 56px;
+  text-align: center;
+  width: 56px;
+}
+
+.priority-star {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 23px;
+  justify-content: center;
+  line-height: 1;
+  padding: 5px;
+}
+
+.priority-star:hover,
+.priority-star.selected {
+  color: #f7c948;
+}
+
+.priority-star:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+
 .hz-badge.normal {
   background: var(--green-bg);
   color: var(--green);

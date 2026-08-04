@@ -5,6 +5,7 @@ import { DashboardCommunicationBadges } from './DashboardCommunicationBadges.jsx
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
+import { PriorityStarButton } from './PriorityStarButton.jsx'
 
 const SERVICE_SORT_COLUMNS = {
   status: { value: (service) => service.status },
@@ -41,6 +42,8 @@ export function ServiceTable({
   onSelectService,
   selectedServiceName,
   services,
+  onTogglePriority,
+  isPriorityPending,
 }) {
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
   const [preview, setPreview] = useState(null)
@@ -60,6 +63,7 @@ export function ServiceTable({
     <div className="table-wrap">
       <table className="topic-table service-table">
         <colgroup>
+          <col className="priority-column" />
           <col className="service-col-status" />
           <col className="service-col-name" />
           <col className="service-col-type" />
@@ -76,6 +80,7 @@ export function ServiceTable({
         </colgroup>
         <thead>
           <tr>
+            <th className="priority-column">주요</th>
             <SortableHeader columnKey="status" headerClassName="service-status-column" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" headerClassName="service-name-column" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" headerClassName="service-type-column" label="타입" onSort={onSort} sort={sort} />
@@ -102,6 +107,14 @@ export function ServiceTable({
                 key={service.name}
                 onClick={() => onSelectService(service.name)}
               >
+                <td className="priority-cell">
+                  <PriorityStarButton
+                    item={service}
+                    name={service.name}
+                    onToggle={onTogglePriority}
+                    pending={isPriorityPending(service.name)}
+                  />
+                </td>
                 <td className="service-status-cell">
                   <StatusBadge
                     label={serviceStatusLabel(service)}

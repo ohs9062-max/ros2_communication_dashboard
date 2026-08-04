@@ -1,0 +1,130 @@
+"""사용자가 지정한 주요 리소스를 별도 YAML 파일에 영구 저장합니다."""
+
+from __future__ import annotations
+
+import os
+import tempfile
+from pathlib import Path
+from threading import Lock
+from typing import Any
+
+import yaml
+
+
+PRIORITY_KINDS = ('topics', 'services', 'actions', 'nodes')
+
+
+class UserPreferencesError(ValueError):
+    """사용자 설정 읽기·쓰기 오류입니다."""
+
+
+class UserPreferencesStore:
+    """사용자 주요 리소스 목록을 thread-safe하게 관리합니다."""
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        self._lock = Lock()
+        self._priority = self._load_or_create()
+
+    def snapshot(self) -> dict[str, dict[str, list[str]]]:
+        with self._lock:
+            return {
+                'priority': {
+                    kind: list(self._priority[kind])
+                    for kind in PRIORITY_KINDS
+                },
+            }
+
+    def contains(self, kind: str, name: str) -> bool:
+        normalized_kind = _priority_kind(kind)
+        with self._lock:
+            return name in self._priority[normalized_kind]
+
+    def set_priority(self, kind: str, name: str, enabled: bool) -> dict[str, Any]:
+        normalized_kind = _priority_kind(kind)
+        normalized_name = _resource_name(name)
+        with self._lock:
+            values = self._priority[normalized_kind]
+            changed = False
+            if enabled and normalized_name not in values:
+                values.append(normalized_name)
+                values.sort()
+                changed = True
+            elif not enabled and normalized_name in values:
+                values.remove(normalized_name)
+                changed = True
+            if changed:
+                self._write_locked()
+            return {
+                'kind': normalized_kind,
+                'name': normalized_name,
+                'user_primary': enabled,
+                'changed': changed,
+            }
+
+    def _load_or_create(self) -> dict[str, list[str]]:
+        if not self._path.is_file():
+            priority = _empty_priority()
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            self._write(priority)
+            return priority
+        try:
+            data = yaml.safe_load(self._path.read_text(encoding='utf-8')) or {}
+        except (OSError, UnicodeError, yaml.YAMLError) as exc:
+            raise UserPreferencesError(
+                f'사용자 주요 설정을 읽을 수 없습니다: {exc}',
+            ) from exc
+        root = data.get('priority') if isinstance(data, dict) else None
+        root = root if isinstance(root, dict) else {}
+        return {
+            kind: sorted(set(
+                value for value in root.get(kind, [])
+                if isinstance(value, str) and value.strip()
+            ))
+            for kind in PRIORITY_KINDS
+        }
+
+    def _write_locked(self) -> None:
+        self._write(self._priority)
+
+    def _write(self, priority: dict[str, list[str]]) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_name: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                'w',
+                dir=self._path.parent,
+                delete=False,
+                encoding='utf-8',
+            ) as temporary:
+                temporary_name = temporary.name
+                yaml.safe_dump(
+                    {'priority': priority},
+                    temporary,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+            os.replace(temporary_name, self._path)
+        except OSError as exc:
+            if temporary_name:
+                Path(temporary_name).unlink(missing_ok=True)
+            raise UserPreferencesError(
+                f'사용자 주요 설정을 저장할 수 없습니다: {exc}',
+            ) from exc
+
+
+def _empty_priority() -> dict[str, list[str]]:
+    return {kind: [] for kind in PRIORITY_KINDS}
+
+
+def _priority_kind(kind: str) -> str:
+    if kind not in PRIORITY_KINDS:
+        raise UserPreferencesError(f'지원하지 않는 리소스 종류입니다: {kind}')
+    return kind
+
+
+def _resource_name(name: str) -> str:
+    value = str(name or '').strip()
+    if not value or '\x00' in value:
+        raise UserPreferencesError('리소스 이름이 올바르지 않습니다.')
+    return value

@@ -13,6 +13,9 @@ import {
 } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
+import { useUserPriority } from './useUserPriority.js'
+
+const topicName = (topic) => topic.name
 
 export function useTopicDashboard({
   enabled = true,
@@ -54,7 +57,14 @@ export function useTopicDashboard({
     resetKey: selectedTopicName,
   })
 
-  const topicItems = useMemo(() => topics.data?.data ?? [], [topics.data])
+  const rawTopicItems = useMemo(() => topics.data?.data ?? [], [topics.data])
+  const priority = useUserPriority({
+    items: rawTopicItems,
+    kind: 'topics',
+    nameOf: topicName,
+    refresh: topics.refresh,
+  })
+  const topicItems = priority.items
   const nodeItems = useMemo(
     () => nodeState.data?.data?.nodes ?? [],
     [nodeState.data],
@@ -160,6 +170,9 @@ export function useTopicDashboard({
     topicItems,
     topicParticipants,
     topics,
+    priorityError: priority.priorityError,
+    toggleUserPriority: priority.toggleUserPriority,
+    isPriorityPending: priority.isPriorityPending,
   }
 }
 

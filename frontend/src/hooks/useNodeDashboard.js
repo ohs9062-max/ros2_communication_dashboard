@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchAlerts, fetchNodes } from '../api/rosApi.js'
 import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { usePolling } from './usePolling.js'
+import { useUserPriority } from './useUserPriority.js'
+
+const nodeName = (node) => node.full_name ?? node.name
 
 export function useNodeDashboard({ enabled = true } = {}) {
   const [selectedNodeName, setSelectedNodeName] = useState('')
@@ -18,10 +21,17 @@ export function useNodeDashboard({ enabled = true } = {}) {
     initialData: { data: [], meta: {} },
   })
 
-  const nodes = useMemo(
+  const rawNodes = useMemo(
     () => nodesState.data?.data?.nodes ?? [],
     [nodesState.data],
   )
+  const priority = useUserPriority({
+    items: rawNodes,
+    kind: 'nodes',
+    nameOf: nodeName,
+    refresh: nodesState.refresh,
+  })
+  const nodes = priority.items
   const meta = nodesState.data?.data?.meta ?? {}
   const nodeAlerts = useMemo(
     () =>
@@ -62,5 +72,8 @@ export function useNodeDashboard({ enabled = true } = {}) {
     setSelectedNodeName,
     setStatusFilter,
     statusFilter,
+    priorityError: priority.priorityError,
+    toggleUserPriority: priority.toggleUserPriority,
+    isPriorityPending: priority.isPriorityPending,
   }
 }

@@ -30,12 +30,18 @@ export function NodesPage({ actions, dashboard, services, topics }) {
     setSelectedNodeName,
     setStatusFilter,
     statusFilter,
+    priorityError,
+    toggleUserPriority,
+    isPriorityPending,
   } = dashboard
 
   const primaryNodes = useMemo(
     () =>
       nodes.filter((node) =>
-        !isInternalNode(node) && isPrimaryNode(node, { actions, services, topics }),
+        (
+          node.user_primary === true ||
+          !isInternalNode(node)
+        ) && isPrimaryNode(node, { actions, services, topics }),
       ),
     [actions, nodes, services, topics],
   )
@@ -44,7 +50,10 @@ export function NodesPage({ actions, dashboard, services, topics }) {
     const normalizedSearch = search.trim().toLowerCase()
     const baseNodes = includeInternalNodes
       ? nodes
-      : nodes.filter((node) => !isInternalNode(node))
+      : nodes.filter((node) => (
+          !isInternalNode(node) ||
+          (statusFilter === 'primary' && node.user_primary === true)
+        ))
 
     return baseNodes.filter((node) => {
       const matchesStatus = statusFilter === 'primary'
@@ -158,7 +167,10 @@ export function NodesPage({ actions, dashboard, services, topics }) {
             nodes={filteredNodes}
             onSelectNode={setSelectedNodeName}
             selectedNodeName={selectedNodeName}
+            onTogglePriority={toggleUserPriority}
+            isPriorityPending={isPriorityPending}
           />
+          {priorityError && <p className="error-text">{priorityError}</p>}
         </section>
       </section>
 

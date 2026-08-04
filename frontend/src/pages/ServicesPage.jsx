@@ -63,12 +63,18 @@ export function ServicesPage({ dashboard }) {
     services,
     setIncludeHidden,
     setSelectedServiceName,
+    priorityError,
+    toggleUserPriority,
+    isPriorityPending,
   } = dashboard
 
   const primaryServices = useMemo(
     () => services.filter(
       (service) =>
-        !isInternalOrManagementService(service) &&
+        (
+          service.user_primary === true ||
+          !isInternalOrManagementService(service)
+        ) &&
         isPrimaryService(service),
     ),
     [services],
@@ -202,7 +208,10 @@ export function ServicesPage({ dashboard }) {
             onSelectService={setSelectedServiceName}
             selectedServiceName={selectedServiceName}
             services={filteredServices}
+            onTogglePriority={toggleUserPriority}
+            isPriorityPending={isPriorityPending}
           />
+          {priorityError && <p className="error-text">{priorityError}</p>}
         </section>
       </section>
 

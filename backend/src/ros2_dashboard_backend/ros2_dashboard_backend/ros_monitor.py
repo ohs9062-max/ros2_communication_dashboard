@@ -29,14 +29,21 @@ from ros2_dashboard_backend.topology import (
     build_role_node_index,
     related_nodes,
 )
+from ros2_dashboard_backend.user_preferences import UserPreferencesStore
 
 
 class RosMonitor:
     """RosMonitor coordinator의 RosMonitor 역할을 담당하는 클래스입니다."""
 
-    def __init__(self, config: MonitorConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: MonitorConfig | None = None,
+        *,
+        user_preferences: UserPreferencesStore | None = None,
+    ) -> None:
         """공통 Lock과 Topic·Service·Action·Node Runtime을 조립합니다."""
         self._config = config or MonitorConfig()
+        self._user_preferences = user_preferences
         self._node: Node | None = None
         self._thread: Thread | None = None
         self._lock = Lock()
@@ -208,6 +215,11 @@ class RosMonitor:
                     ),
                 },
             })
+            self._apply_primary_state(
+                topic,
+                kind='topics',
+                name=str(topic.get('name') or ''),
+            )
         return snapshot
 
     def service_snapshot(
@@ -216,9 +228,7 @@ class RosMonitor:
         include_hidden: bool = False,
     ) -> dict[str, Any]:
         """Service Cache에 Node 관계와 최근 사용자 Call 결과를 합쳐 반환합니다."""
-        snapshot = self._service_runtime.snapshot(
-            include_hidden=include_hidden,
-        )
+        snapshot = self._service_runtime.snapshot(include_hidden=True)
         role_nodes = self._role_node_index()
         internal_node = self._monitor_node_full_name()
         summaries = self._service_call_runtime.summary_by_service()
@@ -290,28 +300,21 @@ class RosMonitor:
             configured_primary = (
                 service.get('name') in self._config.services_primary_names
             )
-            issue_primary = service['effective_status'] in {
-                'waiting_server', 'disconnected', 'error', 'failed', 'timeout',
-            }
-            user_primary = (
-                service.get('category') == 'user'
-                and service.get('hidden_by_default') is not True
-            )
             if allowlisted:
                 service['primary_priority'] = 1
                 service['primary_source'] = 'registered_interface'
             elif configured_primary:
                 service['primary_priority'] = 2
                 service['primary_source'] = 'monitor_config'
-            elif issue_primary or user_primary:
-                service['primary_priority'] = 3
-                service['primary_source'] = (
-                    'issue' if issue_primary else 'user_service'
-                )
             else:
                 service['primary_priority'] = None
                 service['primary_source'] = None
             service['primary'] = service['primary_priority'] is not None
+            self._apply_primary_state(
+                service,
+                kind='services',
+                name=str(service.get('name') or ''),
+            )
             service['call_count'] = summary.get('call_count', 0) if summary else 0
             service['success_count'] = summary.get('success_count', 0) if summary else 0
             service['failure_count'] = summary.get('failure_count', 0) if summary else 0
@@ -323,6 +326,31 @@ class RosMonitor:
                 ),
                 'has_call_history': summary is not None,
             }
+        if not include_hidden:
+            all_services = snapshot['services']
+            preferences = getattr(self, '_user_preferences', None)
+            snapshot['services'] = [
+                service for service in all_services
+                if (
+                    service.get('hidden_by_default') is not True
+                    or service.get('user_primary') is True
+                )
+            ]
+            snapshot['meta']['count'] = len(snapshot['services'])
+            snapshot['meta']['visible_count'] = len(snapshot['services'])
+            snapshot['meta']['hidden_count'] = sum(
+                1 for service in all_services
+                if (
+                    service.get('hidden_by_default') is True
+                    and not (
+                        preferences
+                        and preferences.contains(
+                            'services',
+                            str(service.get('name') or ''),
+                        )
+                    )
+                )
+            )
         return snapshot
 
     def callable_services(self) -> dict[str, Any]:
@@ -456,6 +484,11 @@ class RosMonitor:
                 action['primary_priority'] = None
                 action['primary_source'] = None
             action['primary'] = action['primary_priority'] is not None
+            self._apply_primary_state(
+                action,
+                kind='actions',
+                name=str(action.get('name') or ''),
+            )
             action['dashboard_communication'] = {
                 'monitoring_active': (
                     action.get('status_supported') is True
@@ -632,9 +665,54 @@ class RosMonitor:
         """Node Cache에 Dashboard 내부 Node 여부를 표시해 반환합니다."""
         snapshot = self._node_runtime.snapshot()
         internal_node = self._monitor_node_full_name()
+        has_resource_runtimes = all(hasattr(self, name) for name in (
+            '_topic_runtime',
+            '_service_runtime',
+            '_service_call_runtime',
+            '_action_runtime',
+            '_action_goal_runtime',
+        ))
+        system_resources = (
+            _system_primary_resources(
+                topics=self.snapshot()['topics'],
+                services=self.service_snapshot(include_hidden=True)['services'],
+                actions=self.action_snapshot()['actions'],
+            )
+            if has_resource_runtimes
+            else set()
+        )
         for node in snapshot['nodes']:
             node['is_internal'] = node.get('full_name') == internal_node
+            node['primary'] = bool(
+                node.get('primary')
+                or node.get('status') == 'disconnected'
+                or _node_uses_system_primary(node, system_resources)
+            )
+            self._apply_primary_state(
+                node,
+                kind='nodes',
+                name=str(node.get('full_name') or node.get('name') or ''),
+            )
         return snapshot
+
+    def _apply_primary_state(
+        self,
+        item: dict[str, Any],
+        *,
+        kind: str,
+        name: str,
+    ) -> None:
+        system_primary = bool(item.get('primary'))
+        preferences = getattr(self, '_user_preferences', None)
+        user_primary = bool(
+            preferences
+            and name
+            and preferences.contains(kind, name)
+        )
+        item['system_primary'] = system_primary
+        item['user_primary'] = user_primary
+        item['is_primary'] = system_primary or user_primary
+        item['primary'] = item['is_primary']
 
     def _role_node_index(self) -> dict[tuple[str, str, str], set[str]]:
         return build_role_node_index(self._node_runtime.snapshot()['nodes'])
@@ -893,6 +971,51 @@ def _runtime_state_map(runtime: Any, method_name: str) -> dict[Any, Any]:
     if not callable(method):
         return {}
     return method()
+
+
+def _system_primary_resources(
+    *,
+    topics: list[dict[str, Any]],
+    services: list[dict[str, Any]],
+    actions: list[dict[str, Any]],
+) -> set[tuple[str, str, str]]:
+    resources: set[tuple[str, str, str]] = set()
+    for kind, items in (
+        ('topic', topics),
+        ('service', services),
+        ('action', actions),
+    ):
+        for item in items:
+            if item.get('system_primary') is not True:
+                continue
+            name = str(item.get('name') or '')
+            types = item.get('types') or [item.get('type')]
+            for full_type in types:
+                if name and full_type:
+                    resources.add((kind, name, str(full_type)))
+    return resources
+
+
+def _node_uses_system_primary(
+    node: dict[str, Any],
+    resources: set[tuple[str, str, str]],
+) -> bool:
+    for kind, fields in (
+        ('topic', ('topic_publishers', 'topic_subscribers')),
+        ('service', ('service_servers', 'service_clients')),
+        ('action', ('action_servers', 'action_clients')),
+    ):
+        for field in fields:
+            for entity in node.get(field) or []:
+                name = str(entity.get('name') or '')
+                types = entity.get('types') or [entity.get('type')]
+                if any(
+                    (kind, name, str(full_type)) in resources
+                    for full_type in types
+                    if full_type
+                ):
+                    return True
+    return False
 
 
 def _service_effective_status(

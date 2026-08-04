@@ -5,6 +5,7 @@ import { DashboardCommunicationBadges } from './DashboardCommunicationBadges.jsx
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
+import { PriorityStarButton } from './PriorityStarButton.jsx'
 
 const ACTION_SORT_COLUMNS = {
   status: { value: (action) => action.status },
@@ -49,6 +50,8 @@ export function ActionTable({
   emptyMessage = '표시할 Action이 없습니다',
   onSelectAction,
   selectedActionName,
+  onTogglePriority,
+  isPriorityPending,
 }) {
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
   const [preview, setPreview] = useState(null)
@@ -68,6 +71,7 @@ export function ActionTable({
     <div className="table-wrap">
       <table className="topic-table action-table">
         <colgroup>
+          <col className="priority-column" />
           <col className="action-col-status" />
           <col className="action-col-name" />
           <col className="action-col-type" />
@@ -86,6 +90,7 @@ export function ActionTable({
         </colgroup>
         <thead>
           <tr>
+            <th className="priority-column">주요</th>
             <SortableHeader columnKey="status" label="서버 상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
@@ -115,6 +120,14 @@ export function ActionTable({
                 key={action.name}
                 onClick={() => onSelectAction(action.name)}
               >
+                <td className="priority-cell">
+                  <PriorityStarButton
+                    item={action}
+                    name={action.name}
+                    onToggle={onTogglePriority}
+                    pending={isPriorityPending(action.name)}
+                  />
+                </td>
                 <td>
                   <StatusBadge value={action.status} />
                 </td>

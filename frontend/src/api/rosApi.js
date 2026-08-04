@@ -71,6 +71,22 @@ export function fetchNodes() {
   return requestJson('/ros/nodes')
 }
 
+export function fetchUserPriorities() {
+  return requestJson('/ros/preferences/priority')
+}
+
+export async function updateUserPriority(kind, name, enabled) {
+  const response = await fetch(
+    `${API_BASE_URL}/ros/preferences/priority/${encodeURIComponent(kind)}`,
+    {
+      method: enabled ? 'PUT' : 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    },
+  )
+  return responseJson(response)
+}
+
 export function fetchInterfaceRegistry() {
   return requestJson('/ros/interfaces/registry')
 }

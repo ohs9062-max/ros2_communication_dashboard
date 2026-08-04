@@ -5,6 +5,7 @@ import { DashboardCommunicationBadges } from './DashboardCommunicationBadges.jsx
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
+import { PriorityStarButton } from './PriorityStarButton.jsx'
 
 const TOPIC_SORT_COLUMNS = {
   status: { value: (topic) => topic.status },
@@ -43,6 +44,8 @@ export function TopicTable({
   selectedTopicName,
   onSelectTopic,
   hzByTopic = {},
+  onTogglePriority,
+  isPriorityPending,
 }) {
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
   const [previewTopic, setPreviewTopic] = useState(null)
@@ -68,6 +71,7 @@ export function TopicTable({
       <table className="topic-table">
         <thead>
           <tr>
+            <th className="priority-column">주요</th>
             <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
@@ -95,6 +99,14 @@ export function TopicTable({
                 key={topic.name}
                 onClick={() => onSelectTopic(topic.name)}
               >
+                <td className="priority-cell">
+                  <PriorityStarButton
+                    item={topic}
+                    name={topic.name}
+                    onToggle={onTogglePriority}
+                    pending={isPriorityPending(topic.name)}
+                  />
+                </td>
                 <td className="metric-cell">
                   <StatusBadge value={topic.status} />
                 </td>

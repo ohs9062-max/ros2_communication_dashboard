@@ -3,6 +3,7 @@ import { formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
+import { PriorityStarButton } from './PriorityStarButton.jsx'
 
 const NODE_SORT_COLUMNS = {
   status: { value: (node) => node.status },
@@ -43,6 +44,8 @@ export function NodeTable({
   nodes,
   onSelectNode,
   selectedNodeName,
+  onTogglePriority,
+  isPriorityPending,
 }) {
   const [sort, setSort] = useState({ key: 'full_name', direction: 'asc' })
   const sortedNodes = useMemo(
@@ -62,6 +65,7 @@ export function NodeTable({
       <table className="topic-table node-table">
         <thead>
           <tr>
+            <th className="priority-column">주요</th>
             <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="full_name" label="Node" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="namespace" label="네임스페이스" onSort={onSort} sort={sort} />
@@ -84,6 +88,14 @@ export function NodeTable({
                 key={node.full_name}
                 onClick={() => onSelectNode(node.full_name)}
               >
+                <td className="priority-cell">
+                  <PriorityStarButton
+                    item={node}
+                    name={node.full_name}
+                    onToggle={onTogglePriority}
+                    pending={isPriorityPending(node.full_name)}
+                  />
+                </td>
                 <td>
                   <NodeStatusBadge status={node.status} />
                 </td>

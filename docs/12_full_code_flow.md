@@ -322,6 +322,11 @@ Service는 승인된 등록 srv 타입을 1순위, `services.primary_names`를 2
 
 Action은 승인된 등록 action 타입을 1순위, `actions.primary_names`를 2순위로 보고 Goal·Feedback·Result 관찰 이력을 보조 기준으로 유지한다. Node는 직접 등록 또는 주요 통신과 실제 이름·full_type 관계가 있거나 disconnected인 비내부 Node를 주요 항목으로 본다.
 
+사용자 별표는 `backend/config/user_preferences.yaml`에 Topic / Service / Action / Node
+이름별로 저장한다. Backend 목록 응답은 기존 자동 판정을 `system_primary`, 별표 판정을
+`user_primary`, 두 값의 합집합을 `is_primary`로 반환한다. Frontend는 `is_primary`로
+주요 목록을 필터링하며 별표 저장 실패 시 낙관적 UI 상태를 복구한다.
+
 파일: 공통 등록 판정 `frontend/src/utils/primaryFilters.js L1-L78`, Topic 적용 `frontend/src/pages/TopicsPage.jsx L33-L83`, Service 적용 `frontend/src/pages/ServicesPage.jsx L68-L110`, `L241-L319`, Action 적용 `frontend/src/pages/ActionsPage.jsx L35-L74`, `L180-L223`, Node 적용 `frontend/src/utils/nodeFilters.js L1-L72`, `frontend/src/pages/NodesPage.jsx L35-L60`
 
 ## 9. Alert 전체 로직

@@ -11,8 +11,8 @@ import {
 import { isPrimaryNode } from '../utils/nodeFilters.js'
 import {
   isPrimaryAction,
+  isPrimaryService,
   isPrimaryTopic,
-  isRegisteredService,
 } from '../utils/primaryFilters.js'
 
 export function OverviewPage({
@@ -26,7 +26,7 @@ export function OverviewPage({
   const { alerts, setSelectedTopicName, topicItems } = dashboard
   const primaryTopics = topicItems.filter((topic) => isPrimaryTopic(topic))
   const summary = getTopicSummary(primaryTopics)
-  const primaryServices = serviceDashboard.services.filter(isRegisteredService)
+  const primaryServices = serviceDashboard.services.filter(isPrimaryService)
   const serviceSummary = getServiceSummary(
     primaryServices,
   )

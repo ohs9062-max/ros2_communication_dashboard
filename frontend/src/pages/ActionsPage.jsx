@@ -30,6 +30,9 @@ export function ActionsPage({ dashboard }) {
     selectedActionName,
     setIncludeIdleActions,
     setSelectedActionName,
+    priorityError,
+    toggleUserPriority,
+    isPriorityPending,
   } = dashboard
 
   const primaryActions = useMemo(
@@ -166,7 +169,10 @@ export function ActionsPage({ dashboard }) {
             }
             onSelectAction={setSelectedActionName}
             selectedActionName={selectedActionName}
+            onTogglePriority={toggleUserPriority}
+            isPriorityPending={isPriorityPending}
           />
+          {priorityError && <p className="error-text">{priorityError}</p>}
         </section>
       </section>
 

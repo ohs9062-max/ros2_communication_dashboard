@@ -60,6 +60,8 @@ FastAPI REST/WebSocket
 - Topic/Service/Action은 Interface Registry/Package의 import 가능한 승인 타입 exact match를 1순위로 사용하고 `monitor.yaml` 정책을 2순위로 사용한다.
 - Node는 Backend의 직접 `primary` 신호 또는 실제 관계 배열의 이름과 full_type이 주요 리소스와 정확히 같은지 확인한다.
 - Service 문제 상태·일반 사용자 Service, Action 관찰 이력, Node disconnected는 보조 가시성 기준으로 유지한다.
+- 네 목록의 별표는 `user_primary`를 낙관적으로 갱신하고 Backend 저장 실패 시 원래 값으로 복구한다.
+- 최종 주요 필터는 Backend의 `is_primary = system_primary OR user_primary`를 사용한다.
 - Frontend가 YAML을 직접 읽지는 않는다.
 
 ### 6) Page가 검색·필터·선택을 관리한다

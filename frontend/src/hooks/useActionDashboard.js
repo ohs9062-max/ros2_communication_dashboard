@@ -3,6 +3,9 @@ import { fetchActions, fetchAlerts, fetchNodes } from '../api/rosApi.js'
 import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
+import { useUserPriority } from './useUserPriority.js'
+
+const actionName = (action) => action.name
 
 export function useActionDashboard({ enabled = true } = {}) {
   const [includeIdleActions, setIncludeIdleActions] = useState(false)
@@ -21,10 +24,17 @@ export function useActionDashboard({ enabled = true } = {}) {
     initialData: { data: { nodes: [], meta: {} } },
   })
 
-  const actions = useMemo(
+  const rawActions = useMemo(
     () => actionsState.data?.data?.actions ?? [],
     [actionsState.data],
   )
+  const priority = useUserPriority({
+    items: rawActions,
+    kind: 'actions',
+    nameOf: actionName,
+    refresh: actionsState.refresh,
+  })
+  const actions = priority.items
   const meta = actionsState.data?.data?.meta ?? {}
   const nodes = useMemo(
     () => nodeState.data?.data?.nodes ?? [],
@@ -70,5 +80,8 @@ export function useActionDashboard({ enabled = true } = {}) {
     selectedActionName,
     setIncludeIdleActions,
     setSelectedActionName,
+    priorityError: priority.priorityError,
+    toggleUserPriority: priority.toggleUserPriority,
+    isPriorityPending: priority.isPriorityPending,
   }
 }
