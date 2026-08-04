@@ -107,6 +107,7 @@ function statusLabel(value) {
     error: '오류',
     critical: '심각',
     inactive: '비활성',
+    not_discovered: '미발견',
     unknown: '알 수 없음',
     unsupported: '미지원',
     never_received: '아직 수신 없음',

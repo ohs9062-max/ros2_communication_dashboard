@@ -1,46 +1,4 @@
 interface_registry:
-  messages:
-  - file_name: OHS.msg
-    file_kind: msg
-    type_name: OHS
-    full_type: uploaded_interfaces/msg/OHS
-    source: manual_definition
-    allowlisted: true
-    uploaded_at: '2026-07-28T04:15:40.076189+00:00'
-    raw_text: 'uint8 cmd
-
-      bool success
-
-      string message
-
-      '
-    parsed:
-      fields:
-      - type: uint8
-        raw_line: uint8 cmd
-        name: cmd
-      - type: bool
-        raw_line: bool success
-        name: success
-      - type: string
-        raw_line: string message
-        name: message
-    build:
-      interface_package: uploaded_interfaces
-      interface_package_path: backend/src/uploaded_interfaces
-      absolute_interface_package_path: /home/hs/rang/ros2_dashboard/backend/src/uploaded_interfaces
-      saved_path: backend/src/uploaded_interfaces/msg/OHS.msg
-      absolute_saved_path: /home/hs/rang/ros2_dashboard/backend/src/uploaded_interfaces/msg/OHS.msg
-      file_saved: true
-      cmake_registered: true
-      package_xml_checked: true
-      dependency_candidates: []
-      rebuild_required: false
-      import_available: true
-      import_error: null
-      error: null
-      last_build_status: success
-      last_build_at: '2026-07-28T04:16:17.047005+00:00'
-      import_checked_at: '2026-07-28T04:16:19.016161+00:00'
+  messages: []
   services: []
   actions: []

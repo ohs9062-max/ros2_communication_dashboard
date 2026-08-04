@@ -2867,15 +2867,26 @@ h3 {
   color: var(--yellow);
 }
 
+.hz-badge.waiting {
+  background: var(--yellow-bg);
+  color: var(--yellow);
+}
+
 .hz-badge.zero,
 .hz-badge.never {
   background: var(--red-bg);
   color: var(--red);
 }
 
-.hz-badge.unsupported {
+.hz-badge.unsupported,
+.hz-badge.not-configured {
   background: var(--gray-bg);
   color: var(--gray);
+}
+
+.hz-badge.failed {
+  background: var(--red-bg);
+  color: var(--red);
 }
 
 .notice-text {
@@ -3692,7 +3703,8 @@ details summary {
 }
 
 .badge.yellow,
-.hz-badge.low {
+.hz-badge.low,
+.hz-badge.waiting {
   border-color: rgba(238, 182, 74, 0.22);
 }
 
@@ -3703,8 +3715,13 @@ details summary {
 }
 
 .badge.gray,
-.hz-badge.unsupported {
+.hz-badge.unsupported,
+.hz-badge.not-configured {
   border-color: rgba(148, 163, 184, 0.18);
+}
+
+.hz-badge.failed {
+  border-color: rgba(240, 120, 136, 0.22);
 }
 
 .badge.blue {

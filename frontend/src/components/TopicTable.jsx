@@ -169,8 +169,24 @@ function dashboardCommunicationCount(state = {}) {
 }
 
 function hzState(hzData, topic) {
-  if (!topic.deep_monitoring) {
+  if (topic.hz_monitoring_status === 'not_configured') {
+    return 'not-configured'
+  }
+
+  if (topic.hz_monitoring_status === 'unsupported_type') {
     return 'unsupported'
+  }
+
+  if (topic.hz_monitoring_status === 'topic_not_discovered') {
+    return 'waiting'
+  }
+
+  if (topic.hz_monitoring_status === 'subscription_failed') {
+    return 'failed'
+  }
+
+  if (!topic.hz_monitoring_enabled) {
+    return 'not-configured'
   }
 
   if (!hzData || hzData.status === 'never_received') {
@@ -190,8 +206,20 @@ function hzState(hzData, topic) {
 }
 
 function hzLabel(hzData, state) {
+  if (state === 'not-configured') {
+    return '감시 대상 아님'
+  }
+
   if (state === 'unsupported') {
-    return '미지원'
+    return '타입 미지원'
+  }
+
+  if (state === 'waiting') {
+    return 'Topic 미발견'
+  }
+
+  if (state === 'failed') {
+    return '구독 실패'
   }
 
   if (state === 'never') {

@@ -18,35 +18,12 @@ export function isRegisteredAction(action) {
   return action?.allowlisted === true
 }
 
-export function isPrimaryTopic(topic, hzEntry) {
+export function isPrimaryTopic(topic) {
   if (isInternalTopic(topic?.name)) {
     return false
   }
 
-  const hzData = hzEntry?.data
-  const hz = Number(hzData?.hz)
-  const messageCount = Number(
-    hzData?.message_count ?? topic?.message_count ?? topic?.received_count ?? 0,
-  )
-  const hasPreview = Boolean(
-    topic?.message_preview ?? topic?.latest_message ?? topic?.preview,
-  )
-
-  return (
-    isRegisteredTopic(topic) ||
-    topic?.status === 'active' ||
-    topic?.received === true ||
-    hzData?.received === true ||
-    messageCount > 0 ||
-    (Number.isFinite(hz) && hz > 0) ||
-    (
-      (topic?.external_subscriber_count ?? 0) > 0 &&
-      (topic?.publisher_count ?? 0) > 0
-    ) ||
-    topic?.detailed_monitoring === true ||
-    topic?.deep_monitoring === true ||
-    hasPreview
-  )
+  return topic?.primary === true
 }
 
 export function isPrimaryAction(action) {

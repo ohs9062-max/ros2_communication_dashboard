@@ -174,6 +174,7 @@ def test_registered_custom_message_is_subscribed_and_measures_hz() -> None:
             hz_window_sec=5.0,
             topics_supported_types=(topic_type,),
             topics_registered_types=(topic_type,),
+            topics_required_stream_names=(node.topic_name,),
         ),
         lock=Lock(),
         node_getter=lambda: node,
@@ -231,6 +232,7 @@ def test_external_subscriber_count_excludes_all_monitor_owned_endpoints() -> Non
         config=MonitorConfig(
             topics_supported_types=(topic_type,),
             topics_registered_types=(topic_type,),
+            topics_required_stream_names=(node.topic_name,),
         ),
         lock=Lock(),
         node_getter=lambda: node,
@@ -254,6 +256,7 @@ def test_registered_custom_message_reports_missing_and_stale_alerts() -> None:
             stale_timeout_sec=3.0,
             topics_supported_types=(topic_type,),
             topics_registered_types=(topic_type,),
+            topics_required_stream_names=(node.topic_name,),
         ),
         lock=Lock(),
         node_getter=lambda: node,
@@ -516,7 +519,10 @@ def test_monitor_only_topic_subscription_is_removed_but_state_is_retained(
     node.publisher_count = 1
     runtime = TopicRuntime(
         action_monitor_subscriber_count=lambda _name: 0,
-        config=MonitorConfig(topics_supported_types=(topic_type,)),
+        config=MonitorConfig(
+            topics_supported_types=(topic_type,),
+            topics_required_stream_names=(node.topic_name,),
+        ),
         lock=Lock(),
         node_getter=lambda: node,
     )
@@ -550,7 +556,10 @@ def test_external_subscriber_keeps_waiting_topic_monitored(
     node.publisher_count = 1
     runtime = TopicRuntime(
         action_monitor_subscriber_count=lambda _name: 0,
-        config=MonitorConfig(topics_supported_types=(topic_type,)),
+        config=MonitorConfig(
+            topics_supported_types=(topic_type,),
+            topics_required_stream_names=(node.topic_name,),
+        ),
         lock=Lock(),
         node_getter=lambda: node,
     )

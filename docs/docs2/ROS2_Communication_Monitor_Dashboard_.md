@@ -1,4 +1,5 @@
-# ROS2 Communication Monitor Dashboard 발표 스크립트
+# ROS2 Communication Monitor Dashboard
+
 
 > 기준 자료: `ros2_dashboard_with_demo_slide(1).pdf`  
 > 구성: 21페이지 발표용 대사  

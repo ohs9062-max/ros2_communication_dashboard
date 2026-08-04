@@ -86,10 +86,64 @@ class TopicRuntime:
             }
             last_updated = self._last_updated
 
+        configured_names = dict.fromkeys((
+            *self._config.topics_required_stream_names,
+            *self._config.topics_command_names,
+        ))
+        present_names = {str(topic.get('name') or '') for topic in topics}
+        for name in configured_names:
+            if name in present_names:
+                continue
+            topics.append({
+                'name': name,
+                'types': [],
+                'publisher_count': 0,
+                'subscriber_count': 0,
+                'raw_subscriber_count': 0,
+                'monitor_subscriber_count': 0,
+                'external_subscriber_count': 0,
+                'status': 'not_discovered',
+                'reason': 'configured topic is not visible in ROS2 graph',
+                'last_updated': last_updated,
+                'supported_type': False,
+                'registered_interface_type': False,
+                'deep_monitoring': False,
+                'graph_present': False,
+                'ever_discovered': False,
+                'last_seen_at': None,
+                'disconnected_at': None,
+            })
+
         for topic in topics:
             latest = subscriptions.get(topic.get('name'), {})
             preview = latest.get('message_preview')
+            name = str(topic.get('name') or '')
+            required_stream = name in self._config.topics_required_stream_names
+            command = name in self._config.topics_command_names
+            if required_stream:
+                monitoring_role = 'required_stream'
+            elif command:
+                monitoring_role = 'command'
+            else:
+                monitoring_role = 'discovered'
+
+            if not required_stream:
+                hz_monitoring_status = 'not_configured'
+            elif topic.get('graph_present') is False:
+                hz_monitoring_status = 'topic_not_discovered'
+            elif topic.get('supported_type') is not True:
+                hz_monitoring_status = 'unsupported_type'
+            elif topic.get('deep_monitoring') is True:
+                hz_monitoring_status = 'active'
+            else:
+                hz_monitoring_status = 'subscription_failed'
+
             topic['allowlisted'] = bool(topic.get('supported_type') or topic.get('deep_monitoring'))
+            topic['primary'] = required_stream or command
+            topic['monitoring_role'] = monitoring_role
+            topic['hz_monitoring_configured'] = required_stream
+            topic['hz_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
+            topic['hz_monitoring_status'] = hz_monitoring_status
             topic['observed'] = preview is not None
             topic['last_message_preview'] = preview
             topic['last_received_at'] = latest.get('last_received_at')
@@ -238,6 +292,13 @@ class TopicRuntime:
                 message='ROS2 monitor is not running',
             )
 
+        if name not in self._config.topics_required_stream_names:
+            return self._latest_response(
+                success=False,
+                name=name,
+                message='Topic is not configured for message monitoring',
+            )
+
         topic_type = self._topic_type(name)
         if topic_type is None:
             return self._latest_response(
@@ -287,6 +348,13 @@ class TopicRuntime:
                 success=False,
                 name=name,
                 message='ROS2 monitor is not running',
+            )
+
+        if name not in self._config.topics_required_stream_names:
+            return self._hz_response(
+                success=False,
+                name=name,
+                message='Topic is not configured for Hz monitoring',
             )
 
         topic_type = self._topic_type(name)
@@ -352,6 +420,9 @@ class TopicRuntime:
         topic_type: str | None,
         supported_type: bool,
     ) -> bool:
+        if name not in self._config.topics_required_stream_names:
+            return False
+
         if not should_deep_monitor(
             auto_discover=self._config.topics_auto_discover,
             auto_subscribe_supported_types=(
