@@ -18,7 +18,7 @@ ROS2 Graph API 기반 자동 발견
 생성물 폴더 직접 수정 금지
 ```
 
-사용자용 긴 설명은 `README.md`와 `docs/`에 둔다.
+사용자용 긴 설명은 `docs/`와 각 package의 README에 둔다.
 Codex 작업 제한, 금지사항, 설계 원칙은 이 파일 기준으로 판단한다.
 
 ## 2. 프로젝트 정의
@@ -40,22 +40,21 @@ Dev server: Vite
 테스트 환경: TurtleBot3 + Gazebo 또는 실제 ROS2 장비
 ```
 
-Node.js는 Vite 요구사항 때문에 Node 20 이상을 기준으로 한다.
+Node.js는 설치된 Vite 8의 engine인 `^20.19.0 || >=22.12.0`을 따른다.
 
 ## 4. 프로젝트 구조 기준
 
 ```text
 ros2_dashboard/
 ├─ AGENTS.md
-├─ README.md
 ├─ docs/
 ├─ backend/
-│  ├─ .env
 │  ├─ config/
 │  │  ├─ monitor.yaml
 │  │  ├─ interface_registry.yaml
 │  │  ├─ interface_packages.yaml
-│  │  └─ interface_apply_status.yaml
+│  │  ├─ interface_apply_status.yaml
+│  │  └─ user_preferences.yaml
 │  ├─ build/              # 생성물, 직접 수정 금지
 │  ├─ install/            # 생성물, 직접 수정 금지
 │  ├─ log/                # 생성물, 직접 수정 금지
@@ -66,13 +65,17 @@ ros2_dashboard/
 │     │     ├─ app_state.py
 │     │     ├─ ros_monitor.py
 │     │     ├─ resource_state.py
+│     │     ├─ topology.py
+│     │     ├─ user_preferences.py
+│     │     ├─ websocket_manager.py
 │     │     ├─ routers/
 │     │     │  ├─ monitoring.py
 │     │     │  ├─ interface_management.py
 │     │     │  ├─ interface_apply.py
 │     │     │  ├─ topic_execution.py
 │     │     │  ├─ service_execution.py
-│     │     │  └─ action_execution.py
+│     │     │  ├─ action_execution.py
+│     │     │  └─ user_preferences.py
 │     │     ├─ interface_lab/
 │     │     │  ├─ paths.py
 │     │     │  ├─ management/
@@ -107,7 +110,11 @@ ros2_dashboard/
       │  ├─ useActionDashboard.js
       │  ├─ useNodeDashboard.js
       │  ├─ useMonitorWebSocket.js
-      │  └─ useVisualizationGraph.js
+      │  ├─ useVisualizationGraph.js
+      │  └─ useUserPriority.js
+      ├─ components/
+      │  ├─ PriorityStarButton.jsx
+      │  └─ visualization/
       ├─ utils/
       │  ├─ interfaceTopics.js
       │  ├─ nodeFilters.js
@@ -134,7 +141,7 @@ backend/src/ros2_dashboard_backend/
 
 ros_monitor.py
 = RosMonitor coordinator. rclpy Node 생성, spin thread, runtime 조립,
-  Alert 통합과 public API용 snapshot 제공. Interface Lab 실행 runtime도 생성하고
+  Topology/주요 상태 조립, Alert 통합과 public API용 snapshot 제공. Interface Lab 실행 runtime도 생성하고
   public method 호환을 위해 위임하지만, registry/build/file 관리 세부 구현을 직접 하지 않는다.
 
 app_state.py
@@ -146,6 +153,16 @@ main.py
 routers/
 = FastAPI endpoint 계층. request/query/path/body 파싱, RosMonitor 또는 Interface Lab runtime 호출,
   HTTP response 반환만 담당한다. registry/build/rclpy 실행 로직을 router에 넣지 않는다.
+
+topology.py
+= Node snapshot의 역할·리소스 이름·full_type exact match를 인덱싱하고
+  Topic / Service / Action별 외부 연결 Node 목록을 계산한다.
+
+user_preferences.py, routers/user_preferences.py
+= 사용자 별표 목록을 별도 YAML에 저장하는 thread-safe store와 조회·등록·해제 API다.
+
+websocket_manager.py
+= WebSocket 연결 집합과 JSON 전송 실패 정리만 담당한다. payload는 RosMonitor가 만든다.
 
 topic/
 = Topic discovery / filter / subscription / preview / hz / alert 로직
@@ -186,14 +203,13 @@ frontend/
 = Vite React web UI. Dashboard와 Interface Lab 화면을 제공한다.
 
 frontend/src/utils/primaryFilters.js
-= Topic / Service / Action의 주요 항목 판정 기준을 공유한다.
-  YAML registry를 frontend에서 직접 읽지 않고 Backend가 실제 통신 타입 exact match로 계산한
-  supported_type / allowlisted 신호를 우선한다. 기존 이름 fallback은 호환용으로만 유지하고 확대하지 않는다.
+= Topic / Service / Action의 Backend `is_primary` 최종 판정을 그대로 사용한다.
 
 frontend/src/utils/nodeFilters.js
-= 기존 Node 주요 항목 / disconnected / hidden 정책과 함께
-  Node별 publisher / subscriber / client / server 관계 타입을
-  주요 Topic / Service / Action 타입과 exact match해 주요 Node를 판정한다.
+= Backend `is_primary`로 Node 주요 여부를 판정하고 dashboard/ros2cli 내부 Node를 식별한다.
+
+frontend/src/hooks/useUserPriority.js, components/PriorityStarButton.jsx
+= 네 목록의 낙관적 별표 변경, 요청 중 중복 방지, 실패 rollback·오류 표시를 공유한다.
 
 frontend/src/utils/interfaceTopics.js
 = Interface Lab Topic Publish Graph 후보의 exact Message type 일치와
@@ -301,40 +317,60 @@ frontend API 함수는 `frontend/src/api/rosApi.js`에 둔다.
 `GET /ros/alerts`는 현재/최근 Alert를 `data`, 해결된 최근 이력을 `history`로 반환하며,
 기존 `data`와 `meta` key를 제거하거나 의미를 바꾸지 않는다.
 
+`GET /ros/preferences/priority`는 전체 `priority` 목록을 반환하고 PUT/DELETE는
+`{kind}`에 `topics|services|actions|nodes`, JSON body에 `{"name": "..."}`을 받는다.
+중복 등록·이미 해제된 항목은 성공하되 `changed=false`다.
+
+`WS /ws/monitor`는 1초마다 `monitor_snapshot` 경량 요약(count/status 집계, Topic latest map,
+현재 Alert)을 push한다. 전체 목록과 상세 latest/Hz를 대체하지 않으므로 화면 데이터는 REST
+polling을 계속 사용하며, Frontend WebSocket은 끊기면 2.5초 뒤 재연결한다.
+
 ## 7. Configuration Policy
 
-`.env`와 `backend/config/monitor.yaml`의 책임을 분리한다.
+선택적 `.env`와 `backend/config/monitor.yaml`의 책임을 분리한다. Loader는 먼저
+`backend/.env`, 다음으로 backend Python package 옆 `.env`를 찾고 없으면 process 환경변수와
+safe default를 사용한다. 현재 저장소에는 `.env`를 커밋하지 않는다.
 
 `.env`:
 
 ```text
-API_HOST
-API_PORT
 CORS_ORIGINS
 MONITOR_CONFIG_PATH
+INTERFACE_REGISTRY_PATH
+INTERFACE_PACKAGES_REGISTRY_PATH
+INTERFACE_PACKAGE_PATH
+INTERFACE_UPLOADED_PACKAGES_PATH
+INTERFACE_APPLY_STATUS_PATH
+INTERFACE_APPLY_LOG_PATH
 ```
+
+Backend Python 코드는 `API_HOST`/`API_PORT`를 읽지 않는다. host/port는 uvicorn 실행 인자로
+지정한다. Frontend API와 polling override는 `VITE_API_BASE_URL`,
+`VITE_TOPIC_POLL_INTERVAL_MS`, `VITE_DASHBOARD_POLL_INTERVAL_MS`,
+`VITE_VISUALIZATION_POLL_INTERVAL_MS`를 사용한다.
 
 `monitor.yaml`:
 
 ```text
-poll_interval_sec
-stale_timeout_sec
-hz_window_sec
-topic/service/action include / exclude
-topic exclude_prefixes / exclude_types
-service exclude_prefixes
-topic auto_discover
-supported_types
-auto_subscribe_supported_types
-topic required_stream_names
-topic command_names
-service/action/node primary_names
-service active_check allowlist
+monitor.poll_interval_sec / stale_timeout_sec / hz_window_sec
+topics.auto_discover / auto_subscribe_supported_types
+topics.include_names / exclude_names / exclude_prefixes / exclude_types
+topics.supported_types / required_stream_names / command_names
+services.include_names / exclude_names / exclude_prefixes / primary_names
+services.active_check.enabled / interval_sec / default_timeout_sec / allowlist
+actions.include_names / exclude_names / exclude_prefixes / primary_names
+actions.auto_monitor_status / auto_monitor_feedback / auto_fetch_result_for_observed_goals
+nodes.include_names / exclude_names / exclude_prefixes / primary_names / stale_timeout_sec
 ```
+
+Loader는 `include_names`/`exclude_names`와 함께 `include`/`exclude`도 읽으며,
+둘 다 있으면 suffix 없는 key를 우선한다. include는 빈 목록이면 전체 후보를 허용하고,
+exclude name/prefix/type은 include보다 우선한다.
 
 `backend/config/user_preferences.yaml`은 사용자가 별표로 지정한 주요 Topic / Service /
 Action / Node 이름을 저장한다. `monitor.yaml`과 Interface Registry를 수정하지 않으며,
-중복 없는 목록을 원자적으로 저장하고 Backend 재시작 후에도 유지한다.
+`priority.topics/services/actions/nodes`의 중복 없는 정렬 목록을 임시 파일과 `os.replace()`로
+원자적으로 저장하고 Backend 재시작 후에도 유지한다. 파일이 없으면 빈 구조로 생성한다.
 
 Topic Runtime의 최종 지원 타입은 아래 원천을 합쳐 중복 제거한다.
 
@@ -517,6 +553,15 @@ supported_type / deep_monitoring / detailed_monitoring_enabled 결과 제공
 
 custom msg preview가 제한적이더라도 실제 subscription, 마지막 수신 시각, Hz 계산은 유지한다.
 
+`GET /ros/topics/latest`와 `GET /ros/topics/hz`는 Graph에서 type을 찾고 최종 지원 타입인지,
+generated message class를 import할 수 있는지 확인한 뒤 subscription을 보장한다.
+지원하지 않거나 import하지 못한 타입은 `success=false`와 이유를 반환하며 임의 generic
+subscription을 만들지 않는다. latest는 `received`, `last_received_at`, `message_preview`를 반환한다.
+Hz는 최근 `hz_window_sec` 안의 callback timestamp 개수를 정리한 뒤
+`message_count / hz_window_sec`를 소수 둘째 자리로 계산한다. `age_sec`는 현재 시각과
+마지막 수신 시각의 차이이고, 마지막 수신이 없으면 `status=never_received`,
+수신 후 `stale_timeout_sec`를 넘으면 `status=stale`, `is_stale=true`다.
+
 Interface Lab의 Topic Receive는 일반 TopicRuntime 자동 deep monitoring과 다르다.
 사용자가 명시적으로 수신 시작/중지를 누른 Topic만
 `interface_lab/execution/topic_runtime.py`의 `InterfaceReceiveRuntime`이 구독하고 history를 관리한다.
@@ -598,6 +643,10 @@ type 없음 또는 비정상
 Graph의 실제 service full_type이 exact match했다는 주요 항목 판정 신호다.
 background active_check 지원 여부와는 별개이며,
 등록됐다는 이유만으로 Service를 자동 호출하지 않는다.
+
+현재 `monitor.yaml`은 `services.active_check.enabled=false`, `allowlist=[]`이므로 background
+active check를 실행하지 않는다. 기능을 켜더라도 이름·타입 allowlist exact match인 대상만
+설정된 request와 timeout으로 실행하며, Interface Lab의 사용자 Call과 이력을 섞지 않는다.
 
 기본 제외 대상:
 
@@ -1001,7 +1050,7 @@ topic_disconnected
 → error
 
 waiting_publisher
-= 감시 대상에 Subscriber는 있으나 Publisher가 없음
+= 필수 stream 또는 등록 타입 Alert 대상에 Publisher가 없음
 → warning, 현재 상태만 표시
 
 command topic
@@ -1032,17 +1081,14 @@ service_disconnected
 = import 가능한 YAML 등록 srv 타입과 Graph 타입이 exact match했던 주요 Service가 사라짐
 → error
 
-service_active_check_timeout
-= monitor.yaml active_check allowlist의 응답 제한 시간 초과
+service_call_timeout
+= Interface Lab에서 실제 server로 보낸 최근 사용자 Service Call이 timeout
 → warning
-
-service_active_check_failed / service_active_check_error
-= active_check 응답 실패 또는 실행 오류
-→ error
 
 user category이며 hidden_by_default가 아닌 Service만 기본 Alert 대상으로 한다.
 YAML 등록만으로 Service를 자동 호출하지 않는다.
 waiting_server, type_mismatch, 상태만 표시는 기본 Alert로 보지 않는다.
+현재 active_check 결과 자체를 별도 Alert code로 생성하지 않는다.
 ```
 
 Action alert 기준:
@@ -1060,9 +1106,10 @@ last_goal_status canceled
 → action_goal_canceled
 → warning
 
-result_error 있음
-→ action_result_unavailable
-→ error
+사용자 Goal이 rejected → action_goal_rejected, warning
+Goal 전송 실패 또는 accept timeout → action_goal_send_failed, error
+사용자 Goal result timeout → action_result_timeout, warning
+result 수신 실패 또는 관찰 Runtime result_error → action_result_unavailable, error
 
 waiting_server, Goal 미관찰, 단순 result unavailable은 기본 alert로 보지 않는다.
 ```
@@ -1107,16 +1154,20 @@ Backend 실행 이후 발견됐던 Node가 현재 Graph에서 사라짐
 topic_message_missing
 topic_stale
 topic_disconnected
-service_active_check_timeout
-service_active_check_error
-service_active_check_failed
+service_call_timeout
 service_disconnected
 action_disconnected
+action_goal_aborted
+action_goal_canceled
+action_goal_rejected
+action_goal_send_failed
+action_result_timeout
+action_result_unavailable
 node_stale
 ```
 
-MonitorStatus와 Action aborted/canceled/result 오류처럼 이벤트 또는 실행 결과 성격이 강한
-Alert는 현재 상태 구조에 억지로 포함하지 않는다.
+위 목록에 없는 `waiting_publisher`와 MonitorStatus 이벤트 Alert는 active/resolved 보존 대상이
+아니며 현재 계산 결과를 그대로 통과시킨다.
 
 이전 Alert 정책:
 
@@ -1132,7 +1183,7 @@ DB나 영구 history를 추가하지 않으며 Backend 재시작 시 초기화�
 
 ## 16. FastAPI + rclpy 실행 구조
 
-권장 구조:
+현재 구조:
 
 ```text
 FastAPI lifespan에서 monitor runtime 시작
@@ -1168,9 +1219,9 @@ ROS2 고유 용어 Topic / Service / Action / Node / Goal은 그대로 사용할
 긴 Topic/Service/Action/Node 이름은 줄바꿈 처리하고 가로 스크롤을 만들지 않는다.
 ```
 
-주요 항목 판정은 Interface Registry/Package YAML의 승인 타입을 최우선으로 하고,
-Backend가 `monitor.yaml`의 보조 운영 정책으로 만든 `primary` 신호와
-`frontend/src/utils/primaryFilters.js`, `frontend/src/utils/nodeFilters.js`의 공통 기준을 사용한다.
+주요 항목 판정은 Backend가 조립하며 Frontend는 `primaryFilters.js`와 `nodeFilters.js`에서
+각 응답의 `is_primary`만 사용한다. Frontend가 registry YAML이나 관계 타입으로 주요 여부를
+다시 계산하지 않는다.
 
 ```text
 interface_registry.yaml 또는 interface_packages.yaml에서 import_available=true인 타입
@@ -1188,11 +1239,17 @@ actions.primary_names에 등록된 Action
 → primary_priority=2
 → 주요 Action
 
+Action monitoring runtime에서 status/feedback/result가 실제로 관찰된 Action
+→ primary_priority=3, 주요 Action
+
 nodes.primary_names에 등록됐거나 위 주요 통신을 실제 관계 이름과 full_type exact match로 사용하는 Node
 → 주요 Node
 
-일반 사용자 Service, Service 문제 상태, Action 관찰 이력, Node disconnected
-→ 운영 가시성을 위한 보조 주요 항목 기준으로 유지
+이전에 발견됐지만 현재 disconnected인 Node
+→ 주요 Node
+
+일반 사용자 Service라는 이유나 Service의 waiting/disconnected/error 상태만으로는
+→ 자동 주요 Service가 되지 않음
 
 각 리소스 응답의 최종 판정
 → system_primary = 기존 자동 주요 판정
@@ -1202,12 +1259,15 @@ nodes.primary_names에 등록됐거나 위 주요 통신을 실제 관계 이름
 
 Frontend 주요 필터는 `is_primary`를 사용한다. 별표 해제는 `user_primary`만 제거하며
 `system_primary=true`인 자동 주요 항목을 주요 목록에서 제거하지 않는다.
+별표 버튼은 Topic / Service / Action / Node 각 행에 있으며 클릭 즉시 낙관적으로 반영한다.
+같은 항목의 요청 중 재클릭을 막고, API 실패 시 override를 제거해 Backend 상태로 복구하고
+오류를 표시한다. 숨김 관리 Service와 내부 Node도 `user_primary=true`이면 주요 탭에서는 보존한다.
 
 Node 관계는 `/ros/nodes`의 `topic_publishers`, `topic_subscribers`,
 `service_servers`, `service_clients`, `action_servers`, `action_clients`를 사용한다.
 등록 타입과 monitor.yaml 정책을 분리하고 등록 타입을 항상 우선한다.
 dashboard monitor 내부 Node와 숨김 / 내부 항목 제외 정책은 유지한다.
-Topics / Services / Actions / Nodes / Overview / Visualization은 같은 기준을 재사용하고,
+Topics / Services / Actions / Nodes / Overview는 Backend의 같은 기준을 재사용하고,
 각 화면에서 등록 타입 또는 로봇 이름을 새로 하드코딩하지 않는다.
 기존 호환용 이름 fallback은 새로운 주요 항목 정책의 근거로 확대하지 않는다.
 
@@ -1226,8 +1286,8 @@ Topic 상세 기본 선택 후보와 목록용 Hz polling 후보에서 제외한
 숨김 포함 해제 후 표시 Topic이 0개이면 selectedTopicName은 빈 값으로 안정화하고
 다른 hook이 다시 내부 Topic을 기본 선택하지 않게 한다.
 App.jsx는 activePage 기준으로 필요한 dashboard hook만 polling enabled 처리한다.
-Nodes 주요 항목은 실제 관계 이름 판정에 Topic / Service / Action 데이터가 필요하므로
-Nodes 화면에서는 Node와 세 리소스 polling을 함께 활성화한다.
+현재 Nodes 화면에서는 Node와 Topic / Service / Action dashboard polling을 함께 활성화하지만,
+Node 주요 판정 자체는 `/ros/nodes`의 Backend `is_primary`를 사용한다.
 WebSocket reconnect가 REST polling timer를 추가 생성하면 안 된다.
 filtered 목록에 맞춰 selected item을 보정하는 effect는 빈 목록에서 다른 hook의
 기본 선택과 경쟁해 `빈 값 ↔ 첫 항목`을 반복하지 않아야 하며,
@@ -1260,11 +1320,12 @@ Frontend participant map 정책:
 
 ```text
 /ros/nodes 응답의 node 기준 관계를 프론트에서 역매핑해
-Topic / Service / Action 상세 패널에 실제 연결 Node 목록을 표시한다.
+Visualization 상세 패널의 참여 Node 목록을 만든다.
 topic_publishers / topic_subscribers → 발행자 Node / 구독자 Node
 service_servers / service_clients → 응답자 Node / 요청자 Node
 action_servers / action_clients → Goal 실행자 Node / Goal 요청자 Node
-백엔드 API 응답 구조를 바꾸지 않고 프론트 데이터 가공으로 처리한다.
+일반 Topic / Service / Action API도 RosMonitor가 같은 exact type 관계를 조립한
+publisher_nodes/subscriber_nodes/server_nodes/client_nodes와 내부 제외 count를 반환한다.
 ```
 
 Visualization 화면 정책:
@@ -1274,10 +1335,12 @@ Visualization 화면 정책:
 첫 진입 화면은 노드 중심이다.
 노드 중심은 Node 목록을 크게 보여주고, Node 선택 시 연결 중심으로 이동한다.
 연결 중심은 선택 Node와 직접 연결된 Topic / Service / Action 1-hop 관계만 표시한다.
-주요 항목 그래프는 공통 주요 항목 기준과 Node 관계의 full_type exact match를 사용한다.
-YAML 등록 Interface와 실제 관계가 확인된 Topic / Service / Action 및 Node를 포함하되,
-관계없는 Node나 내부 dashboard monitor Node는 포함하지 않는다.
-전체 중심 또는 전체 보기는 고급 확인용이며 ROS2 Graph가 복잡할 수 있다는 경고를 표시한다.
+노드 선택 목록의 기본 필터는 Backend `is_primary`이고 active/전체 Node 필터로 전환할 수 있다.
+그래프 리소스는 선택 또는 전체 Node의 실제 관계 목록으로 만들며, 주요 리소스만으로 제한하지 않는다.
+activeOnly는 연결/endpoint가 있는 활성 리소스를 남기고, includeHidden=false이면 dashboard/ros2cli
+내부 Node와 내부 Topic·관리 Service·Action 내부 통신을 숨긴다.
+연결 중심은 Topic 30개, Service 20개, Action 20개, edge 80개 제한을 적용하고 생략 여부를 표시한다.
+전체 보기는 ROS2 Graph가 복잡할 수 있으며 120 Node 또는 300 edge 초과 여부를 경고한다.
 React Flow 그래프는 polling마다 remount하거나 자동 fitView 하지 않는다.
 fitView는 최초 필요 시 또는 사용자가 버튼을 눌렀을 때만 실행한다.
 nodes/edges id는 안정적으로 유지하고 Date.now()/Math.random()으로 만들지 않는다.
