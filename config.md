@@ -4,8 +4,8 @@ Ss
 
 ## Server
  python3 -m uvicorn ros2_dashboard_backend.main:app --host 127.0.0.1 --port 8000 --reload
-
  uvicorn ros2_dashboard_backend.main:app --reload
+
  npm run dev
 
 ## GAzebo
