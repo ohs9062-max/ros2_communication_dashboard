@@ -666,6 +666,8 @@ class InterfaceReceiveRuntime:
             return publisher, True
 
     def _record_publish_history(self, item: dict[str, Any]) -> None:
+        item.setdefault('execution_source', 'interface_lab')
+        item.setdefault('publisher_node', _interface_lab_node(self._node_getter))
         with self._lock:
             self._publish_history.insert(0, item)
             del self._publish_history[MAX_PUBLISH_HISTORY_ITEMS:]
@@ -730,6 +732,19 @@ class InterfaceReceiveRuntime:
             'qos': item.get('qos'),
             'graph_state': item.get('graph_state'),
         }
+
+
+def _interface_lab_node(node_getter: Callable[[], Any]) -> dict[str, Any]:
+    node = node_getter()
+    try:
+        name = str(node.get_fully_qualified_name()) if node is not None else ''
+    except Exception:
+        name = ''
+    return {
+        'name': name or '/ros2_dashboard_topic_monitor',
+        'display_name': 'Dashboard Interface Lab',
+        'is_internal': True,
+    }
 
 
 def _normalize_limit(value: int) -> int:

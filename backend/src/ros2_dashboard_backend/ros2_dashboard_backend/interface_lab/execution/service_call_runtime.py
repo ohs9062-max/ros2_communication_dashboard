@@ -229,6 +229,8 @@ class ServiceCallRuntime:
                 'called_at': call.get('called_at'),
                 'received_at': call.get('called_at'),
                 'response_time_ms': call.get('elapsed_ms'),
+                'execution_source': call.get('execution_source'),
+                'requester_node': call.get('requester_node'),
                 'raw': call,
             })
         return {'history': events, 'meta': {'count': len(events)}}
@@ -414,6 +416,8 @@ class ServiceCallRuntime:
         }
 
     def _record_history(self, item: dict[str, Any]) -> None:
+        item.setdefault('execution_source', 'interface_lab')
+        item.setdefault('requester_node', _interface_lab_node(self._node_getter))
         with self._lock:
             self._history.insert(0, item)
             del self._history[MAX_HISTORY_ITEMS:]
@@ -485,4 +489,19 @@ def _call_summary(call: dict[str, Any]) -> dict[str, Any]:
         'last_error': call.get('error'),
         'error_type': error_type,
         'details': call.get('details', []),
+        'execution_source': call.get('execution_source'),
+        'requester_node': call.get('requester_node'),
+    }
+
+
+def _interface_lab_node(node_getter: Callable[[], Any]) -> dict[str, Any]:
+    node = node_getter()
+    try:
+        name = str(node.get_fully_qualified_name()) if node is not None else ''
+    except Exception:
+        name = ''
+    return {
+        'name': name or '/ros2_dashboard_topic_monitor',
+        'display_name': 'Dashboard Interface Lab',
+        'is_internal': True,
     }

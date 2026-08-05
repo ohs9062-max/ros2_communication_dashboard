@@ -3,6 +3,7 @@ import {
   formatNumber,
   formatRelativeTime,
 } from '../utils/format.js'
+import { withExecutionNode } from '../utils/participants.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { KeyValueTable } from './KeyValueTable.jsx'
@@ -89,11 +90,15 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
 
       <DetailSection collapsible title="연결 Node">
         <p className="detail-help-text">
-          표시된 Node 목록은 ROS2 Graph에서 확인된 Node 기준입니다.
+          외부 Node는 ROS2 Graph 기준이며, Interface Lab 발행 주체는 외부 Node
+          수에서 제외하고 내부 실행 주체로 구분해 표시합니다.
         </p>
         <ConnectionNodeList
           emptyText="발행자 Node 없음"
-          items={participants?.publishers ?? []}
+          items={withExecutionNode(
+            participants?.publishers ?? [],
+            topic.dashboard_communication?.execution_node,
+          )}
           title="발행자 Node"
         />
         <ConnectionNodeList

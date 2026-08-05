@@ -16,7 +16,7 @@ export function ConnectionNodeList({
         emptyText={emptyText}
         initialVisibleCount={initialLimit}
         items={items}
-        renderItem={(item) => item}
+        renderItem={(item) => typeof item === 'string' ? item : item.name}
         title={title}
       />
     </div>

@@ -26,6 +26,11 @@ def test_service_history_summary_includes_validation_not_sent():
     assert summary['sent_to_server'] is False
     assert summary['failure_count'] == 1
     assert summary['history'][0]['last_error'] == 'bad cmd'
+    assert summary['requester_node'] == {
+        'name': '/ros2_dashboard_topic_monitor',
+        'display_name': 'Dashboard Interface Lab',
+        'is_internal': True,
+    }
 
 
 def test_service_receive_history_and_reset_are_runtime_owned():
@@ -46,6 +51,7 @@ def test_service_receive_history_and_reset_are_runtime_owned():
 
     assert history['meta']['count'] == 1
     assert history['history'][0]['direction'] == 'service_response'
+    assert history['history'][0]['requester_node']['is_internal'] is True
     assert runtime.reset_receive_history(service_name='/ScheduleCrud', service_type='rths_interfaces/srv/ScheduleCrud') == {
         'cleared': 1,
     }
@@ -101,6 +107,7 @@ def test_action_history_summary_includes_result_and_feedback():
     assert summary['last_feedback_preview'] == {'stage': 'sending'}
     assert summary['last_result_preview'] == {'success': True}
     assert summary['success_count'] == 1
+    assert summary['requester_node']['display_name'] == 'Dashboard Interface Lab'
 
 
 def test_action_receive_history_and_reset_are_runtime_owned():
@@ -125,6 +132,7 @@ def test_action_receive_history_and_reset_are_runtime_owned():
         'action_feedback',
         'action_result',
     ]
+    assert all(item['requester_node']['is_internal'] for item in history['history'])
     assert runtime.reset_receive_history(action_name='/CanControl', action_type='rths_interfaces/action/CanControl') == {
         'cleared': 2,
     }

@@ -166,6 +166,12 @@ def test_topic_publish_records_success_and_reuses_publisher(monkeypatch):
         topic_type='std_msgs/msg/String',
         payload={'data': 'one'},
     )
+
+    assert first['publisher_node'] == {
+        'name': '/ros2_dashboard_topic_monitor',
+        'display_name': 'Dashboard Interface Lab',
+        'is_internal': True,
+    }
     second = runtime.publish_topic(
         topic_name='/demo',
         topic_type='std_msgs/msg/String',

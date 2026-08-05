@@ -1,4 +1,5 @@
 import { formatMs, formatRelativeTime, formatTime } from '../utils/format.js'
+import { withExecutionNode } from '../utils/participants.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
@@ -114,8 +115,9 @@ export function ActionDetailPanel({ action, participants }) {
         <p className="detail-help-text">
           Goal 요청자 Node는 Goal을 보내고, Goal 실행자 Node는 Goal을 받아
           실행합니다. Dashboard가 Interface Lab 실행을 위해 만든 Client는
-          Node 수와 목록에서 제외하며 Endpoint 수는 Dashboard 통신을 포함한
-          Graph 원본 진단값입니다.
+          외부 Node 수에서는 제외하고, 요청자 목록에는 내부 실행 주체로 구분해
+          표시합니다. Endpoint 수는 Dashboard 통신을 포함한 Graph 원본
+          진단값입니다.
         </p>
         <ConnectionNodeList
           emptyText="Goal 실행자 Node 없음"
@@ -124,7 +126,10 @@ export function ActionDetailPanel({ action, participants }) {
         />
         <ConnectionNodeList
           emptyText="Goal 요청자 Node 없음"
-          items={participants?.clients ?? []}
+          items={withExecutionNode(
+            participants?.clients ?? [],
+            action.dashboard_communication?.execution_node,
+          )}
           title="Goal 요청자 Node"
         />
       </DetailSection>

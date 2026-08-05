@@ -217,6 +217,11 @@ class RosMonitor:
                         state.get('interface_publisher_created') is True
                         for state in interface_topic_states
                     ),
+                    'execution_node': _dashboard_execution_node(internal_node)
+                    if any(
+                        state.get('interface_publisher_created') is True
+                        for state in interface_topic_states
+                    ) else None,
                 },
             })
             self._apply_primary_state(
@@ -329,6 +334,15 @@ class RosMonitor:
                     ) is True
                 ),
                 'has_call_history': summary is not None,
+                'execution_node': (
+                    summary.get('requester_node')
+                    if summary and summary.get('requester_node')
+                    else _dashboard_execution_node(internal_node)
+                    if dashboard_states.get(key, {}).get(
+                        'interface_client_created',
+                    ) is True
+                    else None
+                ),
             }
         if not include_hidden:
             all_services = snapshot['services']
@@ -510,6 +524,15 @@ class RosMonitor:
                     ) is True
                 ),
                 'has_goal_history': summary is not None,
+                'execution_node': (
+                    summary.get('requester_node')
+                    if summary and summary.get('requester_node')
+                    else _dashboard_execution_node(internal_node)
+                    if dashboard_states.get(key, {}).get(
+                        'interface_client_created',
+                    ) is True
+                    else None
+                ),
             }
         return snapshot
 
@@ -998,6 +1021,14 @@ def _without_internal_node(
 ) -> list[str]:
     """Dashboard 내부 Node를 제외한 ROS2 통신 참여 Node를 반환합니다."""
     return [name for name in node_names if name != internal_node]
+
+
+def _dashboard_execution_node(internal_node: str) -> dict[str, Any]:
+    return {
+        'name': internal_node,
+        'display_name': 'Dashboard Interface Lab',
+        'is_internal': True,
+    }
 
 
 def _runtime_state_map(runtime: Any, method_name: str) -> dict[Any, Any]:

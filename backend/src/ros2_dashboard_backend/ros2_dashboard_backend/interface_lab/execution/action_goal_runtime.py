@@ -284,6 +284,8 @@ class ActionGoalRuntime:
                     'goal_sent_at': goal.get('sent_at'),
                     'received_at': goal.get('sent_at'),
                     'execution_time_ms': goal.get('elapsed_ms'),
+                    'execution_source': goal.get('execution_source'),
+                    'requester_node': goal.get('requester_node'),
                     'raw': goal,
                 })
             events.append({
@@ -302,6 +304,8 @@ class ActionGoalRuntime:
                 'goal_sent_at': goal.get('sent_at'),
                 'received_at': goal.get('sent_at'),
                 'execution_time_ms': goal.get('elapsed_ms'),
+                'execution_source': goal.get('execution_source'),
+                'requester_node': goal.get('requester_node'),
                 'raw': goal,
             })
         return {'history': events, 'meta': {'count': len(events)}}
@@ -557,6 +561,8 @@ class ActionGoalRuntime:
                 counts[key] = counts.get(key, 0) + 1
 
     def _record_history(self, item: dict[str, Any]) -> None:
+        item.setdefault('execution_source', 'interface_lab')
+        item.setdefault('requester_node', _interface_lab_node(self._node_getter))
         with self._lock:
             self._history.insert(0, item)
             del self._history[MAX_HISTORY_ITEMS:]
@@ -650,4 +656,19 @@ def _goal_summary(goal: dict[str, Any]) -> dict[str, Any]:
         'last_error': goal.get('error'),
         'error_type': error_type,
         'details': goal.get('details', []),
+        'execution_source': goal.get('execution_source'),
+        'requester_node': goal.get('requester_node'),
+    }
+
+
+def _interface_lab_node(node_getter: Callable[[], Any]) -> dict[str, Any]:
+    node = node_getter()
+    try:
+        name = str(node.get_fully_qualified_name()) if node is not None else ''
+    except Exception:
+        name = ''
+    return {
+        'name': name or '/ros2_dashboard_topic_monitor',
+        'display_name': 'Dashboard Interface Lab',
+        'is_internal': True,
     }

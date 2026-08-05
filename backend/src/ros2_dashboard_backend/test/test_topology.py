@@ -171,6 +171,11 @@ def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> Non
         'auto_monitoring_active': True,
         'interface_receive_active': True,
         'interface_publisher_created': True,
+        'execution_node': {
+            'name': '/ros2_dashboard_topic_monitor',
+            'display_name': 'Dashboard Interface Lab',
+            'is_internal': True,
+        },
     }
 
     assert service['total_server_node_count'] == 2
@@ -181,6 +186,11 @@ def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> Non
     assert service['dashboard_communication'] == {
         'interface_client_created': True,
         'has_call_history': False,
+        'execution_node': {
+            'name': '/ros2_dashboard_topic_monitor',
+            'display_name': 'Dashboard Interface Lab',
+            'is_internal': True,
+        },
     }
 
     assert action['total_server_node_count'] == 2
@@ -194,6 +204,11 @@ def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> Non
         'feedback_monitoring_active': True,
         'interface_client_created': True,
         'has_goal_history': False,
+        'execution_node': {
+            'name': '/ros2_dashboard_topic_monitor',
+            'display_name': 'Dashboard Interface Lab',
+            'is_internal': True,
+        },
     }
 
 

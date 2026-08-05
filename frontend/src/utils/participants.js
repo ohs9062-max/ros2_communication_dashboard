@@ -60,6 +60,14 @@ export function buildParticipantMaps(nodes = [], { excludeInternal = false } = {
   }
 }
 
+export function withExecutionNode(items = [], executionNode) {
+  if (!executionNode?.name) return items
+  if (items.some((item) => (typeof item === 'string' ? item : item?.name) === executionNode.name)) {
+    return items
+  }
+  return [...items, executionNode]
+}
+
 function addParticipants(map, entities = [], role, nodeName) {
   for (const entity of entities ?? []) {
     const entityName = entityNameOf(entity)
