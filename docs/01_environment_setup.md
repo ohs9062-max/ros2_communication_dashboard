@@ -135,4 +135,4 @@ curl http://127.0.0.1:8000/ros/alerts
 
 1. `backend/`에서 build하고 ROS와 install overlay를 source한 뒤 Uvicorn을 실행한다.
 2. 안정성 확인에는 reload 없는 실행이 기준이며 reload는 ROS Runtime 전체를 재시작한다.
-3. Frontend는 `frontend/`에서 Vite로 실행하며 Electron 과정은 없다.
+3. Frontend는 `frontend/`에서 Vite로 실행함
