@@ -452,7 +452,7 @@ Apply는 중복 workspace package를 먼저 탐지하고, 업로드 package의 �
 
 파일: `interface_lab/apply/runtime.py L100-L339`, cleanup `L401-L424`
 
-빌드 성공 후 import를 확인하고 `reload_trigger.py`를 0.75초 뒤 갱신한다. Uvicorn `--reload` 실행 중일 때만 이 변경이 worker reload로 이어진다.
+빌드 성공 후 import를 확인하고 Apply 응답을 보낸 뒤 Monitor 프로세스를 동일 PID로 재실행한다. 새로 생성되거나 변경된 ROS interface Python 모듈은 깨끗한 import cache에서 다시 로드되며 Backend는 polling으로 재연결한다.
 
 ### 12.3 실제 통신
 
@@ -587,7 +587,7 @@ source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install
 source install/setup.bash
 export ROS_DOMAIN_ID=0
-python3 -m uvicorn ros2_dashboard_backend.main:app \
+python3 -m uvicorn app.main:app \
   --host 127.0.0.1 --port 8000
 ```
 

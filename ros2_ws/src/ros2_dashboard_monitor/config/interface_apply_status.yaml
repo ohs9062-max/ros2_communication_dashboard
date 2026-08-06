@@ -8,7 +8,8 @@ returncode: 0
 workspace_path: /home/hs/rang/ros2_dashboard/ros2_ws
 log_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
 reload_scheduled: true
-reload_trigger_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/reload_trigger.py
+restart_scheduled: true
+reload_trigger_path: null
 error: null
 summary: &id002
   status: success

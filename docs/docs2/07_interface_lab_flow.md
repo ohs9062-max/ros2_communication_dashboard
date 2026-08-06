@@ -75,7 +75,7 @@ Registry 등록은 즉시 모든 타입이 사용 가능하다는 뜻이 아니�
 
 3. **Package 충돌 검사:** 중복 package나 source 문제를 확인하고 안전하지 않으면 build 전에 중단한다.
 
-4. **colcon build:** Backend workspace에서 build를 실행하고 결과 log를 저장한다.
+4. **colcon build:** ROS2 workspace에서 build를 실행하고 결과 log를 저장한다.
 
 5. **import 재검사:** install Python 경로를 반영하고 등록된 generated 타입을 다시 import한다.
 

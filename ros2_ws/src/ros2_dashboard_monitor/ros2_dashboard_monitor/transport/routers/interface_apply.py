@@ -11,7 +11,7 @@ from ros2_dashboard_monitor.interface_lab.apply.runtime import (
     record_import_check_status,
     run_interface_apply,
     run_import_check_and_update_registry,
-    touch_reload_trigger_after_delay,
+    restart_monitor_after_delay,
 )
 from ros2_dashboard_monitor.interface_lab.management.registry import (
     InterfaceUploadError,
@@ -33,7 +33,7 @@ def apply_ros_interfaces(background_tasks: BackgroundTasks) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if status.get('real_apply_success'):
-        background_tasks.add_task(touch_reload_trigger_after_delay)
+        background_tasks.add_task(restart_monitor_after_delay)
         return {
             'success': True,
             'status': status['status'],
@@ -41,6 +41,7 @@ def apply_ros_interfaces(background_tasks: BackgroundTasks) -> dict[str, Any]:
             'build_status': status['build_status'],
             'real_apply_success': True,
             'reload_scheduled': status['reload_scheduled'],
+            'restart_scheduled': status['restart_scheduled'],
             'summary': status.get('summary'),
             'not_applied': status.get('not_applied', []),
             'message': '적용 완료. 새 interface 타입을 사용할 수 있습니다.',

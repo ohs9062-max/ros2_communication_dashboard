@@ -3,8 +3,8 @@ Ss
 
 
 ## Server
- python3 -m uvicorn ros2_dashboard_backend.main:app --host 127.0.0.1 --port 8000 --reload
- uvicorn ros2_dashboard_backend.main:app --reload
+ python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+ uvicorn app.main:app --reload
 
  npm run dev
 
@@ -29,7 +29,7 @@ source /opt/ros/jazzy/setup.bash
 source .venv/bin/activate
 source install/setup.bash
 
-python3 -m uvicorn ros2_dashboard_backend.main:app \
+python3 -m uvicorn app.main:app \
   --host 127.0.0.1 \
   --port 8000 \
   --reload

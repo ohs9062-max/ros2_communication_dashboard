@@ -6,8 +6,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.app_state import monitor_cache, monitor_consumer, sync_user_preferences
-from app.monitor_client.client import MonitorUnavailable
+from app.app_state import monitor_cache, monitor_consumer
 from app.routers import monitor_proxy, monitoring, user_preferences
 from app.settings import settings
 
@@ -15,10 +14,6 @@ from app.settings import settings
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     monitor_consumer.start()
-    try:
-        sync_user_preferences()
-    except MonitorUnavailable:
-        pass
     try:
         yield
     finally:

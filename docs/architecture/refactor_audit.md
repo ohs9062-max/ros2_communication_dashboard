@@ -8,7 +8,7 @@
 - 모든 monitoring/Interface Lab Router가 singleton의 Python 메서드를 직접 호출했습니다.
 - `RosMonitor`가 Topic, Service, Action, Node Runtime과 Interface Lab execution Runtime의
   cache를 조립했으며 Router는 이 메모리를 직접 읽었습니다.
-- Interface 등록·package upload·apply Runtime은 Backend workspace 상대 경로와
+- Interface 등록·package upload·apply Runtime은 ROS2 workspace 상대 경로와
   `__file__.parents` 계산에 의존했습니다.
 
 ## 직접 의존 파일

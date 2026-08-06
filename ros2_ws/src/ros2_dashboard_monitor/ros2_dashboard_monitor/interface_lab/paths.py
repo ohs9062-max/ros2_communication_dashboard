@@ -24,16 +24,6 @@ def ros_workspace_root() -> Path:
     )
 
 
-def monitor_python_package_root() -> Path:
-    """ros2_dashboard_monitor Python package 루트를 반환합니다."""
-    return (
-        ros_workspace_root()
-        / 'src'
-        / 'ros2_dashboard_monitor'
-        / 'ros2_dashboard_monitor'
-    )
-
-
 def monitor_package_root() -> Path:
     """설치 share 또는 source package root를 반환합니다."""
     try:
@@ -72,8 +62,3 @@ def persistent_monitor_config_dir() -> Path:
 
 def generated_interface_package_root() -> Path:
     return ros_workspace_root() / 'src' / 'uploaded_interfaces' / 'generated_interfaces'
-
-
-def reload_trigger_path() -> Path:
-    """Apply 성공 뒤 갱신할 reload trigger 파일 경로를 반환합니다."""
-    return monitor_python_package_root() / 'reload_trigger.py'

@@ -44,7 +44,7 @@ source install/setup.bash
 
 ```bash
 python3 -m uvicorn \
-  ros2_dashboard_backend.main:app \
+  app.main:app \
   --host 127.0.0.1 \
   --port 8000
 ```
@@ -53,19 +53,19 @@ Python 개발 중 자동 반영이 필요하면 `--reload`를 사용할 수 있�
 
 ```bash
 python3 -m uvicorn \
-  ros2_dashboard_backend.main:app \
+  app.main:app \
   --host 127.0.0.1 \
   --port 8000 \
   --reload
 ```
 
-주의할 점은 FastAPI lifespan 안에서 ROS2 Runtime도 시작된다는 것이다. reload가 일어나면 WebSocket뿐 아니라 `rclpy`, Node, spin thread, Subscription도 함께 종료됐다가 다시 생성된다. Interface Apply 성공 후 `reload_trigger.py`가 갱신되면 reload가 발생할 수 있다. 연결 안정성을 조사할 때는 먼저 `--reload`를 빼고 비교한다.
+FastAPI Backend와 ROS2 Monitor는 별도 프로세스다. Interface Apply 성공 후 Monitor만 동일 PID로 재실행되어 새 interface Python 모듈을 깨끗하게 import하며, Backend와 Frontend는 유지된다.
 
 실제 시작과 종료 위치:
 
-- FastAPI lifespan: `main.py L20~L30`
-- ROS2 시작: `ros_monitor.py L80~L94`
-- ROS2 종료: `ros_monitor.py L96~L120`
+- Backend lifespan: `backend/app/main.py`
+- Monitor 시작: `ros2_dashboard_monitor/main.py`
+- ROS2 Runtime lifespan: `ros2_dashboard_monitor/transport/api.py`
 - Apply reload trigger: `interface_lab/apply/runtime.py L342~L357`
 
 ## Frontend 실행
@@ -102,7 +102,7 @@ curl http://127.0.0.1:8000/ros/alerts
 1. Backend 터미널에서 `/opt/ros/jazzy/setup.bash`와 `install/setup.bash`를 source했는가
 2. 대상 ROS2 프로세스와 같은 `ROS_DOMAIN_ID`를 사용하는가
 3. 등록 custom Interface가 현재 Python 환경에서 import 가능한가
-4. `backend/config/interface_registry.yaml` 또는 `interface_packages.yaml`의 `import_available`이 최신인가
+4. `ros2_ws/src/ros2_dashboard_monitor/config/interface_registry.yaml` 또는 `interface_packages.yaml`의 `import_available`이 최신인가
 5. 실제 Graph 타입과 등록 `full_type`이 정확히 같은가
 
 ## 개발 변경별 반영 방법
@@ -111,7 +111,7 @@ curl http://127.0.0.1:8000/ros/alerts
 |---|---|
 | Backend Python 소스 | symlink build 상태라면 프로세스 재시작 또는 reload |
 | Frontend JSX/CSS | Vite HMR로 자동 반영 |
-| `monitor.yaml` | Backend 재시작 권장 |
+| `monitor.yaml` | Monitor 재시작 권장 |
 | `.msg/.srv/.action` 정의 | Interface Apply 또는 `colcon build --symlink-install`, overlay 재-source |
 | 업로드 package | Apply 후 import 결과 확인 |
 

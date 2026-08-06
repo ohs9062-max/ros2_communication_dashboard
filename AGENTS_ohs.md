@@ -403,7 +403,7 @@ backend/
 backend/src/ros2_dashboard_backend/
 = ROS2 ament_python 패키지
 
-backend/config/monitor.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml
 = ROS2 모니터링 정책 설정 파일
 
 frontend/
@@ -574,7 +574,7 @@ CORS_ORIGINS
 MONITOR_CONFIG_PATH
 ```
 
-`backend/config/monitor.yaml`의 역할:
+`ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml`의 역할:
 
 ```text
 ROS2 모니터링 정책 설정
@@ -1168,7 +1168,7 @@ export TURTLEBOT3_MODEL=burger
 export ROS_DOMAIN_ID=99
 export ROS_LOCALHOST_ONLY=1
 
-python3 -m uvicorn ros2_dashboard_backend.main:app \
+python3 -m uvicorn app.main:app \
   --host 127.0.0.1 \
   --port 8000 \
   --reload

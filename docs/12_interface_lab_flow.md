@@ -70,11 +70,11 @@ Interface 등록 또는 업로드
 - 역할: 새 `.msg/.srv/.action`에서 생성된 Python class를 실제 import하고 registry/package의 `import_available`을 갱신한다.
 - 다음 흐름: Monitoring 지원 타입과 Interface Lab 실행 후보에 반영된다.
 
-### 6) 필요하면 reload trigger를 갱신한다
+### 6) Monitor를 안전하게 재실행한다
 
 - 파일: `apply/runtime.py L342~L357`
-- 역할: Build 성공 뒤 `reload_trigger.py`를 갱신한다.
-- 주의: Backend를 직접 kill하지 않는다. Uvicorn이 `--reload`일 때만 파일 변경을 감지해 worker가 재시작될 수 있다.
+- 역할: Build와 import 확인 성공 응답을 보낸 뒤 standalone Monitor를 동일 PID로 재실행한다.
+- 주의: Backend는 종료하지 않으며 Monitor의 짧은 재기동 구간에는 마지막 Runtime Cache를 유지한 뒤 자동 재연결한다.
 
 ## 4. 실행 기능
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
-from rths_interfaces.msg import CleaningSchedule
+from example_interfaces.msg import String as RegisteredString
 from std_msgs.msg import String
 
 from ros2_dashboard_monitor.config_loader import (
@@ -29,7 +29,7 @@ class _FakeNode:
         self.publisher_count = 0
         self.external_subscriber_count = 0
         self.topic_name = '/demo_cleaning_schedule'
-        self.topic_type = 'rths_interfaces/msg/CleaningSchedule'
+        self.topic_type = 'example_interfaces/msg/String'
 
     def create_subscription(self, message_class, topic_name, callback, qos):
         subscription = {
@@ -114,7 +114,7 @@ def test_registered_importable_messages_extend_monitor_supported_types(
             'packages': [{
                 'interfaces': {
                     'msg': [{
-                        'type': 'rths_interfaces/msg/CleaningSchedule',
+                        'type': 'example_interfaces/msg/String',
                         'import_available': True,
                     }],
                 },
@@ -134,14 +134,14 @@ def test_registered_importable_messages_extend_monitor_supported_types(
     assert config.topics_supported_types == (
         'sensor_msgs/msg/LaserScan',
         'uploaded_interfaces/msg/Ready',
-        'rths_interfaces/msg/CleaningSchedule',
+        'example_interfaces/msg/String',
     )
     assert config.topics_registered_types == (
         'uploaded_interfaces/msg/Ready',
-        'rths_interfaces/msg/CleaningSchedule',
+        'example_interfaces/msg/String',
     )
     assert is_supported_type(
-        'rths_interfaces/msg/CleaningSchedule',
+        'example_interfaces/msg/String',
         supported_types=config.topics_supported_types,
     )
 
@@ -166,7 +166,7 @@ def test_topic_alert_policy_names_default_to_empty_tuples() -> None:
 
 
 def test_registered_custom_message_is_subscribed_and_measures_hz() -> None:
-    topic_type = 'rths_interfaces/msg/CleaningSchedule'
+    topic_type = 'example_interfaces/msg/String'
     node = _FakeNode()
     runtime = TopicRuntime(
         action_monitor_subscriber_count=lambda _name: 0,
@@ -182,11 +182,8 @@ def test_registered_custom_message_is_subscribed_and_measures_hz() -> None:
     node.publisher_count = 1
     runtime.update()
     callback = node.subscriptions[0]['callback']
-    message = CleaningSchedule()
-    message.scheduling_id = 50
-    message.scheduling_dt = '2026-07-27 09:24:31'
-    message.count = 49
-    message.is_active = True
+    message = RegisteredString()
+    message.data = 'registered custom preview'
     callback(message)
     sleep(0.01)
     callback(message)
@@ -196,12 +193,7 @@ def test_registered_custom_message_is_subscribed_and_measures_hz() -> None:
         topic_type,
     )
     topic = runtime.snapshot()['topics'][0]
-    expected_preview = {
-        'scheduling_id': 50,
-        'scheduling_dt': '2026-07-27 09:24:31',
-        'count': 49,
-        'is_active': True,
-    }
+    expected_preview = {'data': 'registered custom preview'}
 
     assert snapshot['success'] is True
     assert snapshot['data']['received'] is True
@@ -222,11 +214,11 @@ def test_registered_custom_message_is_subscribed_and_measures_hz() -> None:
 
 
 def test_external_subscriber_count_excludes_all_monitor_owned_endpoints() -> None:
-    topic_type = 'rths_interfaces/msg/CleaningSchedule'
+    topic_type = 'example_interfaces/msg/String'
     node = _FakeNode()
     node.publisher_count = 1
     node.create_subscription(
-        CleaningSchedule,
+        RegisteredString,
         node.topic_name,
         lambda _message: None,
         10,
@@ -250,7 +242,7 @@ def test_external_subscriber_count_excludes_all_monitor_owned_endpoints() -> Non
 
 
 def test_registered_custom_message_reports_missing_and_stale_alerts() -> None:
-    topic_type = 'rths_interfaces/msg/CleaningSchedule'
+    topic_type = 'example_interfaces/msg/String'
     node = _FakeNode()
     node.publisher_count = 1
     runtime = TopicRuntime(
@@ -278,7 +270,7 @@ def test_registered_custom_message_reports_missing_and_stale_alerts() -> None:
         'topic_message_missing',
     ]
 
-    node.subscriptions[0]['callback'](CleaningSchedule())
+    node.subscriptions[0]['callback'](RegisteredString())
     topics, subscriptions = runtime.alert_snapshot()
     stale_alerts = build_alerts(
         topics=topics,
@@ -516,7 +508,7 @@ def test_resolved_alert_history_keeps_latest_fifty_once_per_resolution() -> None
 def test_monitor_only_topic_subscription_is_removed_but_state_is_retained(
     monkeypatch,
 ) -> None:
-    topic_type = 'rths_interfaces/msg/CleaningSchedule'
+    topic_type = 'example_interfaces/msg/String'
     node = _FakeNode()
     node.publisher_count = 1
     runtime = TopicRuntime(
@@ -553,7 +545,7 @@ def test_monitor_only_topic_subscription_is_removed_but_state_is_retained(
 def test_external_subscriber_keeps_waiting_topic_monitored(
     monkeypatch,
 ) -> None:
-    topic_type = 'rths_interfaces/msg/CleaningSchedule'
+    topic_type = 'example_interfaces/msg/String'
     node = _FakeNode()
     node.publisher_count = 1
     runtime = TopicRuntime(

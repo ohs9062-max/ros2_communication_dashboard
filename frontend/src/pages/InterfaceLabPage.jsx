@@ -210,13 +210,16 @@ export function InterfaceLabPage({ websocket }) {
     item.active
     && item.topic_name === topicPublishName
     && item.topic_type === selectedDetail?.fullType)
+  const activeContinuousPublishKey = activeContinuousPublish
+    ? `${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
+    : ''
   const relatedItems = useMemo(
     () => relatedWorkspaceItems(selectedDetail, workspaceItems),
     [selectedDetail, workspaceItems],
   )
 
   useEffect(() => {
-    if (!activeContinuousPublish) return undefined
+    if (!activeContinuousPublishKey) return undefined
     const timer = window.setInterval(async () => {
       try {
         const payload = await fetchContinuousTopicPublishes()
@@ -226,7 +229,7 @@ export function InterfaceLabPage({ websocket }) {
       }
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [activeContinuousPublish?.topic_name, activeContinuousPublish?.topic_type])
+  }, [activeContinuousPublishKey])
 
   useEffect(() => {
     setSelectedHistoryItem(null)

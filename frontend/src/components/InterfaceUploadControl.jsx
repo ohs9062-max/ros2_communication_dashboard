@@ -179,6 +179,9 @@ export function InterfaceUploadControl({
     item.active
     && item.topic_name === topicPublishName.trim()
     && item.topic_type === selectedMessage?.message_type)
+  const activeContinuousPublishKey = activeContinuousPublish
+    ? `${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
+    : ''
   const visibleCallableMessages = topicImportableOnly
     ? callableMessages.filter((message) => message.import_available)
     : callableMessages
@@ -1447,7 +1450,7 @@ export function InterfaceUploadControl({
   ])
 
   useEffect(() => {
-    if (!activeContinuousPublish) return undefined
+    if (!activeContinuousPublishKey) return undefined
     const timer = window.setInterval(async () => {
       try {
         const payload = await fetchContinuousTopicPublishes()
@@ -1457,7 +1460,7 @@ export function InterfaceUploadControl({
       }
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [activeContinuousPublish?.topic_name, activeContinuousPublish?.topic_type])
+  }, [activeContinuousPublishKey])
 
   useEffect(() => {
     onTopicWorkspaceExpandedChange?.(topicExpandedActive)

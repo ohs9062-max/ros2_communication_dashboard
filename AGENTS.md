@@ -327,7 +327,7 @@ polling을 계속 사용하며, Frontend WebSocket은 끊기면 2.5초 뒤 재�
 
 ## 7. Configuration Policy
 
-선택적 `.env`와 `backend/config/monitor.yaml`의 책임을 분리한다. Loader는 먼저
+선택적 `.env`와 `ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml`의 책임을 분리한다. Loader는 먼저
 `backend/.env`, 다음으로 backend Python package 옆 `.env`를 찾고 없으면 process 환경변수와
 safe default를 사용한다. 현재 저장소에는 `.env`를 커밋하지 않는다.
 
@@ -799,8 +799,8 @@ interface_lab/common/
   ROS message/response/feedback/result의 JSON-safe 변환
 
 interface_lab/paths.py
-= module 위치가 바뀌어도 유지되어야 하는 backend workspace root,
-  Python package root, reload_trigger.py 경로 계산
+= module 위치가 바뀌어도 유지되어야 하는 ROS2 workspace root,
+  package share와 영속 config 경로 계산
 ```
 
 원칙:
@@ -836,13 +836,13 @@ package_upload
 저장 위치:
 
 ```text
-backend/config/interface_registry.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_registry.yaml
 = manual_type, manual_definition, single_upload 개별 interface registry
 
-backend/config/interface_packages.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_packages.yaml
 = package_upload 기록. 단일 interface 삭제 시 건드리지 않는다.
 
-backend/config/interface_apply_status.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_status.yaml
 = 마지막 pending/build/import/apply 상태
 
 backend/src/uploaded_interfaces
@@ -900,13 +900,13 @@ frontend는 삭제 성공 후 registry/package/callable/apply 상태를 다시 f
 apply/import:
 
 ```text
-POST /ros/interfaces/apply는 backend workspace에서 colcon build --symlink-install을 실행한다.
-build log는 backend/config/interface_apply_last.log에 저장한다.
-상태는 backend/config/interface_apply_status.yaml에 저장한다.
+POST /ros/interfaces/apply는 ros2_ws에서 colcon build --symlink-install을 실행한다.
+build log는 ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log에 저장한다.
+상태는 ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_status.yaml에 저장한다.
 동시 apply는 lock으로 막는다.
 build 성공 후 import-check로 generated Python import 가능 여부를 registry에 반영한다.
-build 성공 시 reload_trigger.py를 갱신해 uvicorn --reload 감지를 유도한다.
-backend 프로세스를 직접 kill/restart하거나 systemd/tmux를 제어하지 않는다.
+build 성공 응답 후 Monitor를 동일 PID로 재실행해 Python import cache를 초기화한다.
+Backend 프로세스를 kill/restart하거나 systemd/tmux를 제어하지 않는다.
 ```
 
 ## 13. Receive와 History 정책
@@ -1388,7 +1388,7 @@ FastAPI:
 cd ~/rang/ros2_dashboard/backend
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-python3 -m uvicorn ros2_dashboard_backend.main:app \
+python3 -m uvicorn app.main:app \
   --host 127.0.0.1 \
   --port 8000 \
   --reload

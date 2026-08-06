@@ -17,11 +17,14 @@ class MonitorEventConsumer:
         cache: MonitorCache,
         interval_sec: float,
         on_snapshot: Callable[[dict[str, Any]], None] | None = None,
+        on_connected: Callable[[], None] | None = None,
     ) -> None:
         self._client = client
         self._cache = cache
         self._interval_sec = interval_sec
         self._on_snapshot = on_snapshot
+        self._on_connected = on_connected
+        self._connection_initialized = False
         self._stop = Event()
         self._thread: Thread | None = None
 
@@ -48,6 +51,10 @@ class MonitorEventConsumer:
                 self._cache.update(data)
                 if self._on_snapshot:
                     self._on_snapshot(data)
+                if not self._connection_initialized and self._on_connected:
+                    self._on_connected()
+                    self._connection_initialized = True
             except (MonitorUnavailable, ValueError, KeyError) as exc:
+                self._connection_initialized = False
                 self._cache.mark_error(str(exc))
             self._stop.wait(self._interval_sec)

@@ -20,7 +20,6 @@ import yaml
 from ros2_dashboard_monitor.interface_lab.paths import (
     persistent_monitor_config_dir,
     ros_workspace_root,
-    reload_trigger_path,
 )
 from ros2_dashboard_monitor.interface_lab.management.registry import (
     mark_registry_build_applied,
@@ -95,6 +94,7 @@ def mark_interface_change_pending(message: str) -> dict[str, Any]:
         'change_message': message,
         'changed_at': datetime.now(timezone.utc).isoformat(),
         'reload_scheduled': False,
+        'restart_scheduled': False,
     })
     _write_status(default_apply_status_path(), status)
     return status
@@ -109,7 +109,6 @@ def run_interface_apply() -> dict[str, Any]:
     workspace = ros_workspace_path()
     log_path = default_apply_log_path()
     status_path = default_apply_status_path()
-    trigger_path = reload_trigger_path()
     _write_status(
         status_path,
         {
@@ -123,7 +122,8 @@ def run_interface_apply() -> dict[str, Any]:
             'workspace_path': str(workspace),
             'log_path': str(log_path),
             'reload_scheduled': False,
-            'reload_trigger_path': str(trigger_path),
+            'restart_scheduled': False,
+            'reload_trigger_path': None,
             'error': None,
             'summary': None,
             'not_applied': [],
@@ -169,7 +169,8 @@ def run_interface_apply() -> dict[str, Any]:
                 'workspace_path': str(workspace),
                 'log_path': str(log_path),
                 'reload_scheduled': False,
-                'reload_trigger_path': str(trigger_path),
+                'restart_scheduled': False,
+                'reload_trigger_path': None,
                 'error': message,
                 'summary': preflight,
                 'not_applied': preflight['not_applied'],
@@ -215,7 +216,8 @@ def run_interface_apply() -> dict[str, Any]:
                 'workspace_path': str(workspace),
                 'log_path': str(log_path),
                 'reload_scheduled': False,
-                'reload_trigger_path': str(trigger_path),
+                'restart_scheduled': False,
+                'reload_trigger_path': None,
                 'error': f'{message} {"; ".join(duplicate_lines)}',
                 'summary': preflight,
                 'not_applied': preflight['not_applied'],
@@ -286,7 +288,8 @@ def run_interface_apply() -> dict[str, Any]:
             'workspace_path': str(workspace),
             'log_path': str(log_path),
             'reload_scheduled': real_apply_success,
-            'reload_trigger_path': str(trigger_path),
+            'restart_scheduled': real_apply_success,
+            'reload_trigger_path': None,
             'error': None if real_apply_success else (
                 'colcon build failed'
                 if not build_success
@@ -326,7 +329,8 @@ def run_interface_apply() -> dict[str, Any]:
             'workspace_path': str(workspace),
             'log_path': str(log_path),
             'reload_scheduled': False,
-            'reload_trigger_path': str(trigger_path),
+            'restart_scheduled': False,
+            'reload_trigger_path': None,
             'error': str(exc),
             'summary': combined_apply_summary(require_import_available=False),
             'not_applied': [],
@@ -342,20 +346,10 @@ def run_interface_apply() -> dict[str, Any]:
         _APPLY_LOCK.release()
 
 
-def touch_reload_trigger_after_delay(delay_sec: float = 0.75) -> None:
-    """Apply 성공 후 잠시 기다렸다 reload trigger 파일을 갱신합니다."""
+def restart_monitor_after_delay(delay_sec: float = 0.75) -> None:
+    """Apply 응답 전송 뒤 동일 PID로 Monitor Python 프로세스를 교체합니다."""
     time.sleep(delay_sec)
-    timestamp = datetime.now(timezone.utc).isoformat()
-    path = reload_trigger_path()
-    _write_text(
-        path,
-        '\n'.join([
-            '"""Interface apply build 후 uvicorn reload를 유도하는 전용 trigger 파일입니다."""',
-            '',
-            f'RELOAD_VERSION = {timestamp!r}',
-            '',
-        ]),
-    )
+    os.execv(sys.executable, [sys.executable, *sys.argv])
 
 
 def _format_build_log(
@@ -490,7 +484,8 @@ def _empty_status() -> dict[str, Any]:
         'workspace_path': str(workspace),
         'log_path': str(log_path),
         'reload_scheduled': False,
-        'reload_trigger_path': str(reload_trigger_path()),
+        'restart_scheduled': False,
+        'reload_trigger_path': None,
         'error': None,
         'summary': None,
         'not_applied': [],
@@ -576,7 +571,8 @@ def record_import_check_status(result: dict[str, Any]) -> dict[str, Any]:
     status['real_apply_success'] = bool(result.get('real_apply_success'))
     if status.get('build_status') == 'success':
         status['status'] = 'success' if result.get('real_apply_success') else 'import_failed'
-        status['reload_scheduled'] = bool(result.get('real_apply_success'))
+        status['reload_scheduled'] = False
+        status['restart_scheduled'] = False
         status['error'] = None if result.get('real_apply_success') else (
             '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
         )

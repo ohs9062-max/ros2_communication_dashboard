@@ -6,7 +6,7 @@ from ros2_dashboard_monitor.interface_lab.apply.runtime import (
     default_apply_log_path,
     default_apply_status_path,
     duplicate_workspace_packages,
-    reload_trigger_path,
+    restart_monitor_after_delay,
 )
 
 
@@ -48,13 +48,17 @@ def test_default_apply_paths_stay_ros_workspace_relative(monkeypatch):
     assert default_apply_status_path().parent.name == 'config'
     assert default_apply_log_path().name == 'interface_apply_last.log'
     assert default_apply_log_path().parent.name == 'config'
-    assert reload_trigger_path() == (
-        workspace
-        / 'src'
-        / 'ros2_dashboard_monitor'
-        / 'ros2_dashboard_monitor'
-        / 'reload_trigger.py'
-    )
+
+
+def test_restart_monitor_reexecutes_current_entrypoint(monkeypatch):
+    calls = []
+    monkeypatch.setattr('time.sleep', lambda _seconds: None)
+    monkeypatch.setattr('os.execv', lambda executable, argv: calls.append((executable, argv)))
+
+    restart_monitor_after_delay()
+
+    assert len(calls) == 1
+    assert calls[0][1][0] == calls[0][0]
 
 
 def test_duplicate_workspace_packages_reports_selected_package(tmp_path: Path):

@@ -5,11 +5,13 @@
   <version>0.0.0</version>
   <description>Standalone ROS2 graph monitor and Interface Lab runtime.</description>
   <maintainer email="ohs9062@gmail.com">hs</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
   <depend>example_interfaces</depend>
+  <depend>action_msgs</depend>
+  <depend>rosidl_runtime_py</depend>
   <depend>ros2_dashboard_interfaces</depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>python3-yaml</exec_depend>

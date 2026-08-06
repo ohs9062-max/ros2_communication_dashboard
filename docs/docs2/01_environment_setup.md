@@ -180,11 +180,11 @@ ros2 pkg prefix ros2_dashboard_interfaces
 기본 설정 위치:
 
 ```text
-backend/config/monitor.yaml
-backend/config/interface_registry.yaml
-backend/config/interface_packages.yaml
-backend/config/interface_apply_status.yaml
-backend/config/interface_apply_last.log
+ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_registry.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_packages.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_status.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
 backend/config/user_preferences.yaml
 ```
 
@@ -235,7 +235,7 @@ INTERFACE_APPLY_STATUS_PATH=config/interface_apply_status.yaml
 INTERFACE_APPLY_LOG_PATH=config/interface_apply_last.log
 ```
 
-상대경로는 Backend workspace를 기준으로 해석된다. 별도 경로가 필요하지 않으면 기본값을
+상대경로는 ROS2 workspace를 기준으로 해석된다. 별도 경로가 필요하지 않으면 기본값을
 그대로 사용하는 편이 안전하다.
 
 Backend 코드는 `API_HOST`, `API_PORT`를 읽지 않는다. 주소와 포트는 Uvicorn 실행 인자로
@@ -256,7 +256,7 @@ export ROS_LOCALHOST_ONLY=0
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 
 python3 -m uvicorn \
-  ros2_dashboard_backend.main:app \
+  app.main:app \
   --host 127.0.0.1 \
   --port 8000
 ```
@@ -269,7 +269,7 @@ Backend를 외부 인터페이스에 열어야 한다.
 
 ```bash
 python3 -m uvicorn \
-  ros2_dashboard_backend.main:app \
+  app.main:app \
   --host 0.0.0.0 \
   --port 8000
 ```
@@ -281,7 +281,7 @@ python3 -m uvicorn \
 
 ```bash
 python3 -m uvicorn \
-  ros2_dashboard_backend.main:app \
+  app.main:app \
   --host 127.0.0.1 \
   --port 8000 \
   --reload
@@ -414,7 +414,7 @@ find ros2_ws/src/uploaded_interfaces/generated_interfaces -type f
 find ros2_ws/src/uploaded_interfaces/packages -type f
 ```
 
-Interface Lab에서 `적용`을 실행하면 Backend workspace에서 다음 build를 수행한다.
+Interface Lab에서 `적용`을 실행하면 ROS2 workspace에서 다음 build를 수행한다.
 
 ```bash
 colcon build --symlink-install
@@ -588,7 +588,7 @@ python3 -m py_compile backend/demo_nodes/*.py
 | Backend Python 소스 | Backend 재시작, 개발 중이면 reload |
 | Frontend JSX/CSS | Vite HMR 또는 dev server 재시작 |
 | `frontend/.env` | Vite dev server 재시작 |
-| `monitor.yaml` | Backend 재시작 |
+| `monitor.yaml` | Monitor 재시작 |
 | Backend `.env` | Backend 재시작 |
 | `.msg/.srv/.action` | `colcon build --symlink-install`, overlay 재-source, Backend 재시작 |
 | 업로드 interface package | Interface Apply 또는 수동 build/import 확인 |

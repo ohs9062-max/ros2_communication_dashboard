@@ -1,5 +1,8 @@
 from app.alerts.service import AlertHistoryService
 from app.monitor_client.cache import MonitorCache
+from app.monitor_client.client import MonitorResponse, MonitorUnavailable
+from app.monitor_client.event_consumer import MonitorEventConsumer
+from threading import Event
 
 
 def test_monitor_cache_preserves_last_snapshot_on_error() -> None:
@@ -19,3 +22,38 @@ def test_alert_history_is_owned_by_backend() -> None:
     snapshot = service.snapshot()
     assert snapshot['data'] == []
     assert snapshot['history'][0]['alert_state'] == 'resolved'
+
+
+def test_monitor_consumer_retries_connected_callback_until_it_succeeds() -> None:
+    class Client:
+        def request(self, *_args, **_kwargs):
+            return MonitorResponse(
+                200,
+                b'{"data":{"topics":{"count":0},"alerts":{"data":[]}}}',
+                'application/json',
+            )
+
+    completed = Event()
+    attempts = []
+
+    def synchronize() -> None:
+        attempts.append(len(attempts) + 1)
+        if len(attempts) == 1:
+            raise MonitorUnavailable('monitor is not ready for priority sync')
+        completed.set()
+
+    cache = MonitorCache()
+    consumer = MonitorEventConsumer(
+        Client(),
+        cache,
+        0.01,
+        on_connected=synchronize,
+    )
+    consumer.start()
+    try:
+        assert completed.wait(1.0)
+    finally:
+        consumer.stop()
+
+    assert attempts == [1, 2]
+    assert cache.snapshot()['connected'] is True

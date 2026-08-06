@@ -30,6 +30,11 @@ wait_http() {
   fail "$name health check timed out: $url"
 }
 
+[[ -x "$BACKEND_DIR/.venv/bin/python" ]] || fail \
+  "Backend virtual environment is missing: run python3 -m venv $BACKEND_DIR/.venv and install requirements"
+"$BACKEND_DIR/.venv/bin/python" -c 'import fastapi, httpx, uvicorn, yaml' || fail \
+  "Backend dependencies are incomplete: $BACKEND_DIR/.venv/bin/pip install -r $BACKEND_DIR/requirements.txt"
+
 "$SCRIPT_DIR/build_ros2_ws.sh"
 
 set +u
@@ -49,12 +54,7 @@ wait_http monitor http://127.0.0.1:8765/health "$MONITOR_PID"
 
 (
   cd "$BACKEND_DIR"
-  if [[ -f .venv/bin/activate ]]; then
-    set +u
-    source .venv/bin/activate
-    set -u
-  fi
-  exec python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+  exec .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ) >"$RUNTIME_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" >"$RUNTIME_DIR/backend.pid"
@@ -62,7 +62,7 @@ wait_http backend http://127.0.0.1:8000/health "$BACKEND_PID"
 
 (
   cd "$FRONTEND_DIR"
-  exec npm run dev -- --host 127.0.0.1
+  exec npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ) >"$RUNTIME_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" >"$RUNTIME_DIR/frontend.pid"
@@ -71,4 +71,13 @@ wait_http frontend http://127.0.0.1:5173/ "$FRONTEND_PID"
 echo "[ros2_dashboard] monitor=$MONITOR_PID backend=$BACKEND_PID frontend=$FRONTEND_PID"
 echo "[ros2_dashboard] logs: $RUNTIME_DIR"
 trap '"$SCRIPT_DIR/stop_dashboard_stack.sh"' INT TERM EXIT
-wait "$MONITOR_PID" "$BACKEND_PID" "$FRONTEND_PID"
+set +e
+wait -n -p EXITED_PID "$MONITOR_PID" "$BACKEND_PID" "$FRONTEND_PID"
+EXIT_STATUS=$?
+set -e
+EXITED_PID="${EXITED_PID:-unknown}"
+EXITED_NAME=unknown
+[[ "$EXITED_PID" == "$MONITOR_PID" ]] && EXITED_NAME=monitor
+[[ "$EXITED_PID" == "$BACKEND_PID" ]] && EXITED_NAME=backend
+[[ "$EXITED_PID" == "$FRONTEND_PID" ]] && EXITED_NAME=frontend
+fail "$EXITED_NAME process exited unexpectedly with status $EXIT_STATUS; see $RUNTIME_DIR/$EXITED_NAME.log"
