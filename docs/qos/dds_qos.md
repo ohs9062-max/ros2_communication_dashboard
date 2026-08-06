@@ -395,3 +395,87 @@ CLI는 성공하고 Dashboard만 실패
 5. Service와 Action은 rclpy 기본 QoS를 사용한다.
 6. Service와 Action이 모두 실패하면 Topic QoS보다 DDS 데이터 경로와 기기 callback을 먼저 확인한다.
 7. Interface Lab Topic Receive 실패는 BEST_EFFORT Publisher와의 QoS 불일치 가능성이 크다.
+
+
+Edited 00_total_alert.md
+Viewed 00_total_alert.md:149-191
+Searched for "qos"
+
+Grep 결과에서 `qos_info` 또는 `qos_profile` 관련 소스 코드가 어떻게 작성되어 있는지 확인해보자!
+
+Searched for "qos_info"
+
+`topic_support.py` 및 `topic_runtime.py`, `ros2_topic/qos.py` 등을 확인하자. `ros2_topic` 디렉토리 내의 qos 관련 소스를 보기 위해 list_dir 및 view_file을 수행하자.
+
+Listed directory ros2_topic
+
+`ros2_topic/subscriptions.py` 및 `runtime.py`에서 qos 처리 부분을 살펴보자!
+
+Viewed subscriptions.py:1-95
+
+`ros2_topic/runtime.py`에서 qos 구하는 부분을 찾아보자.
+
+Searched for "qos"
+
+`runtime.py` 660 ~ 710 줄 근처를 확인하여 `_qos_profile` 로직을 정확히 확인하자.
+
+Viewed runtime.py:660-710
+
+이제 프론트엔드/백엔드에서도 `mismatch` 또는 `qos` 관련 경고 표시가 있는지 확인해보자!
+
+Searched for "mismatch"
+
+조사 결과 정리:
+
+1. **현재 코드에 "QoS 불일치 경고 (QoS Mismatch Warning)" 로직이 존재하는가?**
+   - **아니오, 현재 구현 코드에는 QoS 호환성/불일치를 자동 감지하여 경고(Alert나 UI Warning)를 발생하는 로직이 존재하지 않습니다.**
+
+2. **현재 코드가 QoS에 대해 수행하는 작업 (실제 상태)**:
+   - Monitor의 `ros2_topic/runtime.py` 내 `_qos_profile()`에서 ROS2 Graph의 Publisher QoS(Reliability, Durability)를 읽어와서 Dashboard 모니터링용 Subscription을 생성할 때 **자동으로 맞추어(Adaptive QoS) 구독**하는 로직만 구현되어 있습니다. (만약 읽지 못하면 `sensor_data` 또는 `KEEP_LAST/10` fallback 사용)
+   - Interface Lab에서의 Publish/Receive는 상대방 QoS와 상관없이 기본 `RELIABLE/VOLATILE/depth 10`으로 일괄 고정 생성됩니다.
+   - 따라서 Publisher가 `BEST_EFFORT`일 때 Interface Lab이나 모니터링에서 QoS가 안 맞으면 메시지를 수신하지 못하고 단순히 `topic_stale` 또는 `topic_message_missing` 경고로 이어질 뿐, **"QoS 불일치로 인한 원인입니다"라는 전용 QoS Mismatch 경고/UI 표기 로직은 없습니다.**
+
+3. **관련 문서 (`dds_qos.md` 및 `nextstep.md`)에서의 다룸**:
+   - `docs/qos/dds_qos.md` (또는 `dds_qos.md`) 문서에 "QoS 불일치 주의 및 문제 해결 가이드"로 개념적 설명이 기재되어 있습니다.
+   - `AGENTS.md` 0.10절(확정 개선 정책)의 "실제 기기 QoS 검증" 항목에서 향후 확장 과제로 **"QoS 불일치 가능성을 단순 미수신과 구분해 상세 화면에 실제 Publisher QoS와 감시 QoS를 표시하는 방향"**이 언급되어 있습니다.
+
+이 내용을 바탕으로 사용자가 요구한 질문("QoS 불일치 경고 로직이 현재 코드에 존재하는지")에 대한 답변을 명확하고 친절하게 한국어로 작성한다.
+
+구조:
+1. **단도직입적 답변**: **현재 구현 코드에는 'QoS 불일치 경고(QoS Mismatch Warning)' 로직이 존재하지 않습니다.**
+2. **현재 코드의 실제 QoS 관련 처리 방식**:
+   - Dashboard 모니터링 엔진(`ros2_topic/runtime.py`의 `_qos_profile()`)은 Graph에서 Publisher의 QoS를 읽어와서 모니터링용 구독(Subscription)의 QoS를 **동적으로 맞추는(적응형 QoS)** 처리만 수행합니다.
+   - Publisher와 Subscriber/Dashboard 구독 간 QoS가 일치하지 않아 메시지가 안 들어오면, 시스템은 **단순히 `topic_message_missing` 또는 `topic_stale`(메시지 미수신/지연)로만 판정**합니다.
+3. **QoS 문서 및 향후 계획 상의 위치**:
+   - `docs/qos/dds_qos.md` 문서에는 개발자 참조용 분석 가이드로 적혀 있으며,
+   - `AGENTS.md` (0.10절 확정 개선 정책)에 **"향후 단순 미수신과 QoS 불일치를 구분하여 상세 화면에 표시하는 기능"**으로 구현 목표가 기재되어 있는 상태입니다.
+
+모든 답변을 한국어로 깔끔하게 작성하자.조사 결과, **현재 작성된 코드에는 'QoS 불일치 경고(QoS Mismatch Warning)'를 자동으로 감지하여 경고(Alert)나 UI 경고 메시지를 발생하는 로직이 존재하지 않습니다.**
+
+---
+
+### 1. 현재 코드의 실제 QoS 처리 방식 (전수검사 결과)
+
+`ros2_dashboard` 코드베이스에서 QoS와 관련된 실제 동작은 다음과 같이 구현되어 있습니다:
+
+1. **Publisher QoS 자동 맞춤 (Adaptive QoS)**
+   - `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/runtime.py` (`_qos_profile()` 함수)
+   - 모니터링 엔진은 Topic을 감시할 때 ROS2 Graph에서 Publisher의 QoS(Reliability, Durability)를 읽어와서 Dashboard의 감시용 구독(Subscription) QoS를 **동적으로 동일하게 맞춰주는 로직**만 존재합니다.
+2. **QoS 불일치 발생 시의 실제 결과**
+   - 만약 장비(Publisher)의 QoS와 구독 QoS가 맞지 않아 메시지가 수신되지 않으면, 현재 코드는 QoS 불일치임을 직접 알려주지 않고 **`topic_message_missing` (메시지 미수신) 또는 `topic_stale` (수신 지연) 일반 경고만 생성**합니다.
+3. **Interface Lab 통신**
+   - Interface Lab의 Publish/Receive 기능은 상대방 QoS 호환성을 체크하지 않고 `RELIABLE / VOLATILE / depth 10` 고정값으로 작동합니다.
+
+---
+
+### 2. 관련 문서 및 AGENTS.md 상의 위치
+
+- **`docs/qos/dds_qos.md`**: 개발자가 디버깅할 때 참고할 수 있도록 DDS/QoS 구성과 호환성 조합을 설명한 **분석 가이드 문서**로 존재합니다.
+- **`AGENTS.md` (0.10절 확정 개선 정책)**: QoS 불일치 표시 기능은 향후 구현할 개선 기능으로 정의되어 있습니다:
+  > *"QoS 불일치 가능성을 단순 미수신과 구분해 상세 화면에 실제 Publisher QoS와 감시 QoS를 표시하는 방향을 사용한다."*
+
+---
+
+### 💡 요약
+- **QoS 불일치 전용 경고 로직은 현재 코드에 없습니다.**
+- 현재는 QoS 불일치가 일어나 메시지가 안 오면 **단순 미수신(`topic_message_missing` / `topic_stale`) 경고**로 표현됩니다.

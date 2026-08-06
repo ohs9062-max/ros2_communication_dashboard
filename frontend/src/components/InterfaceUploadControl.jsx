@@ -2,19 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ManualInterfacePanel,
   InterfaceUploadToolbar,
-  PackageRegistry,
-  ReceiveHistory,
-  RegistryGroup,
   actionKey,
   defaultRequestValues,
-  deletedRegistryItemsFor,
-  interfaceCounts,
   messageKey,
   normalizeNumericValues,
-  registryRowKey,
   serviceKey,
-  topicGraphStatusLabel,
-  topicStatusLabel,
 } from '../features/interface-lab/InterfaceUploadParts.jsx'
 import {
   ActionExecutionPanel,
@@ -22,28 +14,23 @@ import {
   TopicExecutionPanel,
 } from '../features/interface-lab/InterfaceExecutionPanels.jsx'
 import {
+  BuildFailurePanel,
+  RegisteredInterfacesPanel,
+  UploadedPackagesPanel,
+} from '../features/interface-lab/InterfaceManagementPanels.jsx'
+import {
+  ActionReceivePanel,
+  InterfaceReceiveWorkbench,
+  ServiceReceivePanel,
+  TopicReceivePanel,
+} from '../features/interface-lab/InterfaceReceivePanels.jsx'
+import { useInterfaceManagementController } from '../features/interface-lab/hooks/useInterfaceManagementController.js'
+import {
   graphPublishTopicCandidates,
   topicHasType,
   topicNameTypeWarning,
 } from '../utils/interfaceTopics.js'
-import {
-  applyInterfaces,
-  deleteInterfaceRegistryEntry,
-  checkInterfaceImports,
-  deleteManualDefinition,
-  deleteInterfacePackage,
-  fetchInterfaceApplyStatus,
-  fetchInterfacePackages,
-  fetchInterfaceRegistry,
-  registerManualType,
-  rebuildUploadedInterfacesCmake,
-  uploadInterface,
-  uploadInterfacePackage,
-  uploadInterfacePackageFolder,
-  updateManualDefinition,
-  validateManualDefinition,
-  writeManualDefinition,
-} from '../api/interfaceManagement.js'
+import { fetchInterfaceApplyStatus, fetchInterfacePackages, fetchInterfaceRegistry } from '../api/interfaceManagement.js'
 import { fetchTopics } from '../api/monitoring.js'
 import {
   callRegisteredService,
@@ -70,7 +57,6 @@ import {
   stopReceiveTopic,
 } from '../api/interfaceExecution.js'
 
-const ACCEPTED_EXTENSIONS = ['.msg', '.srv', '.action']
 export function InterfaceUploadControl({
   onStateChanged,
   onTopicWorkspaceExpandedChange,
@@ -81,20 +67,33 @@ export function InterfaceUploadControl({
   const packageFolderInputRef = useRef(null)
   const packageInputRef = useRef(null)
   const lastRefreshSignalRef = useRef(refreshSignal)
-  const [busy, setBusy] = useState(false)
-  const [applying, setApplying] = useState(false)
-  const [reloadPhase, setReloadPhase] = useState('idle')
-  const [feedback, setFeedback] = useState(null)
-  const [registry, setRegistry] = useState(null)
-  const [recentDeletedRegistry, setRecentDeletedRegistry] = useState([])
-  const [applyStatus, setApplyStatus] = useState(null)
-  const [showRegistry, setShowRegistry] = useState(false)
   const [showCallableTopics, setShowCallableTopics] = useState(false)
   const [showCallableServices, setShowCallableServices] = useState(false)
   const [showCallableActions, setShowCallableActions] = useState(false)
-  const [showPackages, setShowPackages] = useState(false)
-  const [showBuildLog, setShowBuildLog] = useState(false)
-  const [buildLogTail, setBuildLogTail] = useState('')
+  const closeExecutionPanels = useCallback(() => {
+    setShowCallableTopics(false)
+    setShowCallableServices(false)
+    setShowCallableActions(false)
+  }, [])
+  const {
+    applyStatus, applyUploadedInterfaces, applying, buildLogTail, busy,
+    editingManualDefinition, feedback,
+    handleFile, handlePackageFile, handlePackageFolder, loadApplyStatus, loadPackages,
+    loadRegistry, regenerateUploadedInterfacesCmake, removeManualDefinition,
+    removePackage, removeRegistryEntry, runImportCheck,
+    manualDefinition, manualKind, manualMode, manualType, manualTypeName,
+    packages, recentDeletedRegistry, registry, reloadPhase, replacePackage,
+    setApplyStatus, setBuildLogTail, setBusy, setEditingManualDefinition,
+    setFeedback, setManualDefinition, setManualKind, setManualMode, setManualType,
+    setManualTypeName, setPackages, setRegistry,
+    setReloadPhase, setReplacePackage, setShowBuildLog, setShowManualInput,
+    setShowPackages, setShowRegistry, showBuildLog, showManualInput, showPackages,
+    showRegistry, startEditingManualDefinition, submitManualDefinition,
+    submitManualType, validateCurrentManualDefinition,
+  } = useInterfaceManagementController({
+    onCloseExecutionPanels: closeExecutionPanels,
+    onStateChanged,
+  })
   const [callableServices, setCallableServices] = useState([])
   const [selectedServiceKey, setSelectedServiceKey] = useState('')
   const [requestValues, setRequestValues] = useState({})
@@ -109,16 +108,6 @@ export function InterfaceUploadControl({
   const [actionGoalBusy, setActionGoalBusy] = useState(false)
   const [actionGoalResult, setActionGoalResult] = useState(null)
   const [actionGoalHistory, setActionGoalHistory] = useState([])
-  const [replacePackage, setReplacePackage] = useState(false)
-  const [packages, setPackages] = useState([])
-  const [showManualInput, setShowManualInput] = useState(false)
-  const [manualMode, setManualMode] = useState('type')
-  const [manualType, setManualType] = useState('')
-  const manualPackage = 'uploaded_interfaces'
-  const [manualKind, setManualKind] = useState('srv')
-  const [manualTypeName, setManualTypeName] = useState('')
-  const [manualDefinition, setManualDefinition] = useState('')
-  const [editingManualDefinition, setEditingManualDefinition] = useState(null)
   const [showReceivePanel, setShowReceivePanel] = useState(false)
   const [receiveMode, setReceiveMode] = useState('topic')
   const [availableTopics, setAvailableTopics] = useState([])
@@ -349,259 +338,8 @@ export function InterfaceUploadControl({
     setActionGoalResult(null)
   }, [selectedActionKey, visibleCallableActions])
 
-  const uploadFiles = async (files, sourceLabel) => {
-    const supportedFiles = files.filter((file) =>
-      ACCEPTED_EXTENSIONS.some((extension) => file.name.toLowerCase().endsWith(extension)),
-    )
-    if (!supportedFiles.length) {
-      setFeedback({ tone: 'error', text: `${sourceLabel}에 .msg, .srv, .action 파일이 없습니다.` })
-      return
-    }
-
-    setBusy(true)
-    setFeedback(null)
-    const succeeded = []
-    const warned = []
-    const failed = []
-    try {
-      for (const file of supportedFiles) {
-        try {
-          const payload = await uploadInterface(file)
-          const item = payload.data
-          if (payload.success && !item.parsed_error) succeeded.push(item.file_name)
-          else warned.push(`${item.file_name}${item.parsed_error ? ` (${item.parsed_error})` : ''}`)
-        } catch (error) {
-          failed.push(`${file.name} (${error.message})`)
-        }
-      }
-
-      const summary = [
-        `${sourceLabel}: ${supportedFiles.length}개 처리`,
-        `성공 ${succeeded.length}`,
-        warned.length ? `경고 ${warned.length}` : null,
-        failed.length ? `실패 ${failed.length}` : null,
-      ].filter(Boolean).join(' · ')
-      const details = failed[0] ?? warned[0]
-      setFeedback({
-        tone: failed.length ? 'error' : warned.length ? 'warning' : 'success',
-        text: details ? `${summary} · ${details}` : `${summary} · ${succeeded.join(', ')}`,
-      })
-      const refreshResults = await Promise.allSettled([
-        fetchInterfaceRegistry(),
-        fetchInterfaceApplyStatus(),
-      ])
-      if (refreshResults[0].status === 'fulfilled') {
-        setRegistry(refreshResults[0].value.data)
-      }
-      if (refreshResults[1].status === 'fulfilled') {
-        setApplyStatus(refreshResults[1].value.data)
-        setBuildLogTail(refreshResults[1].value.data?.log_tail ?? '')
-      }
-      const refreshFailure = refreshResults.find((result) => result.status === 'rejected')
-      if (refreshFailure && succeeded.length) {
-        setFeedback({
-          tone: 'warning',
-          text: `${summary} · 등록은 완료됐지만 일부 상태 갱신에 실패했습니다. 상태 새로고침을 눌러 다시 확인하세요. · ${refreshFailure.reason.message}`,
-        })
-      }
-      onStateChanged?.()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: `${sourceLabel} 처리 중 오류가 발생했습니다. · ${error.message}` })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleFile = async (event) => {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (files.length) await uploadFiles(files, '파일 업로드')
-  }
-
-  const handlePackageFile = async (event) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-    if (!file.name.toLowerCase().endsWith('.zip')) {
-      setFeedback({ tone: 'error', text: 'interface package는 .zip 파일만 가능합니다.' })
-      return
-    }
-    setBusy(true)
-    setFeedback(null)
-    try {
-      const payload = await uploadInterfacePackage(file, { replace: replacePackage })
-      const item = payload.data
-      const counts = interfaceCounts(item.interfaces)
-      setFeedback({
-        tone: 'success',
-        text: `${item.name} package 업로드 완료 · msg ${counts.msg}, srv ${counts.srv}, action ${counts.action} · 적용하기로 build/import를 진행하세요.`,
-      })
-      await loadPackages(true)
-      await loadApplyStatus()
-      onStateChanged?.()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handlePackageFolder = async (event) => {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (!files.length) return
-    const packageFiles = files.filter((file) => {
-      const relativePath = file.webkitRelativePath || file.name
-      return /(^|\/)(package\.xml|CMakeLists\.txt)$/.test(relativePath)
-        || /\/(msg|srv|action)\/[^/]+\.(msg|srv|action)$/.test(relativePath)
-    })
-    if (!packageFiles.length) {
-      setFeedback({ tone: 'error', text: 'package.xml, CMakeLists.txt, msg/srv/action 파일이 있는 ROS2 package 폴더를 선택하세요.' })
-      return
-    }
-    setBusy(true)
-    setFeedback(null)
-    try {
-      const payload = await uploadInterfacePackageFolder(packageFiles, { replace: replacePackage })
-      const item = payload.data
-      const counts = interfaceCounts(item.interfaces)
-      setFeedback({
-        tone: 'success',
-        text: `${item.name} package 폴더 업로드 완료 · msg ${counts.msg}, srv ${counts.srv}, action ${counts.action} · 적용하기로 build/import를 진행하세요.`,
-      })
-      await loadPackages(true)
-      await loadApplyStatus()
-      onStateChanged?.()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const submitManualType = async () => {
-    setBusy(true)
-    setFeedback(null)
-    try {
-      const payload = await registerManualType({
-        full_type: manualType,
-        allowlisted: true,
-      })
-      const entry = payload.data ?? payload.entry
-      setFeedback({
-        tone: entry?.build?.import_available ? 'success' : 'warning',
-        text: entry?.build?.import_available
-          ? `${entry.full_type} 기존 빌드 타입 등록 완료 · import됨`
-          : `${entry?.full_type ?? manualType} 기존 빌드 타입 등록 완료 · import 안됨: ${entry?.build?.import_error ?? '환경/source 확인 필요'}`,
-      })
-      await loadRegistry(true)
-      onStateChanged?.()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const submitManualDefinition = async () => {
-    setBusy(true)
-    setFeedback(null)
-    try {
-      const payload = editingManualDefinition
-        ? await updateManualDefinition({
-          kind: editingManualDefinition.kind,
-          typeName: editingManualDefinition.typeName,
-          definition: manualDefinition,
-        })
-        : await writeManualDefinition({
-          package: manualPackage,
-          kind: manualKind,
-          type_name: manualTypeName,
-          definition: manualDefinition,
-        })
-      const entry = payload.data ?? payload.entry
-      setFeedback({
-        tone: 'success',
-        text: `${entry.full_type} 직접 작성 ${editingManualDefinition ? '수정' : '저장'} 완료 · 적용하기로 build/import를 진행하세요.`,
-      })
-      setEditingManualDefinition(null)
-      await loadRegistry(true)
-      await loadApplyStatus()
-      onStateChanged?.()
-    } catch (error) {
-      setFeedback({
-        tone: 'error',
-        text: `문법 오류가 있어 파일을 생성/수정하지 않았습니다. CMakeLists.txt도 수정하지 않았습니다. · ${error.message}`,
-      })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const validateCurrentManualDefinition = async () => {
-    setBusy(true)
-    setFeedback(null)
-    try {
-      await validateManualDefinition({
-        package: manualPackage,
-        kind: manualKind,
-        type_name: manualTypeName,
-        definition: manualDefinition,
-      })
-      setFeedback({ tone: 'success', text: '문법 검증 통과 · 아직 파일/CMake/registry는 수정하지 않았습니다.' })
-    } catch (error) {
-      setFeedback({
-        tone: 'error',
-        text: `문법 오류가 있어 파일을 생성하지 않았습니다. CMakeLists.txt도 수정하지 않았습니다. · ${error.message}`,
-      })
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const startEditManualDefinition = (item) => {
-    setShowManualInput(true)
-    setManualMode('definition')
-    setManualKind(item.file_kind)
-    setManualTypeName(item.type_name)
-    setManualDefinition(item.raw_text ?? '')
-    setEditingManualDefinition({ kind: item.file_kind, typeName: item.type_name })
-  }
-
-  const removeManualDefinition = async (item) => {
-    setBusy(true)
-    setFeedback(null)
-    try {
-      await deleteManualDefinition({ kind: item.file_kind, typeName: item.type_name })
-      setFeedback({
-        tone: 'warning',
-        text: `${item.full_type ?? item.file_name} 파일 삭제 및 CMakeLists.txt 재생성 완료 · 적용하기로 build 상태를 다시 반영하세요.`,
-      })
-      if (editingManualDefinition?.kind === item.file_kind && editingManualDefinition?.typeName === item.type_name) {
-        setEditingManualDefinition(null)
-      }
-      await refreshInterfaceListsAfterDelete()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const regenerateUploadedInterfacesCmake = async () => {
-    setBusy(true)
-    try {
-      const payload = await rebuildUploadedInterfacesCmake()
-      setFeedback({
-        tone: 'success',
-        text: `CMakeLists.txt 재생성 완료 · ${payload.data?.interfaces?.length ?? 0}개 interface 반영 · 적용하기를 다시 실행하세요.`,
-      })
-      await loadApplyStatus()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
+    startEditingManualDefinition(item)
   }
 
   const loadReceiveState = useCallback(async ({ silent = false } = {}) => {
@@ -660,7 +398,7 @@ export function InterfaceUploadControl({
     } finally {
       if (!silent) setBusy(false)
     }
-  }, [selectedMessageKey, selectedReceiveActionKey, selectedReceiveServiceKey])
+  }, [selectedMessageKey, selectedReceiveActionKey, selectedReceiveServiceKey, setBusy, setFeedback])
 
   const startSelectedTopicReceive = async () => {
     if (!selectedReceiveTopic.trim()) {
@@ -952,53 +690,6 @@ export function InterfaceUploadControl({
     }
   }
 
-  const loadApplyStatus = useCallback(async () => {
-    const payload = await fetchInterfaceApplyStatus()
-    setApplyStatus(payload.data)
-    setBuildLogTail(payload.data?.log_tail ?? '')
-    return payload.data
-  }, [])
-
-  const loadRegistry = async (keepOpen = false) => {
-    setBusy(true)
-    try {
-      const payload = await fetchInterfaceRegistry()
-      setRegistry(payload.data)
-      setShowRegistry(true)
-      if (!keepOpen) {
-        setShowPackages(false)
-        setShowCallableTopics(false)
-        setShowCallableServices(false)
-        setShowCallableActions(false)
-        setShowBuildLog(false)
-      }
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const loadPackages = async (keepOpen = false) => {
-    setBusy(true)
-    try {
-      const payload = await fetchInterfacePackages()
-      setPackages(payload.data ?? [])
-      setShowPackages(true)
-      if (!keepOpen) {
-        setShowRegistry(false)
-        setShowCallableTopics(false)
-        setShowCallableServices(false)
-        setShowCallableActions(false)
-        setShowBuildLog(false)
-      }
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const loadCallableTopics = async (keepOpen = false) => {
     setBusy(true)
     try {
@@ -1040,72 +731,25 @@ export function InterfaceUploadControl({
     }
   }
 
-  const refreshInterfaceListsAfterDelete = async () => {
-    const [registryPayload, packagesPayload, messagesPayload, servicesPayload, actionsPayload, statusPayload] = await Promise.all([
-      fetchInterfaceRegistry(),
-      fetchInterfacePackages(),
+  const refreshExecutionCandidatesAfterDelete = async () => {
+    const [messagesPayload, servicesPayload, actionsPayload] = await Promise.all([
       fetchCallableMessages(),
       fetchCallableServices(),
       fetchCallableActions(),
-      fetchInterfaceApplyStatus(),
     ])
-    setRegistry(registryPayload.data)
-    setPackages(packagesPayload.data ?? [])
     setCallableMessages(messagesPayload.data ?? [])
     setCallableServices(servicesPayload.data ?? [])
     setCallableActions(actionsPayload.data ?? [])
-    setApplyStatus(statusPayload.data)
-    setBuildLogTail(statusPayload.data?.log_tail ?? '')
-    onStateChanged?.()
   }
 
-  const removePackage = async (packageName) => {
-    setBusy(true)
-    try {
-      await deleteInterfacePackage(packageName)
-      setFeedback({
-        tone: 'warning',
-        text: `${packageName} package를 삭제했습니다. 적용하기로 build 상태를 갱신하세요.`,
-      })
-      await refreshInterfaceListsAfterDelete()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
+  const handleRemoveManualDefinition = (item) =>
+    removeManualDefinition(item, refreshExecutionCandidatesAfterDelete)
 
-  const removeRegistryEntry = async (item) => {
-    setBusy(true)
-    try {
-      const payload = await deleteInterfaceRegistryEntry({
-        kind: item.file_kind,
-        fileName: item.file_name,
-        source: item.source,
-        fullType: item.full_type,
-      })
-      const deletedItem = {
-        ...item,
-        deletedAt: Date.now(),
-        deletedMarker: true,
-      }
-      setRecentDeletedRegistry((current) => [
-        deletedItem,
-        ...current.filter((entry) => registryRowKey(entry) !== registryRowKey(item)),
-      ].slice(0, 3))
-      setFeedback({
-        tone: 'warning',
-        text: payload.data?.file_deleted
-          ? `${item.file_name} 파일과 등록을 삭제하고 package metadata를 재생성했습니다.`
-          : `${item.file_name} 등록을 삭제했습니다. 생성된 파일은 삭제하지 않았습니다.`,
-      })
-      await refreshInterfaceListsAfterDelete()
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
+  const handleRemovePackage = (packageName) =>
+    removePackage(packageName, refreshExecutionCandidatesAfterDelete)
+
+  const handleRemoveRegistryEntry = (item) =>
+    removeRegistryEntry(item, refreshExecutionCandidatesAfterDelete)
 
   const loadCallableServices = async (keepOpen = false) => {
     setBusy(true)
@@ -1191,81 +835,6 @@ export function InterfaceUploadControl({
     }
   }
 
-  const runImportCheck = useCallback(async () => {
-    try {
-      const payload = await checkInterfaceImports()
-      setRegistry(payload.data)
-      setShowRegistry(true)
-      const packagePayload = await fetchInterfacePackages()
-      setPackages(packagePayload.data ?? [])
-      setShowPackages(true)
-      const summary = payload.summary ?? {}
-      const notApplied = summary.not_applied ?? payload.not_applied ?? []
-      if (payload.real_apply_success) {
-        setFeedback({
-          tone: 'success',
-          text: '적용 완료. 새 interface 타입을 사용할 수 있습니다.',
-        })
-      } else {
-        setFeedback({
-          tone: 'warning',
-          text: notApplied.length
-            ? `부분 적용: 파일 생성 또는 CMake 등록이 완료되지 않았습니다. 상세 상태를 확인하세요. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
-            : '부분 적용: import 재확인이 완료되지 않았습니다. 상세 상태를 확인하세요.',
-        })
-      }
-      setReloadPhase('idle')
-      await loadApplyStatus()
-      onStateChanged?.()
-    } catch (error) {
-      setFeedback({
-        tone: 'warning',
-        text: `서버는 다시 연결됐지만 import 재확인에 실패했습니다: ${error.message}`,
-      })
-    }
-  }, [loadApplyStatus, onStateChanged])
-
-  const applyUploadedInterfaces = async () => {
-    setApplying(true)
-    setBuildLogTail('')
-    setShowBuildLog(false)
-    setFeedback({ tone: 'warning', text: '빌드 중...' })
-    try {
-      const payload = await applyInterfaces()
-      const status = payload.data ?? {}
-      setApplyStatus(status)
-      setBuildLogTail(status.log_tail ?? '')
-      if (payload.real_apply_success) {
-        setReloadPhase('scheduled')
-        setFeedback({
-          tone: 'success',
-          text: '적용 완료. 새 interface 타입을 사용할 수 있습니다.',
-        })
-      } else {
-        const notApplied = payload.not_applied ?? status.not_applied ?? []
-        setReloadPhase('idle')
-        const importFailed = payload.status === 'import_failed'
-        setFeedback({
-          tone: payload.status === 'partial' || importFailed ? 'warning' : 'error',
-          text: importFailed
-            ? '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
-            : notApplied.length
-              ? `부분 적용: 파일 생성 또는 CMake 등록이 완료되지 않았습니다. 상세 상태를 확인하세요. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
-              : payload.message || '빌드 실패. CMakeLists.txt, package.xml, interface 의존성을 확인하세요.',
-        })
-      }
-      await loadApplyStatus()
-      await loadRegistry(true)
-      await loadPackages(true)
-      onStateChanged?.()
-    } catch (error) {
-      setReloadPhase('idle')
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setApplying(false)
-    }
-  }
-
   const executeServiceCall = async () => {
     if (!selectedService || !selectedService.callable) {
       setServiceCallResult({ success: false, error: '호출 가능한 Service가 없습니다.' })
@@ -1321,7 +890,7 @@ export function InterfaceUploadControl({
     loadApplyStatus().catch((error) => {
       setFeedback({ tone: 'warning', text: `적용 상태를 읽을 수 없습니다: ${error.message}` })
     })
-  }, [loadApplyStatus])
+  }, [loadApplyStatus, setFeedback])
 
   useEffect(() => {
     if (lastRefreshSignalRef.current === refreshSignal) return
@@ -1430,6 +999,13 @@ export function InterfaceUploadControl({
     showCallableServices,
     showPackages,
     showRegistry,
+    setApplyStatus,
+    setBuildLogTail,
+    setFeedback,
+    setPackages,
+    setRegistry,
+    setShowPackages,
+    setShowRegistry,
     topicImportableOnly,
   ])
 
@@ -1440,7 +1016,7 @@ export function InterfaceUploadControl({
     if (reloadPhase === 'reconnecting' && websocket?.status === 'connected') {
       runImportCheck()
     }
-  }, [reloadPhase, runImportCheck, websocket?.status])
+  }, [reloadPhase, runImportCheck, setReloadPhase, websocket?.status])
 
   useEffect(() => {
     if (reloadPhase !== 'scheduled') return undefined
@@ -1501,6 +1077,23 @@ export function InterfaceUploadControl({
     loadReceiveState()
   }
 
+  const selectReceiveMode = async (mode) => {
+    setReceiveMode(mode)
+    if (mode === 'mock') {
+      setShowCallableTopics(false)
+      setShowCallableServices(false)
+      setShowCallableActions(false)
+      return
+    }
+    const loaders = {
+      action: loadCallableActions,
+      service: loadCallableServices,
+      topic: loadCallableTopics,
+    }
+    await loaders[mode]?.()
+    await loadReceiveState({ silent: true })
+  }
+
   return (
     <div className={topicExpandedActive ? 'interface-upload-control topic-workbench-expanded' : 'interface-upload-control'}>
       <InterfaceUploadToolbar
@@ -1548,303 +1141,120 @@ export function InterfaceUploadControl({
         />
       )}
       {showReceivePanel && (
-        <div className="interface-receive-panel">
-          <div className="interface-registry-heading interface-panel-heading">
-            <strong>수신</strong>
-            {receiveMode !== 'mock' && (
-              <button
-                aria-pressed={topicExpandedActive}
-                className="interface-panel-expand-button"
-                onClick={() => setTopicWorkspaceExpanded((value) => !value)}
-                type="button"
-              >
-                {topicExpandedActive ? '목록보기' : '크게보기'}
-              </button>
-            )}
-          </div>
-          <div className="interface-manual-tabs">
-            <button className={receiveMode === 'topic' ? 'active' : ''} onClick={async () => {
-              setReceiveMode('topic')
-              await loadCallableTopics()
-              await loadReceiveState({ silent: true })
-            }} type="button">Topic 수신</button>
-            <button className={receiveMode === 'service' ? 'active' : ''} onClick={async () => {
-              setReceiveMode('service')
-              await loadCallableServices()
-              await loadReceiveState({ silent: true })
-            }} type="button">Service 수신</button>
-            <button className={receiveMode === 'action' ? 'active' : ''} onClick={async () => {
-              setReceiveMode('action')
-              await loadCallableActions()
-              await loadReceiveState({ silent: true })
-            }} type="button">Action 수신</button>
-            <button className={receiveMode === 'mock' ? 'active' : ''} onClick={() => {
-              setReceiveMode('mock')
-              setShowCallableTopics(false)
-              setShowCallableServices(false)
-              setShowCallableActions(false)
-            }} type="button">Mock 준비중</button>
-          </div>
+        <InterfaceReceiveWorkbench
+          expanded={topicExpandedActive}
+          mode={receiveMode}
+          onModeChange={selectReceiveMode}
+          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+        >
           {receiveMode === 'topic' && (
-            <div className="interface-receive-grid">
-              <label className="interface-service-field">
-                <span>항목 검색</span>
-                <input
-                  placeholder="Topic 이름 또는 type 검색"
-                  value={receiveTopicSearch}
-                  onChange={(event) => setReceiveTopicSearch(event.target.value)}
-                />
-              </label>
-              <label className="interface-filter-check">
-                <input
-                  checked={topicImportableOnly}
-                  onChange={(event) => setTopicImportableOnly(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>Message import됨만 보기</span>
-                <small>{visibleCallableMessages.length}/{callableMessages.length}</small>
-              </label>
-              <label className="interface-service-field">
-                <span>Message full_type · {visibleCallableMessages.length}/{callableMessages.length}개</span>
-                <select
-                  value={selectedMessageKey}
-                  onChange={(event) => {
-                    const key = event.target.value
-                    const message = callableMessages.find((item) => messageKey(item) === key)
-                    setSelectedMessageKey(key)
-                    setTopicMessageValues(defaultRequestValues(message?.message_schema ?? []))
-                    setTopicPublishResult(null)
-                  }}
-                >
-                  {visibleCallableMessages.map((message) => (
-                    <option key={messageKey(message)} value={messageKey(message)}>
-                      {message.import_available ? 'import됨' : 'import 안됨'} · {topicStatusLabel(message)} · {topicGraphStatusLabel(message)} · {message.message_type ?? message.full_type}
-                    </option>
-                  ))}
-                </select>
-                {!visibleCallableMessages.length && (
-                  <small>등록된 Message가 없습니다. 타입 기입에서 std_msgs/msg/String 같은 안전한 Message를 먼저 등록하세요.</small>
-                )}
-              </label>
-              <label className="interface-service-field">
-                <span>Graph Topic 후보 · {filteredReceiveTopics.length}/{availableTopics.length}</span>
-                <select
-                  value={selectedReceiveTopic}
-                  onChange={(event) => {
-                    selectedReceiveTopicSourceRef.current = event.target.value ? 'graph' : 'empty'
-                    setSelectedReceiveTopic(event.target.value)
-                  }}
-                >
-                  {filteredReceiveTopics.map((topic) => (
-                    <option key={topic.name} value={topic.name}>{topic.name} · {topic.type ?? topic.types?.[0] ?? '-'}</option>
-                  ))}
-                </select>
-                {!filteredReceiveTopics.length && (
-                  <small>검색 결과가 없습니다.</small>
-                )}
-              </label>
-              <label className="interface-service-field">
-                <span>Subscribe Topic name</span>
-                <input
-                  placeholder="/interface_lab_topic_test"
-                  value={selectedReceiveTopic}
-                  onChange={(event) => {
-                    selectedReceiveTopicSourceRef.current = event.target.value ? 'user' : 'empty'
-                    setSelectedReceiveTopic(event.target.value)
-                  }}
-                />
-              </label>
-              <label className="interface-service-field">
-                <span>선택 Message</span>
-                <input readOnly value={selectedMessage?.message_type ?? ''} />
-              </label>
-              {selectedMessage && (
-                <div className={`interface-service-state ${selectedMessage.import_available ? 'success' : 'warning'}`}>
-                  {selectedMessage.import_available ? '수신 가능 · import됨' : '수신 불가 · import 안됨'}
-                  {selectedMessage.import_error ? ` · ${selectedMessage.import_error}` : ''}
-                </div>
-              )}
-              <p className="interface-package-help">
-                Topic 수신은 선택한 Message full_type과 Subscribe Topic name 조합으로 시작합니다.
-                Publish payload 입력과 Publish 버튼은 왼쪽 Topic 실행 창에서 처리합니다.
-              </p>
-              <div className="interface-receive-actions">
-                <button
-                  className={selectedTopicReceiving ? 'interface-receive-action-button receiving' : 'interface-receive-action-button primary'}
-                  disabled={selectedTopicReceiving || !selectedMessage?.import_available}
-                  onClick={startSelectedTopicReceive}
-                  type="button"
-                >
-                  {selectedTopicReceiving ? '수신 중' : '수신 시작'}
-                </button>
-                <button className="interface-receive-action-button" onClick={stopSelectedTopicReceive} type="button">수신 중지</button>
-                <button className="interface-receive-action-button warning" onClick={resetSelectedTopicReceiveHistory} type="button">선택 이력 리셋</button>
-                <button className="interface-receive-action-button warning" onClick={resetAllTopicReceiveHistory} type="button">전체 이력 리셋</button>
-                <button className="interface-receive-action-button ghost" onClick={loadReceiveState} type="button">새로고침</button>
-              </div>
-              <ReceiveHistory title="수신 중 Topic" items={receiveTopics} />
-              <ReceiveHistory title="Topic subscribe latest/history" items={visibleReceiveTopicHistory} />
-            </div>
+            <TopicReceivePanel
+              allMessages={callableMessages}
+              allTopics={availableTopics}
+              filteredTopics={filteredReceiveTopics}
+              importableOnly={topicImportableOnly}
+              onImportableOnlyChange={setTopicImportableOnly}
+              onMessageSelect={(key) => {
+                const message = callableMessages.find((item) => messageKey(item) === key)
+                setSelectedMessageKey(key)
+                setTopicMessageValues(defaultRequestValues(message?.message_schema ?? []))
+                setTopicPublishResult(null)
+              }}
+              onRefresh={loadReceiveState}
+              onResetAll={resetAllTopicReceiveHistory}
+              onResetSelected={resetSelectedTopicReceiveHistory}
+              onSearchChange={setReceiveTopicSearch}
+              onStart={startSelectedTopicReceive}
+              onStop={stopSelectedTopicReceive}
+              onTopicNameChange={(value, source) => {
+                selectedReceiveTopicSourceRef.current = value ? source : 'empty'
+                setSelectedReceiveTopic(value)
+              }}
+              receiveHistory={visibleReceiveTopicHistory}
+              receiving={selectedTopicReceiving}
+              receivingTopics={receiveTopics}
+              search={receiveTopicSearch}
+              selectedMessage={selectedMessage}
+              selectedMessageKey={selectedMessageKey}
+              selectedTopic={selectedReceiveTopic}
+              visibleMessages={visibleCallableMessages}
+            />
           )}
           {receiveMode === 'service' && (
-            <div className="interface-receive-grid">
-              <label className="interface-service-field">
-                <span>항목 검색</span>
-                <input
-                  placeholder="Service 이름 또는 type 검색"
-                  value={receiveServiceSearch}
-                  onChange={(event) => setReceiveServiceSearch(event.target.value)}
-                />
-              </label>
-              <label className="interface-service-field">
-                <span>Service · {filteredReceiveServices.length}/{callableServices.length}</span>
-                <select value={selectedReceiveServiceKey} onChange={(event) => {
-                  const key = event.target.value
-                  const service = callableServices.find((item) => serviceKey(item) === key)
-                  setSelectedReceiveServiceKey(key)
-                  setSelectedServiceKey(key)
-                  setRequestValues(defaultRequestValues(service?.request_schema ?? []))
-                  setServiceCallResult(null)
-                }}>
-                  {filteredReceiveServices.map((service) => (
-                    <option key={serviceKey(service)} value={serviceKey(service)}>
-                      {service.service_name || service.file_name} · {service.service_type}
-                    </option>
-                  ))}
-                </select>
-                {!filteredReceiveServices.length && (
-                  <small>검색 결과가 없습니다.</small>
-                )}
-              </label>
-              <div className="interface-receive-actions">
-                <button
-                  className={selectedReceiveServiceKey && activeReceiveServiceKey === selectedReceiveServiceKey ? 'interface-receive-action-button receiving' : 'interface-receive-action-button primary'}
-                  disabled={!selectedReceiveServiceKey || activeReceiveServiceKey === selectedReceiveServiceKey}
-                  onClick={startSelectedServiceReceive}
-                  type="button"
-                >
-                  {selectedReceiveServiceKey && activeReceiveServiceKey === selectedReceiveServiceKey ? '수신 중' : '수신 시작'}
-                </button>
-                <button className="interface-receive-action-button" onClick={stopSelectedServiceReceive} type="button">수신 중지</button>
-                <button className="interface-receive-action-button warning" onClick={resetSelectedServiceReceiveHistory} type="button">선택 이력 리셋</button>
-                <button className="interface-receive-action-button warning" onClick={resetServiceReceiveHistory} type="button">전체 이력 리셋</button>
-                <button className="interface-receive-action-button ghost" onClick={loadReceiveState} type="button">새로고침</button>
-              </div>
-              <ReceiveHistory title="Service response receive history" items={visibleReceiveServiceHistory} />
-            </div>
+            <ServiceReceivePanel
+              activeKey={activeReceiveServiceKey}
+              history={visibleReceiveServiceHistory}
+              items={callableServices}
+              onRefresh={loadReceiveState}
+              onResetAll={resetServiceReceiveHistory}
+              onResetSelected={resetSelectedServiceReceiveHistory}
+              onSearchChange={setReceiveServiceSearch}
+              onSelect={(key) => {
+                const service = callableServices.find((item) => serviceKey(item) === key)
+                setSelectedReceiveServiceKey(key)
+                setSelectedServiceKey(key)
+                setRequestValues(defaultRequestValues(service?.request_schema ?? []))
+                setServiceCallResult(null)
+              }}
+              onStart={startSelectedServiceReceive}
+              onStop={stopSelectedServiceReceive}
+              search={receiveServiceSearch}
+              selectedKey={selectedReceiveServiceKey}
+              visibleItems={filteredReceiveServices}
+            />
           )}
           {receiveMode === 'action' && (
-            <div className="interface-receive-grid">
-              <label className="interface-service-field">
-                <span>항목 검색</span>
-                <input
-                  placeholder="Action 이름 또는 type 검색"
-                  value={receiveActionSearch}
-                  onChange={(event) => setReceiveActionSearch(event.target.value)}
-                />
-              </label>
-              <label className="interface-service-field">
-                <span>Action · {filteredReceiveActions.length}/{callableActions.length}</span>
-                <select value={selectedReceiveActionKey} onChange={(event) => {
-                  const key = event.target.value
-                  const action = callableActions.find((item) => actionKey(item) === key)
-                  setSelectedReceiveActionKey(key)
-                  setSelectedActionKey(key)
-                  setGoalValues(defaultRequestValues(action?.goal_schema ?? []))
-                  setActionGoalResult(null)
-                }}>
-                  {filteredReceiveActions.map((action) => (
-                    <option key={actionKey(action)} value={actionKey(action)}>
-                      {action.action_name || action.file_name} · {action.action_type}
-                    </option>
-                  ))}
-                </select>
-                {!filteredReceiveActions.length && (
-                  <small>검색 결과가 없습니다.</small>
-                )}
-              </label>
-              <div className="interface-receive-actions">
-                <button
-                  className={selectedReceiveActionKey && activeReceiveActionKey === selectedReceiveActionKey ? 'interface-receive-action-button receiving' : 'interface-receive-action-button primary'}
-                  disabled={!selectedReceiveActionKey || activeReceiveActionKey === selectedReceiveActionKey}
-                  onClick={startSelectedActionReceive}
-                  type="button"
-                >
-                  {selectedReceiveActionKey && activeReceiveActionKey === selectedReceiveActionKey ? '수신 중' : '수신 시작'}
-                </button>
-                <button className="interface-receive-action-button" onClick={stopSelectedActionReceive} type="button">수신 중지</button>
-                <button className="interface-receive-action-button warning" onClick={resetSelectedActionReceiveHistory} type="button">선택 이력 리셋</button>
-                <button className="interface-receive-action-button warning" onClick={resetActionReceiveHistory} type="button">전체 이력 리셋</button>
-                <button className="interface-receive-action-button ghost" onClick={loadReceiveState} type="button">새로고침</button>
-              </div>
-              <ReceiveHistory title="Action feedback/result receive history" items={visibleReceiveActionHistory} />
-            </div>
+            <ActionReceivePanel
+              activeKey={activeReceiveActionKey}
+              history={visibleReceiveActionHistory}
+              items={callableActions}
+              onRefresh={loadReceiveState}
+              onResetAll={resetActionReceiveHistory}
+              onResetSelected={resetSelectedActionReceiveHistory}
+              onSearchChange={setReceiveActionSearch}
+              onSelect={(key) => {
+                const action = callableActions.find((item) => actionKey(item) === key)
+                setSelectedReceiveActionKey(key)
+                setSelectedActionKey(key)
+                setGoalValues(defaultRequestValues(action?.goal_schema ?? []))
+                setActionGoalResult(null)
+              }}
+              onStart={startSelectedActionReceive}
+              onStop={stopSelectedActionReceive}
+              search={receiveActionSearch}
+              selectedKey={selectedReceiveActionKey}
+              visibleItems={filteredReceiveActions}
+            />
           )}
-          {receiveMode === 'mock' && (
-            <p className="interface-package-help">
-              Service Server / Action Server mock receive는 준비중입니다. 자동으로 장비 제어 동작을 수행하지 않습니다.
-            </p>
-          )}
-        </div>
+        </InterfaceReceiveWorkbench>
       )}
-      {buildLogTail && applyStatus?.build_status === 'failed' && (
-        <>
-          <button
-            className="interface-error-toggle"
-            onClick={toggleBuildLog}
-            type="button"
-          >
-            {showBuildLog ? '상세 오류 숨기기' : '상세 오류 보기'}
-          </button>
-          {showBuildLog && (
-            <div className="interface-build-log-panel">
-              <div className="interface-registry-heading">
-                <strong>상세 오류</strong>
-              </div>
-              <div className="interface-receive-actions">
-                <button className="interface-receive-action-button ghost" disabled={disabled} onClick={regenerateUploadedInterfacesCmake} type="button">
-                  CMake 재생성
-                </button>
-                <button className="interface-receive-action-button primary" disabled={disabled} onClick={applyUploadedInterfaces} type="button">
-                  적용 다시 실행
-                </button>
-              </div>
-              <pre className="interface-build-log">{buildLogTail}</pre>
-            </div>
-          )}
-        </>
+      {applyStatus?.build_status === 'failed' && (
+        <BuildFailurePanel
+          applying={applying}
+          buildLogTail={buildLogTail}
+          busy={busy}
+          onApply={applyUploadedInterfaces}
+          onRegenerate={regenerateUploadedInterfacesCmake}
+          onToggle={toggleBuildLog}
+          open={showBuildLog}
+        />
       )}
       {showRegistry && (
-        <div className="interface-registry-panel">
-          <div className="interface-registry-heading">
-            <strong>등록된 타입</strong>
-          </div>
-          <RegistryGroup deletedItems={deletedRegistryItemsFor('msg', recentDeletedRegistry)} items={registry?.messages} label="Message" onDelete={removeRegistryEntry} onDeleteManual={removeManualDefinition} onEditManual={startEditManualDefinition} />
-          <RegistryGroup deletedItems={deletedRegistryItemsFor('srv', recentDeletedRegistry)} items={registry?.services} label="Service" onDelete={removeRegistryEntry} onDeleteManual={removeManualDefinition} onEditManual={startEditManualDefinition} />
-          <RegistryGroup deletedItems={deletedRegistryItemsFor('action', recentDeletedRegistry)} items={registry?.actions} label="Action" onDelete={removeRegistryEntry} onDeleteManual={removeManualDefinition} onEditManual={startEditManualDefinition} />
-        </div>
+        <RegisteredInterfacesPanel
+          onDelete={handleRemoveRegistryEntry}
+          onDeleteManual={handleRemoveManualDefinition}
+          onEditManual={startEditManualDefinition}
+          recentDeletedRegistry={recentDeletedRegistry}
+          registry={registry}
+        />
       )}
       {showPackages && (
-        <div className="interface-package-panel">
-          <div className="interface-registry-heading interface-panel-heading">
-            <strong>Uploaded Interface Packages</strong>
-            <button
-              aria-pressed={topicExpandedActive}
-              className="interface-panel-expand-button"
-              onClick={() => setTopicWorkspaceExpanded((value) => !value)}
-              type="button"
-            >
-              {topicExpandedActive ? '목록보기' : '크게보기'}
-            </button>
-          </div>
-          <p className="interface-package-help">
-            장비가 실제 사용하는 원본 interface package를 패키지명 그대로 등록합니다.
-          </p>
-          <PackageRegistry
-            packages={packages}
-            onDelete={removePackage}
-          />
-        </div>
+        <UploadedPackagesPanel
+          expanded={topicExpandedActive}
+          onDelete={handleRemovePackage}
+          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          packages={packages}
+        />
       )}
       {showCallableTopics && (
         <TopicExecutionPanel

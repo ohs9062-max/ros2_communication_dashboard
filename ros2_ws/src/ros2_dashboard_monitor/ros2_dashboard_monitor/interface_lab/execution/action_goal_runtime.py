@@ -12,15 +12,7 @@ from rclpy.action.graph import (
     get_action_names_and_types,
     get_action_server_names_and_types_by_node,
 )
-from rosidl_runtime_py.utilities import get_action
-
-from ros2_dashboard_monitor.ros2_action.models import goal_status_label
 from ros2_dashboard_monitor.interface_lab.apply.runtime import refresh_install_python_paths
-from ros2_dashboard_monitor.interface_lab.common.value_converter import (
-    InterfaceValidationError,
-    build_ros_message,
-    ros_message_to_json,
-)
 from ros2_dashboard_monitor.interface_lab.management.registry import registry_snapshot
 from ros2_dashboard_monitor.interface_lab.management.packages import registered_package_actions
 from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import (
@@ -35,6 +27,13 @@ from ros2_dashboard_monitor.interface_lab.execution.action_support import (
     interface_lab_node as _interface_lab_node,
     normalized_timeout as _normalized_timeout,
     schema_from_action_class as _schema_from_action_class,
+)
+from ros2_dashboard_monitor.interface_lab.execution.action_goal_executor import execute_action_goal
+from ros2_dashboard_monitor.interface_lab.execution.action_discovery import (
+    build_action_count_maps,
+    discover_action_graph,
+    merge_action_counts,
+    query_action_endpoints,
 )
 
 
@@ -117,138 +116,25 @@ class ActionGoalRuntime:
         if node is None:
             raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
 
-        started_at = time()
-        feedback_items: list[dict[str, Any]] = []
-        sent_to_server = False
-        accepted = False
-        phase = 'goal_send'
-        try:
-            action_class = get_action(action_type)
-            try:
-                goal = build_ros_message(action_class.Goal, goal_data, label='goal')
-            except InterfaceValidationError as exc:
-                result = self._result(
-                    success=False,
-                    action_name=action_name,
-                    action_type=action_type,
-                    goal_data=goal_data,
-                    accepted=False,
-                    feedback=feedback_items,
-                    result=None,
-                    started_at=started_at,
-                    timeout_sec=timeout,
-                    error=str(exc),
-                    error_type='validation_error',
-                    details=exc.details,
-                    sent_to_server=False,
-                )
-                self._record_history(result)
-                return result
-            client = self._client(action_name, action_type, action_class)
-            if not client.server_is_ready():
-                raise ActionGoalError('Action server가 준비되지 않았습니다.')
+        return execute_action_goal(
+            action_name=action_name,
+            action_type=action_type,
+            goal_data=goal_data,
+            timeout=timeout,
+            client_getter=self._client,
+            result_builder=self._result,
+            record_history=self._record_history,
+            goal_handle_store=self._store_goal_handle,
+            goal_handle_remove=self._remove_goal_handle,
+        )
 
-            send_event = threading.Event()
-            send_future = client.send_goal_async(
-                goal,
-                feedback_callback=lambda feedback: feedback_items.append(
-                    ros_message_to_json(feedback.feedback),
-                ),
-            )
-            sent_to_server = True
-            phase = 'goal_accept'
-            send_future.add_done_callback(lambda _future: send_event.set())
-            if not send_event.wait(timeout=timeout):
-                raise TimeoutError(f'action goal accept timeout after {timeout:.2f}s')
+    def _store_goal_handle(self, action_name: str, action_type: str, goal_handle: Any) -> None:
+        with self._lock:
+            self._goal_handles[(action_name, action_type)] = goal_handle
 
-            goal_handle = send_future.result()
-            accepted = bool(getattr(goal_handle, 'accepted', False))
-            if not accepted:
-                result = self._result(
-                    success=False,
-                    action_name=action_name,
-                    action_type=action_type,
-                    goal_data=goal_data,
-                    accepted=False,
-                    feedback=feedback_items,
-                    result=None,
-                    started_at=started_at,
-                    timeout_sec=timeout,
-                    error='goal rejected',
-                    error_type='goal_rejected',
-                    sent_to_server=sent_to_server,
-                )
-                self._record_history(result)
-                return result
-
-            with self._lock:
-                self._goal_handles[(action_name, action_type)] = goal_handle
-
-            result_event = threading.Event()
-            phase = 'result'
-            result_future = goal_handle.get_result_async()
-            result_future.add_done_callback(lambda _future: result_event.set())
-            remaining = max(0.0, timeout - (time() - started_at))
-            if not result_event.wait(timeout=remaining):
-                raise TimeoutError(f'action result timeout after {timeout:.2f}s')
-
-            result_response = result_future.result()
-            result_msg = getattr(result_response, 'result', result_response)
-            status = getattr(result_response, 'status', None)
-            status_label = goal_status_label(status)
-            succeeded = status is None or status_label == 'succeeded'
-            result = self._result(
-                success=succeeded,
-                action_name=action_name,
-                action_type=action_type,
-                goal_data=goal_data,
-                accepted=True,
-                feedback=feedback_items,
-                result=ros_message_to_json(result_msg),
-                started_at=started_at,
-                timeout_sec=timeout,
-                status=status,
-                error=(
-                    None
-                    if succeeded
-                    else f'action finished with status {status_label}'
-                ),
-                sent_to_server=sent_to_server,
-            )
-        except Exception as exc:
-            if isinstance(exc, TimeoutError):
-                error_type = (
-                    'result_timeout'
-                    if phase == 'result'
-                    else 'goal_accept_timeout'
-                )
-            elif phase == 'result':
-                error_type = 'result_receive_failed'
-            else:
-                error_type = 'goal_send_failed'
-            result = self._result(
-                success=False,
-                action_name=action_name,
-                action_type=action_type,
-                goal_data=goal_data,
-                accepted=accepted,
-                feedback=feedback_items,
-                result=None,
-                started_at=started_at,
-                timeout_sec=timeout,
-                error=str(exc),
-                error_type=error_type,
-                sent_to_server=sent_to_server,
-            )
-            self._record_history(result)
-            if isinstance(exc, ActionGoalError):
-                raise
-            raise ActionGoalError(str(exc)) from exc
-
-        self._record_history(result)
+    def _remove_goal_handle(self, action_name: str, action_type: str) -> None:
         with self._lock:
             self._goal_handles.pop((action_name, action_type), None)
-        return result
 
     def cancel_goal(
         self,
@@ -460,81 +346,44 @@ class ActionGoalRuntime:
         return actions
 
     def _action_graph(self) -> list[dict[str, Any]]:
-        node = self._node_getter()
-        if node is None:
-            return []
-        try:
-            names_and_types = get_action_names_and_types(node)
-        except Exception:
-            return []
-        server_counts, client_counts = self._action_count_maps()
-        graph = []
-        for name, types in names_and_types:
-            for action_type in sorted(set(types)):
-                graph.append({
-                    'name': name,
-                    'type': action_type,
-                    'server_count': server_counts.get((name, action_type), 0),
-                    'client_count': client_counts.get((name, action_type), 0),
-                })
-        return graph
+        return discover_action_graph(
+            self._node_getter,
+            get_action_names_and_types,
+            self._action_count_maps,
+        )
 
     def _action_count_maps(
         self,
     ) -> tuple[dict[tuple[str, str], int], dict[tuple[str, str], int]]:
-        node = self._node_getter()
-        if node is None:
-            return {}, {}
-        server_counts: dict[tuple[str, str], int] = {}
-        client_counts: dict[tuple[str, str], int] = {}
-        try:
-            node_names = node.get_node_names_and_namespaces()
-        except Exception:
-            return server_counts, client_counts
-        for node_name, namespace in node_names:
-            self._merge_action_counts(
-                server_counts,
-                self._action_servers_by_node(node_name, namespace),
-            )
-            self._merge_action_counts(
-                client_counts,
-                self._action_clients_by_node(node_name, namespace),
-            )
-        return server_counts, client_counts
+        return build_action_count_maps(
+            self._node_getter,
+            self._action_servers_by_node,
+            self._action_clients_by_node,
+        )
 
     def _action_servers_by_node(
         self,
         node_name: str,
         namespace: str,
     ) -> list[tuple[str, list[str]]]:
-        node = self._node_getter()
-        if node is None:
-            return []
-        try:
-            return get_action_server_names_and_types_by_node(
-                node,
-                node_name,
-                namespace,
-            )
-        except Exception:
-            return []
+        return query_action_endpoints(
+            self._node_getter,
+            get_action_server_names_and_types_by_node,
+            node_name,
+            namespace,
+        )
 
     def _action_clients_by_node(
         self,
         node_name: str,
         namespace: str,
     ) -> list[tuple[str, list[str]]]:
-        node = self._node_getter()
-        if node is None:
-            return []
-        try:
-            return get_action_client_names_and_types_by_node(
-                node,
-                node_name,
-                namespace,
-            )
-        except Exception:
-            return []
+        return query_action_endpoints(
+            self._node_getter,
+            get_action_client_names_and_types_by_node,
+            node_name,
+            namespace,
+        )
 
     def _client(self, name: str, action_type: str, action_class: type):
         key = (name, action_type)
@@ -589,10 +438,7 @@ class ActionGoalRuntime:
         counts: dict[tuple[str, str], int],
         names_and_types: list[tuple[str, list[str]]],
     ) -> None:
-        for name, types in names_and_types:
-            for action_type in set(types):
-                key = (name, action_type)
-                counts[key] = counts.get(key, 0) + 1
+        merge_action_counts(counts, names_and_types)
 
     def _record_history(self, item: dict[str, Any]) -> None:
         item.setdefault('execution_source', 'interface_lab')

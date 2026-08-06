@@ -1,5 +1,6 @@
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime import ActionGoalRuntime
 from ros2_dashboard_monitor.interface_lab.execution.service_call_runtime import ServiceCallRuntime
+from ros2_dashboard_monitor.interface_lab.execution.service_discovery import discover_service_graph
 from ros2_dashboard_monitor.ros_monitor import _service_effective_status
 
 
@@ -84,6 +85,23 @@ def test_service_effective_status_keeps_graph_and_call_results_separate():
         server_count=0,
         summary=timeout_summary,
     ) == 'waiting_server'
+
+
+def test_service_discovery_preserves_each_exact_type_and_counts():
+    class Node:
+        def get_service_names_and_types(self):
+            return [('/demo', ['pkg/srv/B', 'pkg/srv/A', 'pkg/srv/A'])]
+
+        def count_services(self, name):
+            assert name == '/demo'
+            return 2
+
+    graph = discover_service_graph(lambda: Node(), lambda name: 3 if name == '/demo' else 0)
+
+    assert graph == [
+        {'name': '/demo', 'type': 'pkg/srv/A', 'server_count': 2, 'client_count': 3},
+        {'name': '/demo', 'type': 'pkg/srv/B', 'server_count': 2, 'client_count': 3},
+    ]
 
 
 def test_action_history_summary_includes_result_and_feedback():

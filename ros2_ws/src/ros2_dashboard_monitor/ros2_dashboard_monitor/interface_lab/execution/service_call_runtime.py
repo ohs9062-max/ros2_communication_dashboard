@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import threading
 from time import time
 from typing import Any, Callable
 
 from ros2_dashboard_monitor.interface_lab.apply.runtime import refresh_install_python_paths
 from ros2_dashboard_monitor.interface_lab.common.value_converter import (
-    InterfaceValidationError,
     build_ros_message,
     ros_message_to_json,
     schema_from_message_class,
@@ -19,6 +17,11 @@ from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import (
     BoundedExecutionHistory,
     RuntimeClientPool,
 )
+from ros2_dashboard_monitor.interface_lab.execution.service_discovery import (
+    count_service_clients,
+    discover_service_graph,
+)
+from ros2_dashboard_monitor.interface_lab.execution.service_call_executor import execute_service_call
 from ros2_dashboard_monitor.ros2_service.active_check import (
     load_service_class,
 )
@@ -107,88 +110,19 @@ class ServiceCallRuntime:
         if node is None:
             raise ServiceCallError('ROS2 monitor node가 실행 중이 아닙니다.')
 
-        started_at = time()
-        sent_to_server = False
-        try:
-            service_class = load_service_class(service_type)
-            try:
-                request = build_ros_message(service_class.Request, request_data, label='request')
-            except InterfaceValidationError as exc:
-                result = self._validation_result(
-                    service_name=service_name,
-                    service_type=service_type,
-                    request_data=request_data,
-                    started_at=started_at,
-                    timeout_sec=timeout,
-                    error=str(exc),
-                    details=exc.details,
-                )
-                self._record_history(result)
-                return result
-            client = self._client(service_name, service_type, service_class)
-            if not client.service_is_ready():
-                raise ServiceCallError('Service server가 준비되지 않았습니다.')
-
-            future = client.call_async(request)
-            sent_to_server = True
-            event = threading.Event()
-            future.add_done_callback(lambda _future: event.set())
-            if not event.wait(timeout=timeout):
-                raise TimeoutError(f'service call timeout after {timeout:.2f}s')
-            response = future.result()
-            elapsed_ms = (time() - started_at) * 1000.0
-            response_preview = ros_message_to_json(response)
-            response_failed = (
-                isinstance(response_preview, dict)
-                and response_preview.get('success') is False
-            )
-            result = {
-                'success': not response_failed,
-                'service_name': service_name,
-                'service_type': service_type,
-                'request': request_data,
-                'response': response_preview,
-                'elapsed_ms': elapsed_ms,
-                'timeout_sec': timeout,
-                'called_at': started_at,
-                'called': True,
-                'sent_to_server': True,
-            }
-            if response_failed:
-                result['error_type'] = 'response_failed'
-                result['error'] = str(
-                    response_preview.get('message')
-                    or response_preview.get('error')
-                    or 'Service response reported success=false'
-                )
-        except Exception as exc:
-            elapsed_ms = (time() - started_at) * 1000.0
-            error_type = (
-                'timeout'
-                if isinstance(exc, TimeoutError)
-                else 'service_call_error'
-            )
-            result = {
-                'success': False,
-                'service_name': service_name,
-                'service_type': service_type,
-                'request': request_data,
-                'response': None,
-                'elapsed_ms': elapsed_ms,
-                'timeout_sec': timeout,
-                'called_at': started_at,
-                'called': sent_to_server,
-                'sent_to_server': sent_to_server,
-                'error_type': error_type,
-                'error': str(exc),
-            }
-            self._record_history(result)
-            if isinstance(exc, ServiceCallError):
-                raise
-            raise ServiceCallError(str(exc)) from exc
-
-        self._record_history(result)
-        return result
+        return execute_service_call(
+            service_name=service_name,
+            service_type=service_type,
+            request_data=request_data,
+            timeout=timeout,
+            service_class_loader=load_service_class,
+            client_getter=self._client,
+            validation_result_builder=self._validation_result,
+            record_history=self._record_history,
+            error_class=ServiceCallError,
+            message_builder=build_ros_message,
+            response_serializer=ros_message_to_json,
+        )
 
     def history(self) -> dict[str, Any]:
         """최근 Service Call 실행 이력을 복사해 반환합니다."""
@@ -341,20 +275,7 @@ class ServiceCallRuntime:
         return services
 
     def _service_graph(self) -> list[dict[str, Any]]:
-        node = self._node_getter()
-        if node is None:
-            return []
-
-        graph = []
-        for name, types in node.get_service_names_and_types():
-            for service_type in sorted(set(types)):
-                graph.append({
-                    'name': name,
-                    'type': service_type,
-                    'server_count': node.count_services(name),
-                    'client_count': self._client_count(name),
-                })
-        return graph
+        return discover_service_graph(self._node_getter, self._client_count)
 
     def _client(self, name: str, service_type: str, service_class: type):
         key = (name, service_type)
@@ -367,16 +288,7 @@ class ServiceCallRuntime:
         return self._client_pool.get_or_create(key, create_client)
 
     def _client_count(self, name: str) -> int:
-        node = self._node_getter()
-        if node is None:
-            return 0
-        count_clients = getattr(node, 'count_clients', None)
-        if count_clients is None:
-            return 0
-        try:
-            return count_clients(name)
-        except Exception:
-            return 0
+        return count_service_clients(self._node_getter, name)
 
     def _service_state(
         self,
