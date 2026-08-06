@@ -15,6 +15,10 @@ from ros2_dashboard_monitor.interface_lab.common.value_converter import (
 )
 from ros2_dashboard_monitor.interface_lab.management.registry import registry_snapshot
 from ros2_dashboard_monitor.interface_lab.management.packages import registered_package_services
+from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import (
+    BoundedExecutionHistory,
+    RuntimeClientPool,
+)
 from ros2_dashboard_monitor.ros2_service.active_check import (
     load_service_class,
 )
@@ -40,18 +44,18 @@ class ServiceCallRuntime:
     ) -> None:
         self._lock = lock
         self._node_getter = node_getter
-        self._clients: dict[tuple[str, str], Any] = {}
-        self._history: list[dict[str, Any]] = []
+        self._client_pool: RuntimeClientPool[tuple[str, str], Any] = RuntimeClientPool(lock)
+        self._history = BoundedExecutionHistory(lock, MAX_HISTORY_ITEMS)
         self._receive_reset_at: float | None = None
         self._receive_reset_by_key: dict[tuple[str | None, str | None], float] = {}
 
     def clear(self) -> None:
         """Interface Lab에서 cache와 runtime 상태를 초기화하는 함수입니다."""
         with self._lock:
-            self._clients = {}
-            self._history = []
             self._receive_reset_at = None
             self._receive_reset_by_key = {}
+        self._client_pool.clear()
+        self._history.clear()
 
     def callable_services(self) -> dict[str, Any]:
         """등록·import 가능하고 현재 Graph와 일치하는 Service 후보를 반환합니다."""
@@ -188,8 +192,7 @@ class ServiceCallRuntime:
 
     def history(self) -> dict[str, Any]:
         """최근 Service Call 실행 이력을 복사해 반환합니다."""
-        with self._lock:
-            calls = [item.copy() for item in self._history]
+        calls = self._history.snapshot()
         return {
             'calls': calls,
             'meta': {
@@ -255,8 +258,7 @@ class ServiceCallRuntime:
 
     def summary_by_service(self) -> dict[tuple[str, str], dict[str, Any]]:
         """Service 이름·타입별 최근 Call 결과와 누적 건수를 요약합니다."""
-        with self._lock:
-            calls = [item.copy() for item in self._history]
+        calls = self._history.snapshot()
         summaries: dict[tuple[str, str], dict[str, Any]] = {}
         for call in reversed(calls):
             key = (str(call.get('service_name') or ''), str(call.get('service_type') or ''))
@@ -282,11 +284,10 @@ class ServiceCallRuntime:
         self,
     ) -> dict[tuple[str, str], dict[str, bool]]:
         """Service별 Interface Lab Client 생성 상태를 반환합니다."""
-        with self._lock:
-            return {
-                key: {'interface_client_created': True}
-                for key in self._clients
-            }
+        return {
+            key: {'interface_client_created': True}
+            for key in self._client_pool.keys()
+        }
 
     def _allowed_service(
         self,
@@ -357,18 +358,13 @@ class ServiceCallRuntime:
 
     def _client(self, name: str, service_type: str, service_class: type):
         key = (name, service_type)
-        with self._lock:
-            client = self._clients.get(key)
-            if client is not None:
-                return client
-
+        def create_client():
             node = self._node_getter()
             if node is None:
                 raise ServiceCallError('ROS2 monitor node가 실행 중이 아닙니다.')
+            return node.create_client(service_class, name)
 
-            client = node.create_client(service_class, name)
-            self._clients[key] = client
-            return client
+        return self._client_pool.get_or_create(key, create_client)
 
     def _client_count(self, name: str) -> int:
         node = self._node_getter()
@@ -418,9 +414,7 @@ class ServiceCallRuntime:
     def _record_history(self, item: dict[str, Any]) -> None:
         item.setdefault('execution_source', 'interface_lab')
         item.setdefault('requester_node', _interface_lab_node(self._node_getter))
-        with self._lock:
-            self._history.insert(0, item)
-            del self._history[MAX_HISTORY_ITEMS:]
+        self._history.record(item)
 
     def _validation_result(
         self,

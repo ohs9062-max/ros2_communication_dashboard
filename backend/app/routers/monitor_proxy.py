@@ -12,7 +12,6 @@ from app.monitor_client.client import MonitorUnavailable
 router = APIRouter()
 
 
-@router.api_route('/ros/{path:path}', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 async def proxy_monitor(path: str, request: Request) -> Response:
     query = request.url.query
     target = f'/ros/{path}' + (f'?{query}' if query else '')
@@ -31,3 +30,28 @@ async def proxy_monitor(path: str, request: Request) -> Response:
         status_code=response.status_code,
         media_type=response.content_type.split(';', 1)[0],
     )
+
+
+@router.get('/ros/{path:path}')
+async def proxy_monitor_get(path: str, request: Request) -> Response:
+    return await proxy_monitor(path, request)
+
+
+@router.post('/ros/{path:path}')
+async def proxy_monitor_post(path: str, request: Request) -> Response:
+    return await proxy_monitor(path, request)
+
+
+@router.put('/ros/{path:path}')
+async def proxy_monitor_put(path: str, request: Request) -> Response:
+    return await proxy_monitor(path, request)
+
+
+@router.delete('/ros/{path:path}')
+async def proxy_monitor_delete(path: str, request: Request) -> Response:
+    return await proxy_monitor(path, request)
+
+
+@router.patch('/ros/{path:path}')
+async def proxy_monitor_patch(path: str, request: Request) -> Response:
+    return await proxy_monitor(path, request)

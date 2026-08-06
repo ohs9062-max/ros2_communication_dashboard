@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import './App.css'
 import { AppShell } from './layout/AppShell.jsx'
 import { useActionDashboard } from './hooks/useActionDashboard.js'
@@ -6,16 +7,15 @@ import { useNodeDashboard } from './hooks/useNodeDashboard.js'
 import { useServiceDashboard } from './hooks/useServiceDashboard.js'
 import { useTopicDashboard } from './hooks/useTopicDashboard.js'
 import { useBrowserRoute } from './hooks/useBrowserRoute.js'
-import {
-  AlertsPage,
-  ActionsPage,
-  InterfaceLabPage,
-  NodesPage,
-  OverviewPage,
-  ServicesPage,
-  TopicsPage,
-  VisualizationPage,
-} from './pages/index.js'
+
+const OverviewPage = lazy(() => import('./pages/OverviewPage.jsx').then(({ OverviewPage: Page }) => ({ default: Page })))
+const TopicsPage = lazy(() => import('./pages/TopicsPage.jsx').then(({ TopicsPage: Page }) => ({ default: Page })))
+const AlertsPage = lazy(() => import('./pages/AlertsPage.jsx').then(({ AlertsPage: Page }) => ({ default: Page })))
+const NodesPage = lazy(() => import('./pages/NodesPage.jsx').then(({ NodesPage: Page }) => ({ default: Page })))
+const ServicesPage = lazy(() => import('./pages/ServicesPage.jsx').then(({ ServicesPage: Page }) => ({ default: Page })))
+const ActionsPage = lazy(() => import('./pages/ActionsPage.jsx').then(({ ActionsPage: Page }) => ({ default: Page })))
+const VisualizationPage = lazy(() => import('./pages/VisualizationPage.jsx').then(({ VisualizationPage: Page }) => ({ default: Page })))
+const InterfaceLabPage = lazy(() => import('./pages/InterfaceLabPage.jsx').then(({ InterfaceLabPage: Page }) => ({ default: Page })))
 
 function App() {
   const { activePage, navigate } = useBrowserRoute()
@@ -39,6 +39,7 @@ function App() {
       onNavigate={navigate}
       websocket={monitorWebSocket}
     >
+      <Suspense fallback={<PageLoading />}>
       {activePage === 'overview' && (
         <OverviewPage
           actionDashboard={actionDashboard}
@@ -78,7 +79,16 @@ function App() {
       {activePage === 'interfaceLab' && (
         <InterfaceLabPage websocket={monitorWebSocket} />
       )}
+      </Suspense>
     </AppShell>
+  )
+}
+
+function PageLoading() {
+  return (
+    <main className="page-loading" aria-busy="true" aria-live="polite">
+      화면을 불러오는 중…
+    </main>
   )
 }
 

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import importlib
 import os
 import re
 import shutil
-import sys
 import tempfile
 import threading
 from datetime import datetime, timezone
@@ -18,6 +16,9 @@ from typing import Any
 import yaml
 
 from ros2_dashboard_monitor.interface_lab.paths import persistent_monitor_config_dir, ros_workspace_root
+from ros2_dashboard_monitor.interface_lab.management.errors import InterfaceUploadError
+from ros2_dashboard_monitor.interface_lab.management.interface_parser import parse_interface
+from ros2_dashboard_monitor.interface_lab.management.import_checker import check_import as _check_import
 
 
 ALLOWED_KINDS = {'msg', 'srv', 'action'}
@@ -33,10 +34,6 @@ DEPENDENCY_PATTERN = re.compile(
     r'(?<![A-Za-z0-9_])([A-Za-z][A-Za-z0-9_]*)/'
     r'[A-Za-z][A-Za-z0-9_]*(?:\[[^]]*\])?',
 )
-
-
-class InterfaceUploadError(ValueError):
-    """Interface Lab에서 발생하는 예외를 표현하는 클래스입니다."""
 
 
 def default_registry_path() -> Path:
@@ -329,32 +326,6 @@ def _update_package_xml(path: Path, dependencies: list[str]) -> bool:
     return True
 
 
-def _check_import(package_name: str, kind: str, type_name: str) -> tuple[bool, str | None]:
-    module_name = f'{package_name}.{kind}'
-    last_error: Exception | None = None
-    for attempt in range(2):
-        try:
-            importlib.invalidate_caches()
-            if attempt:
-                _purge_interface_modules(package_name)
-                importlib.invalidate_caches()
-            if module_name in sys.modules:
-                module = importlib.reload(sys.modules[module_name])
-            else:
-                module = importlib.import_module(module_name)
-            getattr(module, type_name)
-            return True, None
-        except (ImportError, AttributeError) as exc:
-            last_error = exc
-    return False, str(last_error)
-
-
-def _purge_interface_modules(package_name: str) -> None:
-    for module_name in list(sys.modules):
-        if module_name == package_name or module_name.startswith(f'{package_name}.'):
-            sys.modules.pop(module_name, None)
-
-
 def _backup(path: Path) -> None:
     backup = path.with_name(f'{path.name}.bak')
     if not backup.exists():
@@ -490,60 +461,6 @@ def registry_apply_summary(
         )
         _write_registry(path, registry)
         return summary
-
-
-def parse_interface(raw_text: str, kind: str) -> dict[str, Any]:
-    """msg·srv·action 원문을 section과 필드 schema로 해석합니다."""
-    sections = _split_sections(raw_text)
-    expected = {'msg': 1, 'srv': 2, 'action': 3}[kind]
-    if len(sections) != expected:
-        labels = {'msg': 'fields', 'srv': 'request/response', 'action': 'goal/result/feedback'}
-        raise InterfaceUploadError(f'{kind}의 {labels[kind]} 구분 형식이 올바르지 않습니다.')
-
-    parsed_sections = [_parse_fields(lines) for lines in sections]
-    if kind == 'msg':
-        return {'fields': parsed_sections[0]}
-    if kind == 'srv':
-        return {'request': parsed_sections[0], 'response': parsed_sections[1]}
-    return {
-        'goal': parsed_sections[0],
-        'result': parsed_sections[1],
-        'feedback': parsed_sections[2],
-    }
-
-
-def _split_sections(raw_text: str) -> list[list[str]]:
-    sections: list[list[str]] = [[]]
-    for source_line in raw_text.splitlines():
-        line = source_line.split('#', 1)[0].strip()
-        if not line:
-            continue
-        if line == '---':
-            sections.append([])
-        else:
-            sections[-1].append(line)
-    return sections
-
-
-def _parse_fields(lines: list[str]) -> list[dict[str, Any]]:
-    fields: list[dict[str, Any]] = []
-    for line in lines:
-        parts = line.split(None, 1)
-        if len(parts) != 2:
-            fields.append({'raw_line': line})
-            continue
-        field_type, declaration = parts
-        item: dict[str, Any] = {'type': field_type, 'raw_line': line}
-        if '=' in declaration:
-            name, value = declaration.split('=', 1)
-            item.update(name=name.strip(), value=value.strip(), is_constant=True)
-        else:
-            declaration_parts = declaration.split(None, 1)
-            item['name'] = declaration_parts[0]
-            if len(declaration_parts) > 1:
-                item['default'] = declaration_parts[1]
-        fields.append(item)
-    return fields
 
 
 def _safe_file_name(file_name: str) -> str:

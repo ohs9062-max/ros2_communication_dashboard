@@ -3,6 +3,495 @@
 이 파일은 Codex가 `ros2_dashboard`에서 작업할 때 따라야 하는 현재 기준 문서다.
 구현 정책이 바뀌거나 주요 기능이 추가되면 사용자 요청에 따라 이 문서를 최신 상태로 갱신한다.
 
+## 0. 2026-08-06 구조 분리 이후 우선 적용 기준
+
+이 절은 기존 정책을 삭제하지 않고, 대규모 구조 분리 이후 달라진 경로와 실행 경계를
+추가한 최신 기준이다. 아래 기존 절과 경로·프로세스 책임이 충돌하면 이 절을 우선한다.
+기존의 API 호환, ROS2 Graph API, 자동 감시와 사용자 명시 실행 분리, Alert, QoS,
+Interface Lab 안전 정책은 계속 유효하다.
+
+### 0.1 현재 최상위 구조
+
+```text
+ros2_dashboard/
+├─ AGENTS.md
+├─ README.md
+├─ nextstep.md
+├─ backend/
+│  ├─ requirements.txt
+│  ├─ .env.example
+│  ├─ config/
+│  │  └─ user_preferences.yaml
+│  ├─ app/
+│  │  ├─ main.py
+│  │  ├─ app_state.py
+│  │  ├─ settings.py
+│  │  ├─ websocket_manager.py
+│  │  ├─ monitor_client/
+│  │  ├─ routers/
+│  │  ├─ alerts/
+│  │  ├─ database/
+│  │  └─ user_preferences/
+│  └─ tests/
+├─ ros2_ws/
+│  └─ src/
+│     ├─ ros2_dashboard_monitor/
+│     │  ├─ config/
+│     │  ├─ launch/
+│     │  ├─ ros2_dashboard_monitor/
+│     │  │  ├─ main.py
+│     │  │  ├─ ros_monitor.py
+│     │  │  ├─ config_loader.py
+│     │  │  ├─ resource_state.py
+│     │  │  ├─ topology.py
+│     │  │  ├─ priority_state.py
+│     │  │  ├─ transport/
+│     │  │  ├─ ros2_topic/
+│     │  │  ├─ ros2_service/
+│     │  │  ├─ ros2_action/
+│     │  │  ├─ ros2_node/
+│     │  │  └─ interface_lab/
+│     │  └─ test/
+│     ├─ ros2_dashboard_interfaces/
+│     ├─ ros2_dashboard_demo_nodes/
+│     └─ uploaded_interfaces/
+│        ├─ generated_interfaces/
+│        └─ packages/
+├─ frontend/
+├─ docs/
+└─ scripts/
+```
+
+생성물은 `ros2_ws/build/`, `ros2_ws/install/`, `ros2_ws/log/`,
+`frontend/node_modules/`, `frontend/dist/`, `.runtime/`이다. 소스처럼 직접 수정하거나
+Git에 포함하지 않는다. stale 생성물을 정리할 때도 정확한 package 범위만 제거한다.
+
+### 0.2 프로세스와 책임 경계
+
+```text
+ROS2 Graph
+→ ros2_dashboard_monitor (rclpy, ROS2 상태 계산, Interface Lab 실제 통신)
+→ localhost HTTP transport : 127.0.0.1:8765
+→ FastAPI Backend Runtime Cache : 127.0.0.1:8000
+→ REST / Browser WebSocket
+→ React Frontend
+```
+
+`ros2_dashboard_monitor` 책임:
+
+```text
+rclpy Node 생성과 spin
+ROS2 Graph 조회와 자동 발견
+Topic latest / Hz / age / stale / missing
+Service / Action / Node 상태 계산
+Topology와 ROS2 사실 기반 Alert 생성
+QoS와 Publisher / Subscription / Client 실행
+Interface 등록·package upload·build/import/apply
+사용자 명시 Topic Publish/Receive, Service Call, Action Goal/Cancel
+```
+
+`backend` 책임:
+
+```text
+순수 FastAPI app
+공개 REST API와 Browser WebSocket
+Monitor snapshot polling과 Runtime Cache
+Monitor 명령 proxy
+사용자 별표 설정
+Alert 현재/해결 이력
+향후 DB, 인증, 사용자 정책
+```
+
+Backend는 `rclpy`를 import하거나 ROS2 Node를 만들지 않는다. Monitor와 Backend는 Python
+singleton이나 같은 메모리 cache를 공유하지 않는다. Backend가 Monitor보다 먼저 시작해도
+죽지 않아야 하며, 마지막 정상 snapshot을 유지하고 연결 상태를 별도로 표시한다.
+
+Monitor 연결 또는 재연결 시 Backend의 `user_preferences.yaml`을
+`PUT /transport/priority`로 다시 동기화한다. 첫 동기화가 실패하면 snapshot polling에서
+성공할 때까지 재시도한다.
+
+### 0.3 내부 통신 정책
+
+현재 내부 통신은 localhost HTTP를 사용한다. MariaDB를 실시간 Monitor 전달 수단으로
+사용하지 않는다.
+
+```text
+Monitor → Backend
+= `/transport/snapshot` polling 결과
+
+Backend → Monitor
+= 기존 `/ros/...` 요청을 localhost transport로 전달
+```
+
+공개 API 경로와 응답 key는 기존 호환을 유지한다. Backend의 async proxy에서 동기
+네트워크 I/O를 직접 실행하지 않는다. `httpx.AsyncClient`처럼 event loop를 차단하지 않는
+경로를 사용한다. Monitor의 Service Call과 Action Goal/Cancel처럼 기다릴 수 있는 실행도
+Monitor API event loop를 막지 않게 worker에서 수행한다.
+
+Browser WebSocket은 Backend `/ws/monitor`만 사용한다. Frontend가 Monitor 8765 포트나
+ROS2에 직접 연결하지 않는다. WSS는 배포 proxy/TLS 정책으로 지원하며 개발 safe default는
+현재 origin과 환경 설정을 따른다.
+
+### 0.4 현재 경로 이름과 구 경로 대응
+
+이 문서 아래쪽의 구 경로 표현은 다음 최신 경로로 해석한다.
+
+```text
+backend/src/ros2_dashboard_backend/...  → backend/app/... 또는 ros2_dashboard_monitor/...
+backend/config/monitor.yaml             → ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml
+backend/config/interface_registry.yaml  → ros2_ws/src/ros2_dashboard_monitor/config/interface_registry.yaml
+backend/config/interface_packages.yaml  → ros2_ws/src/ros2_dashboard_monitor/config/interface_packages.yaml
+backend/config/interface_apply_status.yaml
+                                        → ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_status.yaml
+backend/src/uploaded_interfaces         → ros2_ws/src/uploaded_interfaces/generated_interfaces
+backend/src/uploaded_interface_packages → ros2_ws/src/uploaded_interfaces/packages
+backend/src/ros2_dashboard_interfaces   → ros2_ws/src/ros2_dashboard_interfaces
+topic/                                  → ros2_topic/
+service/                                → ros2_service/
+action/                                 → ros2_action/
+node/                                   → ros2_node/
+```
+
+구 `topic`, `service`, `action`, `node`, `backend/src/ros2_dashboard_backend`,
+`backend/src/uploaded_interfaces`, `backend/src/uploaded_interface_packages`를 새 구현 위치로
+다시 만들거나 호환 복사본으로 남기지 않는다.
+
+### 0.5 설정과 하드코딩 정책
+
+변경 가능한 배포값과 운영 정책은 `.env` 또는 YAML에서 읽고, 파일이나 key가 없으면 중앙
+Settings/Config Loader의 검증된 safe default를 사용한다. 기능 코드가 `os.getenv()`나 YAML을
+각자 읽지 않는다.
+
+```text
+backend/.env
+= MONITOR_BASE_URL, MONITOR_TIMEOUT_SEC, MONITOR_POLL_INTERVAL_SEC,
+  CORS_ORIGINS, USER_PREFERENCES_PATH
+
+Monitor process environment
+= ROS2_MONITOR_HOST, ROS2_MONITOR_PORT, ROS2_MONITOR_LOG_LEVEL,
+  ROS2_DASHBOARD_WS_ROOT, ROS2_DASHBOARD_MONITOR_CONFIG_DIR,
+  MONITOR_CONFIG_PATH, INTERFACE_*_PATH
+
+monitor.yaml
+= ROS2 발견·필터·상태·QoS 관련 운영 정책
+
+backend/config/user_preferences.yaml
+= 사용자 별표
+```
+
+설정으로 이동할 대상:
+
+```text
+base URL과 port
+timeout, polling/reconnect 주기
+history/retention 제한
+include/exclude와 stale/Hz 기준
+배포별 CORS, DB 연결, 사용자 정책
+```
+
+코드에 유지할 불변값:
+
+```text
+기존 API path와 JSON response key
+ROS2 표준 status code와 full_type 문법
+event type, enum, 자료형
+허용 HTTP method
+interface 문법과 보안 검증의 절대 상한
+package.xml/CMake/ROS protocol 규칙
+```
+
+기본값은 필요하지만 여러 기능 파일에 복제하지 않는다. Backend는 `settings.py`, Monitor는
+`config_loader.py`와 Interface Lab path helper, Frontend는 중앙 config/API client만 기본값을
+소유한다. Frontend는 YAML을 직접 읽지 않는다.
+
+### 0.6 설정과 사용자 데이터 저장 위치
+
+Monitor package share의 설치 YAML은 읽기 기본값이다. 변경 가능한 Registry와 Apply 상태를
+`install/share` 복사본에 저장하지 않는다. 일반 `colcon build`가 install을 덮어써도 사용자
+데이터가 유실되지 않도록 기본 영속 위치는 source workspace다.
+
+```text
+ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_registry.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_packages.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_status.yaml
+ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
+backend/config/user_preferences.yaml
+```
+
+Monitor config 폴더에 `user_preferences.yaml`을 다시 만들지 않는다. Backend config 폴더에
+Interface Apply log나 ROS2 Monitor YAML을 다시 만들지 않는다.
+
+Interface Apply가 build와 import 확인에 성공하면 응답 전송 후 Monitor 프로세스를 동일 PID로
+재실행한다. 삭제된 `reload_trigger.py`와 Backend uvicorn reload에 다시 의존하지 않는다.
+Backend와 Frontend는 유지되고 Backend polling이 Monitor에 자동 재연결한다.
+
+### 0.7 업로드 Interface 정책
+
+```text
+ros2_ws/src/uploaded_interfaces/generated_interfaces/
+= manual definition과 단일 .msg/.srv/.action을 모은 실제 ROS package
+
+ros2_ws/src/uploaded_interfaces/packages/<package_name>/
+= 사용자가 업로드한 완성 ROS interface package
+```
+
+`uploaded_interfaces/` 상위 폴더 자체를 ROS package로 취급하지 않는다. 각 실제 package만
+`package.xml`을 가지며 `colcon list`에서 독립 package로 보여야 한다. Registry, package name,
+원본 interface와 적용 상태를 삭제하거나 빈 파일로 덮어쓰지 않는다.
+
+### 0.8 실행과 검수 기준
+
+```bash
+cd ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+ros2 run ros2_dashboard_monitor monitor
+
+cd backend
+source .venv/bin/activate
+python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+cd frontend
+npm run dev
+```
+
+각 새 터미널은 ROS2 base와 `ros2_ws/install/setup.bash`를 다시 source한다. launch 파일은
+어느 위치에서든 package 방식으로 실행한다.
+
+```bash
+ros2 launch ros2_dashboard_monitor dashboard_monitor.launch.py
+ros2 launch ros2_dashboard_demo_nodes demo_communication.launch.py
+```
+
+`run_dashboard_stack.sh`는 Backend `.venv`와 필수 dependency를 확인하고 Monitor → Backend →
+Frontend 순서로 시작한다. Vite는 5173 strict port를 사용한다. 세 프로세스 중 하나라도
+예상하지 않게 끝나면 해당 로그 경로를 출력하고 생성한 stack 프로세스를 종료한다.
+
+최소 검수:
+
+```bash
+python3 -m compileall backend/app
+python3 -m compileall ros2_ws/src/ros2_dashboard_monitor
+cd ros2_ws && colcon list
+colcon build --symlink-install
+colcon test
+colcon test-result --verbose
+cd backend && .venv/bin/python -m pytest -q tests
+cd frontend && npm run lint && npm run build
+```
+
+현재 기준 전체 ROS2 test 결과는 110 tests, 0 failures다. 사용자 업로드 package가 없어도
+Monitor 자체 test가 특정 업로드 package에 직접 의존하지 않게 유지한다.
+
+### 0.9 다음 Frontend/Backend 기능 리팩토링 기준
+
+대형 파일을 기능 단위로 분리하되 줄 수만 보고 의미 있는 짧은 파일을 합치지 않는다.
+
+```text
+항상 함께 변경되는 작은 wrapper/re-export
+→ 통합 검토
+
+독립적으로 변경되는 router/schema/hook/adapter
+→ 20~30줄이어도 분리 유지 가능
+
+React page/component 300줄 이상
+Python service/runtime 500줄 이상
+800줄 이상 파일
+→ 복수 책임 조사와 feature 분리 우선 대상
+```
+
+`App.jsx`는 Provider, route, layout 조립만 남기는 방향으로 분리한다. Frontend는 장기적으로
+`features/<overview|topics|services|actions|nodes|alerts|topology|preferences|interface-lab>`와
+`shared/` 구조를 사용한다. Interface Lab은 registry, package upload, apply, Topic execution,
+Service execution, Action execution, history를 독립 feature로 분리한다.
+
+Backend는 Router → Service → Repository 또는 MonitorClient 의존 방향을 지킨다. Router에
+YAML 읽기, DB 쿼리, ROS2 실행, 긴 정책 계산을 넣지 않는다. 구조 이동과 동작 변경을 한 번에
+섞지 말고, feature 하나를 이동할 때마다 기존 API와 Frontend 동작을 검증한다.
+
+### 0.10 `nextstep.md` 확정 개선 정책
+
+이 절은 `nextstep.md`의 HTML 주석을 제외하고, 문서 하단의 사용자 확정 답변을 우선해
+정리한 향후 기능 기준이다. 아직 구현되지 않은 항목을 현재 기능인 것처럼 보고하지 않는다.
+
+#### WSS와 외부 접속 보안
+
+WSS 적용은 확정 요구사항이다.
+
+```text
+개발 환경
+→ ws:// 허용
+
+HTTPS 운영·외부 접속 환경
+→ wss:// 필수
+→ Nginx 또는 HTTPS reverse proxy에서 TLS 종료 가능
+```
+
+Frontend는 현재 page protocol과 중앙 runtime/environment config로 WebSocket scheme과
+주소를 결정한다. WebSocket URL을 component나 hook에 직접 하드코딩하지 않는다. HTTPS
+페이지에서 `ws://`를 사용해 mixed-content 오류를 만들지 않는다. 완료 검증에는 WSS 연결,
+기존 실시간 snapshot, 연결 해제 후 자동 재연결, 인증서 오류 여부가 포함된다.
+
+WSS는 Browser ↔ Backend 구간의 보안 정책이다. localhost Monitor transport를 외부에
+노출하거나 Frontend가 Monitor에 직접 연결하는 근거로 사용하지 않는다.
+
+#### 범용 구조
+
+현재 `ros2_ws` / `backend` / `frontend` 분리 구조를 범용화의 기준으로 유지한다. 모든 ROS2
+프로젝트에 특정 로봇 package나 Topic 이름을 강요하지 않는다. ROS2 package는
+`ros2_ws/src`, 웹 Backend와 Frontend는 workspace 밖에 둔다. 이 구조를 다시
+`backend/src` 단일 workspace로 합치지 않는다.
+
+#### 경고 정책 문서화
+
+Topic, Service, Action, Node의 모든 Alert code는 `docs/alert_policy/`에 다음 정보를
+문서화하고 실제 메시지·해제 동작과 일치시킨다.
+
+```text
+경고 code와 대상 kind/name
+발생 조건
+정상으로 보는 예외
+INFO / WARNING / ERROR level
+사용자 메시지
+해제 조건
+first_detected_at / last_detected_at
+설정 가능 여부와 관련 YAML key
+```
+
+정상 대기 상태를 기본 장애로 만들지 않는다.
+
+```text
+Service server만 있고 client 없음
+→ 요청 대기형 Service의 정상 상태, 기본 Alert 제외
+
+Action server만 있고 goal client 없음
+→ Goal 대기 상태, 기본 Alert 제외
+
+일반 Topic subscriber 없음
+→ 기본 Alert 제외
+
+필수 stream/command 정책에 명시된 대상
+→ YAML 정책과 실제 Graph 사실을 함께 사용해 판정
+```
+
+`missing`은 감시 subscription이 생성됐지만 제한 시간 동안 한 번도 수신하지 못한 상태,
+`stale`은 이전 수신 후 기준 시간을 초과한 상태로 구분한다. Graph에 보인다는 사실만으로
+메시지 수신 정상이나 QoS 호환을 단정하지 않는다.
+
+#### MariaDB Alert 이력
+
+MariaDB는 제안 사항이 아니라 필수 영속 저장소다. ROS2 실시간 Monitor transport로는
+사용하지 않고 Backend의 Alert 이력·조회·사용자 확인 책임에만 사용한다.
+
+저장 모델은 최소한 다음을 표현해야 한다.
+
+```text
+alert_id / code / level
+resource_kind / resource_name
+status: ACTIVE / RESOLVED / ACKNOWLEDGED
+message / details
+first_detected_at / last_detected_at / resolved_at
+duration / occurrence_count
+acknowledged 여부와 사용자 정보
+```
+
+동일한 `resource + alert code`가 polling마다 새 행으로 누적되지 않게 한다. 유지 중에는
+`last_detected_at`과 occurrence count를 갱신하고, 정상 복귀 시 RESOLVED와 resolved time,
+duration을 기록한다. Backend 재시작 후에도 이력이 유지되어야 한다. Frontend는 현재 Alert와
+과거 이력을 구분하고 기간·대상·level·status 검색을 제공하는 방향으로 구현한다.
+
+DB 연결 문자열과 credential은 `.env`로 관리하고 실제 값을 Git에 넣지 않는다. schema,
+migration, repository를 사용하며 Router에서 직접 SQL을 실행하지 않는다. DB 장애가 ROS2
+Monitor 수집을 중단시키면 안 되고, 저장 실패 원인을 Backend 로그에서 확인할 수 있어야 한다.
+
+#### 실제 기기 QoS 검증
+
+실제 장비의 QoS와 Dashboard subscription QoS가 다를 수 있음을 항상 고려한다. 개발자가
+수동 검증할 때는 다음 명령을 사용할 수 있다.
+
+```bash
+ros2 topic info /topic_name --verbose
+```
+
+이는 수동 진단 명령이며 Monitor 구현에서 ROS2 CLI 출력을 subprocess로 파싱해 데이터
+원천으로 사용하면 안 된다. 코드에서는 rclpy Graph endpoint/QoS 정보로 Reliability,
+Durability, History, Depth, Deadline, Lifespan, Liveliness를 확인한다.
+
+검증 순서:
+
+```text
+Graph와 Publisher 존재
+→ 실제 발행 여부
+→ Publisher QoS
+→ Dashboard subscription QoS
+→ 호환성 비교
+→ latest / Hz / missing / stale 재확인
+```
+
+알려진 sensor type은 Sensor Data QoS와 publisher endpoint QoS를 검토한다. QoS 불일치
+가능성을 단순 미수신과 구분해 상세 화면에 실제 Publisher QoS와 감시 QoS를 표시하는 방향을
+사용한다. 특정 실제 장비 QoS를 보편 기본값으로 하드코딩하지 않는다.
+
+#### Camera Topic 이미지 시각화
+
+첫 구현 대상은 사용자 확정에 따라 카메라 이미지다.
+
+```text
+sensor_msgs/msg/Image
+sensor_msgs/msg/CompressedImage
+```
+
+LaserScan, OccupancyGrid, Path, Pose 시각화는 이번 확정 범위가 아니며 별도 요청 없이 함께
+확장하지 않는다. 타입별 decoder/renderer를 분리하고 고주파 원본을 매 callback마다 Browser로
+보내지 않는다. 최신 frame 기준 갱신 제한, 크기 제한, 축소/압축 정책을 설정에서 관리한다.
+
+```text
+ROS2 image Topic
+→ Monitor type/QoS 확인과 최신 frame 수신
+→ 안전한 변환·크기 제한
+→ Backend 전달
+→ Frontend image renderer
+```
+
+데이터 없음, 아직 미수신, stale, decode 실패를 구분한다. 큰 binary를 기존 경량 monitor
+snapshot에 무조건 포함하지 않는다. 전체 JSON 직렬화나 base64 전송이 성능에 미치는 영향을
+측정하고 별도 endpoint/stream 사용을 검토한다.
+
+#### Interface Lab Gazebo TurtleBot 명령 제어
+
+확정 범위는 Gazebo에서 TurtleBot을 명령으로 움직이는 기능이다. Nav2 Goal과 실제 로봇
+제어까지 자동 확대하지 않는다. 기존 범용 Interface Lab의 명시적 Topic Publish 실행 경로를
+재사용하며 `/cmd_vel`이나 특정 TurtleBot type을 Monitor 핵심 동작 조건으로 하드코딩하지 않는다.
+
+사용자가 Graph/등록 interface에서 제어 Topic과 type을 명시적으로 선택한 뒤 실행한다.
+직진·후진·좌회전·우회전·정지 preset을 제공하더라도 payload mapping과 제한값은 설정 계층에서
+검증한다.
+
+안전 기준:
+
+```text
+Simulation / 실제 장비 구분 표시
+낮은 기본 속도와 설정 가능한 절대 상한
+발행 주기 제한과 중복 continuous publish 방지
+항상 보이는 즉시 정지
+화면 이탈·연결 해제·Runtime cleanup 시 continuous command 종료
+사용자 명시 실행 없이 이동 명령 전송 금지
+실행 주체 Node와 history 기록
+```
+
+연결 해제 시 자동 정지 전송은 안전 효과와 예기치 않은 추가 명령 가능성을 함께 검토하고,
+검증된 Simulation 정책 없이 임의 구현하지 않는다.
+
+#### 향후 작업 우선순위
+
+```text
+1. 경고 정책 문서화, WebSocket/WSS 현황, 실제 QoS, 책임 경계 확인
+2. 범용 설정, WSS 배포 구조, MariaDB schema/repository, QoS 표시 설계
+3. Camera Topic 시각화, Gazebo TurtleBot 명령, Action feedback/result/cancel 강화
+```
+
 ## 1. 목적
 
 Codex는 이 프로젝트에서 아래 원칙을 우선한다.
@@ -42,7 +531,10 @@ Dev server: Vite
 
 Node.js는 설치된 Vite 8의 engine인 `^20.19.0 || >=22.12.0`을 따른다.
 
-## 4. 프로젝트 구조 기준
+## 4. 프로젝트 구조 기준 (리팩토링 전 기록)
+
+이 절의 기존 트리와 설명은 정책의 유래를 보존하기 위한 리팩토링 전 기록이다.
+현재 경로와 프로세스 책임에는 `0.1`~`0.9`를 적용하고, 아래의 세부 기능 정책만 이어서 사용한다.
 
 ```text
 ros2_dashboard/
@@ -1177,11 +1669,14 @@ node_stale
 같은 resolved 상태의 반복 polling은 중복 기록하지 않는다.
 동일 장애가 재발 후 다시 해결되면 새로운 해결 이력으로 기록한다.
 이전 Alert는 alert_state=resolved, active=false, 초록색 해결됨 배지로 표시한다.
-DB나 영구 history를 추가하지 않으며 Backend 재시작 시 초기화한다.
+MariaDB 영속 이력이 구현되기 전까지는 Backend 메모리 fallback이며 재시작 시 초기화된다.
+MariaDB 구현 후에도 동일 polling Alert를 매번 새 행으로 추가하지 않고 active/resolved 전이를 보존한다.
 이전 Alert history는 상태 유지 적용 code만 대상으로 하며 모든 일회성 Alert의 영구 이력이 아니다.
 ```
 
-## 16. FastAPI + rclpy 실행 구조
+## 16. FastAPI + rclpy 실행 구조 (리팩토링 전 기록)
+
+이 절의 동일 프로세스 설명은 역사적 기록이다. 현재 실행 경계는 `0.2`와 `0.3`을 적용한다.
 
 현재 구조:
 
@@ -1362,36 +1857,41 @@ Alerts 화면은 현재 Alert / 이전 Alert 탭으로 구분한다.
 
 ## 18. 작업 명령
 
-Backend:
+ROS2 workspace:
 
 ```bash
-cd ~/rang/ros2_dashboard/backend
+cd ~/rang/ros2_dashboard/ros2_ws
 source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install
-colcon test
 source install/setup.bash
+colcon test
+colcon test-result --verbose
 ```
 
 Backend Python tests:
 
 ```bash
 cd ~/rang/ros2_dashboard/backend
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-cd src/ros2_dashboard_backend
-python3 -m pytest test
+.venv/bin/python -m compileall app
+.venv/bin/python -m pytest -q tests
 ```
 
 FastAPI:
 
 ```bash
 cd ~/rang/ros2_dashboard/backend
+.venv/bin/python -m uvicorn app.main:app \
+  --host 127.0.0.1 \
+  --port 8000
+```
+
+ROS2 Monitor:
+
+```bash
+cd ~/rang/ros2_dashboard/ros2_ws
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-python3 -m uvicorn app.main:app \
-  --host 127.0.0.1 \
-  --port 8000 \
-  --reload
+ros2 run ros2_dashboard_monitor monitor
 ```
 
 Frontend:
@@ -1416,7 +1916,7 @@ npm run lint
 기존 JSON key 제거
 기존 파일/폴더 구조 임의 변경
 필요 없는 새 구조 생성
-DB / 인증 / JWT 추가
+MariaDB Alert 이력 범위를 벗어난 DB 기능 또는 사용자 요청 없는 인증 / JWT 추가
 외부 라이브러리 임의 추가
 rclpy를 pip로 설치
 생성물 폴더 직접 수정

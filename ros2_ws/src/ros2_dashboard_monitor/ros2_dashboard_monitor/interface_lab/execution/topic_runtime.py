@@ -17,18 +17,19 @@ from ros2_dashboard_monitor.interface_lab.common.value_converter import (
     ros_message_to_json,
     schema_from_message_type,
 )
-
-
-DEFAULT_TOPIC_HISTORY_LIMIT = 500
-MAX_TOPIC_HISTORY_LIMIT = 500
-MAX_PUBLISH_HISTORY_ITEMS = 100
-DEFAULT_CONTINUOUS_PUBLISH_HZ = 10.0
-MIN_CONTINUOUS_PUBLISH_HZ = 0.1
-MAX_CONTINUOUS_PUBLISH_HZ = 50.0
-
-
-class InterfaceReceiveError(ValueError):
-    """Interface Lab에서 발생하는 예외를 표현하는 클래스입니다."""
+from ros2_dashboard_monitor.interface_lab.execution.topic_support import (
+    DEFAULT_CONTINUOUS_PUBLISH_HZ,
+    DEFAULT_TOPIC_HISTORY_LIMIT,
+    MAX_PUBLISH_HISTORY_ITEMS,
+    InterfaceReceiveError,
+    default_qos as _default_qos,
+    interface_lab_node as _interface_lab_node,
+    is_action_internal_topic as _is_action_internal_topic,
+    normalize_limit as _normalize_limit,
+    normalize_publish_hz as _normalize_publish_hz,
+    qos_info as _qos_info,
+    safe_count as _safe_count,
+)
 
 
 class InterfaceReceiveRuntime:
@@ -732,63 +733,3 @@ class InterfaceReceiveRuntime:
             'qos': item.get('qos'),
             'graph_state': item.get('graph_state'),
         }
-
-
-def _interface_lab_node(node_getter: Callable[[], Any]) -> dict[str, Any]:
-    node = node_getter()
-    try:
-        name = str(node.get_fully_qualified_name()) if node is not None else ''
-    except Exception:
-        name = ''
-    return {
-        'name': name or '/ros2_dashboard_topic_monitor',
-        'display_name': 'Dashboard Interface Lab',
-        'is_internal': True,
-    }
-
-
-def _normalize_limit(value: int) -> int:
-    try:
-        limit = int(value)
-    except (TypeError, ValueError):
-        limit = DEFAULT_TOPIC_HISTORY_LIMIT
-    return max(1, min(limit, MAX_TOPIC_HISTORY_LIMIT))
-
-
-def _normalize_publish_hz(value: float) -> float:
-    try:
-        hz = float(value)
-    except (TypeError, ValueError) as exc:
-        raise InterfaceReceiveError('hz는 숫자여야 합니다.') from exc
-    if hz < MIN_CONTINUOUS_PUBLISH_HZ or hz > MAX_CONTINUOUS_PUBLISH_HZ:
-        raise InterfaceReceiveError(
-            f'hz는 {MIN_CONTINUOUS_PUBLISH_HZ:g} 이상 {MAX_CONTINUOUS_PUBLISH_HZ:g} 이하여야 합니다.',
-        )
-    return hz
-
-
-def _default_qos(topic_type: str) -> int:
-    # Keep the current project level simple: depth 10 works for generated
-    # custom messages and mirrors the previous InterfaceReceiveRuntime default.
-    return 10
-
-
-def _qos_info(topic_type: str) -> dict[str, Any]:
-    sensor_like = topic_type.startswith('sensor_msgs/msg/')
-    return {
-        'depth': 10,
-        'profile': 'sensor_data_hint' if sensor_like else 'default',
-        'reliability': 'default',
-        'durability': 'default',
-    }
-
-
-def _safe_count(callback: Callable[[], int]) -> int:
-    try:
-        return int(callback())
-    except Exception:
-        return 0
-
-
-def _is_action_internal_topic(topic_name: str) -> bool:
-    return '/_action/' in topic_name or topic_name.endswith('/_action')

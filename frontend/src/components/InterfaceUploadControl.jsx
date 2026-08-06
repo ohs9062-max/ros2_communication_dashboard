@@ -1,34 +1,64 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ManualInterfacePanel,
+  InterfaceUploadToolbar,
+  PackageRegistry,
+  ReceiveHistory,
+  RegistryGroup,
+  actionKey,
+  defaultRequestValues,
+  deletedRegistryItemsFor,
+  interfaceCounts,
+  messageKey,
+  normalizeNumericValues,
+  registryRowKey,
+  serviceKey,
+  topicGraphStatusLabel,
+  topicStatusLabel,
+} from '../features/interface-lab/InterfaceUploadParts.jsx'
+import {
+  ActionExecutionPanel,
+  ServiceExecutionPanel,
+  TopicExecutionPanel,
+} from '../features/interface-lab/InterfaceExecutionPanels.jsx'
+import {
   graphPublishTopicCandidates,
   topicHasType,
   topicNameTypeWarning,
 } from '../utils/interfaceTopics.js'
 import {
   applyInterfaces,
-  callRegisteredService,
   deleteInterfaceRegistryEntry,
   checkInterfaceImports,
   deleteManualDefinition,
   deleteInterfacePackage,
+  fetchInterfaceApplyStatus,
+  fetchInterfacePackages,
+  fetchInterfaceRegistry,
+  registerManualType,
+  rebuildUploadedInterfacesCmake,
+  uploadInterface,
+  uploadInterfacePackage,
+  uploadInterfacePackageFolder,
+  updateManualDefinition,
+  validateManualDefinition,
+  writeManualDefinition,
+} from '../api/interfaceManagement.js'
+import { fetchTopics } from '../api/monitoring.js'
+import {
+  callRegisteredService,
   fetchActionGoalHistory,
   fetchCallableActions,
   fetchCallableMessages,
   fetchCallableServices,
   fetchContinuousTopicPublishes,
-  fetchInterfaceApplyStatus,
-  fetchInterfacePackages,
-  fetchInterfaceRegistry,
   fetchReceiveActionHistory,
   fetchReceiveServiceHistory,
   fetchReceiveTopicHistory,
   fetchReceiveTopics,
   fetchServiceCallHistory,
   fetchTopicPublishHistory,
-  fetchTopics,
   publishTopicMessage,
-  registerManualType,
-  rebuildUploadedInterfacesCmake,
   resetReceiveActionHistory,
   resetReceiveServiceHistory,
   resetReceiveTopicHistory,
@@ -38,21 +68,9 @@ import {
   startContinuousTopicPublish,
   stopContinuousTopicPublish,
   stopReceiveTopic,
-  uploadInterface,
-  uploadInterfacePackage,
-  uploadInterfacePackageFolder,
-  updateManualDefinition,
-  validateManualDefinition,
-  writeManualDefinition,
-} from '../api/rosApi.js'
+} from '../api/interfaceExecution.js'
 
 const ACCEPTED_EXTENSIONS = ['.msg', '.srv', '.action']
-const MANUAL_DEFINITION_EXAMPLES = {
-  msg: '예:\nuint8 cmd\nbool success\nstring message',
-  srv: '예:\nuint8 cmd\n---\nbool success\nstring message',
-  action: '예:\nuint8 command\n---\nbool success\n---\nstring status',
-}
-
 export function InterfaceUploadControl({
   onStateChanged,
   onTopicWorkspaceExpandedChange,
@@ -132,9 +150,6 @@ export function InterfaceUploadControl({
   const [receiveActionHistory, setReceiveActionHistory] = useState([])
   const [topicWorkspaceExpanded, setTopicWorkspaceExpanded] = useState(false)
 
-  const chooseFile = () => inputRef.current?.click()
-  const choosePackageFolder = () => packageFolderInputRef.current?.click()
-  const choosePackageFile = () => packageInputRef.current?.click()
   const toggleBuildLog = () => {
     setShowBuildLog((value) => !value)
     setShowRegistry(false)
@@ -1467,194 +1482,70 @@ export function InterfaceUploadControl({
     return () => onTopicWorkspaceExpandedChange?.(false)
   }, [onTopicWorkspaceExpandedChange, topicExpandedActive])
 
+  const openExecutionPanel = async (mode, loader) => {
+    setShowReceivePanel(true)
+    setReceiveMode(mode)
+    await loader()
+    await loadReceiveState({ silent: true })
+  }
+
+  const openReceivePanel = () => {
+    setShowReceivePanel(true)
+    setShowCallableTopics(false)
+    setShowCallableServices(false)
+    setShowCallableActions(false)
+    setShowManualInput(false)
+    setShowRegistry(false)
+    setShowPackages(false)
+    setShowBuildLog(false)
+    loadReceiveState()
+  }
+
   return (
     <div className={topicExpandedActive ? 'interface-upload-control topic-workbench-expanded' : 'interface-upload-control'}>
-      <input
-        accept=".msg,.srv,.action"
-        className="interface-file-input"
-        onChange={handleFile}
-        ref={inputRef}
-        type="file"
+      <InterfaceUploadToolbar
+        applying={applying}
+        busy={busy}
+        disabled={disabled}
+        feedback={feedback}
+        inputRef={inputRef}
+        onApply={applyUploadedInterfaces}
+        onFile={handleFile}
+        onOpenAction={() => openExecutionPanel('action', loadCallableActions)}
+        onOpenPackages={loadPackages}
+        onOpenReceive={openReceivePanel}
+        onOpenRegistry={loadRegistry}
+        onOpenService={() => openExecutionPanel('service', loadCallableServices)}
+        onOpenTopic={() => openExecutionPanel('topic', loadCallableTopics)}
+        onPackageFile={handlePackageFile}
+        onPackageFolder={handlePackageFolder}
+        onReplaceChange={setReplacePackage}
+        onToggleManual={() => setShowManualInput((value) => !value)}
+        packageFolderInputRef={packageFolderInputRef}
+        packageInputRef={packageInputRef}
+        reloadPhase={reloadPhase}
+        replacePackage={replacePackage}
+        websocketStatus={websocket?.status}
       />
-      <input
-        accept=".zip"
-        className="interface-file-input"
-        onChange={handlePackageFile}
-        ref={packageInputRef}
-        type="file"
-      />
-      <input
-        className="interface-file-input"
-        directory=""
-        multiple
-        onChange={handlePackageFolder}
-        ref={packageFolderInputRef}
-        type="file"
-        webkitdirectory=""
-      />
-      <button className="interface-type-entry-badge" disabled={disabled} onClick={() => setShowManualInput((value) => !value)} type="button">
-        타입 기입
-      </button>
-      <button className="interface-upload-button" disabled={disabled} onClick={chooseFile} type="button">
-        {busy ? '처리 중…' : '타입 업로드'}
-      </button>
-      <button className="interface-package-button" disabled={disabled} onClick={choosePackageFile} type="button">
-        Package zip 업로드
-      </button>
-      <button className="interface-package-folder-button" disabled={disabled} onClick={choosePackageFolder} type="button">
-        Package 폴더 업로드
-      </button>
-      <label className="interface-package-replace">
-        <input
-          checked={replacePackage}
-          disabled={disabled}
-          onChange={(event) => setReplacePackage(event.target.checked)}
-          type="checkbox"
-        />
-        <span>replace</span>
-      </label>
-      <button className="interface-apply-button" disabled={disabled} onClick={applyUploadedInterfaces} type="button">
-        {applying ? '빌드 중…' : '적용하기'}
-      </button>
-      <button className="interface-registry-button" disabled={disabled} onClick={() => loadRegistry()} type="button">
-        등록 목록
-      </button>
-      <button className="interface-package-list-button" disabled={disabled} onClick={() => loadPackages()} type="button">
-        Package 목록
-      </button>
-      <button className="interface-topic-button" disabled={disabled} onClick={async () => {
-        setShowReceivePanel(true)
-        setReceiveMode('topic')
-        await loadCallableTopics()
-        await loadReceiveState({ silent: true })
-      }} type="button">
-        Topic 실행
-      </button>
-      <button className="interface-service-button" disabled={disabled} onClick={async () => {
-        setShowReceivePanel(true)
-        setReceiveMode('service')
-        await loadCallableServices()
-        await loadReceiveState({ silent: true })
-      }} type="button">
-        Service 실행
-      </button>
-      <button className="interface-action-button" disabled={disabled} onClick={async () => {
-        setShowReceivePanel(true)
-        setReceiveMode('action')
-        await loadCallableActions()
-        await loadReceiveState({ silent: true })
-      }} type="button">
-        Action 실행
-      </button>
-      <button className="interface-receive-button" disabled={disabled} onClick={() => {
-        setShowReceivePanel(true)
-        setShowCallableTopics(false)
-        setShowCallableServices(false)
-        setShowCallableActions(false)
-        setShowManualInput(false)
-        setShowRegistry(false)
-        setShowPackages(false)
-        setShowBuildLog(false)
-        loadReceiveState()
-      }} type="button">
-        수신
-      </button>
-      {reloadPhase !== 'idle' && (
-        <span className="interface-reload-state" role="status">
-          {websocket?.status === 'connected' ? 'reload 대기' : '서버 재연결 중'}
-        </span>
-      )}
-      {feedback && (
-        <span className={`interface-upload-feedback ${feedback.tone}`} role="status">
-          {feedback.text}
-        </span>
-      )}
       {showManualInput && (
-        <div className="interface-manual-panel">
-          <div className="interface-manual-tabs">
-            <button className={manualMode === 'type' ? 'active' : ''} onClick={() => setManualMode('type')} type="button">
-              기존 빌드 타입 등록
-            </button>
-            <button className={manualMode === 'definition' ? 'active' : ''} onClick={() => setManualMode('definition')} type="button">
-              인터페이스 직접 작성
-            </button>
-          </div>
-          {manualMode === 'type' ? (
-            <div className="interface-manual-form">
-              <p className="interface-package-help">
-                다른 ROS2 워크스페이스에서 이미 빌드되어
-                현재 환경에서 import 가능한 인터페이스 타입을 등록합니다.
-
-                .msg, .srv, .action 파일을 새로 생성하거나
-                colcon build를 수행하지 않습니다.
-              </p>
-              <label className="interface-service-field">
-                <span>full type</span>
-                <input
-                  placeholder="예: rths_interfaces/srv/ScheduleCrud"
-                  value={manualType}
-                  onChange={(event) => setManualType(event.target.value)}
-                />
-              </label>
-              <button className="interface-service-call-button" disabled={disabled} onClick={submitManualType} type="button">
-                타입 등록
-              </button>
-            </div>
-          ) : (
-            <div className="interface-manual-form">
-              <p className="interface-package-help">
-                .msg/.srv/.action 파일을 uploaded_interfaces 패키지에 직접 생성합니다.
-                저장 전 문법 검증을 수행하며, 저장 후 적용하기 build가 필요합니다.
-              </p>
-              {editingManualDefinition && (
-                <div className="interface-service-state warning">
-                  수정 중: {editingManualDefinition.kind}/{editingManualDefinition.typeName}
-                </div>
-              )}
-              <div className="interface-manual-fixed-path">
-                저장 위치: ros2_ws/src/uploaded_interfaces/generated_interfaces/{manualKind}/{manualTypeName || 'TypeName'}.{manualKind}
-              </div>
-              <label className="interface-service-field">
-                <span>kind</span>
-                <select value={manualKind} onChange={(event) => setManualKind(event.target.value)}>
-                  <option value="msg">msg</option>
-                  <option value="srv">srv</option>
-                  <option value="action">action</option>
-                </select>
-              </label>
-              <label className="interface-service-field">
-                <span>type name</span>
-                <input
-                  placeholder="예: MyControl"
-                  value={manualTypeName}
-                  onChange={(event) => setManualTypeName(event.target.value)}
-                />
-              </label>
-              <label className="interface-service-field">
-                <span>definition</span>
-                <textarea
-                  placeholder={MANUAL_DEFINITION_EXAMPLES[manualKind]}
-                  rows="8"
-                  value={manualDefinition}
-                  onChange={(event) => setManualDefinition(event.target.value)}
-                />
-              </label>
-              <div className="interface-receive-actions">
-                <button className="interface-receive-action-button ghost" disabled={disabled} onClick={validateCurrentManualDefinition} type="button">
-                  문법 검증
-                </button>
-                <button className="interface-receive-action-button primary" disabled={disabled} onClick={submitManualDefinition} type="button">
-                  {editingManualDefinition ? '인터페이스 수정 저장' : '인터페이스 저장'}
-                </button>
-                {editingManualDefinition && (
-                  <button className="interface-receive-action-button" disabled={disabled} onClick={() => setEditingManualDefinition(null)} type="button">
-                    수정 취소
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <ManualInterfacePanel
+          disabled={disabled}
+          editingManualDefinition={editingManualDefinition}
+          manualDefinition={manualDefinition}
+          manualKind={manualKind}
+          manualMode={manualMode}
+          manualType={manualType}
+          manualTypeName={manualTypeName}
+          onCancelEdit={() => setEditingManualDefinition(null)}
+          onDefinitionChange={setManualDefinition}
+          onKindChange={setManualKind}
+          onModeChange={setManualMode}
+          onSubmitDefinition={submitManualDefinition}
+          onSubmitType={submitManualType}
+          onTypeChange={setManualType}
+          onTypeNameChange={setManualTypeName}
+          onValidateDefinition={validateCurrentManualDefinition}
+        />
       )}
       {showReceivePanel && (
         <div className="interface-receive-panel">
@@ -1956,769 +1847,99 @@ export function InterfaceUploadControl({
         </div>
       )}
       {showCallableTopics && (
-        <div className="interface-service-panel interface-execution-panel">
-          <div className="interface-registry-heading interface-panel-heading">
-            <strong>등록 Topic 실행</strong>
-            {showReceivePanel && receiveMode === 'topic' && (
-              <button
-                aria-pressed={topicExpandedActive}
-                className="interface-panel-expand-button"
-                onClick={() => setTopicWorkspaceExpanded((value) => !value)}
-                type="button"
-              >
-                {topicExpandedActive ? '목록보기' : '크게보기'}
-              </button>
-            )}
-          </div>
-          {callableMessages.length ? (
-            <>
-              <label className="interface-filter-check">
-                <input
-                  checked={topicImportableOnly}
-                  onChange={(event) => setTopicImportableOnly(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>Message import됨만 보기</span>
-                <small>{visibleCallableMessages.length}/{callableMessages.length}</small>
-              </label>
-              <label className="interface-service-field">
-                <span>Message full_type · {visibleCallableMessages.length}/{callableMessages.length}개</span>
-                <select
-                  value={selectedMessageKey}
-                  onChange={(event) => {
-                    const key = event.target.value
-                    const message = callableMessages.find((item) => messageKey(item) === key)
-                    setSelectedMessageKey(key)
-                    setTopicMessageValues(defaultRequestValues(message?.message_schema ?? []))
-                    setTopicPublishResult(null)
-                  }}
-                >
-                  {visibleCallableMessages.map((message) => (
-                    <option key={messageKey(message)} value={messageKey(message)}>
-                      {message.import_available ? 'import됨' : 'import 안됨'} · {topicStatusLabel(message)} · {topicGraphStatusLabel(message)} · {message.message_type ?? message.full_type}
-                    </option>
-                  ))}
-                </select>
-                {!visibleCallableMessages.length && (
-                  <small>Message import됨 항목이 없습니다. 적용하기 또는 import-check 이후 다시 확인하세요.</small>
-                )}
-              </label>
-              {selectedMessage && (
-                <div className={`interface-service-state ${selectedMessage.import_available ? 'success' : 'warning'}`}>
-                  {selectedMessage.import_available ? 'import됨' : 'import 안됨'}
-                  {' · '}
-                  {topicStatusLabel(selectedMessage)}
-                  {' · '}
-                  {topicGraphStatusLabel(selectedMessage)}
-                  {selectedMessage.import_error ? ` · ${selectedMessage.import_error}` : ''}
-                </div>
-              )}
-              <label className="interface-service-field">
-                <span>기존 Graph Topic 후보</span>
-                <select
-                  value={publishGraphTopics.some((topic) => topic.name === topicPublishName) ? topicPublishName : ''}
-                  onChange={(event) => {
-                    topicPublishNameSourceRef.current = event.target.value ? 'graph' : 'empty'
-                    setTopicPublishName(event.target.value)
-                  }}
-                >
-                  <option value="">직접 입력</option>
-                  {publishGraphTopics.map((topic) => (
-                    <option key={topic.name} value={topic.name}>
-                      {topic.name} · {topic.type ?? topic.types?.[0] ?? '-'}
-                    </option>
-                  ))}
-                </select>
-                <small>
-                  선택하면 해당 Topic에 추가 Publisher로 발행합니다. 새 Topic을 만들려면 Publish Topic name을 직접 입력하세요.
-                </small>
-              </label>
-              <label className="interface-service-field">
-                <span>Publish Topic name</span>
-                <input
-                  placeholder="/interface_lab_topic_test"
-                  value={topicPublishName}
-                  onChange={(event) => {
-                    topicPublishNameSourceRef.current = event.target.value ? 'user' : 'empty'
-                    setTopicPublishName(event.target.value)
-                  }}
-                />
-              </label>
-              {selectedMessage && (
-                <div className="interface-package-help">
-                  선택 Message {selectedMessage.message_type}의 schema {selectedMessage.message_schema?.length ?? 0}개 필드로 payload 폼을 생성합니다.
-                  사용자가 1회 발행 또는 지속 발행을 명시적으로 실행할 때만 전송합니다.
-                </div>
-              )}
-              {topicPublishWarning ? (
-                <div className="interface-service-state warning">
-                  {topicPublishWarning}
-                </div>
-              ) : null}
-              {selectedMessage?.message_schema?.map((field) => (
-                <RequestField
-                  disabled={!selectedMessage?.import_available}
-                  field={field}
-                  key={field.name ?? field.raw_line}
-                  onChange={(value) => setTopicMessageValues((current) => ({
-                    ...current,
-                    [field.name]: value,
-                  }))}
-                  value={topicMessageValues[field.name]}
-                />
-              ))}
-              <label className="interface-service-field">
-                <span>지속 발행 주기 (Hz)</span>
-                <input
-                  disabled={Boolean(activeContinuousPublish)}
-                  max="50"
-                  min="0.1"
-                  onChange={(event) => setTopicPublishHz(Number(event.target.value))}
-                  step="0.1"
-                  type="number"
-                  value={topicPublishHz}
-                />
-              </label>
-              <div className="interface-receive-actions">
-                <button
-                  className="interface-service-call-button"
-                  disabled={topicPublishBusy || !selectedMessage?.import_available}
-                  onClick={publishSelectedTopicMessage}
-                  type="button"
-                >
-                  {topicPublishBusy ? '처리 중…' : '1회 발행'}
-                </button>
-                <button
-                  className={activeContinuousPublish ? 'interface-receive-action-button warning' : 'interface-service-call-button'}
-                  disabled={topicPublishBusy || !selectedMessage?.import_available}
-                  onClick={activeContinuousPublish ? stopSelectedContinuousTopicPublish : startSelectedContinuousTopicPublish}
-                  type="button"
-                >
-                  {activeContinuousPublish ? '지속 발행 중지' : '지속 발행'}
-                </button>
-              </div>
-              {activeContinuousPublish ? (
-                <div className="interface-service-state warning">
-                  {activeContinuousPublish.hz} Hz로 지속 발행 중 · {activeContinuousPublish.message_count ?? 0}회 전송
-                </div>
-              ) : null}
-              <div className="interface-receive-actions">
-                <button className="interface-receive-action-button warning" onClick={resetSelectedTopicPublishHistory} type="button">Publish 이력 리셋</button>
-              </div>
-              {topicPublishResult && (
-                <CallResultBlock
-                  result={topicPublishResult}
-                  successPayload={topicPublishResult.message_json ?? topicPublishResult.payload}
-                />
-              )}
-              <ReceiveHistory title="Topic publish history" items={visiblePublishHistory} />
-            </>
-          ) : (
-            <small>registry에 등록된 Message가 없습니다.</small>
-          )}
-        </div>
+        <TopicExecutionPanel
+          activeContinuousPublish={activeContinuousPublish}
+          busy={topicPublishBusy}
+          expanded={topicExpandedActive}
+          history={visiblePublishHistory}
+          importableOnly={topicImportableOnly}
+          messageValues={topicMessageValues}
+          messages={callableMessages}
+          onContinuousStart={startSelectedContinuousTopicPublish}
+          onContinuousStop={stopSelectedContinuousTopicPublish}
+          onFieldChange={(name, value) => setTopicMessageValues((current) => ({ ...current, [name]: value }))}
+          onHzChange={setTopicPublishHz}
+          onImportableOnlyChange={setTopicImportableOnly}
+          onPublish={publishSelectedTopicMessage}
+          onResetHistory={resetSelectedTopicPublishHistory}
+          onSelect={(key) => {
+            const message = callableMessages.find((item) => messageKey(item) === key)
+            setSelectedMessageKey(key)
+            setTopicMessageValues(defaultRequestValues(message?.message_schema ?? []))
+            setTopicPublishResult(null)
+          }}
+          onTopicNameChange={(value, sourceKind) => {
+            topicPublishNameSourceRef.current = value ? sourceKind : 'empty'
+            setTopicPublishName(value)
+          }}
+          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          publishGraphTopics={publishGraphTopics}
+          publishHz={topicPublishHz}
+          publishName={topicPublishName}
+          publishResult={topicPublishResult}
+          publishWarning={topicPublishWarning}
+          selected={selectedMessage}
+          selectedKey={selectedMessageKey}
+          showExpand={showReceivePanel && receiveMode === 'topic'}
+          visibleMessages={visibleCallableMessages}
+        />
       )}
       {showCallableServices && (
-        <div className="interface-service-panel interface-execution-panel">
-          <div className="interface-registry-heading interface-panel-heading">
-            <strong>등록 Service 실행</strong>
-            {showReceivePanel && receiveMode === 'service' && (
-              <button
-                aria-pressed={topicExpandedActive}
-                className="interface-panel-expand-button"
-                onClick={() => setTopicWorkspaceExpanded((value) => !value)}
-                type="button"
-              >
-                {topicExpandedActive ? '목록보기' : '크게보기'}
-              </button>
-            )}
-          </div>
-          {callableServices.length ? (
-            <>
-              <label className="interface-filter-check">
-                <input
-                  checked={serviceImportableOnly}
-                  onChange={(event) => setServiceImportableOnly(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>Service import됨만 보기</span>
-                <small>{visibleCallableServices.length}/{callableServices.length}</small>
-              </label>
-              <label className="interface-service-field">
-                <span>Service · {visibleCallableServices.length}/{callableServices.length}개</span>
-                <select
-                  onChange={(event) => {
-                    const key = event.target.value
-                    const service = callableServices.find((item) => serviceKey(item) === key)
-                    setSelectedServiceKey(key)
-                    setSelectedReceiveServiceKey(key)
-                    setRequestValues(defaultRequestValues(service?.request_schema ?? []))
-                    setServiceCallResult(null)
-                  }}
-                  value={selectedServiceKey}
-                >
-                  {visibleCallableServices.map((service) => (
-                    <option key={serviceKey(service)} value={serviceKey(service)}>
-                      {service.import_available ? 'import됨' : 'import 안됨'} · {serviceStatusLabel(service)} · {service.service_name || service.file_name} · {service.service_type}
-                    </option>
-                  ))}
-                </select>
-                {!visibleCallableServices.length && (
-                  <small>Service import됨 항목이 없습니다. 적용하기 또는 import-check 이후 다시 확인하세요.</small>
-                )}
-              </label>
-              {selectedService && (
-                <div className={`interface-service-state ${selectedService.callable ? 'success' : 'warning'}`}>
-                  {serviceStatusLabel(selectedService)}
-                  {selectedService.reason ? ` · ${selectedService.reason}` : ''}
-                </div>
-              )}
-              {selectedService && (
-                <div className="interface-package-help">
-                  선택 타입 {selectedService.service_type}의 Request schema {selectedService.request_schema?.length ?? 0}개 필드로 폼을 생성합니다.
-                </div>
-              )}
-              {selectedService?.request_schema?.map((field) => (
-                <RequestField
-                  field={field}
-                  key={field.name ?? field.raw_line}
-                  disabled={!selectedService?.callable}
-                  onChange={(value) => setRequestValues((current) => ({
-                    ...current,
-                    [field.name]: value,
-                  }))}
-                  value={requestValues[field.name]}
-                />
-              ))}
-              <label className="interface-service-field">
-                <span>timeout_sec</span>
-                <input
-                  min="0.1"
-                  disabled={!selectedService?.callable}
-                  onChange={(event) => setTimeoutSec(Number(event.target.value))}
-                  step="0.1"
-                  type="number"
-                  value={timeoutSec}
-                />
-              </label>
-              <button
-                className="interface-service-call-button"
-                disabled={serviceCallBusy || !selectedService?.callable}
-                onClick={executeServiceCall}
-                type="button"
-              >
-                {serviceCallBusy ? '실행 중…' : '실행'}
-              </button>
-              {serviceCallResult && (
-                <CallResultBlock
-                  result={serviceCallResult}
-                  successPayload={serviceCallResult.response}
-                />
-              )}
-              <ServiceCallHistory calls={serviceCallHistory} />
-            </>
-          ) : (
-            <small>registry에 등록된 Service가 없습니다.</small>
-          )}
-        </div>
+        <ServiceExecutionPanel
+          busy={serviceCallBusy}
+          calls={serviceCallHistory}
+          expanded={topicExpandedActive}
+          importableOnly={serviceImportableOnly}
+          onExecute={executeServiceCall}
+          onFieldChange={(name, value) => setRequestValues((current) => ({ ...current, [name]: value }))}
+          onImportableOnlyChange={setServiceImportableOnly}
+          onSelect={(key) => {
+            const service = callableServices.find((item) => serviceKey(item) === key)
+            setSelectedServiceKey(key)
+            setSelectedReceiveServiceKey(key)
+            setRequestValues(defaultRequestValues(service?.request_schema ?? []))
+            setServiceCallResult(null)
+          }}
+          onTimeoutChange={setTimeoutSec}
+          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          requestValues={requestValues}
+          result={serviceCallResult}
+          selected={selectedService}
+          selectedKey={selectedServiceKey}
+          services={callableServices}
+          showExpand={showReceivePanel && receiveMode === 'service'}
+          timeoutSec={timeoutSec}
+          visibleServices={visibleCallableServices}
+        />
       )}
       {showCallableActions && (
-        <div className="interface-service-panel interface-execution-panel">
-          <div className="interface-registry-heading interface-panel-heading">
-            <strong>등록 Action 실행</strong>
-            {showReceivePanel && receiveMode === 'action' && (
-              <button
-                aria-pressed={topicExpandedActive}
-                className="interface-panel-expand-button"
-                onClick={() => setTopicWorkspaceExpanded((value) => !value)}
-                type="button"
-              >
-                {topicExpandedActive ? '목록보기' : '크게보기'}
-              </button>
-            )}
-          </div>
-          {callableActions.length ? (
-            <>
-              <label className="interface-filter-check">
-                <input
-                  checked={actionImportableOnly}
-                  onChange={(event) => setActionImportableOnly(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>Action import됨만 보기</span>
-                <small>{visibleCallableActions.length}/{callableActions.length}</small>
-              </label>
-              <label className="interface-service-field">
-                <span>Action · {visibleCallableActions.length}/{callableActions.length}개</span>
-                <select
-                  onChange={(event) => {
-                    const key = event.target.value
-                    const action = callableActions.find((item) => actionKey(item) === key)
-                    setSelectedActionKey(key)
-                    setSelectedReceiveActionKey(key)
-                    setGoalValues(defaultRequestValues(action?.goal_schema ?? []))
-                    setActionGoalResult(null)
-                  }}
-                  value={selectedActionKey}
-                >
-                  {visibleCallableActions.map((action) => (
-                    <option key={actionKey(action)} value={actionKey(action)}>
-                      {action.import_available ? 'import됨' : 'import 안됨'} · {actionStatusLabel(action)} · {action.action_name || action.file_name} · {action.action_type}
-                    </option>
-                  ))}
-                </select>
-                {!visibleCallableActions.length && (
-                  <small>Action import됨 항목이 없습니다. 적용하기 또는 import-check 이후 다시 확인하세요.</small>
-                )}
-              </label>
-              {selectedAction && (
-                <div className={`interface-service-state ${selectedAction.callable ? 'success' : 'warning'}`}>
-                  {actionStatusLabel(selectedAction)}
-                  {selectedAction.reason ? ` · ${selectedAction.reason}` : ''}
-                </div>
-              )}
-              {selectedAction && (
-                <div className="interface-package-help">
-                  선택 타입 {selectedAction.action_type}의 Goal schema {selectedAction.goal_schema?.length ?? 0}개 필드로 폼을 생성합니다.
-                </div>
-              )}
-              {selectedAction?.goal_schema?.map((field) => (
-                <RequestField
-                  disabled={!selectedAction?.callable}
-                  field={field}
-                  key={field.name ?? field.raw_line}
-                  onChange={(value) => setGoalValues((current) => ({
-                    ...current,
-                    [field.name]: value,
-                  }))}
-                  value={goalValues[field.name]}
-                />
-              ))}
-              <label className="interface-service-field">
-                <span>timeout_sec</span>
-                <input
-                  disabled={!selectedAction?.callable}
-                  min="0.1"
-                  onChange={(event) => setGoalTimeoutSec(Number(event.target.value))}
-                  step="0.1"
-                  type="number"
-                  value={goalTimeoutSec}
-                />
-              </label>
-              <button
-                className="interface-service-call-button"
-                disabled={actionGoalBusy || !selectedAction?.callable}
-                onClick={executeActionGoal}
-                type="button"
-              >
-                {actionGoalBusy ? '요청 전송 중…' : 'Goal 실행'}
-              </button>
-              {actionGoalResult && (
-                <ActionGoalResult result={actionGoalResult} />
-              )}
-              <ActionGoalHistory goals={actionGoalHistory} />
-            </>
-          ) : (
-            <small>registry에 등록된 Action이 없습니다.</small>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PackageRegistry({ onDelete, packages }) {
-  if (!packages.length) {
-    return <small>업로드된 interface package가 없습니다.</small>
-  }
-  return (
-    <div className="interface-package-list">
-      {packages.map((item) => (
-        <details className="interface-package-card" key={item.name} open>
-          <summary>
-            <span>
-              <strong>{item.name}</strong>
-              <small>{packageStatusLabel(item)}</small>
-            </span>
-            <button
-              onClick={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                onDelete(item.name)
-              }}
-              type="button"
-            >
-              삭제
-            </button>
-          </summary>
-          <dl>
-            <dt>path</dt>
-            <dd>{item.path}</dd>
-            <dt>source</dt>
-            <dd>{item.source}</dd>
-            <dt>uploaded_at</dt>
-            <dd>{item.uploaded_at}</dd>
-          </dl>
-          <InterfaceTypeList items={item.interfaces?.msg} label="msg" />
-          <InterfaceTypeList items={item.interfaces?.srv} label="srv" />
-          <InterfaceTypeList items={item.interfaces?.action} label="action" />
-          {item.import_error && <p className="interface-package-error">{item.import_error}</p>}
-        </details>
-      ))}
-    </div>
-  )
-}
-
-function InterfaceTypeList({ items = [], label }) {
-  return (
-    <div className="interface-package-types">
-      <span>{label} {items.length}</span>
-      {items.length ? (
-        <ul>
-          {items.map((item) => (
-            <li key={item.type}>
-              <code>{item.type}</code>
-              <small>{item.import_available ? 'import됨' : item.import_error || 'import 안됨'}</small>
-              <InterfaceSchema item={item} />
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  )
-}
-
-function InterfaceSchema({ item }) {
-  const parsed = item.parsed ?? {}
-  const sections = [
-    ['fields', parsed.fields],
-    ['request', parsed.request],
-    ['response', parsed.response],
-    ['goal', parsed.goal],
-    ['result', parsed.result],
-    ['feedback', parsed.feedback],
-  ].filter(([, fields]) => Array.isArray(fields) && fields.length)
-
-  if (!sections.length) {
-    return item.parsed_error ? <small>{item.parsed_error}</small> : null
-  }
-
-  return (
-    <div className="interface-package-schema">
-      {sections.map(([section, fields]) => (
-        <div key={section}>
-          <small>{section}</small>
-          {fields.map((field) => (
-            <code key={`${section}-${field.name}-${field.type}`}>
-              {field.type} {field.name}
-            </code>
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function interfaceCounts(interfaces = {}) {
-  return {
-    msg: interfaces.msg?.length ?? 0,
-    srv: interfaces.srv?.length ?? 0,
-    action: interfaces.action?.length ?? 0,
-  }
-}
-
-function packageStatusLabel(item) {
-  if (item.import_available) return 'import됨'
-  if (item.last_build_status === 'failed') return '빌드 실패'
-  if (item.last_build_status === 'success') return 'import 안됨'
-  return item.rebuild_required ? 'build 필요' : '업로드됨'
-}
-
-function ActionGoalResult({ result }) {
-  return (
-    <div className="interface-action-result">
-      <span className={result.accepted ? 'success' : 'error'}>
-        {result.accepted ? 'accepted' : 'rejected/failed'}
-      </span>
-      {Array.isArray(result.feedback) && result.feedback.length > 0 && (
-        <div className="interface-action-feedback">
-          <span>feedback</span>
-          <ul>
-            {result.feedback.map((item, index) => (
-              <li key={`${index}-${JSON.stringify(item)}`}>
-                <code>{JSON.stringify(item)}</code>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <CallResultBlock result={result} successPayload={result.result} />
-    </div>
-  )
-}
-
-function CallResultBlock({ result, successPayload }) {
-  const validationError = result.error_type === 'validation_error'
-  return (
-    <>
-      {validationError && (
-        <div className="interface-validation-warning">
-          입력값이 선택한 ROS2 타입과 맞지 않아 전송하지 않았습니다.
-        </div>
-      )}
-      <pre className={`interface-service-result ${result.success ? 'success' : 'error'}`}>
-        {JSON.stringify(result.success ? successPayload : result, null, 2)}
-      </pre>
-    </>
-  )
-}
-
-function RequestField({ disabled = false, field, onChange, value }) {
-  if (!field.name) {
-    return null
-  }
-  const type = field.type ?? ''
-  if (type === 'bool' || type === 'boolean') {
-    return (
-      <label className="interface-service-field inline">
-        <input
-          checked={Boolean(value)}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.checked)}
-          type="checkbox"
-        />
-        <span>{field.name}</span>
-      </label>
-    )
-  }
-  if (isComplexType(type)) {
-    return (
-      <label className="interface-service-field">
-        <span>{field.name} <small>{type} · JSON</small></span>
-        <textarea
-          disabled={disabled}
-          onChange={(event) => {
-            try {
-              onChange(JSON.parse(event.target.value || 'null'))
-            } catch {
-              onChange(event.target.value)
-            }
+        <ActionExecutionPanel
+          actions={callableActions}
+          busy={actionGoalBusy}
+          expanded={topicExpandedActive}
+          goals={actionGoalHistory}
+          goalValues={goalValues}
+          importableOnly={actionImportableOnly}
+          onExecute={executeActionGoal}
+          onFieldChange={(name, value) => setGoalValues((current) => ({ ...current, [name]: value }))}
+          onImportableOnlyChange={setActionImportableOnly}
+          onSelect={(key) => {
+            const action = callableActions.find((item) => actionKey(item) === key)
+            setSelectedActionKey(key)
+            setSelectedReceiveActionKey(key)
+            setGoalValues(defaultRequestValues(action?.goal_schema ?? []))
+            setActionGoalResult(null)
           }}
-          rows={type.includes('[') || type.startsWith('sequence<') ? 4 : 3}
-          value={typeof value === 'string' ? value : JSON.stringify(value ?? defaultFieldValue(type), null, 2)}
+          onTimeoutChange={setGoalTimeoutSec}
+          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          result={actionGoalResult}
+          selected={selectedAction}
+          selectedKey={selectedActionKey}
+          showExpand={showReceivePanel && receiveMode === 'action'}
+          timeoutSec={goalTimeoutSec}
+          visibleActions={visibleCallableActions}
         />
-      </label>
-    )
-  }
-  const numeric = isNumericType(type)
-  return (
-    <label className="interface-service-field">
-      <span>{field.name} <small>{type}</small></span>
-      <input
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        type={numeric ? 'number' : 'text'}
-        value={value ?? ''}
-      />
-    </label>
-  )
-}
-
-function ServiceCallHistory({ calls }) {
-  if (!calls.length) {
-    return null
-  }
-  return (
-    <div className="interface-service-history">
-      <span>최근 실행</span>
-      <ul>
-        {calls.slice(0, 3).map((call) => (
-          <li key={`${call.called_at}-${call.service_name}`}>
-            {call.service_name} · {call.success ? '성공' : '실패'} · {Math.round(call.elapsed_ms ?? 0)}ms
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function ActionGoalHistory({ goals }) {
-  if (!goals.length) {
-    return null
-  }
-  return (
-    <div className="interface-service-history">
-      <span>최근 Goal</span>
-      <ul>
-        {goals.slice(0, 3).map((goal) => (
-          <li key={`${goal.sent_at}-${goal.action_name}`}>
-            {goal.action_name} · {goal.accepted ? 'accepted' : 'rejected'} · {Math.round(goal.elapsed_ms ?? 0)}ms
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function ReceiveHistory({ items = [], title }) {
-  return (
-    <div className="interface-receive-history">
-      <strong>{title} · {items.length}개</strong>
-      {items.length ? (
-        <ul>
-          {items.map((item, index) => (
-            <li key={`${title}-${index}-${item.id ?? item.topic_name ?? item.service_name ?? item.action_name}`}>
-              <span>
-                {item.topic_name ?? item.service_name ?? item.action_name ?? item.direction ?? 'event'}
-                {' · '}
-                {item.status ?? (item.receiving ? 'receiving' : item.success === false ? 'failed' : 'ok')}
-              </span>
-              <pre>{JSON.stringify(item.last_message ?? item.message_json ?? item.response ?? item.result ?? item.feedback ?? item, null, 2)}</pre>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <small>수신 이력이 없습니다.</small>
       )}
-    </div>
-  )
-}
-
-function serviceKey(service) {
-  return `${service.service_name || service.file_name}|${service.service_type}`
-}
-
-function actionKey(action) {
-  return `${action.action_name || action.file_name}|${action.action_type}`
-}
-
-function messageKey(message) {
-  return `${message.message_type ?? message.full_type ?? message.file_name}|${message.source ?? ''}`
-}
-
-function topicStatusLabel(message) {
-  if (message.import_available) return 'Publish 가능'
-  return 'Publish 불가'
-}
-
-function topicGraphStatusLabel(message) {
-  return message.graph_topics?.length ? 'Graph Topic 있음' : 'Graph Topic 없음'
-}
-
-function serviceStatusLabel(service) {
-  if (service.callable) return '호출 가능'
-  if (!service.import_available) return 'import 안됨'
-  if (!service.server_available) return '서버 없음'
-  return '호출 불가'
-}
-
-function actionStatusLabel(action) {
-  if (action.callable) return '호출 가능'
-  if (!action.import_available) return 'import 안됨'
-  if (!action.server_available) return '서버 없음'
-  return '호출 불가'
-}
-
-function defaultRequestValues(schema = []) {
-  return Object.fromEntries(
-    schema
-      .filter((field) => field.name)
-      .map((field) => [field.name, defaultFieldValue(field.type)]),
-  )
-}
-
-function normalizeNumericValues(values, schema = []) {
-  const numericFields = new Set(
-    schema
-      .filter((field) => field.name && isNumericType(field.type))
-      .map((field) => field.name),
-  )
-  return Object.fromEntries(
-    Object.entries(values).map(([name, value]) => [
-      name,
-      numericFields.has(name) && value !== '' ? Number(value) : value,
-    ]),
-  )
-}
-
-function defaultFieldValue(type = '') {
-  if (type === 'bool' || type === 'boolean') return false
-  if (isArrayType(type)) return []
-  if (isCustomType(type)) return {}
-  if (isNumericType(type)) return 0
-  return ''
-}
-
-function isNumericType(type = '') {
-  return /^(?:u?int(?:8|16|32|64)|float(?:32|64)|double)$/.test(type)
-}
-
-function isArrayType(type = '') {
-  return /\[[0-9]*\]$/.test(type) || /^sequence<.+>$/.test(type)
-}
-
-function isCustomType(type = '') {
-  return /^[A-Za-z][A-Za-z0-9_]*\/(?:msg\/)?[A-Z][A-Za-z0-9_]*$/.test(type)
-}
-
-function isComplexType(type = '') {
-  return isArrayType(type) || isCustomType(type)
-}
-
-function registryRowKey(item) {
-  return `${item.source ?? 'single'}-${item.full_type ?? item.file_name}-${item.file_kind ?? ''}`
-}
-
-function deletedRegistryItemsFor(kind, items = []) {
-  return items.filter((item) => item.file_kind === kind)
-}
-
-function RegistryGroup({ deletedItems = [], items = [], label, onDelete, onDeleteManual, onEditManual }) {
-  const rows = [
-    ...items,
-    ...deletedItems.filter((deleted) =>
-      !items.some((item) => registryRowKey(item) === registryRowKey(deleted)),
-    ),
-  ]
-  return (
-    <div className="interface-registry-group">
-      <span>{label} ({items.length})</span>
-      {rows.length ? (
-        <ul>{rows.map((item) => (
-          <li
-            className={item.deletedMarker ? 'interface-registry-row deleted' : 'interface-registry-row'}
-            key={registryRowKey(item)}
-          >
-            <div>
-              {item.file_name}
-              <small>
-                {item.deletedMarker ? '삭제됨 · 최근 삭제 표시 · ' : ''}
-                {item.source ? `${item.source} · ` : ''}
-                {item.build?.file_saved ? '파일 생성됨' : '파일 미생성'} · {' '}
-                {item.build?.cmake_registered ? 'CMake 등록됨' : 'CMake 미등록'} · {' '}
-                {item.build?.package_xml_checked ? 'package.xml 확인됨' : 'package.xml 미확인'} · {' '}
-                {item.build?.rebuild_required ? '재빌드 필요' : '빌드 반영'} · {' '}
-                {item.build?.import_available ? 'import됨' : 'import 안됨'}
-                {item.build?.saved_path ? ` · ${item.build.saved_path}` : ''}
-                {item.build?.error ? ` · 오류: ${item.build.error}` : ''}
-              </small>
-            </div>
-            {item.deletedMarker ? (
-              <span className="interface-registry-deleted-badge">삭제됨</span>
-            ) : (
-              <div className="interface-receive-actions">
-                {item.source === 'manual_definition' && (
-                  <>
-                    <button onClick={() => onEditManual?.(item)} type="button">수정</button>
-                    <button onClick={() => onDeleteManual?.(item)} type="button">파일 삭제</button>
-                  </>
-                )}
-                <button onClick={() => onDelete?.(item)} type="button">등록 삭제</button>
-              </div>
-            )}
-          </li>
-        ))}</ul>
-      ) : <small>등록 없음</small>}
     </div>
   )
 }

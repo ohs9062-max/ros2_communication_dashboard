@@ -20,19 +20,25 @@ from ros2_dashboard_monitor.interface_lab.common.value_converter import (
     InterfaceValidationError,
     build_ros_message,
     ros_message_to_json,
-    schema_from_message_class,
 )
 from ros2_dashboard_monitor.interface_lab.management.registry import registry_snapshot
 from ros2_dashboard_monitor.interface_lab.management.packages import registered_package_actions
+from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import (
+    BoundedExecutionHistory,
+    RuntimeClientPool,
+)
+
+
+from ros2_dashboard_monitor.interface_lab.execution.action_support import (
+    ActionGoalError,
+    goal_summary as _goal_summary,
+    interface_lab_node as _interface_lab_node,
+    normalized_timeout as _normalized_timeout,
+    schema_from_action_class as _schema_from_action_class,
+)
 
 
 MAX_HISTORY_ITEMS = 30
-DEFAULT_TIMEOUT_SEC = 10.0
-MAX_TIMEOUT_SEC = 60.0
-
-
-class ActionGoalError(ValueError):
-    """Interface Lab에서 발생하는 예외를 표현하는 클래스입니다."""
 
 
 class ActionGoalRuntime:
@@ -46,8 +52,8 @@ class ActionGoalRuntime:
     ) -> None:
         self._lock = lock
         self._node_getter = node_getter
-        self._clients: dict[tuple[str, str], ActionClient] = {}
-        self._history: list[dict[str, Any]] = []
+        self._client_pool: RuntimeClientPool[tuple[str, str], ActionClient] = RuntimeClientPool(lock)
+        self._history = BoundedExecutionHistory(lock, MAX_HISTORY_ITEMS)
         self._goal_handles: dict[tuple[str, str], Any] = {}
         self._receive_reset_at: float | None = None
         self._receive_reset_by_key: dict[tuple[str | None, str | None], float] = {}
@@ -55,11 +61,11 @@ class ActionGoalRuntime:
     def clear(self) -> None:
         """Interface Lab에서 cache와 runtime 상태를 초기화하는 함수입니다."""
         with self._lock:
-            self._clients = {}
-            self._history = []
             self._goal_handles = {}
             self._receive_reset_at = None
             self._receive_reset_by_key = {}
+        self._client_pool.clear()
+        self._history.clear()
 
     def callable_actions(self) -> dict[str, Any]:
         """등록·import 가능하고 현재 Graph와 일치하는 Action 후보를 반환합니다."""
@@ -275,8 +281,7 @@ class ActionGoalRuntime:
 
     def history(self) -> dict[str, Any]:
         """최근 Action Goal 실행 이력을 복사해 반환합니다."""
-        with self._lock:
-            goals = [item.copy() for item in self._history]
+        goals = self._history.snapshot()
         return {
             'goals': goals,
             'meta': {
@@ -366,8 +371,7 @@ class ActionGoalRuntime:
 
     def summary_by_action(self) -> dict[tuple[str, str], dict[str, Any]]:
         """Action 이름·타입별 최근 Goal 결과와 누적 건수를 요약합니다."""
-        with self._lock:
-            goals = [item.copy() for item in self._history]
+        goals = self._history.snapshot()
         summaries: dict[tuple[str, str], dict[str, Any]] = {}
         for goal in reversed(goals):
             key = (str(goal.get('action_name') or ''), str(goal.get('action_type') or ''))
@@ -397,11 +401,10 @@ class ActionGoalRuntime:
         self,
     ) -> dict[tuple[str, str], dict[str, bool]]:
         """Action별 Interface Lab Client 생성 상태를 반환합니다."""
-        with self._lock:
-            return {
-                key: {'interface_client_created': True}
-                for key in self._clients
-            }
+        return {
+            key: {'interface_client_created': True}
+            for key in self._client_pool.keys()
+        }
 
     def _allowed_action(
         self,
@@ -535,18 +538,13 @@ class ActionGoalRuntime:
 
     def _client(self, name: str, action_type: str, action_class: type):
         key = (name, action_type)
-        with self._lock:
-            client = self._clients.get(key)
-            if client is not None:
-                return client
-
+        def create_client():
             node = self._node_getter()
             if node is None:
                 raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
+            return ActionClient(node, action_class, name)
 
-            client = ActionClient(node, action_class, name)
-            self._clients[key] = client
-            return client
+        return self._client_pool.get_or_create(key, create_client)
 
     def _action_state(
         self,
@@ -599,9 +597,7 @@ class ActionGoalRuntime:
     def _record_history(self, item: dict[str, Any]) -> None:
         item.setdefault('execution_source', 'interface_lab')
         item.setdefault('requester_node', _interface_lab_node(self._node_getter))
-        with self._lock:
-            self._history.insert(0, item)
-            del self._history[MAX_HISTORY_ITEMS:]
+        self._history.record(item)
 
     @staticmethod
     def _result(
@@ -643,68 +639,3 @@ class ActionGoalRuntime:
         if details is not None:
             payload['details'] = details
         return payload
-
-
-def _normalized_timeout(timeout_sec: float | None) -> float:
-    if timeout_sec is None:
-        return DEFAULT_TIMEOUT_SEC
-    try:
-        timeout = float(timeout_sec)
-    except (TypeError, ValueError) as exc:
-        raise ActionGoalError('timeout_sec 값이 올바르지 않습니다.') from exc
-    if timeout <= 0:
-        raise ActionGoalError('timeout_sec는 0보다 커야 합니다.')
-    return min(timeout, MAX_TIMEOUT_SEC)
-
-
-def _schema_from_action_class(action_type: str) -> tuple[list[dict[str, str]], list[dict[str, str]], list[dict[str, str]]]:
-    try:
-        action_class = get_action(action_type)
-        return (
-            _schema_from_message_class(action_class.Goal),
-            _schema_from_message_class(action_class.Result),
-            _schema_from_message_class(action_class.Feedback),
-        )
-    except Exception:
-        return [], [], []
-
-
-def _goal_summary(goal: dict[str, Any]) -> dict[str, Any]:
-    error_type = goal.get('error_type')
-    raw_status = goal.get('status')
-    status = goal_status_label(raw_status) if isinstance(raw_status, int) else raw_status
-    if not status or status == 'unknown':
-        status = 'success' if goal.get('success') is True else error_type or 'failed'
-    feedback = goal.get('feedback') if isinstance(goal.get('feedback'), list) else []
-    return {
-        'status': status,
-        'success': goal.get('success') is True,
-        'accepted': goal.get('accepted') is True,
-        'sent_to_server': goal.get('sent_to_server', False),
-        'last_goal_preview': goal.get('goal'),
-        'last_goal_sent_at': goal.get('sent_at'),
-        'last_feedback_preview': feedback[-1] if feedback else None,
-        'last_feedback_at': goal.get('sent_at') if feedback else None,
-        'last_result_preview': goal.get('result'),
-        'last_result_at': goal.get('sent_at') if goal.get('result') is not None else None,
-        'last_goal_status': status,
-        'execution_time_ms': goal.get('elapsed_ms'),
-        'last_error': goal.get('error'),
-        'error_type': error_type,
-        'details': goal.get('details', []),
-        'execution_source': goal.get('execution_source'),
-        'requester_node': goal.get('requester_node'),
-    }
-
-
-def _interface_lab_node(node_getter: Callable[[], Any]) -> dict[str, Any]:
-    node = node_getter()
-    try:
-        name = str(node.get_fully_qualified_name()) if node is not None else ''
-    except Exception:
-        name = ''
-    return {
-        'name': name or '/ros2_dashboard_topic_monitor',
-        'display_name': 'Dashboard Interface Lab',
-        'is_internal': True,
-    }

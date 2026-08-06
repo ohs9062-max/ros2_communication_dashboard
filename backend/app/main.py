@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.app_state import monitor_cache, monitor_consumer
-from app.routers import monitor_proxy, monitoring, user_preferences
+from app.routers import alerts, monitor_proxy, monitor_websocket, monitoring, user_preferences
 from app.settings import settings
 
 
@@ -29,6 +29,8 @@ app.add_middleware(
     allow_headers=['*'],
 )
 app.include_router(monitoring.router)
+app.include_router(alerts.router)
+app.include_router(monitor_websocket.router)
 app.include_router(user_preferences.router)
 app.include_router(monitor_proxy.router)
 
