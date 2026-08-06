@@ -1,0 +1,142 @@
+from threading import Lock
+
+from ros2_dashboard_monitor.config_loader import (
+    DEFAULT_TOPIC_EXCLUDES,
+    MonitorConfig,
+    _monitor_config,
+)
+from ros2_dashboard_monitor.ros2_service.runtime import ServiceRuntime
+from ros2_dashboard_monitor.ros2_topic.runtime import TopicRuntime
+
+
+class _TopicNode:
+    def __init__(self, name: str, full_type: str) -> None:
+        self.name = name
+        self.full_type = full_type
+
+    def get_topic_names_and_types(self):
+        return [(self.name, [self.full_type])]
+
+    def count_publishers(self, _name):
+        return 1
+
+    def count_subscribers(self, _name):
+        return 0
+
+    def get_name(self):
+        return 'monitor'
+
+    def get_namespace(self):
+        return '/'
+
+    def get_subscriptions_info_by_topic(self, _name):
+        return []
+
+
+class _ServiceNode:
+    def get_service_names_and_types(self):
+        return [
+            ('/internal/reset', ['example_interfaces/srv/Trigger']),
+            ('/RobotControl', ['example_interfaces/srv/Trigger']),
+        ]
+
+    def count_services(self, _name):
+        return 1
+
+    def count_clients(self, _name):
+        return 0
+
+
+def test_missing_topic_exclude_names_uses_safe_defaults() -> None:
+    config = _monitor_config({'topics': {}})
+
+    assert config.topics_exclude == DEFAULT_TOPIC_EXCLUDES
+
+
+def test_explicit_empty_topic_exclude_names_stays_empty() -> None:
+    config = _monitor_config({'topics': {'exclude_names': []}})
+
+    assert config.topics_exclude == ()
+
+
+def test_explicit_topic_exclude_names_uses_only_configured_values() -> None:
+    config = _monitor_config({
+        'topics': {'exclude_names': ['/rosout']},
+    })
+
+    assert config.topics_exclude == ('/rosout',)
+
+
+def test_primary_resource_names_are_loaded_separately_from_include_filters() -> None:
+    config = _monitor_config({
+        'services': {'primary_names': ['/robot/reset']},
+        'actions': {'primary_names': ['/robot/navigate']},
+        'nodes': {'primary_names': ['/robot/controller']},
+    })
+
+    assert config.services_primary_names == ('/robot/reset',)
+    assert config.actions_primary_names == ('/robot/navigate',)
+    assert config.nodes_primary_names == ('/robot/controller',)
+    assert config.services_include == ()
+    assert config.actions_include == ()
+    assert config.nodes_include == ()
+
+
+def test_topic_exclude_prefixes_are_applied_by_runtime() -> None:
+    runtime = _topic_runtime(
+        node=_TopicNode('/internal/data', 'std_msgs/msg/String'),
+        config=_monitor_config({
+            'topics': {
+                'exclude_names': [],
+                'exclude_prefixes': ['/internal'],
+            },
+        }),
+    )
+
+    runtime.update()
+
+    assert runtime.snapshot()['topics'] == []
+
+
+def test_topic_exclude_types_are_applied_by_runtime() -> None:
+    runtime = _topic_runtime(
+        node=_TopicNode('/camera', 'sensor_msgs/msg/Image'),
+        config=_monitor_config({
+            'topics': {
+                'exclude_names': [],
+                'exclude_types': ['sensor_msgs/msg/Image'],
+            },
+        }),
+    )
+
+    runtime.update()
+
+    assert runtime.snapshot()['topics'] == []
+
+
+def test_service_exclude_prefixes_override_include_names() -> None:
+    node = _ServiceNode()
+    config = _monitor_config({
+        'services': {
+            'include_names': ['/internal/reset', '/RobotControl'],
+            'exclude_prefixes': ['/internal'],
+        },
+    })
+    runtime = ServiceRuntime(
+        config=config,
+        lock=Lock(),
+        node_getter=lambda: node,
+    )
+
+    services = runtime.update()
+
+    assert [service['name'] for service in services] == ['/RobotControl']
+
+
+def _topic_runtime(*, node: _TopicNode, config: MonitorConfig) -> TopicRuntime:
+    return TopicRuntime(
+        action_monitor_subscriber_count=lambda _name: 0,
+        config=config,
+        lock=Lock(),
+        node_getter=lambda: node,
+    )

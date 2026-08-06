@@ -37,7 +37,7 @@ Interface 등록 또는 업로드
 
 ### 2) 두 저장소를 구분한다
 
-#### `backend/src/uploaded_interfaces`
+#### `ros2_ws/src/uploaded_interfaces/generated_interfaces`
 
 직접 작성과 단일 업로드 파일을 하나의 ROS package에 모은다.
 
@@ -45,7 +45,7 @@ Interface 등록 또는 업로드
 - CMake/package.xml 전체 재생성: `manual_interfaces.py L416~L488`
 - 파일이 0개면 `rosidl_generate_interfaces()`를 남기지 않고 build 가능한 빈 package로 만든다.
 
-#### `backend/src/uploaded_interface_packages`
+#### `ros2_ws/src/uploaded_interfaces/packages`
 
 완성된 package를 package 이름 그대로 저장한다.
 

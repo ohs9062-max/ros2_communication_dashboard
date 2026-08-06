@@ -3,10 +3,32 @@ Ss
 
 
 ## Server
- python3 -m uvicorn ros2_dashboard_backend.main:app --host 127.0.0.1 --port 8000 --reload
- uvicorn ros2_dashboard_backend.main:app --reload
 
- npm run dev
+# 1. ROS2 빌드
+cd ~/rang/ros2_dashboard/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+
+# 2. ROS2 Monitor 실행
+ros2 run ros2_dashboard_monitor monitor
+다른 터미널:
+# 3. Backend venv 및 실행
+cd ~/rang/ros2_dashboard/backend
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+python3 -m uvicorn app.main:app \
+  --host 127.0.0.1 \
+  --port 8000 \
+  --reload
+다른 터미널:
+# 4. Frontend 실행
+cd ~/rang/ros2_dashboard/frontend
+npm install
+npm run dev
 
 ## GAzebo
   source /opt/ros/jazzy/setup.bash

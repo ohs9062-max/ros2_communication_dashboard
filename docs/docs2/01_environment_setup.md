@@ -34,9 +34,9 @@ ros2_dashboard/
 다음 폴더는 build 또는 dependency 생성물이므로 직접 수정하지 않는다.
 
 ```text
-backend/build/
-backend/install/
-backend/log/
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
 frontend/node_modules/
 frontend/dist/
 ```
@@ -402,16 +402,16 @@ Interface Lab은 다음 등록 방식을 지원한다.
 | 방식 | 저장 위치 | build 필요 |
 |---|---|---|
 | 설치된 타입 직접 등록 | Registry만 갱신 | 아니오 |
-| `.msg/.srv/.action` 직접 작성 | `backend/src/uploaded_interfaces/` | 예 |
-| 단일 interface 파일 업로드 | `backend/src/uploaded_interfaces/` | 예 |
-| ROS interface package 업로드 | `backend/src/uploaded_interface_packages/` | 예 |
+| `.msg/.srv/.action` 직접 작성 | `ros2_ws/src/uploaded_interfaces/generated_interfaces/` | 예 |
+| 단일 interface 파일 업로드 | `ros2_ws/src/uploaded_interfaces/generated_interfaces/` | 예 |
+| ROS interface package 업로드 | `ros2_ws/src/uploaded_interfaces/packages/` | 예 |
 
 새 환경으로 저장소를 복사했다면 registry YAML만 확인하지 말고 실제 source interface 파일과
 package도 함께 존재하는지 확인한다.
 
 ```bash
-find backend/src/uploaded_interfaces -type f
-find backend/src/uploaded_interface_packages -type f
+find ros2_ws/src/uploaded_interfaces/generated_interfaces -type f
+find ros2_ws/src/uploaded_interfaces/packages -type f
 ```
 
 Interface Lab에서 `적용`을 실행하면 Backend workspace에서 다음 build를 수행한다.
@@ -509,7 +509,7 @@ Action: /CanControl
 ```bash
 cd /path/to/ros2_dashboard
 source /opt/ros/jazzy/setup.bash
-source backend/install/setup.bash
+source ros2_ws/install/setup.bash
 export ROS_DOMAIN_ID=99
 ros2 launch backend/demo_nodes/demo_communication.launch.py
 ```
@@ -560,7 +560,7 @@ python3 backend/demo_nodes/demo_robot_control_timeout_client.py
 디렉터리에서 실행한다.
 
 ```bash
-cd /path/to/ros2_dashboard/backend/src/ros2_dashboard_backend
+cd /path/to/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor
 source /opt/ros/jazzy/setup.bash
 source ../../install/setup.bash
 python3 -m pytest test
@@ -601,7 +601,7 @@ python3 -m py_compile backend/demo_nodes/*.py
 확인 순서:
 
 1. Backend 터미널에서 `/opt/ros/jazzy/setup.bash`를 source했는가
-2. `backend/install/setup.bash`를 source했는가
+2. `ros2_ws/install/setup.bash`를 source했는가
 3. 기기와 `ROS_DOMAIN_ID`가 같은가
 4. `ROS_LOCALHOST_ONLY=0`인가
 5. discovery 범위가 `SUBNET` 또는 기기 환경과 호환되는가

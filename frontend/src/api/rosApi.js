@@ -166,6 +166,15 @@ export async function sendActionGoal(payload) {
   return responseJson(response)
 }
 
+export async function cancelActionGoal(payload) {
+  const response = await fetch(`${API_BASE_URL}/ros/interfaces/action-goal/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return responseJson(response)
+}
+
 export async function publishTopicMessage(payload) {
   const response = await fetch(`${API_BASE_URL}/ros/interfaces/topic-publish`, {
     method: 'POST',

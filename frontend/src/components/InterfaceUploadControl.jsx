@@ -1609,7 +1609,7 @@ export function InterfaceUploadControl({
                 </div>
               )}
               <div className="interface-manual-fixed-path">
-                저장 위치: backend/src/uploaded_interfaces/{manualKind}/{manualTypeName || 'TypeName'}.{manualKind}
+                저장 위치: ros2_ws/src/uploaded_interfaces/generated_interfaces/{manualKind}/{manualTypeName || 'TypeName'}.{manualKind}
               </div>
               <label className="interface-service-field">
                 <span>kind</span>

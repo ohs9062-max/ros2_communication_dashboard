@@ -22,12 +22,12 @@ Vite + React
 
 | 단계 | 역할·실행 시점 | 호출과 다음 단계 | 실제 코드 |
 |---|---|---|---|
-| singleton 준비 | 모듈 import 시 설정과 `RosMonitor`를 한 번 만든다 | `load_backend_config()` → `RosMonitor(config)` | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/app_state.py L1-L10` |
-| Runtime 조립 | `RosMonitor` 생성 시 공통 `threading.Lock`과 모든 Runtime을 만든다 | 같은 lock을 Topic, Service, Action, Node와 Interface Lab 실행 Runtime에 전달 | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L37-L82` |
-| FastAPI lifespan | Uvicorn worker 시작·종료 때 실행한다 | startup에서 `start()`, shutdown에서 `stop()` | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/main.py L20-L27` |
-| ROS 시작 | `rclpy.init()` 후 monitor Node를 만든다 | Node → timer → 최초 update → spin thread | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L84-L98` |
-| 주기 timer | `poll_interval_sec`마다 Graph를 다시 읽는다 | `_update_graph()` 호출 | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L84-L98`, `L681-L688` |
-| 종료 | worker 종료 또는 reload 때 실행한다 | timer 취소 → 실행 Runtime clear → `rclpy.shutdown()` → join → Node destroy | `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L100-L124` |
+| singleton 준비 | 모듈 import 시 설정과 `RosMonitor`를 한 번 만든다 | `load_backend_config()` → `RosMonitor(config)` | `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/app_state.py L1-L10` |
+| Runtime 조립 | `RosMonitor` 생성 시 공통 `threading.Lock`과 모든 Runtime을 만든다 | 같은 lock을 Topic, Service, Action, Node와 Interface Lab 실행 Runtime에 전달 | `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros_monitor.py L37-L82` |
+| FastAPI lifespan | Uvicorn worker 시작·종료 때 실행한다 | startup에서 `start()`, shutdown에서 `stop()` | `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/main.py L20-L27` |
+| ROS 시작 | `rclpy.init()` 후 monitor Node를 만든다 | Node → timer → 최초 update → spin thread | `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros_monitor.py L84-L98` |
+| 주기 timer | `poll_interval_sec`마다 Graph를 다시 읽는다 | `_update_graph()` 호출 | `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros_monitor.py L84-L98`, `L681-L688` |
+| 종료 | worker 종료 또는 reload 때 실행한다 | timer 취소 → 실행 Runtime clear → `rclpy.shutdown()` → join → Node destroy | `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros_monitor.py L100-L124` |
 
 핵심 시작 코드는 다음과 같다.
 
@@ -41,7 +41,7 @@ async def lifespan(_: FastAPI):
         ros_monitor.stop()
 ```
 
-파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/main.py L20-L27`
+파일: `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/main.py L20-L27`
 
 `--reload`를 쓰면 worker와 lifespan도 다시 만들어진다. 따라서 FastAPI만 재시작되는 것이 아니라 rclpy, Node, timer, spin thread도 같이 내려갔다가 올라온다.
 
@@ -118,7 +118,7 @@ self._action_runtime.update()
 0. **Cache** 최신 상태를 보관하는 저장소, **Snapshot** 그 Cache를 특정 시점에 읽어 만든 응답 데이터.
 0. **Runtime** :프로그램이 실행 중일 때 실제로 동작하면서 ROS2 정보를 수집하고 상태를 계산해 Cache에 저장하는 담당 객체.
 
-파일: `backend/src/ros2_dashboard_backend/ros2_dashboard_backend/ros_monitor.py L681-L688`
+파일: `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros_monitor.py L681-L688`
 1. **Node**: Node 목록과 pub/sub/service/action 관계를 읽어 Node cache를 교체한다.
 2. **Topic**: Topic 목록, 타입, publisher/subscriber 수를 읽고 필요한 subscription을 생성·제거한다.
 3. **Service**: Service 이름/타입과 server/client 수를 읽는다.
@@ -427,7 +427,7 @@ REST는 목록 전체, 관계, 선택 Topic latest/Hz처럼 화면이 실제로 
 
 ```text
 .msg/.srv/.action 입력 또는 단일 업로드
-→ backend/src/uploaded_interfaces/<kind> 저장
+→ ros2_ws/src/uploaded_interfaces/generated_interfaces/<kind> 저장
 → 남은 파일 전체 scan
 → CMakeLists.txt/package.xml 전체 재생성
 → registry와 pending 저장
@@ -444,7 +444,7 @@ REST는 목록 전체, 관계, 선택 Topic latest/Hz처럼 화면이 실제로 
 
 ### 12.2 실제 장비 패키지 업로드
 
-ZIP/folder를 받아 안전한 package root, `package.xml`, `CMakeLists.txt`, package name과 interface 파일을 검증한다. 원본 package name을 유지해 `backend/src/uploaded_interface_packages/<package>`에 복사하고 `interface_packages.yaml`에 기록한다.
+ZIP/folder를 받아 안전한 package root, `package.xml`, `CMakeLists.txt`, package name과 interface 파일을 검증한다. 원본 package name을 유지해 `ros2_ws/src/uploaded_interfaces/packages/<package>`에 복사하고 `interface_packages.yaml`에 기록한다.
 
 파일: `interface_lab/management/packages.py L1-L250`, 업로드 검증/복사 `L330-L610`
 
@@ -607,7 +607,7 @@ npm run dev
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-source /home/hs/rang/ros2_dashboard/backend/install/setup.bash
+source /home/hs/rang/ros2_dashboard/ros2_ws/install/setup.bash
 ros2 node list
 ros2 topic list -t
 ros2 service list -t

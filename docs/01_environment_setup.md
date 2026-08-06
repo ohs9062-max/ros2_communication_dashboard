@@ -115,7 +115,7 @@ curl http://127.0.0.1:8000/ros/alerts
 | `.msg/.srv/.action` 정의 | Interface Apply 또는 `colcon build --symlink-install`, overlay 재-source |
 | 업로드 package | Apply 후 import 결과 확인 |
 
-`backend/build/`, `backend/install/`, `backend/log/`, `frontend/node_modules/`는 생성물이다. 문제 해결을 이유로 내용을 직접 고치지 않는다.
+`ros2_ws/build/`, `ros2_ws/install/`, `ros2_ws/log/`, `frontend/node_modules/`는 생성물이다. 문제 해결을 이유로 내용을 직접 고치지 않는다.
 
 현재 Backend `.env`의 `API_HOST`, `API_PORT`는 Uvicorn 명령에 자동 연결되지 않는다.
 실행 스크립트와 위 명령의 `--host`, `--port` 값을 직접 사용하며,

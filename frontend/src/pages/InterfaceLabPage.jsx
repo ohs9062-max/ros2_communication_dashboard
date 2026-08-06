@@ -7,6 +7,7 @@ import {
 } from '../utils/interfaceTopics.js'
 import {
   callRegisteredService,
+  cancelActionGoal,
   fetchCallableActions,
   fetchCallableMessages,
   fetchCallableServices,
@@ -73,6 +74,7 @@ export function InterfaceLabPage({ websocket }) {
   const topicPublishNameSourceRef = useRef('empty')
   const [timeoutSec, setTimeoutSec] = useState(2)
   const [goalTimeoutSec, setGoalTimeoutSec] = useState(10)
+  const [cancelingGoal, setCancelingGoal] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [inlineResult, setInlineResult] = useState(null)
   const [error, setError] = useState(null)
@@ -327,6 +329,26 @@ export function InterfaceLabPage({ websocket }) {
     }
   }
 
+  const cancelSelectedAction = async () => {
+    const target = selectedDetail?.connectedActions?.find((action) => action.callable)
+      ?? (selectedDetail?.kind === 'callable_action' ? selectedDetail.status : null)
+    if (!target?.action_name || !target?.action_type) return
+    setCancelingGoal(true)
+    try {
+      const result = await cancelActionGoal({
+        action_name: target.action_name,
+        action_type: target.action_type,
+        timeout_sec: goalTimeoutSec,
+      })
+      setInlineResult(result)
+      await refresh({ notifyWorkbench: false })
+    } catch (nextError) {
+      setInlineResult({ success: false, error: nextError.message, error_type: 'cancel_failed' })
+    } finally {
+      setCancelingGoal(false)
+    }
+  }
+
   const publishSelectedTopic = async () => {
     if (!selectedDetail?.fullType) {
       setInlineResult({ success: false, error: 'Message full_type이 없습니다.' })
@@ -560,12 +582,14 @@ export function InterfaceLabPage({ websocket }) {
                 />
                 {selectedDetail?.id === item.id && (
                   <InlineWorkspace
+                    cancelingGoal={cancelingGoal}
                     executing={executing}
                     goalTimeoutSec={goalTimeoutSec}
                     goalValues={goalValues}
                     inlineResult={inlineResult}
                     item={selectedDetail}
                     onActionExecute={executeSelectedAction}
+                    onActionCancel={cancelSelectedAction}
                     onGoalChange={setGoalValues}
                     onHistorySelect={setSelectedHistoryItem}
                     onMessageChange={setMessageValues}
@@ -695,12 +719,14 @@ function CountBadge({ label, tone, value }) {
 
 function InlineWorkspace({
   activeContinuousPublish,
+  cancelingGoal,
   executing,
   goalTimeoutSec,
   goalValues,
   inlineResult,
   item,
   onActionExecute,
+  onActionCancel,
   onGoalChange,
   onHistorySelect,
   onMessageChange,
@@ -760,6 +786,7 @@ function InlineWorkspace({
       )}
       {showDetail && (
         <InterfaceDetailPanel
+          cancelingGoal={cancelingGoal}
           activeContinuousPublish={activeContinuousPublish}
           executing={executing}
           goalTimeoutSec={goalTimeoutSec}
@@ -767,6 +794,7 @@ function InlineWorkspace({
           inlineResult={inlineResult}
           item={item}
           onActionExecute={onActionExecute}
+          onActionCancel={onActionCancel}
           onGoalChange={onGoalChange}
           onHistorySelect={onHistorySelect}
           onMessageChange={onMessageChange}
@@ -801,12 +829,14 @@ function InlineWorkspace({
 
 function InterfaceDetailPanel({
   activeContinuousPublish,
+  cancelingGoal,
   executing,
   goalTimeoutSec,
   goalValues,
   inlineResult,
   item,
   onActionExecute,
+  onActionCancel,
   onGoalChange,
   onHistorySelect,
   onMessageChange,
@@ -913,12 +943,14 @@ function InterfaceDetailPanel({
       )}
       {(item.kind === 'action' || item.kind === 'callable_action') && (
         <ActionWorkspaceDetail
+          cancelingGoal={cancelingGoal}
           executing={executing}
           goalTimeoutSec={goalTimeoutSec}
           goalValues={goalValues}
           inlineResult={inlineResult}
           item={item}
           onExecute={onActionExecute}
+          onCancel={onActionCancel}
           onGoalChange={onGoalChange}
           onHistorySelect={onHistorySelect}
           selectedHistoryItem={selectedHistoryItem}
@@ -1171,12 +1203,14 @@ function TopicWorkspaceDetail({
 }
 
 function ActionWorkspaceDetail({
+  cancelingGoal,
   executing,
   goalTimeoutSec,
   goalValues,
   inlineResult,
   item,
   onExecute,
+  onCancel,
   onGoalChange,
   onHistorySelect,
   selectedHistoryItem,
@@ -1231,6 +1265,14 @@ function ActionWorkspaceDetail({
             type="button"
           >
             {executing ? '요청 전송 중…' : `${callableTarget.action_name} Goal 실행`}
+          </button>
+          <button
+            className="interface-service-call-button"
+            disabled={!executing || cancelingGoal}
+            onClick={onCancel}
+            type="button"
+          >
+            {cancelingGoal ? '취소 요청 중…' : '활성 Goal 취소'}
           </button>
         </>
       ) : (

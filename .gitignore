@@ -21,6 +21,7 @@ dist/
 .env
 .env.*
 !frontend/.env.example
+!backend/.env.example
 *.key
 *.pem
 *.crt
@@ -28,6 +29,7 @@ dist/
 
 # Logs
 *.log
+.runtime/
 
 # OS / editor
 .DS_Store
