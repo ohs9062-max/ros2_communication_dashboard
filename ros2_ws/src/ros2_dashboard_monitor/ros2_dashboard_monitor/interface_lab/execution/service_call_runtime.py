@@ -5,8 +5,6 @@ from __future__ import annotations
 from time import time
 from typing import Any, Callable
 
-from rclpy.qos import qos_profile_services_default
-
 from ros2_dashboard_monitor.interface_lab.apply.runtime import refresh_install_python_paths
 from ros2_dashboard_monitor.interface_lab.common.value_converter import (
     build_ros_message,
@@ -15,9 +13,13 @@ from ros2_dashboard_monitor.interface_lab.common.value_converter import (
 )
 from ros2_dashboard_monitor.interface_lab.management.registry import registry_snapshot
 from ros2_dashboard_monitor.interface_lab.management.packages import registered_package_services
-from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import (
-    BoundedExecutionHistory,
-    RuntimeClientPool,
+from ros2_dashboard_monitor.interface_lab.execution.service_client_pool import (
+    ServiceClientPool,
+    service_qos_state,
+)
+from ros2_dashboard_monitor.interface_lab.execution.service_history import (
+    ServiceCallHistory,
+    call_summary_payload as _call_summary,
 )
 from ros2_dashboard_monitor.interface_lab.execution.service_discovery import (
     count_service_clients,
@@ -27,9 +29,6 @@ from ros2_dashboard_monitor.interface_lab.execution.service_call_executor import
 from ros2_dashboard_monitor.ros2_service.active_check import (
     load_service_class,
 )
-from ros2_dashboard_monitor.qos import qos_state
-
-
 MAX_HISTORY_ITEMS = 30
 DEFAULT_TIMEOUT_SEC = 2.0
 MAX_TIMEOUT_SEC = 10.0
@@ -50,16 +49,17 @@ class ServiceCallRuntime:
     ) -> None:
         self._lock = lock
         self._node_getter = node_getter
-        self._client_pool: RuntimeClientPool[tuple[str, str], Any] = RuntimeClientPool(lock)
-        self._history = BoundedExecutionHistory(lock, MAX_HISTORY_ITEMS)
-        self._receive_reset_at: float | None = None
-        self._receive_reset_by_key: dict[tuple[str | None, str | None], float] = {}
+        self._client_pool = ServiceClientPool(
+            lock=lock,
+            node_getter=node_getter,
+            unavailable_error=lambda: ServiceCallError(
+                'ROS2 monitor node가 실행 중이 아닙니다.',
+            ),
+        )
+        self._history = ServiceCallHistory(lock, MAX_HISTORY_ITEMS)
 
     def clear(self) -> None:
         """Interface Lab에서 cache와 runtime 상태를 초기화하는 함수입니다."""
-        with self._lock:
-            self._receive_reset_at = None
-            self._receive_reset_by_key = {}
         self._client_pool.clear()
         self._history.clear()
 
@@ -131,51 +131,11 @@ class ServiceCallRuntime:
 
     def history(self) -> dict[str, Any]:
         """최근 Service Call 실행 이력을 복사해 반환합니다."""
-        calls = self._history.snapshot()
-        return {
-            'calls': calls,
-            'meta': {
-                'count': len(calls),
-            },
-        }
+        return self._history.response()
 
     def receive_history(self) -> dict[str, Any]:
         """초기화 경계 이후의 Service 응답 이력을 반환합니다."""
-        calls = self.history()['calls']
-        events = []
-        for index, call in enumerate(calls):
-            called_at = call.get('called_at')
-            if (
-                self._receive_reset_at is not None
-                and called_at is not None
-                and called_at <= self._receive_reset_at
-            ):
-                continue
-            reset_at = self._receive_reset_by_key.get(
-                (call.get('service_name'), call.get('service_type')),
-            )
-            if reset_at is not None and called_at is not None and called_at <= reset_at:
-                continue
-            events.append({
-                'id': f"service-{call.get('called_at', index)}-{index}",
-                'direction': 'service_response',
-                'service_name': call.get('service_name'),
-                'service_type': call.get('service_type'),
-                'request': call.get('request'),
-                'response': call.get('response'),
-                'status': 'success' if call.get('success') else call.get('error_type') or 'failed',
-                'success': call.get('success') is True,
-                'error_type': call.get('error_type'),
-                'error': call.get('error'),
-                'sent_to_server': call.get('sent_to_server', False),
-                'called_at': call.get('called_at'),
-                'received_at': call.get('called_at'),
-                'response_time_ms': call.get('elapsed_ms'),
-                'execution_source': call.get('execution_source'),
-                'requester_node': call.get('requester_node'),
-                'raw': call,
-            })
-        return {'history': events, 'meta': {'count': len(events)}}
+        return self._history.receive_response()
 
     def reset_receive_history(
         self,
@@ -184,49 +144,20 @@ class ServiceCallRuntime:
         service_type: str | None = None,
     ) -> dict[str, Any]:
         """선택한 Service의 응답 이력 초기화 시각을 갱신합니다."""
-        previous = len([
-            item for item in self.receive_history()['history']
-            if not service_name
-            or (item.get('service_name') == service_name and item.get('service_type') == service_type)
-        ])
-        if service_name:
-            self._receive_reset_by_key[(service_name, service_type)] = time()
-        else:
-            self._receive_reset_at = time()
-        return {'cleared': previous}
+        return self._history.reset_receive(
+            service_name=service_name,
+            service_type=service_type,
+        )
 
     def summary_by_service(self) -> dict[tuple[str, str], dict[str, Any]]:
         """Service 이름·타입별 최근 Call 결과와 누적 건수를 요약합니다."""
-        calls = self._history.snapshot()
-        summaries: dict[tuple[str, str], dict[str, Any]] = {}
-        for call in reversed(calls):
-            key = (str(call.get('service_name') or ''), str(call.get('service_type') or ''))
-            if not key[0] or not key[1]:
-                continue
-            summary = summaries.setdefault(key, {
-                'call_count': 0,
-                'success_count': 0,
-                'failure_count': 0,
-                'history': [],
-            })
-            summary['call_count'] += 1
-            if call.get('success') is True:
-                summary['success_count'] += 1
-            else:
-                summary['failure_count'] += 1
-            summary['history'].insert(0, _call_summary(call))
-            summary['history'] = summary['history'][:5]
-            summary.update(_call_summary(call))
-        return summaries
+        return self._history.summary_by_service()
 
     def dashboard_state_by_service(
         self,
     ) -> dict[tuple[str, str], dict[str, bool]]:
         """Service별 Interface Lab Client 생성 상태를 반환합니다."""
-        return {
-            key: {'interface_client_created': True, **self._service_qos()}
-            for key in self._client_pool.keys()
-        }
+        return self._client_pool.dashboard_state()
 
     def _allowed_service(
         self,
@@ -283,18 +214,7 @@ class ServiceCallRuntime:
         return discover_service_graph(self._node_getter, self._client_count)
 
     def _client(self, name: str, service_type: str, service_class: type):
-        key = (name, service_type)
-        def create_client():
-            node = self._node_getter()
-            if node is None:
-                raise ServiceCallError('ROS2 monitor node가 실행 중이 아닙니다.')
-            return node.create_client(
-                service_class,
-                name,
-                qos_profile=qos_profile_services_default,
-            )
-
-        return self._client_pool.get_or_create(key, create_client)
+        return self._client_pool.get_or_create(name, service_type, service_class)
 
     def _client_count(self, name: str) -> int:
         return count_service_clients(self._node_getter, name)
@@ -335,13 +255,7 @@ class ServiceCallRuntime:
 
     @staticmethod
     def _service_qos() -> dict[str, Any]:
-        return qos_state(
-            status='unknown',
-            source='default_profile',
-            local=qos_profile_services_default,
-            reason='Service Graph API에서 상대 endpoint QoS를 제공하지 않아 기본 Service QoS를 사용합니다.',
-            auto_applied=False,
-        )
+        return service_qos_state()
 
     def _record_history_with_qos(self, item: dict[str, Any]) -> None:
         item.update(self._service_qos())
@@ -401,27 +315,6 @@ def _schema_from_service_class(service_type: str) -> tuple[list[dict[str, str]],
         )
     except Exception:
         return [], []
-
-
-def _call_summary(call: dict[str, Any]) -> dict[str, Any]:
-    error_type = call.get('error_type')
-    status = 'success' if call.get('success') is True else (error_type or 'failed')
-    return {
-        'status': status,
-        'success': call.get('success') is True,
-        'called': call.get('called', call.get('sent_to_server', False)),
-        'sent_to_server': call.get('sent_to_server', False),
-        'last_request_preview': call.get('request'),
-        'last_response_preview': call.get('response'),
-        'last_call_status': status,
-        'last_called_at': call.get('called_at'),
-        'last_response_time_ms': call.get('elapsed_ms'),
-        'last_error': call.get('error'),
-        'error_type': error_type,
-        'details': call.get('details', []),
-        'execution_source': call.get('execution_source'),
-        'requester_node': call.get('requester_node'),
-    }
 
 
 def _interface_lab_node(node_getter: Callable[[], Any]) -> dict[str, Any]:

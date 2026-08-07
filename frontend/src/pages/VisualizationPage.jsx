@@ -2,11 +2,11 @@ import '@xyflow/react/dist/style.css'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useCallback, useRef } from 'react'
 import { SummaryCard } from '../components/SummaryCard.jsx'
-import { StatusBadge } from '../components/StatusBadge.jsx'
 import { CommunicationGraph } from '../components/visualization/CommunicationGraph.jsx'
 import { VisualizationDetailPanel } from '../components/visualization/VisualizationDetailPanel.jsx'
+import { VisualizationNodePicker } from '../components/visualization/VisualizationNodePicker.jsx'
+import { VisualizationToolbar } from '../components/visualization/VisualizationToolbar.jsx'
 import { useVisualizationGraph } from '../hooks/useVisualizationGraph.js'
-import { nodeConnectionCount } from '../utils/graphTransform.js'
 
 export function VisualizationPage({ websocket }) {
   const dashboard = useVisualizationGraph()
@@ -160,157 +160,41 @@ export function VisualizationPage({ websocket }) {
           </section>
         )}
 
-        <section className="topic-section visualization-toolbar">
-          <div className="filter-toolbar">
-            <div
-              aria-label="시각화 모드"
-              className="visualization-mode-tabs"
-              role="group"
-            >
-              <button
-                className={isPrimaryNodeFilter ? 'filter active' : 'filter'}
-                onClick={showNodeView}
-                type="button"
-              >
-                주요 노드
-              </button>
-              <button
-                className={isActiveNodeFilter ? 'filter active' : 'filter'}
-                onClick={showConnectedView}
-                type="button"
-              >
-                실행 노드
-              </button>
-              <button
-                className={isAllNodeFilter ? 'filter active' : 'filter'}
-                onClick={showGlobalView}
-                type="button"
-              >
-                전체 노드
-              </button>
-            </div>
-            <input
-              aria-label="통신 그래프 검색"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={
-                !isNodeMode
-                  ? '연결된 Topic, Service, Action 검색'
-                  : 'Node 이름 또는 namespace 검색'
-              }
-              type="search"
-              value={search}
-            />
-            {!isNodeMode && (
-              <div className="service-filter-actions">
-                <>
-                  <ToggleButton
-                    active={activeOnly}
-                    label="주요 항목"
-                    onClick={() => setActiveOnly(!activeOnly)}
-                  />
-                  <ToggleButton
-                    active={showTopics}
-                    label="Topic"
-                    onClick={() => setShowTopics(!showTopics)}
-                  />
-                  <ToggleButton
-                    active={showServices}
-                    label="Service"
-                    onClick={() => setShowServices(!showServices)}
-                  />
-                  <ToggleButton
-                    active={showActions}
-                    label="Action"
-                    onClick={() => setShowActions(!showActions)}
-                  />
-                  <ToggleButton
-                    active={includeHidden}
-                    label="숨김 포함"
-                    onClick={() => setIncludeHidden(!includeHidden)}
-                  />
-                </>
-              </div>
-            )}
-          </div>
-          {!isNodeMode && (
-            <div className="visualization-actions">
-              {loading && <span className="muted">갱신 중</span>}
-              {error && <span className="error-text">Graph API 연결 실패</span>}
-              <span className="muted">Shift + 드래그: 같은 종류 묶음 이동</span>
-              <button
-                className="filter"
-                onClick={() => fitViewRef.current?.()}
-                type="button"
-              >
-                화면 맞춤
-              </button>
-              <button
-                className="filter"
-                onClick={() => resetLayoutRef.current?.()}
-                type="button"
-              >
-                배치 초기화
-              </button>
-              <button className="filter" onClick={showEverything} type="button">
-                전체 Graph
-              </button>
-              <button className="filter active" onClick={refresh} type="button">
-                새로고침
-              </button>
-            </div>
-          )}
-        </section>
-
-        {isNodeMode && loading && (
-          <section className="notice-text visualization-mode-warning">
-            데이터를 불러오는 중입니다.
-          </section>
-        )}
-
-        {isNodeMode && error && (
-          <section className="notice-text warning visualization-mode-warning">
-            ROS2 데이터를 불러오지 못했습니다. 백엔드 실행 상태와 API 주소를
-            확인하세요.
-          </section>
-        )}
+        <VisualizationToolbar
+          activeOnly={activeOnly}
+          error={error}
+          includeHidden={includeHidden}
+          isActiveNodeFilter={isActiveNodeFilter}
+          isAllNodeFilter={isAllNodeFilter}
+          isNodeMode={isNodeMode}
+          isPrimaryNodeFilter={isPrimaryNodeFilter}
+          loading={loading}
+          onActiveOnlyChange={setActiveOnly}
+          onConnectedView={showConnectedView}
+          onFitView={() => fitViewRef.current?.()}
+          onGlobalView={showGlobalView}
+          onIncludeHiddenChange={setIncludeHidden}
+          onNodeView={showNodeView}
+          onRefresh={refresh}
+          onResetLayout={() => resetLayoutRef.current?.()}
+          onSearchChange={setSearch}
+          onShowActionsChange={setShowActions}
+          onShowEverything={showEverything}
+          onShowServicesChange={setShowServices}
+          onShowTopicsChange={setShowTopics}
+          search={search}
+          showActions={showActions}
+          showServices={showServices}
+          showTopics={showTopics}
+        />
 
         {isNodeMode && (
-          <section className="topic-section visualization-node-picker">
-            <div className="section-heading">
-              <div>
-                <h2>Node 선택</h2>
-                <p className="muted">
-                  Node를 선택하면 해당 Node와 직접 연결된 Topic, Service,
-                  Action 관계를 표시합니다.
-                </p>
-              </div>
-            </div>
-            <div className="visualization-node-list">
-              {selectableNodes.map((node) => {
-                const name = node.full_name ?? node.name
-                return (
-                  <button
-                    className="visualization-node-option"
-                    key={name}
-                    onClick={() => selectNode(name)}
-                    type="button"
-                  >
-                    <span>
-                      <strong>{name}</strong>
-                      <small>{node.namespace ?? '/'}</small>
-                    </span>
-                    <StatusBadge value={node.status ?? 'unknown'} />
-                    <em>{nodeConnectionCount(node)} 연결</em>
-                  </button>
-                )
-              })}
-              {!selectableNodes.length && (
-                <div className="empty-state compact">
-                  검색 조건에 맞는 Node가 없습니다.
-                </div>
-              )}
-            </div>
-          </section>
+          <VisualizationNodePicker
+            error={error}
+            loading={loading}
+            nodes={selectableNodes}
+            onSelect={selectNode}
+          />
         )}
 
         {graph.limited && !isNodeMode && (
@@ -359,18 +243,6 @@ export function VisualizationPage({ websocket }) {
         />
       )}
     </main>
-  )
-}
-
-function ToggleButton({ active, label, onClick }) {
-  return (
-    <button
-      className={active ? 'filter active' : 'filter'}
-      onClick={onClick}
-      type="button"
-    >
-      {label}
-    </button>
   )
 }
 

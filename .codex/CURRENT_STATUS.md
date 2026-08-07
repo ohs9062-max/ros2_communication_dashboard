@@ -61,6 +61,12 @@ ros2_dashboard/
   맞는 상태와 명령을 조합한다.
 - Visualization graph 변환은 전체 graph coordinator `graphTransform.js`, 선택 Node graph
   `graphNodeView.js`, node/edge 모델 `graphElements.js`, 숨김·활성 정책 `graphFilters.js`로 분리됐다.
+- Visualization의 모드/검색/항목/레이아웃 Toolbar는 `VisualizationToolbar.jsx`, loading/error와 Node 목록
+  선택 View는 `VisualizationNodePicker.jsx`가 담당한다. `VisualizationPage.jsx`는 graph hook 상태 전환,
+  summary와 canvas/detail 조립을 담당한다.
+- Overview의 Alert 및 Node/Topic/Service/Action 미리보기 카드는 `OverviewPreviewGrid.jsx`, 상태 분포
+  column/table과 percent/count 전환은 `OverviewColumnChart.jsx`가 담당한다. `OverviewPage.jsx`는 resource
+  summary 계산과 Alert source별 상세 화면 이동 정책을 담당한다.
 - Interface Upload toolbar와 수동 Interface 등록/작성 form은 각각 `InterfaceUploadToolbar.jsx`,
   `InterfaceManualPanel.jsx`로 분리됐다.
 - 구 `InterfaceUploadParts.jsx`는 제거됐다. Registry/schema View는 `InterfaceRegistryParts.jsx`,
@@ -120,20 +126,36 @@ ros2_dashboard/
   초기화 순서를 유지한다.
 - Interface Lab Action Goal history의 Feedback/Result 이벤트 변환, reset 경계 필터링, Action별 최근
   결과와 성공·실패·취소 누적 summary는 `execution/action_history.py`가 담당한다.
+- Interface Lab Service Client의 기본 QoS 적용, 이름/type별 생성·재사용과 Dashboard 생성 상태는
+  `execution/service_client_pool.py`가 담당한다. Call 원본 저장, Receive 이벤트 변환, reset 경계와
+  Service별 최근 결과/누적 summary는 `execution/service_history.py`가 담당하며
+  `service_call_runtime.py`는 discovery·허용 검사·호출 실행을 조정한다.
 - Frontend Interface Lab Receive의 Topic·Service·Action mode별 Panel 선택과 Workbench View는
   `features/interface-lab/InterfaceReceiveWorkspace.jsx`가 담당한다. `InterfaceUploadControl`은 각 Controller
   상태와 callback을 mode별 props로 그룹화한다.
 - Frontend Interface Lab의 Graph Service/Action entry 병합과 callable workspace item 변환은
-  `model/workspaceGraphItems.js`가 담당한다. Registry/package item 병합은 `workspaceItems.js`에 남아 있다.
+  `model/workspaceGraphItems.js`, Registry와 업로드 package/child interface의 source item 변환은
+  `model/workspaceSourceItems.js`가 담당한다. `workspaceItems.js`는 source/graph item 조립과 type별 병합,
+  최종 필터를 담당하며 기존 source 변환 export를 re-export한다.
 - Frontend 수동 Interface 입력 상태, 기존 type 등록, definition 작성·수정·문법 검증은
   `hooks/useManualInterfaceController.js`가 담당한다. 상위 management controller는 삭제·upload·apply 및
   Registry/Package 상태 동기화를 담당하고 기존 평면 반환값을 재노출한다.
 - Frontend Service/Action 수신 관찰의 선택·검색·start/stop·전체/선택 history reset은 범용
   `hooks/useResourceReceiveObserver.js`가 담당한다. Topic은 실제 subscription 생성/중지가 필요하므로
   `useInterfaceReceiveController.js`에 별도 흐름으로 유지한다.
+- Interface Upload의 Toolbar, 수동 입력, Receive, build 실패, Registry/package 및 실행 panel 표시 순서는
+  `InterfaceUploadView.jsx`가 담당하고 Topic·Service·Action 실행 panel 선택은
+  `InterfaceExecutionWorkspace.jsx`가 담당한다. `InterfaceUploadControl.jsx`은 controller 상태와 command를
+  각 View props 계약으로 조립한다.
 - Monitor FastAPI transport의 Content-Length/stream 이중 크기 제한과 JSON object 요청 검증은
   `transport/request_parsing.py`가 담당한다. Interface Router는 endpoint별 payload 변환과 도메인 오류의
   HTTP status 매핑을 담당한다.
+- 업로드 ROS2 Interface package의 ZIP/folder upload, 목록과 삭제 HTTP endpoint는
+  `transport/routers/interface_packages.py`가 담당하며 기존 `interface_management.router`가 하위 Router를
+  include해 공개 경로와 transport app 등록 방식을 유지한다.
+- Monitor 설정 데이터 모델과 YAML 값 정규화는 `monitor_config.py`가 담당한다. `config_loader.py`는
+  환경 파일, 설정 경로, YAML/Registry 읽기와 최종 `BackendConfig` 조립을 담당하며 기존
+  `MonitorConfig` 및 `_monitor_config` import 경로를 호환 유지한다.
 - Topic/Service/Action/Node 감시 폴더명은 각각 `ros2_topic`, `ros2_service`, `ros2_action`,
   `ros2_node`다.
 
@@ -195,6 +217,13 @@ Frontend Workspace Graph item 분리 후 lint/build/direct model 실행: 성공
 Frontend Manual Interface controller 분리 후 lint/build: 성공
 Frontend Service/Action receive observer 분리 후 lint/build: 성공
 Monitor transport request parser 단위 테스트 추가 후 직접 pytest: 156 passed
+Interface Package Router 계약 테스트 추가 후 직접 pytest: 158 passed
+Monitor 설정 모델/값 변환 분리 후 직접 pytest: 158 passed
+Frontend Interface Upload View 조립 분리 후 lint/build: 성공, 초기 bundle 210.21 KB
+Interface Service Client/이력 분리 후 직접 pytest: 158 passed
+Frontend Workspace Registry/package 모델 분리 후 lint/build/direct model 실행: 성공
+Frontend Visualization Toolbar/Node picker 분리 후 lint/build: 성공
+Frontend Overview Preview/상태 차트 분리 후 lint/build: 성공
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -216,7 +245,8 @@ Monitor transport request parser 단위 테스트 추가 후 직접 pytest: 156 
 1. 먼저 현재 staged/unstaged/untracked QoS diff를 보존한 채 범위를 재확인한다.
 2. QoS 관련 정적 검사, ROS2 119 tests, Backend tests, Frontend lint/build를 변경 후 다시 실행한다.
 3. 사용자 승인 시에만 QoS 변경과 문서 변경을 의도별 commit으로 정리한다.
-4. `transport/routers/interface_management.py`는 공통 request parser 분리 후 338줄로 감소했다. 다음 구간은
-   Package upload/folder/list/delete endpoint를 별도 Router로 분리하고 기존 root router에 include한다.
+4. Overview Preview/상태 차트 분리는 완료됐다. 다음 우선 대상은 455줄
+   `InterfaceUploadControl.jsx`의 여러 controller 결과 → View props mapping 경계다. 이후 372줄
+   `ActionDetailPanel.jsx`와 341줄 `ActionTable.jsx`의 표현 책임을 점검한다.
 5. 신규 기능은 WSS와 MariaDB Alert 이력 설계를 우선하며, 미구현 항목을 현재 기능으로
    보고하지 않는다.

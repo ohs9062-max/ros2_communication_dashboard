@@ -1,17 +1,5 @@
 import { useRef, useState } from 'react'
-import { ManualInterfacePanel } from '../features/interface-lab/InterfaceManualPanel.jsx'
-import { InterfaceUploadToolbar } from '../features/interface-lab/InterfaceUploadToolbar.jsx'
-import {
-  ActionExecutionPanel,
-  ServiceExecutionPanel,
-  TopicExecutionPanel,
-} from '../features/interface-lab/InterfaceExecutionPanels.jsx'
-import {
-  BuildFailurePanel,
-  RegisteredInterfacesPanel,
-  UploadedPackagesPanel,
-} from '../features/interface-lab/InterfaceManagementPanels.jsx'
-import { InterfaceReceiveWorkspace } from '../features/interface-lab/InterfaceReceiveWorkspace.jsx'
+import { InterfaceUploadView } from '../features/interface-lab/InterfaceUploadView.jsx'
 import { useInterfaceManagementController } from '../features/interface-lab/hooks/useInterfaceManagementController.js'
 import { useActionExecutionController } from '../features/interface-lab/hooks/useActionExecutionController.js'
 import { useInterfaceControlLifecycle } from '../features/interface-lab/hooks/useInterfaceControlLifecycle.js'
@@ -261,53 +249,67 @@ export function InterfaceUploadControl({
   const resetSelectedActionReceiveHistory = () => resetReceiveActions(true)
 
   return (
-    <div className={topicExpandedActive ? 'interface-upload-control topic-workbench-expanded' : 'interface-upload-control'}>
-      <InterfaceUploadToolbar
-        applying={applying}
-        busy={busy}
-        disabled={disabled}
-        feedback={feedback}
-        inputRef={inputRef}
-        onApply={applyUploadedInterfaces}
-        onFile={handleFile}
-        onOpenAction={openActionPanel}
-        onOpenPackages={openPackages}
-        onOpenReceive={openReceivePanel}
-        onOpenRegistry={openRegistry}
-        onOpenService={openServicePanel}
-        onOpenTopic={openTopicPanel}
-        onPackageFile={handlePackageFile}
-        onPackageFolder={handlePackageFolder}
-        onReplaceChange={setReplacePackage}
-        onToggleManual={() => setShowManualInput((value) => !value)}
-        packageFolderInputRef={packageFolderInputRef}
-        packageInputRef={packageInputRef}
-        reloadPhase={reloadPhase}
-        replacePackage={replacePackage}
-        websocketStatus={websocket?.status}
-      />
-      {showManualInput && (
-        <ManualInterfacePanel
-          disabled={disabled}
-          editingManualDefinition={editingManualDefinition}
-          manualDefinition={manualDefinition}
-          manualKind={manualKind}
-          manualMode={manualMode}
-          manualType={manualType}
-          manualTypeName={manualTypeName}
-          onCancelEdit={() => setEditingManualDefinition(null)}
-          onDefinitionChange={setManualDefinition}
-          onKindChange={setManualKind}
-          onModeChange={setManualMode}
-          onSubmitDefinition={submitManualDefinition}
-          onSubmitType={submitManualType}
-          onTypeChange={setManualType}
-          onTypeNameChange={setManualTypeName}
-          onValidateDefinition={validateCurrentManualDefinition}
-        />
-      )}
-      <InterfaceReceiveWorkspace
-        action={{
+    <InterfaceUploadView
+      actionExecution={{
+        actions: callableActions,
+        busy: actionGoalBusy,
+        expanded: topicExpandedActive,
+        goals: actionGoalHistory,
+        goalValues,
+        importableOnly: actionImportableOnly,
+        onExecute: executeActionGoal,
+        onFieldChange: (name, value) => setGoalValues((current) => ({ ...current, [name]: value })),
+        onImportableOnlyChange: setActionImportableOnly,
+        onSelect: setSelectedActionKey,
+        onTimeoutChange: setGoalTimeoutSec,
+        onToggleExpanded: toggleWorkspaceExpanded,
+        open: showCallableActions,
+        result: actionGoalResult,
+        selected: selectedAction,
+        selectedKey: selectedActionKey,
+        showExpand: showReceivePanel && receiveMode === 'action',
+        timeoutSec: goalTimeoutSec,
+        visibleActions: visibleCallableActions,
+      }}
+      buildFailure={{
+        applying,
+        buildLogTail,
+        busy,
+        onApply: applyUploadedInterfaces,
+        onRegenerate: regenerateUploadedInterfacesCmake,
+        onToggle: toggleBuildLog,
+        open: showBuildLog,
+        visible: applyStatus?.build_status === 'failed',
+      }}
+      expanded={topicExpandedActive}
+      manual={{
+        disabled,
+        editingManualDefinition,
+        manualDefinition,
+        manualKind,
+        manualMode,
+        manualType,
+        manualTypeName,
+        onCancelEdit: () => setEditingManualDefinition(null),
+        onDefinitionChange: setManualDefinition,
+        onKindChange: setManualKind,
+        onModeChange: setManualMode,
+        onSubmitDefinition: submitManualDefinition,
+        onSubmitType: submitManualType,
+        onTypeChange: setManualType,
+        onTypeNameChange: setManualTypeName,
+        onValidateDefinition: validateCurrentManualDefinition,
+        open: showManualInput,
+      }}
+      packages={{
+        expanded: topicExpandedActive,
+        onDelete: handleRemovePackage,
+        onToggleExpanded: toggleWorkspaceExpanded,
+        open: showPackages,
+        packages,
+      }}
+      receive={{
+        action: {
           activeKey: activeReceiveActionKey,
           history: visibleReceiveActionHistory,
           items: callableActions,
@@ -321,13 +323,13 @@ export function InterfaceUploadControl({
           search: receiveActionSearch,
           selectedKey: selectedReceiveActionKey,
           visibleItems: filteredReceiveActions,
-        }}
-        expanded={topicExpandedActive}
-        mode={receiveMode}
-        onModeChange={selectReceiveMode}
-        onToggleExpanded={toggleWorkspaceExpanded}
-        open={showReceivePanel}
-        service={{
+        },
+        expanded: topicExpandedActive,
+        mode: receiveMode,
+        onModeChange: selectReceiveMode,
+        onToggleExpanded: toggleWorkspaceExpanded,
+        open: showReceivePanel,
+        service: {
           activeKey: activeReceiveServiceKey,
           history: visibleReceiveServiceHistory,
           items: callableServices,
@@ -341,8 +343,8 @@ export function InterfaceUploadControl({
           search: receiveServiceSearch,
           selectedKey: selectedReceiveServiceKey,
           visibleItems: filteredReceiveServices,
-        }}
-        topic={{
+        },
+        topic: {
           allMessages: callableMessages,
           allTopics: availableTopics,
           filteredTopics: filteredReceiveTopics,
@@ -364,112 +366,90 @@ export function InterfaceUploadControl({
           selectedMessageKey,
           selectedTopic: selectedReceiveTopic,
           visibleMessages: visibleCallableMessages,
-        }}
-      />
-      {applyStatus?.build_status === 'failed' && (
-        <BuildFailurePanel
-          applying={applying}
-          buildLogTail={buildLogTail}
-          busy={busy}
-          onApply={applyUploadedInterfaces}
-          onRegenerate={regenerateUploadedInterfacesCmake}
-          onToggle={toggleBuildLog}
-          open={showBuildLog}
-        />
-      )}
-      {showRegistry && (
-        <RegisteredInterfacesPanel
-          onDelete={handleRemoveRegistryEntry}
-          onDeleteManual={handleRemoveManualDefinition}
-          onEditManual={startEditManualDefinition}
-          recentDeletedRegistry={recentDeletedRegistry}
-          registry={registry}
-        />
-      )}
-      {showPackages && (
-        <UploadedPackagesPanel
-          expanded={topicExpandedActive}
-          onDelete={handleRemovePackage}
-          onToggleExpanded={toggleWorkspaceExpanded}
-          packages={packages}
-        />
-      )}
-      {showCallableTopics && (
-        <TopicExecutionPanel
-          activeContinuousPublish={activeContinuousPublish}
-          busy={topicPublishBusy}
-          expanded={topicExpandedActive}
-          history={visiblePublishHistory}
-          importableOnly={topicImportableOnly}
-          messageValues={topicMessageValues}
-          messages={callableMessages}
-          onContinuousStart={startSelectedContinuousTopicPublish}
-          onContinuousStop={stopSelectedContinuousTopicPublish}
-          onFieldChange={(name, value) => setTopicMessageValues((current) => ({ ...current, [name]: value }))}
-          onHzChange={setTopicPublishHz}
-          onImportableOnlyChange={setTopicImportableOnly}
-          onPublish={publishSelectedTopicMessage}
-          onResetHistory={resetSelectedTopicPublishHistory}
-          onSelect={(key) => {
-            setSelectedMessageKey(key)
-          }}
-          onTopicNameChange={setTopicPublishName}
-          onToggleExpanded={toggleWorkspaceExpanded}
-          publishGraphTopics={publishGraphTopics}
-          publishHz={topicPublishHz}
-          publishName={topicPublishName}
-          publishResult={topicPublishResult}
-          publishWarning={topicPublishWarning}
-          selected={selectedMessage}
-          selectedKey={selectedMessageKey}
-          showExpand={showReceivePanel && receiveMode === 'topic'}
-          visibleMessages={visibleCallableMessages}
-        />
-      )}
-      {showCallableServices && (
-        <ServiceExecutionPanel
-          busy={serviceCallBusy}
-          calls={serviceCallHistory}
-          expanded={topicExpandedActive}
-          importableOnly={serviceImportableOnly}
-          onExecute={executeServiceCall}
-          onFieldChange={(name, value) => setRequestValues((current) => ({ ...current, [name]: value }))}
-          onImportableOnlyChange={setServiceImportableOnly}
-          onSelect={setSelectedServiceKey}
-          onTimeoutChange={setTimeoutSec}
-          onToggleExpanded={toggleWorkspaceExpanded}
-          requestValues={requestValues}
-          result={serviceCallResult}
-          selected={selectedService}
-          selectedKey={selectedServiceKey}
-          services={callableServices}
-          showExpand={showReceivePanel && receiveMode === 'service'}
-          timeoutSec={timeoutSec}
-          visibleServices={visibleCallableServices}
-        />
-      )}
-      {showCallableActions && (
-        <ActionExecutionPanel
-          actions={callableActions}
-          busy={actionGoalBusy}
-          expanded={topicExpandedActive}
-          goals={actionGoalHistory}
-          goalValues={goalValues}
-          importableOnly={actionImportableOnly}
-          onExecute={executeActionGoal}
-          onFieldChange={(name, value) => setGoalValues((current) => ({ ...current, [name]: value }))}
-          onImportableOnlyChange={setActionImportableOnly}
-          onSelect={setSelectedActionKey}
-          onTimeoutChange={setGoalTimeoutSec}
-          onToggleExpanded={toggleWorkspaceExpanded}
-          result={actionGoalResult}
-          selected={selectedAction}
-          selectedKey={selectedActionKey}
-          showExpand={showReceivePanel && receiveMode === 'action'}
-          timeoutSec={goalTimeoutSec}
-          visibleActions={visibleCallableActions}
-        />
-      )}
-    </div>
+        },
+      }}
+      registry={{
+        onDelete: handleRemoveRegistryEntry,
+        onDeleteManual: handleRemoveManualDefinition,
+        onEditManual: startEditManualDefinition,
+        open: showRegistry,
+        recentDeletedRegistry,
+        registry,
+      }}
+      serviceExecution={{
+        busy: serviceCallBusy,
+        calls: serviceCallHistory,
+        expanded: topicExpandedActive,
+        importableOnly: serviceImportableOnly,
+        onExecute: executeServiceCall,
+        onFieldChange: (name, value) => setRequestValues((current) => ({ ...current, [name]: value })),
+        onImportableOnlyChange: setServiceImportableOnly,
+        onSelect: setSelectedServiceKey,
+        onTimeoutChange: setTimeoutSec,
+        onToggleExpanded: toggleWorkspaceExpanded,
+        open: showCallableServices,
+        requestValues,
+        result: serviceCallResult,
+        selected: selectedService,
+        selectedKey: selectedServiceKey,
+        services: callableServices,
+        showExpand: showReceivePanel && receiveMode === 'service',
+        timeoutSec,
+        visibleServices: visibleCallableServices,
+      }}
+      toolbar={{
+        applying,
+        busy,
+        disabled,
+        feedback,
+        inputRef,
+        onApply: applyUploadedInterfaces,
+        onFile: handleFile,
+        onOpenAction: openActionPanel,
+        onOpenPackages: openPackages,
+        onOpenReceive: openReceivePanel,
+        onOpenRegistry: openRegistry,
+        onOpenService: openServicePanel,
+        onOpenTopic: openTopicPanel,
+        onPackageFile: handlePackageFile,
+        onPackageFolder: handlePackageFolder,
+        onReplaceChange: setReplacePackage,
+        onToggleManual: () => setShowManualInput((value) => !value),
+        packageFolderInputRef,
+        packageInputRef,
+        reloadPhase,
+        replacePackage,
+        websocketStatus: websocket?.status,
+      }}
+      topicExecution={{
+        activeContinuousPublish,
+        busy: topicPublishBusy,
+        expanded: topicExpandedActive,
+        history: visiblePublishHistory,
+        importableOnly: topicImportableOnly,
+        messageValues: topicMessageValues,
+        messages: callableMessages,
+        onContinuousStart: startSelectedContinuousTopicPublish,
+        onContinuousStop: stopSelectedContinuousTopicPublish,
+        onFieldChange: (name, value) => setTopicMessageValues((current) => ({ ...current, [name]: value })),
+        onHzChange: setTopicPublishHz,
+        onImportableOnlyChange: setTopicImportableOnly,
+        onPublish: publishSelectedTopicMessage,
+        onResetHistory: resetSelectedTopicPublishHistory,
+        onSelect: setSelectedMessageKey,
+        onTopicNameChange: setTopicPublishName,
+        onToggleExpanded: toggleWorkspaceExpanded,
+        open: showCallableTopics,
+        publishGraphTopics,
+        publishHz: topicPublishHz,
+        publishName: topicPublishName,
+        publishResult: topicPublishResult,
+        publishWarning: topicPublishWarning,
+        selected: selectedMessage,
+        selectedKey: selectedMessageKey,
+        showExpand: showReceivePanel && receiveMode === 'topic',
+        visibleMessages: visibleCallableMessages,
+      }}
+    />
   )
 }

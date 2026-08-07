@@ -803,3 +803,128 @@
 - 남은 문제: 실제 multipart HTTP upload 통합 요청은 이번 helper 이동에서 재실행하지 않았다.
 - 다음 AI: Package upload/folder/list/delete endpoint를 별도 Router 모듈로 이동하고 root router include와
   공개 경로가 유지되는지 검증한다.
+
+## 2026-08-07 - Interface Package HTTP Router 분리
+
+- 작업: ZIP package upload, folder multipart upload, package 목록과 삭제 endpoint를
+  `transport/routers/interface_packages.py`로 이동하고 기존 `interface_management.router`가 하위 Router를
+  include하도록 변경했다.
+- 이유와 기준: 단일/manual Interface Registry API와 완성 ROS package API는 입력 형식, 오류 타입과 저장
+  대상이 다르다. transport app은 기존 root Router 하나만 등록해 외부 구성과 경로를 유지했다.
+- 정책 보존: 네 공개 endpoint와 HTTP method, replace query, ZIP/folder size overhead, duplicate 409와
+  validation 400, 목록 meta/count 및 응답 message/key를 유지했다.
+- 결과: `interface_management.py`는 338줄에서 245줄로 감소했고 Package Router는 110줄이다. Package 경로가
+  정확히 한 번 포함되고 Registry/Manual 경로가 유지되는 계약 테스트 2개를 추가했다.
+- 검증: 현재 FastAPI가 include Router를 `_IncludedRouter`로 지연 보관해 최초 route 테스트 2개가 실패했다.
+  실제 app의 `original_router`를 재귀 순회하도록 수정했고 WebSocket route의 `methods` 부재도 안전 처리했다.
+  최종 targeted 10 tests, Python compile, workspace install 환경 Monitor 전체 158 tests가 통과했다.
+- 남은 문제: 실제 HTTP multipart package 업로드 E2E는 이번 Router 이동에서 재실행하지 않았다.
+- 다음 AI: 484줄 `config_loader.py`의 config 경로 해석, YAML parsing/default와 MonitorConfig 모델 경계를
+  조사한다.
+
+## 2026-08-07 - Monitor 설정 모델과 YAML 값 변환 분리
+
+- 작업: `MonitorConfig`, Service active-check 모델, YAML scalar/list 정규화와 영역별 설정 조립을 신규
+  `monitor_config.py`로 이동했다. `config_loader.py`에는 `.env`, 설정 경로, 안전한 YAML/Registry 읽기와
+  최종 `BackendConfig` 조립을 남겼다.
+- 이유와 기준: 불변 설정 모델/순수 값 변환은 파일시스템·환경변수 I/O와 독립적으로 테스트하고 변경할 수
+  있는 책임이다. 기존 runtime과 테스트가 사용하는 `config_loader.MonitorConfig`, 기본 상수 및
+  `_monitor_config` 경로는 re-export로 호환 유지했다.
+- 정책 보존: 누락/잘못된 YAML의 safe default, 구 `*_names` key 호환, 명시적 빈 exclude, 등록 후 import
+  가능한 Message type 병합·중복 제거, Service active-check allowlist 검증을 그대로 유지했다.
+- 결과: `config_loader.py`는 484줄에서 200줄로 감소했고, 순수 설정 모델/변환 모듈은 234줄이다.
+- 검증: 설정/Topic 등록 타입 targeted 22 tests, Python compile, workspace install 환경 Monitor 전체
+  158 tests와 `git diff --check`가 통과했다.
+- 남은 문제: 실제 `.env` 및 대체 설정 경로를 사용한 별도 process 기동 검수는 이번 순수 책임 이동에서
+  재실행하지 않았다.
+- 다음 AI: Frontend `InterfaceUploadControl.jsx`의 잔여 View 조립 경계를 우선 조사하고, 이후 Monitor
+  `service_call_runtime.py`의 client/QoS 실행과 history 저장 책임을 재점검한다.
+
+## 2026-08-07 - Frontend Interface Upload Controller/View 분리
+
+- 작업: Interface Upload의 Toolbar, 수동 입력, Receive, build 실패, Registry/package와 실행 panel 표시
+  순서를 `InterfaceUploadView.jsx`로 이동하고 Topic·Service·Action 실행 panel 조건부 선택을
+  `InterfaceExecutionWorkspace.jsx`로 분리했다.
+- 이유와 기준: 기존 `InterfaceUploadControl`은 여러 feature controller를 조정하면서 화면 계층과 panel 표시
+  순서까지 소유했다. 상태·명령 조립은 Controller에, 순수 조건부 렌더링은 View에 두는 경계를 적용했다.
+- 정책 보존: panel 순서, open/expanded 조건, build 실패 시 log toggle, Receive mode 연동, 실행 field 변경,
+  importable filter, history reset 및 기존 하위 component props 의미를 유지했다.
+- 결과: `InterfaceUploadControl.jsx`는 475줄에서 455줄로 감소했다. 신규 View 40줄과 실행 Workspace 15줄은
+  하위 component 선택만 담당한다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. 278 modules가 변환됐고
+  초기 bundle은 210.21 KB(gzip 66.66 KB), Interface Lab chunk는 118.25 KB로 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 모든 panel 전환과 Interface 실행을 누르는 E2E는 이번 표현 계층 이동에서
+  재실행하지 않았다. Controller의 props mapping 자체는 아직 455줄 파일에 남아 있다.
+- 다음 AI: Monitor `interface_lab/execution/service_call_runtime.py`의 client/QoS 실행과 history 저장 책임을
+  조사해 독립 경계를 분리한다.
+
+## 2026-08-07 - Interface Lab Service Client/QoS와 이력 분리
+
+- 작업: Service Call 원본 저장, Receive event 변환, 전체/Service별 reset 경계, 최근 결과와 성공/실패 누적
+  summary를 `execution/service_history.py`로 이동했다. Service Client의 기본 QoS 적용, 이름/type별 재사용과
+  Dashboard 생성 상태는 `execution/service_client_pool.py`로 이동했다.
+- 이유와 기준: ROS Client 생명주기/QoS, 호출 실행, 저장된 결과의 read model은 변경 원인과 테스트 경계가
+  서로 다르다. `ServiceCallRuntime`은 Registry/Graph 허용 검사와 executor 조정에 집중하도록 했다.
+- 정책 보존: `qos_profile_services_default`, `unknown/default_profile`, timeout을 QoS 오류로 오판하지 않는
+  정책, 최대 30건 최신순 history, Receive event key, reset 시각 비교, 최근 summary 5건과 기존 public/private
+  `_client`, `_service_qos`, `_call_summary` 호환 경로를 유지했다.
+- 결과: `service_call_runtime.py`는 437줄에서 330줄로 감소했다. 신규 Service history는 139줄, Client pool은
+  62줄이다.
+- 검증: runtime summary/validation/QoS targeted 19 tests, Python compile, workspace install 환경 Monitor
+  전체 158 tests와 `git diff --check`가 통과했다.
+- 남은 문제: 실제 ROS Service server에 대한 Call/Response 통합 실행은 이번 책임 이동에서 재실행하지 않았다.
+  Jazzy Service Graph가 상대 endpoint QoS를 제공하지 않는 제한은 그대로다.
+- 다음 AI: Frontend `model/workspaceItems.js`의 Registry/package 모델 경계를 먼저 조사하고, 필요 시
+  `VisualizationPage.jsx`의 toolbar와 graph 상태 View 경계를 이어서 분리한다.
+
+## 2026-08-07 - Frontend Workspace Registry/package 모델 분리
+
+- 작업: 단일 Registry Message/Service/Action을 Workspace item으로 변환하는 로직과 업로드 package 및
+  child interface 변환을 `model/workspaceSourceItems.js`로 이동했다.
+- 이유와 기준: Registry/package 저장 원천 모델은 Graph Service/Action callable 모델 및 여러 source를
+  병합하는 coordinator와 변경 원인이 다르다. `workspaceItems.js`에는 source 조립, type별 병합과 최종
+  filter만 남겼다.
+- 정책 보존: Registry/package item id와 stableKey, full type 계산, Message Graph/Receive/QoS 상태,
+  Service/Action 연결과 history, package counts/schema, source/import/rebuild 상태를 유지했다. 기존
+  `workspaceItems.js`의 `registryItem`, `packageItems`, `packageTypeItem` export는 re-export로 유지했다.
+- 결과: `workspaceItems.js`는 388줄에서 230줄로 감소했고 신규 source model은 161줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, `buildWorkspaceItems`와 기존 re-export 직접 ESM 실행,
+  `git diff --check`가 통과했다. 279 modules, 초기 bundle 210.21 KB(gzip 66.66 KB), Interface Lab chunk
+  118.25 KB이며 500 KB 경고가 없다.
+- 남은 문제: Registry/package/Graph가 함께 존재하는 실제 복합 payload의 Browser E2E는 이번 순수 모델
+  이동에서 재실행하지 않았다.
+- 다음 AI: `frontend/src/pages/VisualizationPage.jsx`의 toolbar/filter control View와 graph 상태 조정 책임을
+  조사해 독립 경계를 분리한다.
+
+## 2026-08-07 - Frontend Visualization Toolbar와 Node 선택 View 분리
+
+- 작업: 시각화 모드 탭, 검색, Topic/Service/Action/숨김 filter, fit/reset/refresh 동작 UI를
+  `components/visualization/VisualizationToolbar.jsx`로 이동했다. Node mode의 loading/error 안내와 Node
+  선택 목록은 `VisualizationNodePicker.jsx`로 이동했다.
+- 이유와 기준: Graph hook 상태와 모드 전환 규칙은 Page 조정 책임이지만, control 표시와 Node 목록 렌더링은
+  입력값/callback만 필요한 독립 View다. canvas와 선택 상세는 Page에 유지해 한 구간의 변경 범위를 제한했다.
+- 정책 보존: 주요/실행/전체 Node 전환, 검색 placeholder, 주요 항목 및 resource filter, 숨김 포함, 화면 맞춤,
+  배치 초기화, 전체 Graph, 새로고침, Node 상태/namespace/연결 수와 빈 목록 문구를 유지했다.
+- 결과: `VisualizationPage.jsx`는 385줄에서 257줄로 감소했다. 신규 Toolbar는 74줄, Node picker는 52줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. 281 modules, 초기 bundle
+  210.21 KB(gzip 66.65 KB), Visualization chunk 208.20 KB이며 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 모드/filter/fit/reset과 Node 선택을 클릭하는 E2E는 이번 View 이동에서
+  재실행하지 않았다.
+- 다음 AI: `frontend/src/pages/OverviewPage.jsx`의 metric summary, Alert preview와 system section 경계를
+  조사해 독립 View로 분리한다.
+
+## 2026-08-07 - Frontend Overview Preview와 상태 차트 분리
+
+- 작업: Alert와 Node/Topic/Service/Action 미리보기 카드 영역을 `features/overview/OverviewPreviewGrid.jsx`,
+  상태 분포 column/table, legend와 percent/count 전환을 `OverviewColumnChart.jsx`로 이동했다.
+- 이유와 기준: resource summary 계산과 Alert source별 이동은 Page 정책이지만, 이미 계산된 summary의 카드와
+  차트 표시는 독립 View다. 기존 `overviewSummary.js`의 계산 helper를 재사용했다.
+- 정책 보존: Alert 최대/접기 설정과 클릭, 각 resource 상세 이동, 카드 metric/상태, chart column 클릭,
+  percent/count 표, 정상/주의/오류 색상과 비활성 안내 문구를 유지했다.
+- 결과: `OverviewPage.jsx`는 383줄에서 181줄로 감소했다. 신규 Preview grid와 Column chart는 각각 90줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. 283 modules, 초기 bundle
+  210.21 KB(gzip 66.66 KB), Overview chunk 9.38 KB이며 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 Alert/resource 카드 및 chart column 이동과 표시 모드 전환 E2E는 이번 View
+  이동에서 재실행하지 않았다.
+- 다음 AI: `frontend/src/components/InterfaceUploadControl.jsx`의 controller 결과를 View props로 변환하는
+  대형 mapping 책임을 조사해 hook 또는 adapter 경계를 분리한다.
