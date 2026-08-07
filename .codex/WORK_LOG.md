@@ -1056,3 +1056,20 @@
   재실행하지 않았다. 공개 응답 key와 exact type 정책은 신규/기존 테스트로 확인했다.
 - 다음 AI: Action Goal runtime은 실행 coordinator로 축소됐으므로 추가 분리를 잠시 멈추고,
   `ros_monitor.py`, Topic Alert 또는 다른 300줄 이상 Monitor 파일의 혼합 책임을 비교한다.
+
+## 2026-08-07 - Topic MonitorStatus 전용 Alert 변환 분리
+
+- 작업: 프로젝트 전용 `ros2_dashboard_interfaces/msg/MonitorStatus` 메시지의 level 해석, Alert identity와
+  payload 변환을 신규 `ros2_topic/monitor_status_alerts.py`로 이동했다.
+- 이유와 기준: Publisher/Subscription 존재와 missing/stale는 범용 ROS2 Topic 사실 정책이지만,
+  MonitorStatus의 device/status/values와 severity 해석은 프로젝트 Interface 스키마에 결합된 별도 책임이다.
+- 주요 변경: warning/error/critical만 Alert로 만들고 info/다른 Topic type/미수신 preview는 제외하는 기존
+  정책, stable ID 구성과 age/value/node 필드를 유지했다. `alerts.py`의 `_monitor_status_alert` 이름은 import
+  alias로 유지해 내부 호환성을 보존했다.
+- 결과: `ros2_topic/alerts.py`는 385줄에서 304줄로 감소했고 신규 전용 변환 모듈은 94줄이다.
+- 검증: 정상 severity 및 다른 type 제외, warning identity/value/age 계약 테스트 2개를 추가했다. Python
+  compileall, Monitor 전체 직접 pytest, `git diff --check`가 통과했으며 `163 passed`다.
+- 남은 문제: 실제 MonitorStatus publisher를 띄운 실시간 Browser Alert E2E는 이번 순수 변환 이동에서
+  재실행하지 않았다.
+- 다음 AI: 381줄 `snapshot_assembler.py`의 Service/Action/Node 조립을 resource별 모듈로 분리할지
+  검토한다. `ros_monitor.py`는 계속 coordinator로 유지한다.

@@ -13,11 +13,10 @@ from ros2_dashboard_monitor.ros2_topic.models import (
     ALERT_LEVEL_WARNING,
     HZ_STATUS_NEVER_RECEIVED,
     HZ_STATUS_STALE,
-    MONITOR_STATUS_TYPE,
     TOPIC_STATUS_WAITING_PUBLISHER,
-    copy_values,
-    text_or_empty,
-    topic_primary_type,
+)
+from ros2_dashboard_monitor.ros2_topic.monitor_status_alerts import (
+    monitor_status_alert as _monitor_status_alert,
 )
 
 
@@ -277,86 +276,6 @@ def _topic_message_alerts(
         ]
 
     return []
-
-
-def _monitor_status_alert(
-    *,
-    topic: dict[str, Any],
-    subscriptions: dict[str, dict[str, Any]],
-    detected_at: float,
-) -> dict[str, Any] | None:
-    if topic_primary_type(topic) != MONITOR_STATUS_TYPE:
-        return None
-
-    name = topic['name']
-    subscription = subscriptions.get(name)
-    if subscription is None:
-        return None
-
-    preview = subscription.get('message_preview')
-    if not isinstance(preview, dict):
-        return None
-
-    level = _normalized_level(preview.get('level'))
-    if level not in (
-        ALERT_LEVEL_WARNING,
-        ALERT_LEVEL_ERROR,
-        ALERT_LEVEL_CRITICAL,
-    ):
-        return None
-
-    last_received_at = subscription.get('last_received_at')
-    age_sec = None
-    if last_received_at is not None:
-        age_sec = detected_at - last_received_at
-
-    device_name = text_or_empty(preview.get('device_name', ''))
-    status = text_or_empty(preview.get('status', ''))
-    message = text_or_empty(preview.get('message', ''))
-    if not message:
-        message = f'MonitorStatus reported {level}.'
-
-    return {
-        'id': _monitor_status_alert_id(
-            name=name,
-            device_name=device_name,
-            level=level,
-            status=status,
-        ),
-        'level': level,
-        'source': 'monitor_status',
-        'name': name,
-        'code': f'monitor_status_{level}',
-        'message': message,
-        'status': status,
-        'device_name': device_name,
-        'node_name': text_or_empty(preview.get('node_name', '')),
-        'values': copy_values(preview.get('values')),
-        'last_received_at': last_received_at,
-        'age_sec': age_sec,
-        'detected_at': detected_at,
-    }
-
-
-def _normalized_level(value: Any) -> str:
-    if value is None:
-        return ''
-
-    return str(value).strip().lower()
-
-
-def _monitor_status_alert_id(
-    *,
-    name: str,
-    device_name: str,
-    level: str,
-    status: str,
-) -> str:
-    parts = ['monitor_status', name, device_name, level]
-    if status:
-        parts.append(status)
-
-    return ':'.join(parts)
 
 
 def _alert(

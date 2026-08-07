@@ -111,6 +111,9 @@ ros2_dashboard/
 - Topic Graph/cache의 공개 API 상태 조립은 `ros2_topic/snapshot.py`가 담당한다. 누락된 설정 Topic,
   monitoring role/primary/Hz 상태, latest preview와 QoS 공개 필드를 이 계층에서 결합하며
   `ros2_topic/runtime.py`는 lock 아래 원시 상태를 복사해 전달한다.
+- 일반 Topic 연결·missing·stale Alert 정책은 `ros2_topic/alerts.py`, 프로젝트 전용
+  `ros2_dashboard_interfaces/msg/MonitorStatus` payload의 severity/identity/value 변환은
+  `ros2_topic/monitor_status_alerts.py`가 담당한다.
 - Topic subscription의 생성·type 변경 교체, Monitor 소유 endpoint 계산, 외부 endpoint 소멸 후 유예
   정리는 `ros2_topic/subscription_lifecycle.py`가 담당한다. runtime의 기존 private 메서드는 호환 facade와
   callback/QoS 의존성 연결 역할만 유지한다.
@@ -248,6 +251,7 @@ Frontend Interface Upload 관리 View props adapter 분리 후 lint/build/direct
 Frontend Interface Upload 실행 composition hook 분리 후 lint/build: 성공
 Interface Action Client pool/QoS 분리 후 Monitor 직접 pytest: 158 passed
 Interface Action 등록/Graph/callable discovery 분리 후 Monitor 직접 pytest: 161 passed
+Topic MonitorStatus 전용 Alert 변환 분리 후 Monitor 직접 pytest: 163 passed
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -269,8 +273,8 @@ Interface Action 등록/Graph/callable discovery 분리 후 Monitor 직접 pytes
 1. 먼저 현재 staged/unstaged/untracked QoS diff를 보존한 채 범위를 재확인한다.
 2. QoS 관련 정적 검사, ROS2 119 tests, Backend tests, Frontend lint/build를 변경 후 다시 실행한다.
 3. 사용자 승인 시에만 QoS 변경과 문서 변경을 의도별 commit으로 정리한다.
-4. Action Table/상세, Interface Upload 조립, Interface Action Client pool/QoS와 discovery 분리는
-   완료됐다. `action_goal_runtime.py`는 333줄 coordinator가 됐다. 다음은 499줄 `ros_monitor.py` 또는
-   385줄 Topic Alert 정책 등 남은 Monitor 파일을 책임 기준으로 재평가한다.
+4. Action Table/상세, Interface Upload 조립, Interface Action Client pool/QoS와 discovery,
+   Topic MonitorStatus Alert 분리는 완료됐다. 다음은 381줄 `snapshot_assembler.py`의 Service/Action/Node
+   resource별 조립 분리 또는 다른 Monitor 파일을 책임 기준으로 재평가한다.
 5. 신규 기능은 WSS와 MariaDB Alert 이력 설계를 우선하며, 미구현 항목을 현재 기능으로
    보고하지 않는다.
