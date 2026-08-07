@@ -1073,3 +1073,51 @@
   재실행하지 않았다.
 - 다음 AI: 381줄 `snapshot_assembler.py`의 Service/Action/Node 조립을 resource별 모듈로 분리할지
   검토한다. `ros_monitor.py`는 계속 coordinator로 유지한다.
+
+## 2026-08-07 - Service·Action·Node Snapshot assembler 분리
+
+- 작업: 하나의 `snapshot_assembler.py`에 있던 Service, Action, Node 공개 상태 조립을 각각
+  `service_snapshot.py`, `action_snapshot.py`, `node_snapshot.py`로 이동했다.
+- 이유와 기준: 세 리소스는 Graph role, Interface Lab 실행 이력, primary 판정과 공개 필드가 서로 다르며
+  독립적으로 변경된다. Topic 보강까지 포함한 단일 파일은 변경 영향 범위를 불필요하게 넓혔다.
+- 주요 변경: Service의 Call summary/callable/hidden 처리, Action의 Goal summary/관찰 activity/통신 상태,
+  Node의 내부 Node 및 시스템 주요 리소스 판정을 리소스별로 분리했다. `ros_monitor.py`는 새 모듈을 직접
+  import하며, 기존 `snapshot_assembler` import 사용자를 위해 세 함수를 재노출한다.
+- 정책 보존: Node/endpoint count, 내부 Node 제외, Interface client 생성 여부, execution node, primary
+  priority/source, 사용자 priority, hidden count와 기존 공개 JSON key를 유지했다.
+- 결과: `snapshot_assembler.py`는 381줄에서 Topic 전용 85줄로 감소했다. 신규 Service/Action/Node assembler는
+  각각 112/107/43줄이다.
+- 검증: Python compileall, Monitor 전체 직접 pytest, `git diff --check`를 두 차례 실행했고 모두 통과했으며
+  `163 passed`다.
+- 남은 문제: 실제 ROS Graph와 Browser 상세 화면을 연결한 E2E는 이번 구조 이동에서 재실행하지 않았다.
+  기존 snapshot/topology/runtime 테스트로 공개 상태 계약을 검증했다.
+- 다음 AI: `ros_monitor.py`는 coordinator로 유지하되, 남은 499줄 중 Interface Lab 공개 facade 묶음처럼
+  독립 위임 계층으로 옮길 가치가 있는 부분이 있는지 조사한다.
+
+## 2026-08-07 - 기능 분리 리팩토링 진행 상태 재점검
+
+- 현재 코드와 파일 크기, 누적 검증 기록을 다시 대조했다. 구조 분리와 Backend 계층화는 사실상 완료,
+  Frontend 주요 비대 화면과 Interface Lab 분리는 대부분 완료, ROS2 Monitor의 대형 Runtime 세부 분리는
+  진행 중으로 판단했다.
+- 기능 분리 범위 기준 추정 진행률은 Backend 90~95%, Frontend 80~85%, ROS2 Monitor 75~80%, 전체 약
+  82%다. WSS/MariaDB/Camera/TurtleBot preset 같은 미구현 신규 기능은 이 리팩토링 진행률에 포함하지 않았다.
+- 마지막 완료 지점은 Service/Action/Node snapshot assembler 분리이며 현재 해당 변경은 미커밋 상태다.
+  다음 작업 지점은 `ros_monitor.py`의 Interface Lab facade 또는 다른 대형 Runtime의 혼합 책임 조사다.
+
+## 2026-08-07 - RosMonitor Interface Lab 공개 facade 분리
+
+- 작업: `RosMonitor`에 있던 Topic Publish/Receive, Service Call, Action Goal/Cancel 및 세 리소스 실행 이력의
+  단순 위임 메서드를 신규 `interface_lab/facade.py`의 `InterfaceLabFacade`로 이동했다.
+- 이유와 기준: 이 메서드들은 Monitor Graph 수집·snapshot·lifecycle 상태를 계산하지 않고 각 Interface Lab
+  runtime의 API를 외부 Router에 재노출하는 동일 책임이다. 상속형 facade로 기존 `ros_monitor.method()`
+  호출 계약을 유지했다.
+- 주요 변경: `RosMonitor`가 facade를 상속하도록 하고 runtime 생성/정리는 그대로 보유했다. Service/Action/
+  Topic 요청의 keyword, timeout, history filter와 continuous publish 인자를 변경하지 않았다.
+- 결과: `ros_monitor.py`는 497줄에서 293줄로 감소했고 facade는 161줄이다. Monitor는 lifecycle, resource
+  snapshot, Alert 상태 전이, topology/priority 조정 중심 coordinator가 됐다.
+- 검증: Service Call, Action Goal/Cancel, Topic Receive/Continuous Publish/History 인자 전달 계약 테스트
+  3개를 추가했다. Python compileall, Monitor 전체 직접 pytest, `git diff --check`가 통과했고 `166 passed`다.
+- 남은 문제: 실제 transport Router를 통한 ROS 통합 실행은 이번 단순 위임 이동에서 재실행하지 않았다.
+  Router가 사용하는 기존 메서드 이름은 상속으로 그대로 유지된다.
+- 다음 AI: `ros_monitor.py` 추가 분리는 중단하고 458줄 `ros2_topic/runtime.py` 또는 다른 대형 Runtime의
+  남은 facade/상태 책임을 비교한다.

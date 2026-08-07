@@ -133,6 +133,9 @@ ros2_dashboard/
   저장한다.
 - Browser WebSocket용 경량 `monitor_snapshot` payload와 Topic/Service/Action/Node meta 축약은
   `snapshot_summary.py`가 담당한다. `RosMonitor`는 원본 snapshot과 Alert를 수집해 전달한다.
+- Topic Node 관계와 Interface 실행 상태 보강은 `snapshot_assembler.py`, Service Call 상태 조립은
+  `service_snapshot.py`, Action Goal 상태 조립은 `action_snapshot.py`, Node의 내부/시스템 주요 상태 조립은
+  `node_snapshot.py`가 담당한다. 구 resource assembler import는 `snapshot_assembler.py`가 재노출한다.
 - rclpy 초기화, Monitor Node/timer 생성, daemon spin thread 시작, shutdown/join/destroy는
   `monitor_lifecycle.py`가 담당한다. `RosMonitor.stop()`은 Interface runtime 중지·clear와 Alert cache
   초기화 순서를 유지한다.
@@ -147,6 +150,9 @@ ros2_dashboard/
   `execution/service_client_pool.py`가 담당한다. Call 원본 저장, Receive 이벤트 변환, reset 경계와
   Service별 최근 결과/누적 summary는 `execution/service_history.py`가 담당하며
   `service_call_runtime.py`는 discovery·허용 검사·호출 실행을 조정한다.
+- `RosMonitor`가 공개하는 Topic Publish/Receive, Service Call, Action Goal/Cancel 및 실행 이력 API의
+  runtime 위임은 `interface_lab/facade.py`의 `InterfaceLabFacade`가 담당한다. `RosMonitor`는 이를 상속해
+  기존 Router 호출 형태를 유지하고 lifecycle·Graph snapshot·Alert/priority 조정에 집중한다.
 - Frontend Interface Lab Receive의 Topic·Service·Action mode별 Panel 선택과 Workbench View는
   `features/interface-lab/InterfaceReceiveWorkspace.jsx`가 담당한다. `InterfaceUploadControl`은 각 Controller
   상태와 callback을 mode별 props로 그룹화한다.
@@ -252,6 +258,8 @@ Frontend Interface Upload 실행 composition hook 분리 후 lint/build: 성공
 Interface Action Client pool/QoS 분리 후 Monitor 직접 pytest: 158 passed
 Interface Action 등록/Graph/callable discovery 분리 후 Monitor 직접 pytest: 161 passed
 Topic MonitorStatus 전용 Alert 변환 분리 후 Monitor 직접 pytest: 163 passed
+Service/Action/Node snapshot assembler 분리 후 Monitor 직접 pytest: 163 passed
+Interface Lab 공개 facade 분리 후 Monitor 직접 pytest: 166 passed
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -274,7 +282,8 @@ Topic MonitorStatus 전용 Alert 변환 분리 후 Monitor 직접 pytest: 163 pa
 2. QoS 관련 정적 검사, ROS2 119 tests, Backend tests, Frontend lint/build를 변경 후 다시 실행한다.
 3. 사용자 승인 시에만 QoS 변경과 문서 변경을 의도별 commit으로 정리한다.
 4. Action Table/상세, Interface Upload 조립, Interface Action Client pool/QoS와 discovery,
-   Topic MonitorStatus Alert 분리는 완료됐다. 다음은 381줄 `snapshot_assembler.py`의 Service/Action/Node
-   resource별 조립 분리 또는 다른 Monitor 파일을 책임 기준으로 재평가한다.
+   Topic MonitorStatus Alert, resource별 snapshot assembler와 Interface Lab facade 분리는 완료됐다.
+   `ros_monitor.py`는 293줄 coordinator가 됐다. 다음은 `ros2_topic/runtime.py` 등 남은 대형 Runtime을
+   책임 기준으로 재평가한다.
 5. 신규 기능은 WSS와 MariaDB Alert 이력 설계를 우선하며, 미구현 항목을 현재 기능으로
    보고하지 않는다.

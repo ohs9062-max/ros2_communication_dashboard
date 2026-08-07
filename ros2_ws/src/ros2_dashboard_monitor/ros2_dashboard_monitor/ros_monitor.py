@@ -14,6 +14,7 @@ from ros2_dashboard_monitor.alert_assembler import (
     reconcile_alert_state,
 )
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime import ActionGoalRuntime
+from ros2_dashboard_monitor.interface_lab.facade import InterfaceLabFacade
 from ros2_dashboard_monitor.ros2_action.runtime import ActionRuntime
 from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.interface_lab.execution.topic_runtime import InterfaceReceiveRuntime
@@ -40,15 +41,13 @@ from ros2_dashboard_monitor.snapshot_summary import (
     websocket_service_meta,
     websocket_topic_meta,
 )
-from ros2_dashboard_monitor.snapshot_assembler import (
-    assemble_action_snapshot,
-    assemble_node_snapshot,
-    assemble_service_snapshot,
-    enrich_topic_snapshot,
-)
+from ros2_dashboard_monitor.action_snapshot import assemble_action_snapshot
+from ros2_dashboard_monitor.node_snapshot import assemble_node_snapshot
+from ros2_dashboard_monitor.service_snapshot import assemble_service_snapshot
+from ros2_dashboard_monitor.snapshot_assembler import enrich_topic_snapshot
 
 
-class RosMonitor:
+class RosMonitor(InterfaceLabFacade):
     """RosMonitor coordinator의 RosMonitor 역할을 담당하는 클래스입니다."""
 
     # 이전 테스트와 내부 호출 호환을 유지하면서 계산 책임은 순수 모듈에 둡니다.
@@ -169,213 +168,8 @@ class RosMonitor:
     ) -> dict[str, Any]:
         return assemble_service_snapshot(self, include_hidden=include_hidden)
 
-    def callable_services(self) -> dict[str, Any]:
-        """Registry 타입과 현재 Graph가 일치하는 호출 가능 Service를 반환합니다."""
-        return self._service_call_runtime.callable_services()
-
-    def call_service(
-        self,
-        *,
-        service_name: str,
-        service_type: str,
-        request_data: dict[str, Any],
-        timeout_sec: float | None = None,
-    ) -> dict[str, Any]:
-        """사용자 Service 요청을 ServiceCallRuntime에 전달합니다."""
-        return self._service_call_runtime.call_service(
-            service_name=service_name,
-            service_type=service_type,
-            request_data=request_data,
-            timeout_sec=timeout_sec,
-        )
-
-    def service_call_history(self) -> dict[str, Any]:
-        """Interface Lab에서 실행한 Service Call 이력을 반환합니다."""
-        return self._service_call_runtime.history()
-
-    def receive_service_history(self) -> dict[str, Any]:
-        """화면에 표시할 Service 응답 수신 이력을 반환합니다."""
-        return self._service_call_runtime.receive_history()
-
-    def reset_receive_service_history(
-        self,
-        *,
-        service_name: str | None = None,
-        service_type: str | None = None,
-    ) -> dict[str, Any]:
-        """지정한 시점 이전의 Service 수신 이력을 숨기도록 초기화합니다."""
-        return self._service_call_runtime.reset_receive_history(
-            service_name=service_name,
-            service_type=service_type,
-        )
-
     def action_snapshot(self) -> dict[str, Any]:
         return assemble_action_snapshot(self)
-
-    def callable_actions(self) -> dict[str, Any]:
-        """Registry 타입과 현재 Graph가 일치하는 실행 가능 Action을 반환합니다."""
-        return self._action_goal_runtime.callable_actions()
-
-    def send_action_goal(
-        self,
-        *,
-        action_name: str,
-        action_type: str,
-        goal_data: dict[str, Any],
-        timeout_sec: float | None = None,
-    ) -> dict[str, Any]:
-        """사용자 Goal을 ActionGoalRuntime에 전달합니다."""
-        return self._action_goal_runtime.send_goal(
-            action_name=action_name,
-            action_type=action_type,
-            goal_data=goal_data,
-            timeout_sec=timeout_sec,
-        )
-
-    def cancel_action_goal(
-        self,
-        *,
-        action_name: str,
-        action_type: str,
-        timeout_sec: float | None = None,
-    ) -> dict[str, Any]:
-        return self._action_goal_runtime.cancel_goal(
-            action_name=action_name,
-            action_type=action_type,
-            timeout_sec=timeout_sec,
-        )
-
-    def action_goal_history(self) -> dict[str, Any]:
-        """Interface Lab에서 실행한 Action Goal 이력을 반환합니다."""
-        return self._action_goal_runtime.history()
-
-    def receive_action_history(self) -> dict[str, Any]:
-        """Goal 실행 중 받은 feedback과 result 이력을 반환합니다."""
-        return self._action_goal_runtime.receive_history()
-
-    def reset_receive_action_history(
-        self,
-        *,
-        action_name: str | None = None,
-        action_type: str | None = None,
-    ) -> dict[str, Any]:
-        """지정한 Action의 feedback·result 수신 이력을 초기화합니다."""
-        return self._action_goal_runtime.reset_receive_history(
-            action_name=action_name,
-            action_type=action_type,
-        )
-
-    def start_receive_topic(self, *, topic_name: str, topic_type: str, history_limit: int = 100) -> dict[str, Any]:
-        """사용자가 선택한 Topic의 Interface Lab 구독을 시작합니다."""
-        return self._receive_runtime.start_topic(
-            topic_name=topic_name,
-            topic_type=topic_type,
-            history_limit=history_limit,
-        )
-
-    def stop_receive_topic(self, *, topic_name: str, topic_type: str | None = None) -> dict[str, Any]:
-        """사용자가 시작한 Interface Lab Topic 구독을 중지합니다."""
-        return self._receive_runtime.stop_topic(topic_name=topic_name, topic_type=topic_type)
-
-    def receive_topics(self) -> dict[str, Any]:
-        """현재 Interface Lab에서 수신 중인 Topic 목록을 반환합니다."""
-        return self._receive_runtime.topics()
-
-    def receive_topic_history(
-        self,
-        *,
-        topic_name: str | None = None,
-        topic_type: str | None = None,
-        limit: int | None = None,
-    ) -> dict[str, Any]:
-        """조건에 맞는 Interface Lab Topic 수신 이력을 반환합니다."""
-        return self._receive_runtime.topic_history(
-            topic_name=topic_name,
-            topic_type=topic_type,
-            limit=limit,
-        )
-
-    def reset_receive_topic_history(
-        self,
-        *,
-        topic_name: str | None = None,
-        topic_type: str | None = None,
-    ) -> dict[str, Any]:
-        """지정한 Topic의 Interface Lab 수신 이력을 초기화합니다."""
-        return self._receive_runtime.reset_topic_history(
-            topic_name=topic_name,
-            topic_type=topic_type,
-        )
-
-    def callable_messages(self) -> dict[str, Any]:
-        """Interface Lab에서 사용할 수 있는 import 가능 Message 타입을 반환합니다."""
-        return self._receive_runtime.callable_messages()
-
-    def message_schema(self, *, message_type: str) -> dict[str, Any]:
-        """RosMonitor coordinator에서 interface schema를 반환하는 함수입니다."""
-        return self._receive_runtime.message_schema(message_type=message_type)
-
-    def publish_topic(
-        self,
-        *,
-        topic_name: str,
-        topic_type: str,
-        payload: dict[str, Any],
-    ) -> dict[str, Any]:
-        """RosMonitor coordinator에서 Topic 메시지를 발행하는 함수입니다."""
-        return self._receive_runtime.publish_topic(
-            topic_name=topic_name,
-            topic_type=topic_type,
-            payload=payload,
-        )
-
-    def start_continuous_topic_publish(
-        self,
-        *,
-        topic_name: str,
-        topic_type: str,
-        payload: dict[str, Any],
-        hz: float,
-    ) -> dict[str, Any]:
-        """Interface Lab의 사용자 명시 주기 발행을 시작합니다."""
-        return self._receive_runtime.start_continuous_publish(
-            topic_name=topic_name,
-            topic_type=topic_type,
-            payload=payload,
-            hz=hz,
-        )
-
-    def stop_continuous_topic_publish(
-        self,
-        *,
-        topic_name: str,
-        topic_type: str,
-    ) -> dict[str, Any]:
-        """Interface Lab의 사용자 명시 주기 발행을 중지합니다."""
-        return self._receive_runtime.stop_continuous_publish(
-            topic_name=topic_name,
-            topic_type=topic_type,
-        )
-
-    def continuous_topic_publishes(self) -> dict[str, Any]:
-        """Interface Lab의 주기 발행 상태를 반환합니다."""
-        return self._receive_runtime.continuous_publishes()
-
-    def topic_publish_history(self, *, limit: int | None = None) -> dict[str, Any]:
-        """Interface Lab에서 실행한 Topic Publish 이력을 반환합니다."""
-        return self._receive_runtime.publish_history(limit=limit)
-
-    def reset_topic_publish_history(
-        self,
-        *,
-        topic_name: str | None = None,
-        topic_type: str | None = None,
-    ) -> dict[str, Any]:
-        """지정한 Topic의 Publish 이력을 초기화합니다."""
-        return self._receive_runtime.reset_publish_history(
-            topic_name=topic_name,
-            topic_type=topic_type,
-        )
 
     def node_snapshot(self) -> dict[str, Any]:
         return assemble_node_snapshot(self)
