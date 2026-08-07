@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import os
-import re
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -13,7 +12,6 @@ from typing import Any
 
 from ros2_dashboard_monitor.interface_lab.paths import persistent_monitor_config_dir, ros_workspace_root
 from ros2_dashboard_monitor.interface_lab.management.registry import (
-    InterfaceUploadError,
     _dependency_candidates,
     _display_path,
     parse_interface,
@@ -34,13 +32,17 @@ from ros2_dashboard_monitor.interface_lab.management.package_registry_storage im
     load_packages_registry as _load_packages_registry,
     write_packages_registry as _write_packages_registry,
 )
-
-
-PACKAGE_NAME_PATTERN = re.compile(r'^[a-z][a-z0-9_]*$')
-PROJECT_PATTERN = re.compile(r'project\s*\(\s*([A-Za-z][A-Za-z0-9_]*)\b', re.IGNORECASE)
-PACKAGE_NAME_XML_PATTERN = re.compile(r'<name>\s*([^<]+)\s*</name>')
-PACKAGE_LOCK = None
-
+from ros2_dashboard_monitor.interface_lab.management.package_apply_status import (
+    apply_summary as build_package_apply_summary,
+    iter_package_interface_lists as _iter_package_interface_lists,
+    mark_build_applied,
+    refresh_import_status,
+)
+from ros2_dashboard_monitor.interface_lab.management.package_inspector import (
+    PACKAGE_NAME_PATTERN,
+    collect_interfaces,
+    validate_package_identity as _validate_package_identity,
+)
 
 def default_packages_registry_path() -> Path:
     """Interface package Registry YAML의 기본 경로를 반환합니다."""
@@ -110,7 +112,13 @@ def _store_package_root(package_root: Path, *, replace: bool) -> dict[str, Any]:
     uploaded_root = default_uploaded_packages_root()
     uploaded_root.mkdir(parents=True, exist_ok=True)
     package_name = _validate_package_identity(package_root)
-    interfaces = _collect_interfaces(package_root, package_name)
+    interfaces = collect_interfaces(
+        package_root,
+        package_name,
+        parse_interface=parse_interface,
+        dependency_candidates=_dependency_candidates,
+        display_path=_display_path,
+    )
     total_interfaces = sum(len(items) for items in interfaces.values())
     if total_interfaces == 0:
         raise InterfacePackageError('msg/srv/action 인터페이스가 하나 이상 필요합니다.')
@@ -220,11 +228,7 @@ def mark_packages_build_applied() -> dict[str, Any]:
     """build가 끝난 package 항목의 build_required 표시를 해제합니다."""
     path = default_packages_registry_path()
     registry = _load_packages_registry(path)
-    built_at = datetime.now(timezone.utc).isoformat()
-    for package in registry['packages']:
-        package['last_build_status'] = 'success'
-        package['last_build_at'] = built_at
-        package['rebuild_required'] = False
+    mark_build_applied(registry, built_at=datetime.now(timezone.utc))
     _write_packages_registry(path, registry)
     return registry
 
@@ -233,29 +237,11 @@ def refresh_package_imports() -> dict[str, Any]:
     """Interface Lab에서 생성된 interface 타입 import 가능 여부를 확인하는 함수입니다."""
     path = default_packages_registry_path()
     registry = _load_packages_registry(path)
-    checked_at = datetime.now(timezone.utc).isoformat()
-    for package in registry['packages']:
-        errors: list[str] = []
-        total = 0
-        available_count = 0
-        package_name = str(package.get('name') or '')
-        for kind, items in _iter_package_interface_lists(package):
-            for item in items:
-                total += 1
-                type_name = str(item.get('type_name') or '')
-                available, error = _check_import(package_name, kind, type_name)
-                item['import_available'] = available
-                item['import_error'] = error
-                item['import_checked_at'] = checked_at
-                if available:
-                    available_count += 1
-                elif error:
-                    errors.append(f'{item.get("type")}: {error}')
-        package['import_available'] = total > 0 and available_count == total
-        package['import_error'] = '; '.join(errors) if errors else None
-        package['import_checked_at'] = checked_at
-        if package['import_available']:
-            package['rebuild_required'] = False
+    refresh_import_status(
+        registry,
+        checked_at=datetime.now(timezone.utc),
+        check_import=_check_import,
+    )
     summary = package_apply_summary(registry=registry, require_import_available=True)
     registry['apply_summary'] = summary
     _write_packages_registry(path, registry)
@@ -269,67 +255,13 @@ def package_apply_summary(
 ) -> dict[str, Any]:
     """Interface Lab에서 interface build/apply 상태를 처리하는 함수입니다."""
     registry = registry or _load_packages_registry(default_packages_registry_path())
-    not_applied: list[dict[str, Any]] = []
-    import_pending: list[dict[str, Any]] = []
-    total = 0
-    for package in registry['packages']:
-        package_name = str(package.get('name') or '')
-        package_path = Path(str(package.get('absolute_path') or ''))
-        package_reasons: list[str] = []
-        if not package_path.is_dir():
-            package_reasons.append('package path missing')
-        if not (package_path / 'package.xml').is_file():
-            package_reasons.append('package.xml missing')
-        if not (package_path / 'CMakeLists.txt').is_file():
-            package_reasons.append('CMakeLists.txt missing')
-        if package.get('error'):
-            package_reasons.append(str(package['error']))
-
-        for kind, items in _iter_package_interface_lists(package):
-            for item in items:
-                total += 1
-                interface_path = Path(str(item.get('relative_path') or ''))
-                actual_path = package_path / interface_path
-                reasons = list(package_reasons)
-                if not actual_path.is_file():
-                    reasons.append('file_saved false')
-                if not _cmake_contains_interface(package_path / 'CMakeLists.txt', item):
-                    reasons.append('cmake_registered false')
-                if require_import_available and item.get('import_available') is not True:
-                    reasons.append('import_available false')
-                elif not require_import_available and item.get('import_available') is not True:
-                    import_pending.append({
-                        'file_name': item.get('file_name'),
-                        'type': item.get('type'),
-                        'reason': item.get('import_error') or 'import-check pending after build',
-                    })
-                if reasons:
-                    not_applied.append({
-                        'file_name': item.get('file_name'),
-                        'package_name': package_name,
-                        'type': item.get('type'),
-                        'saved_path': item.get('saved_path'),
-                        'reason': ', '.join(reasons),
-                    })
-    real_apply_success = total > 0 and not not_applied
-    ready_for_build = total > 0 and not any(
-        item for item in not_applied
-        if 'import_available false' not in item['reason']
+    return build_package_apply_summary(
+        registry,
+        require_import_available=require_import_available,
+        registry_path=default_packages_registry_path(),
+        uploaded_packages_path=default_uploaded_packages_root(),
+        display_path=_display_path,
     )
-    return {
-        'status': 'success' if real_apply_success else ('empty' if total == 0 else 'partial'),
-        'real_apply_success': real_apply_success,
-        'ready_for_build': ready_for_build,
-        'registry_exists': default_packages_registry_path().is_file(),
-        'registry_path': _display_path(default_packages_registry_path()),
-        'uploaded_packages_path': _display_path(default_uploaded_packages_root()),
-        'package_count': len(registry['packages']),
-        'total': total,
-        'applied_count': total - len(not_applied),
-        'not_applied': not_applied,
-        'import_pending': import_pending,
-        'requires_import_available': require_import_available,
-    }
 
 
 def registered_package_services() -> list[dict[str, Any]]:
@@ -401,80 +333,6 @@ def _registered_package_interfaces(
                 'import_error': item.get('import_error') or package.get('import_error'),
             })
     return entries
-
-
-def _validate_package_identity(package_root: Path) -> str:
-    package_xml = package_root / 'package.xml'
-    cmake = package_root / 'CMakeLists.txt'
-    if not package_xml.is_file():
-        raise InterfacePackageError('package.xml이 필요합니다.')
-    if not cmake.is_file():
-        raise InterfacePackageError('CMakeLists.txt가 필요합니다.')
-    package_match = PACKAGE_NAME_XML_PATTERN.search(package_xml.read_text(encoding='utf-8'))
-    project_match = PROJECT_PATTERN.search(cmake.read_text(encoding='utf-8'))
-    if not package_match:
-        raise InterfacePackageError('package.xml에서 <name>을 찾을 수 없습니다.')
-    if not project_match:
-        raise InterfacePackageError('CMakeLists.txt에서 project(...)를 찾을 수 없습니다.')
-    package_name = package_match.group(1).strip()
-    project_name = project_match.group(1).strip()
-    if package_name != project_name:
-        raise InterfacePackageError('package.xml <name>과 CMakeLists.txt project(...)가 다릅니다.')
-    if not PACKAGE_NAME_PATTERN.fullmatch(package_name):
-        raise InterfacePackageError('패키지명은 소문자, 숫자, underscore만 사용할 수 있습니다.')
-    return package_name
-
-
-def _collect_interfaces(package_root: Path, package_name: str) -> dict[str, list[dict[str, Any]]]:
-    interfaces: dict[str, list[dict[str, Any]]] = {'msg': [], 'srv': [], 'action': []}
-    for kind in interfaces:
-        directory = package_root / kind
-        if not directory.is_dir():
-            continue
-        for path in sorted(directory.glob(f'*.{kind}')):
-            raw_text = path.read_text(encoding='utf-8')
-            type_name = path.stem
-            try:
-                parsed = parse_interface(raw_text, kind)
-                parsed_error = None
-            except InterfaceUploadError as exc:
-                parsed = {}
-                parsed_error = str(exc)
-            relative = path.relative_to(package_root)
-            entry = {
-                'file_name': path.name,
-                'file_kind': kind,
-                'type_name': type_name,
-                'type': f'{package_name}/{kind}/{type_name}',
-                'relative_path': relative.as_posix(),
-                'saved_path': _display_path(path),
-                'absolute_saved_path': str(path.resolve()),
-                'raw_text': raw_text,
-                'parsed': parsed,
-                'parsed_error': parsed_error,
-                'dependency_candidates': _dependency_candidates(raw_text, package_name),
-                'import_available': False,
-                'import_error': None,
-            }
-            interfaces[kind].append(entry)
-    return interfaces
-
-
-def _iter_package_interface_lists(package: dict[str, Any]):
-    interfaces = package.get('interfaces') if isinstance(package.get('interfaces'), dict) else {}
-    for kind in ('msg', 'srv', 'action'):
-        items = interfaces.get(kind)
-        if isinstance(items, list):
-            yield kind, items
-
-
-def _cmake_contains_interface(cmake_path: Path, item: dict[str, Any]) -> bool:
-    try:
-        text = cmake_path.read_text(encoding='utf-8')
-    except (OSError, UnicodeError):
-        return False
-    relative = str(item.get('relative_path') or '')
-    return bool(relative and (relative in text or f'"{relative}"' in text))
 
 
 def _check_import(package_name: str, kind: str, type_name: str) -> tuple[bool, str | None]:

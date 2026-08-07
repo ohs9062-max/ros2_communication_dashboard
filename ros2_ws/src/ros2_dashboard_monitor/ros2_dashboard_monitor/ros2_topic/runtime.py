@@ -3,40 +3,40 @@
 from __future__ import annotations
 
 import logging
-from importlib import import_module
 from time import time
 from typing import Any, Callable
 
-from rclpy.qos import QoSProfile, qos_profile_sensor_data
-
 from ros2_dashboard_monitor.config_loader import MonitorConfig
-from ros2_dashboard_monitor.qos import choose_topic_qos, subscription_events
-from ros2_dashboard_monitor.resource_state import (
-    disconnected_resource,
-    mark_graph_present,
-)
-from ros2_dashboard_monitor.ros2_topic.discovery import build_topic_item
 from ros2_dashboard_monitor.ros2_topic.filters import (
     is_supported_type,
     is_topic_included,
-    is_topic_type_excluded,
     should_deep_monitor,
 )
-from ros2_dashboard_monitor.ros2_topic.hz import (
-    build_hz_snapshot,
-    recent_timestamps,
+from ros2_dashboard_monitor.ros2_topic.graph_collector import (
+    collect_topic_graph,
 )
-from ros2_dashboard_monitor.ros2_topic.models import (
-    SENSOR_PREVIEW_TYPES,
-    copy_message_preview,
-)
+from ros2_dashboard_monitor.ros2_topic.models import copy_message_preview
 from ros2_dashboard_monitor.ros2_topic.preview import build_message_preview
+from ros2_dashboard_monitor.ros2_topic.query_support import (
+    build_topic_hz_response,
+    hz_response,
+    latest_response,
+    load_message_class,
+    select_subscription_qos,
+)
+from ros2_dashboard_monitor.ros2_topic.snapshot import (
+    build_topic_snapshot,
+    copy_subscription_snapshots,
+)
+from ros2_dashboard_monitor.ros2_topic.subscription_lifecycle import (
+    cleanup_disappeared_subscriptions,
+    ensure_subscription,
+    monitor_subscriber_count,
+    owned_subscription_endpoint_count,
+)
 from ros2_dashboard_monitor.ros2_topic.subscriptions import (
     DEFAULT_SUBSCRIPTION_CLEANUP_AFTER_SEC,
-    build_subscription_entry,
-    cleanup_candidates,
     has_subscription,
-    remove_subscription_entry,
     update_subscription_entry,
 )
 
@@ -79,110 +79,18 @@ class TopicRuntime:
         """Topic Graph Cache에 최신 메시지와 마지막 수신 시각을 합쳐 반환합니다."""
         with self._lock:
             topics = [topic.copy() for topic in self._topics]
-            subscriptions = {
-                name: {
-                    'message_preview': copy_message_preview(entry.get('message_preview')),
-                    'last_received_at': entry.get('last_received_at'),
-                    'message_count': len(entry.get('timestamps', [])),
-                    'qos': entry.get('qos'),
-                }
-                for name, entry in self._subscriptions.items()
-            }
+            subscriptions = copy_subscription_snapshots(self._subscriptions)
             subscription_errors = self._subscription_errors.copy()
             last_updated = self._last_updated
 
-        configured_names = dict.fromkeys((
-            *self._config.topics_required_stream_names,
-            *self._config.topics_command_names,
-        ))
-        present_names = {str(topic.get('name') or '') for topic in topics}
-        for name in configured_names:
-            if name in present_names:
-                continue
-            topics.append({
-                'name': name,
-                'types': [],
-                'publisher_count': 0,
-                'subscriber_count': 0,
-                'raw_subscriber_count': 0,
-                'monitor_subscriber_count': 0,
-                'external_subscriber_count': 0,
-                'status': 'not_discovered',
-                'reason': 'configured topic is not visible in ROS2 graph',
-                'last_updated': last_updated,
-                'supported_type': False,
-                'registered_interface_type': False,
-                'deep_monitoring': False,
-                'graph_present': False,
-                'ever_discovered': False,
-                'last_seen_at': None,
-                'disconnected_at': None,
-            })
-
-        for topic in topics:
-            latest = subscriptions.get(topic.get('name'), {})
-            preview = latest.get('message_preview')
-            name = str(topic.get('name') or '')
-            required_stream = name in self._config.topics_required_stream_names
-            command = name in self._config.topics_command_names
-            if required_stream:
-                monitoring_role = 'required_stream'
-            elif command:
-                monitoring_role = 'command'
-            elif topic.get('registered_interface_type') is True:
-                monitoring_role = 'registered_interface'
-            elif topic.get('supported_type') is True:
-                monitoring_role = 'configured_type'
-            else:
-                monitoring_role = 'discovered'
-
-            if required_stream and topic.get('graph_present') is False:
-                hz_monitoring_status = 'topic_not_discovered'
-            elif required_stream and topic.get('supported_type') is not True:
-                hz_monitoring_status = 'unsupported_type'
-            elif topic.get('deep_monitoring') is True:
-                hz_monitoring_status = 'active'
-            elif topic.get('supported_type') is True:
-                hz_monitoring_status = 'subscription_failed'
-            else:
-                hz_monitoring_status = 'not_configured'
-
-            topic['allowlisted'] = bool(topic.get('supported_type') or topic.get('deep_monitoring'))
-            if topic.get('registered_interface_type') is True:
-                primary_priority = 1
-            elif required_stream or command or topic.get('supported_type') is True:
-                primary_priority = 2
-            else:
-                primary_priority = None
-            topic['primary'] = primary_priority is not None
-            topic['primary_priority'] = primary_priority
-            topic['monitoring_role'] = monitoring_role
-            topic['hz_monitoring_configured'] = (
-                required_stream or topic.get('supported_type') is True
-            )
-            topic['hz_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
-            topic['hz_monitoring_status'] = hz_monitoring_status
-            topic['observed'] = preview is not None
-            topic['last_message_preview'] = preview
-            topic['last_received_at'] = latest.get('last_received_at')
-            topic['message_count'] = latest.get('message_count', 0)
-            topic['detailed_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
-            topic['last_error'] = subscription_errors.get(name)
-            topic.update(latest.get('qos') or {
-                'qos_status': 'unknown',
-                'qos_detection_source': 'unavailable',
-                'local_qos': None,
-                'remote_qos': [],
-                'mismatch_policies': [],
-                'mismatch_reason': None,
-                'qos_auto_applied': False,
-            })
-
-        return {
-            'topics': topics,
-            'count': len(topics),
-            'last_updated': last_updated,
-        }
+        return build_topic_snapshot(
+            topics=topics,
+            subscriptions=subscriptions,
+            subscription_errors=subscription_errors,
+            last_updated=last_updated,
+            required_stream_names=self._config.topics_required_stream_names,
+            command_names=self._config.topics_command_names,
+        )
 
     def alert_snapshot(
         self,
@@ -209,97 +117,29 @@ class TopicRuntime:
         if node is None:
             return
 
-        topics = []
         updated_at = time()
-        topic_names_and_types = node.get_topic_names_and_types()
-        externally_present_topic_names = set()
         with self._lock:
             previous_topics = {
                 topic['name']: topic.copy()
                 for topic in self._topics
             }
 
-        for name, types in topic_names_and_types:
-            if not self._is_topic_included(name):
-                continue
-            if any(
-                is_topic_type_excluded(
-                    topic_type,
-                    exclude_types=self._config.topics_exclude_types,
+        topics, externally_present_topic_names = collect_topic_graph(
+            node=node,
+            names_and_types=node.get_topic_names_and_types(),
+            previous_topics=previous_topics,
+            updated_at=updated_at,
+            exclude_types=self._config.topics_exclude_types,
+            is_included=self._is_topic_included,
+            is_supported=self._is_supported_type,
+            is_registered=(
+                lambda topic_type: (
+                    topic_type in self._config.topics_registered_types
                 )
-                for topic_type in types
-            ):
-                continue
-
-            topic_type = types[0] if types else None
-            supported_type = self._is_supported_type(topic_type)
-            registered_interface_type = (
-                topic_type in self._config.topics_registered_types
-            )
-            deep_monitoring = self._auto_subscribe_topic(
-                name,
-                topic_type,
-                supported_type,
-            )
-            publisher_count = node.count_publishers(name)
-            raw_subscriber_count = node.count_subscribers(name)
-            monitor_subscriber_count = self._monitor_subscriber_count(
-                name,
-                topic_type,
-            )
-            external_subscriber_count = max(
-                0,
-                raw_subscriber_count - monitor_subscriber_count,
-            )
-            if publisher_count > 0 or external_subscriber_count > 0:
-                externally_present_topic_names.add(name)
-            topic = build_topic_item(
-                name=name,
-                types=list(types),
-                publisher_count=publisher_count,
-                raw_subscriber_count=raw_subscriber_count,
-                monitor_subscriber_count=monitor_subscriber_count,
-                external_subscriber_count=external_subscriber_count,
-                updated_at=updated_at,
-                supported_type=supported_type,
-                registered_interface_type=registered_interface_type,
-                deep_monitoring=deep_monitoring,
-            )
-            if publisher_count > 0 or external_subscriber_count > 0:
-                mark_graph_present(topic, observed_at=updated_at)
-            elif name in previous_topics:
-                topic = disconnected_resource(
-                    previous_topics[name],
-                    detected_at=updated_at,
-                    count_fields=(
-                        'publisher_count',
-                        'subscriber_count',
-                        'raw_subscriber_count',
-                        'monitor_subscriber_count',
-                        'external_subscriber_count',
-                    ),
-                )
-            topics.append(topic)
-
-        current_names = {topic['name'] for topic in topics}
-        for name, cached in previous_topics.items():
-            if name in current_names:
-                continue
-            topics.append(
-                disconnected_resource(
-                    cached,
-                    detected_at=updated_at,
-                    count_fields=(
-                        'publisher_count',
-                        'subscriber_count',
-                        'raw_subscriber_count',
-                        'monitor_subscriber_count',
-                        'external_subscriber_count',
-                    ),
-                ),
-            )
-
-        topics.sort(key=lambda topic: topic['name'])
+            ),
+            auto_subscribe=self._auto_subscribe_topic,
+            monitor_subscriber_count=self._monitor_subscriber_count,
+        )
 
         with self._lock:
             self._topics = topics
@@ -469,31 +309,16 @@ class TopicRuntime:
         topic_type: str,
         message_class: type,
     ) -> None:
-        node = self._node_getter()
-        if node is None:
-            return
-
-        with self._lock:
-            entry = self._subscriptions.get(name)
-            if has_subscription(entry, topic_type=topic_type):
-                return
-
-            if entry is not None:
-                node.destroy_subscription(entry['subscription'])
-
-            qos_profile, qos = self._qos_profile(name, topic_type)
-            subscription = node.create_subscription(
-                message_class,
-                name,
-                self._latest_message_callback(name, topic_type),
-                qos_profile,
-                event_callbacks=subscription_events(qos, 'topic_qos_incompatible'),
-            )
-            self._subscriptions[name] = build_subscription_entry(
-                topic_type=topic_type,
-                subscription=subscription,
-                qos=qos,
-            )
+        ensure_subscription(
+            node=self._node_getter(),
+            lock=self._lock,
+            subscriptions=self._subscriptions,
+            name=name,
+            topic_type=topic_type,
+            message_class=message_class,
+            callback=self._latest_message_callback(name, topic_type),
+            qos_resolver=self._qos_profile,
+        )
 
     def _has_subscription(self, name: str, topic_type: str) -> bool:
         with self._lock:
@@ -505,100 +330,37 @@ class TopicRuntime:
         name: str,
         topic_type: str | None,
     ) -> int:
-        if topic_type is None:
-            return 0
-
-        node = self._node_getter()
-        graph_count = self._owned_subscription_endpoint_count(node, name)
-        if graph_count is not None:
-            return graph_count
-
-        with self._lock:
-            entry = self._subscriptions.get(name)
-
-        action_count = self._action_monitor_subscriber_count(name)
-        if has_subscription(entry, topic_type=topic_type):
-            return 1 + action_count
-
-        return action_count
+        return monitor_subscriber_count(
+            node=self._node_getter(),
+            lock=self._lock,
+            subscriptions=self._subscriptions,
+            name=name,
+            topic_type=topic_type,
+            action_monitor_subscriber_count=(
+                self._action_monitor_subscriber_count
+            ),
+        )
 
     @staticmethod
     def _owned_subscription_endpoint_count(
         node: Any,
         topic_name: str,
     ) -> int | None:
-        """현재 monitor Node가 소유한 Topic subscription endpoint 수를 반환합니다."""
-        if node is None:
-            return None
-
-        endpoint_reader = getattr(
-            node,
-            'get_subscriptions_info_by_topic',
-            None,
-        )
-        get_name = getattr(node, 'get_name', None)
-        get_namespace = getattr(node, 'get_namespace', None)
-        if (
-            endpoint_reader is None
-            or get_name is None
-            or get_namespace is None
-        ):
-            return None
-
-        try:
-            own_name = str(get_name())
-            own_namespace = str(get_namespace() or '/')
-            endpoints = endpoint_reader(topic_name)
-        except Exception:
-            return None
-
-        return sum(
-            1
-            for endpoint in endpoints
-            if (
-                str(getattr(endpoint, 'node_name', '')) == own_name
-                and str(getattr(endpoint, 'node_namespace', '') or '/')
-                == own_namespace
-            )
-        )
+        return owned_subscription_endpoint_count(node, topic_name)
 
     def _cleanup_disappeared_subscriptions(
         self,
         externally_present_topic_names: set[str],
         now: float,
     ) -> None:
-        node = self._node_getter()
-        if node is None:
-            return
-
-        with self._lock:
-            candidates = cleanup_candidates(
-                self._subscriptions,
-                retained_topic_names=externally_present_topic_names,
-                now=now,
-                cleanup_after_sec=(
-                    DEFAULT_SUBSCRIPTION_CLEANUP_AFTER_SEC
-                ),
-            )
-
-        for name, subscription in candidates:
-            try:
-                node.destroy_subscription(subscription)
-            except Exception as exc:  # pragma: no cover
-                LOGGER.warning(
-                    'Failed to destroy subscription for disappeared topic '
-                    '%s: %s',
-                    name,
-                    exc,
-                )
-                continue
-
-            with self._lock:
-                remove_subscription_entry(
-                    self._subscriptions,
-                    name=name,
-                    subscription=subscription,
-                )
+        cleanup_disappeared_subscriptions(
+            node=self._node_getter(),
+            lock=self._lock,
+            subscriptions=self._subscriptions,
+            retained_topic_names=externally_present_topic_names,
+            now=now,
+            cleanup_after_sec=DEFAULT_SUBSCRIPTION_CLEANUP_AFTER_SEC,
+        )
 
     def _latest_message_callback(self, name: str, topic_type: str):
         def callback(message: Any) -> None:
@@ -623,61 +385,24 @@ class TopicRuntime:
         name: str,
         topic_type: str,
     ) -> dict[str, Any]:
-        now = time()
-        with self._lock:
-            entry = self._subscriptions.get(name, {})
-            timestamps = recent_timestamps(
-                entry.get('timestamps', []),
-                now=now,
-                window_sec=self._config.hz_window_sec,
-            )
-            entry['timestamps'] = timestamps
-            last_received_at = entry.get('last_received_at')
-
-        snapshot = build_hz_snapshot(
-            timestamps=timestamps,
-            last_received_at=last_received_at,
-            window_sec=self._config.hz_window_sec,
-            stale_timeout_sec=self._config.stale_timeout_sec,
-            now=now,
-        )
-
-        return self._hz_response(
-            success=True,
+        return build_topic_hz_response(
+            lock=self._lock,
+            subscriptions=self._subscriptions,
             name=name,
             topic_type=topic_type,
-            received=snapshot['received'],
-            message_count=snapshot['message_count'],
-            window_sec=snapshot['window_sec'],
-            hz=snapshot['hz'],
-            last_received_at=snapshot['last_received_at'],
-            age_sec=snapshot['age_sec'],
-            is_stale=snapshot['is_stale'],
-            status=snapshot['status'],
-            message='Topic Hz fetched successfully',
+            window_sec=self._config.hz_window_sec,
+            stale_timeout_sec=self._config.stale_timeout_sec,
         )
 
     @staticmethod
     def _message_class(topic_type: str) -> type | None:
-        parts = topic_type.split('/')
-        if len(parts) != 3 or parts[1] != 'msg':
-            return None
-
-        try:
-            module = import_module(f'{parts[0]}.msg')
-        except ImportError:
-            return None
-
-        return getattr(module, parts[2], None)
+        return load_message_class(topic_type)
 
     def _qos_profile(self, topic_name: str, topic_type: str):
-        node = self._node_getter()
-        default = qos_profile_sensor_data if topic_type in SENSOR_PREVIEW_TYPES else QoSProfile(depth=10)
-        return choose_topic_qos(
-            node,
+        return select_subscription_qos(
+            self._node_getter(),
             topic_name,
-            local_role='subscription',
-            default_profile=default,
+            topic_type,
         )
 
     @staticmethod
@@ -691,17 +416,15 @@ class TopicRuntime:
         last_received_at: float | None = None,
         message_preview: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return {
-            'success': success,
-            'data': {
-                'name': name,
-                'type': topic_type,
-                'received': received,
-                'last_received_at': last_received_at,
-                'message_preview': message_preview,
-            },
-            'message': message,
-        }
+        return latest_response(
+            success=success,
+            name=name,
+            message=message,
+            topic_type=topic_type,
+            received=received,
+            last_received_at=last_received_at,
+            message_preview=message_preview,
+        )
 
     @staticmethod
     def _hz_response(
@@ -719,19 +442,17 @@ class TopicRuntime:
         is_stale: bool = False,
         status: str = 'never_received',
     ) -> dict[str, Any]:
-        return {
-            'success': success,
-            'data': {
-                'name': name,
-                'type': topic_type,
-                'received': received,
-                'message_count': message_count,
-                'window_sec': window_sec,
-                'hz': hz,
-                'last_received_at': last_received_at,
-                'age_sec': age_sec,
-                'is_stale': is_stale,
-                'status': status,
-            },
-            'message': message,
-        }
+        return hz_response(
+            success=success,
+            name=name,
+            message=message,
+            topic_type=topic_type,
+            received=received,
+            message_count=message_count,
+            window_sec=window_sec,
+            hz=hz,
+            last_received_at=last_received_at,
+            age_sec=age_sec,
+            is_stale=is_stale,
+            status=status,
+        )

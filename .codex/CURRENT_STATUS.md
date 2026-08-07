@@ -82,6 +82,29 @@ ros2_dashboard/
   `management/registry_apply_status.py`가 담당한다. `registry.py`는 lock 범위와 저장 시점을 관리한다.
 - 업로드 package의 ZIP/폴더 입력 크기·경로·symlink·허용 파일 검사는 `management/package_archive.py`,
   package Registry YAML 정규화·원자적 저장은 `package_registry_storage.py`가 담당한다.
+- 업로드 package의 build/import/apply 상태는 `management/package_apply_status.py`, package.xml과
+  CMake identity 검증 및 msg/srv/action 정의 수집은 `package_inspector.py`가 담당한다.
+- 사용자 직접 작성 Interface 검증은 `management/manual_validation.py`, Registry CRUD는
+  `manual_registry.py`, generated package의 파일 스캔·의존성 수집·CMake/package.xml 재생성은
+  `generated_package.py`가 담당한다. `manual_interfaces.py`는 공개 작성·수정·삭제 흐름을 조정한다.
+- Interface Apply 상태 YAML/log I/O는 `apply/status_storage.py`, workspace package 중복 검사와 package
+  범위 생성물 정리는 `workspace_packages.py`, install Python 경로 반영은 `install_paths.py`, 단일/package
+  apply 상태 병합은 `summary.py`가 담당한다.
+- Interface Apply colcon 호출과 build/skip/error 로그 조립은 `apply/build_executor.py`, 단계별 공개 상태
+  payload 조립은 `result_builder.py`가 담당한다. `apply/runtime.py`는 lock, preflight, build/import 순서를
+  조정한다.
+- Topic Graph/cache의 공개 API 상태 조립은 `ros2_topic/snapshot.py`가 담당한다. 누락된 설정 Topic,
+  monitoring role/primary/Hz 상태, latest preview와 QoS 공개 필드를 이 계층에서 결합하며
+  `ros2_topic/runtime.py`는 lock 아래 원시 상태를 복사해 전달한다.
+- Topic subscription의 생성·type 변경 교체, Monitor 소유 endpoint 계산, 외부 endpoint 소멸 후 유예
+  정리는 `ros2_topic/subscription_lifecycle.py`가 담당한다. runtime의 기존 private 메서드는 호환 facade와
+  callback/QoS 의존성 연결 역할만 유지한다.
+- Topic Graph 이름/type 필터링, endpoint count 조립, 외부 endpoint 존재 판정과 이전 항목의 disconnected
+  보존은 `ros2_topic/graph_collector.py`가 담당한다. runtime은 이전 cache와 자동 subscription/count
+  callback을 주입하고 결과 cache를 교체한다.
+- Topic latest/Hz의 Message class import, adaptive subscription QoS 선택, timestamp window 기반
+  Hz/age/stale 계산과 공개 응답 payload는 `ros2_topic/query_support.py`가 담당한다. runtime은 요청 검증,
+  subscription 보장과 cache 접근 순서를 조정한다.
 - Topic/Service/Action/Node 감시 폴더명은 각각 `ros2_topic`, `ros2_service`, `ros2_action`,
   `ros2_node`다.
 
@@ -113,7 +136,7 @@ staged/unstaged diff를 먼저 확인해야 한다.
 
 ## 마지막 확인된 검증 상태
 
-2026-08-07 QoS 작업까지 포함한 마지막 검수 기록:
+2026-08-07 전체 통합 검수 기록과 이후 리팩토링 대상 테스트 기록:
 
 ```text
 ROS2 Monitor tests: 119 passed, 0 failures/errors/skips
@@ -126,6 +149,12 @@ Frontend 초기 bundle: 약 210 KB, 500 KB 경고 없음
 실제 Action: goal/feedback/result 및 cancel accepted/canceled 확인
 Monitor 설치 executable 및 localhost transport 단기 기동/종료: 성공
 Backend 단독 uvicorn 단기 기동/종료: 성공
+이후 기능 분리와 신규 package 보안 테스트 포함 직접 pytest: 120 passed
+Apply executor/result 단위 테스트 추가 후 직접 pytest: 123 passed
+Topic snapshot 조립 단위 테스트 추가 후 직접 pytest: 126 passed
+Topic subscription lifecycle 단위 테스트 추가 후 직접 pytest: 129 passed
+Topic Graph collector 단위 테스트 추가 후 직접 pytest: 132 passed
+Topic query support 단위 테스트 추가 후 직접 pytest: 135 passed
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -147,7 +176,7 @@ Backend 단독 uvicorn 단기 기동/종료: 성공
 1. 먼저 현재 staged/unstaged/untracked QoS diff를 보존한 채 범위를 재확인한다.
 2. QoS 관련 정적 검사, ROS2 119 tests, Backend tests, Frontend lint/build를 변경 후 다시 실행한다.
 3. 사용자 승인 시에만 QoS 변경과 문서 변경을 의도별 commit으로 정리한다.
-4. 다음 ROS2 리팩토링은 `interface_lab/management/packages.py`에 남은 package import/apply 상태와
-   package identity/interface 수집 책임을 분리한다. 이후 501줄 `manual_interfaces.py`를 재평가한다.
+4. Topic runtime은 458줄 coordinator로 축소되어 이번 우선 분리 구간을 마쳤다. 다음 ROS2 우선 대상은
+   `ros2_action/runtime.py`의 Graph 수집, status/feedback subscription과 상태 조립 경계를 다시 확인한다.
 5. 신규 기능은 WSS와 MariaDB Alert 이력 설계를 우선하며, 미구현 항목을 현재 기능으로
    보고하지 않는다.

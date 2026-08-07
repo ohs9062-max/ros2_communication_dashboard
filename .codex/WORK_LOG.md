@@ -458,3 +458,144 @@
 - 남은 문제: 실제 대형 ZIP 업로드와 colcon build/apply 통합 실행은 이번 구간에 재수행하지 않았다.
 - 다음 AI: package별 import refresh/apply summary를 별도 status 모듈로 옮긴 후 package identity 검증과
   Interface 수집을 parser/inspector로 분리한다.
+
+## 2026-08-07 - 업로드 Package apply 상태와 Interface inspector 분리
+
+- 작업: package별 build 완료 metadata, Interface import 재검사, 실제 파일/CMake 등록 기반 apply 상태를
+  `package_apply_status.py`로 옮겼다. package.xml 이름과 CMake project 일치 검증, msg/srv/action 파일
+  수집·파싱은 `package_inspector.py`로 이동했다.
+- 이유와 기준: 업로드/교체 orchestration과 설치 후 상태 판정, package 소스 해석은 입력과 실패 원인이
+  다르다. `packages.py`는 기존 public API facade와 저장/삭제 흐름 중심으로 축소했다.
+- 정책 보존: 기존 `mark_packages_build_applied`, `refresh_package_imports`, `package_apply_summary` 함수와
+  응답 key, import_pending/ready_for_build 판정을 유지했다. `_check_import`, parser, dependency/path helper는
+  주입해 기존 환경 및 대체 가능성을 보존했다.
+- 결과: `packages.py`는 487줄에서 345줄로 감소했다. 신규 apply/status 모듈은 139줄, inspector는
+  80줄이며 package 이름 규칙과 parse 오류 저장 의미는 바뀌지 않았다.
+- 검증: Python compile, Package/Archive/Apply targeted 13 tests, workspace install 환경 Monitor 전체
+  120 tests와 diff whitespace 검사가 통과했다.
+- 남은 문제: 실제 업로드 package colcon build/import 통합 실행은 이번 구조 이동에서 재수행하지 않았다.
+- 다음 AI: 501줄 `manual_interfaces.py`에서 manual type/definition Registry CRUD와 generated package
+  CMakeLists/package.xml 재생성 책임을 분리한다.
+
+## 2026-08-07 - Manual Interface 검증·Registry·generated package 분리
+
+- 작업: 직접 작성 definition과 full_type 검증을 `manual_validation.py`, manual entry 조회·upsert·정확
+  일치 삭제를 `manual_registry.py`로 이동했다. generated package 폴더 준비, Interface 파일 스캔,
+  의존성 수집, CMakeLists/package.xml 전체 재생성은 `generated_package.py`로 분리했다.
+- 이유와 기준: 사용자 입력 문법 검증, YAML Registry CRUD, ROS package metadata 렌더링은 변경 원인과
+  테스트 기준이 다르다. `manual_interfaces.py`에는 작성·수정·삭제의 순서와 공개 응답 조립을 남겼다.
+- 정책 보존: 기존 공개 함수명, validation 오류 문구, `generated_interface_package_root` monkeypatch,
+  `_check_import`, `_atomic_write`, dependency helper 주입 경로를 유지했다. Interface 삭제 후 metadata를
+  재생성하고 정확한 source/full_type entry만 제거하는 정책도 유지했다.
+- 결과: `manual_interfaces.py`는 501줄에서 329줄로 감소했다. 신규 generated package 131줄,
+  validation 115줄, Registry CRUD 70줄로 분리됐다.
+- 검증: Python compile, Manual/Registry/Apply targeted 22 tests, workspace install 환경 Monitor 전체
+  120 tests와 diff whitespace 검사가 통과했다.
+- 남은 문제: 실제 generated package colcon build/import 통합 실행은 이번 구조 이동에서 재수행하지 않았다.
+- 다음 AI: 675줄 `interface_lab/apply/runtime.py`에서 colcon subprocess lifecycle, apply 상태 저장,
+  import 확인과 process restart scheduling 책임을 조사해 안전한 경계부터 분리한다.
+
+## 2026-08-07 - Interface Apply 상태 저장·workspace·install 경로 분리
+
+- 작업: Apply 상태 YAML과 build log 원자적 저장/tail 조회를 `apply/status_storage.py`, 업로드 package
+  이름 정규화·workspace 중복 package 탐색·package 범위 build/install/log 정리를
+  `workspace_packages.py`로 이동했다. install site-packages 탐색/반영은 `install_paths.py`, 단일 Registry와
+  package Registry 상태 병합은 `summary.py`로 분리했다. Apply 오류 타입도 `apply/errors.py`로 이동했다.
+- 이유와 기준: 상태 영속화, filesystem cleanup, Python import path, 상태 집계는 colcon 실행 orchestration과
+  독립된 실패 원인과 안전 기준을 가진다. runtime에는 기존 공개 함수 wrapper와 실행 순서를 남겼다.
+- 정책 보존: transport가 import하는 오류와 runtime public 함수 경로, 상태 YAML key, log tail 80줄,
+  package명 검증, 정확한 package 범위 cleanup, duplicate 판정, site-packages 정렬과 summary 의미를 유지했다.
+- 결과: `apply/runtime.py`는 675줄에서 493줄로 감소했다. 신규 status storage 69줄, workspace package
+  helper 89줄, install paths 39줄, summary 43줄로 분리됐다.
+- 검증: Python compile, Apply/Manual/Package targeted 16 tests, workspace install 환경 Monitor 전체
+  120 tests와 diff whitespace 검사가 통과했다.
+- 남은 문제: 실제 colcon build, import 확인 후 Monitor `execv` 재시작 통합은 이번 구조 이동에서
+  재수행하지 않았다. `run_interface_apply()`는 여전히 200줄 이상의 orchestration이다.
+- 다음 AI: colcon command 실행과 build log 생성, preflight/duplicate/build/import 결과 상태 조립을
+  별도 executor/result builder로 분리하되 `_APPLY_LOCK`과 공개 API는 runtime에 유지한다.
+
+## 2026-08-07 - Interface Apply colcon executor와 결과 builder 분리
+
+- 작업: colcon command 실행과 build/skip/error 로그 포맷을 `apply/build_executor.py`, running·preflight
+  skip·duplicate·build 완료·OSError 상태 payload 조립을 `result_builder.py`로 이동했다.
+- 이유와 기준: `run_interface_apply()`가 실행 순서 외에 subprocess 인자, 로그 포맷, 동일 상태 key를
+  반복 소유했다. runtime에는 lock 획득/해제와 preflight → duplicate → cleanup → build → import 순서만
+  남기고 순수 결과 조립을 분리했다.
+- 정책 보존: colcon 명령, `/bin/bash -lc`, capture/check/text 옵션, 공개 상태 key와 오류 문구,
+  reload/restart scheduling 조건, cleanup 상세와 기존 `subprocess.run` patch 가능성을 유지했다.
+- 결과: `apply/runtime.py`는 493줄에서 371줄로 감소했다. build executor는 93줄, result builder는
+  142줄이다. executor 호출 계약과 success/import_failed/duplicate 상태를 검증하는 테스트 3개를 추가했다.
+- 검증: Python compile, Apply/Manual/Package targeted 19 tests, workspace install 환경 Monitor 전체
+  123 tests가 통과했다. 이번 변경 범위의 diff whitespace 검사도 통과했다.
+- 남은 문제: 실제 colcon build와 성공 후 Monitor `execv` 재시작은 이번 구조 이동에서 재수행하지 않았다.
+  전체 `git diff --check`는 별도 변경인 `docs/alert_policy/00_total_alert.md:207`의 EOF 빈 줄을 보고했으며,
+  사용자 변경 보존을 위해 수정하지 않았다.
+- 다음 AI: 현재 가장 큰 737줄 `ros2_topic/runtime.py`의 endpoint discovery, subscription lifecycle,
+  latest/Hz/age 상태 조립 책임을 조사한다.
+
+## 2026-08-07 - Topic 공개 snapshot 조립 분리
+
+- 작업: Topic Graph 원시 항목, subscription latest cache, 설정상 필수/command Topic을 공개 API 상태로
+  결합하는 책임을 `ros2_topic/snapshot.py`로 이동했다. 누락된 설정 Topic 생성, monitoring role,
+  primary priority, Hz monitoring 상태, latest preview, subscription error와 QoS 필드 조립을 포함한다.
+- 이유와 기준: Graph 조회·subscription 생성/정리와 Frontend용 파생 필드 계산은 변경 계기가 다르다.
+  runtime lock 안에서는 일관된 원시 복사본만 만들고 순수 조립 함수는 lock 밖에서 실행하도록 했다.
+- 정책 보존: Topic snapshot의 기존 key, 기본 QoS `unknown/unavailable`, configured Topic 순서와 중복 방지,
+  registered interface 우선순위, required stream/command 판정 의미를 유지했다.
+- 결과: `ros2_topic/runtime.py`는 737줄에서 649줄로 감소했고, 신규 snapshot 모듈은 161줄이다.
+  누락 Topic, latest/QoS/error, 기본 unknown QoS를 검증하는 테스트 3개를 추가했다.
+- 검증: Python compile, Topic targeted 25 tests, workspace install 환경 Monitor 전체 126 tests가 통과했다.
+- 남은 문제: 실제 ROS Graph 기동 통합 검수는 이번 순수 구조 이동에서 다시 수행하지 않았다.
+- 다음 AI: runtime에 남은 Graph endpoint 수집과 subscription 생성·소유 endpoint 판정·지연 정리를
+  subscription manager로 분리하되 기존 test monkeypatch 경로와 rclpy callback 생명주기를 보존한다.
+
+## 2026-08-07 - Topic subscription 생명주기 분리
+
+- 작업: subscription 생성과 type 변경 시 교체, Monitor Node 소유 endpoint 수 계산, Graph API 미지원 시
+  runtime/action subscription 수 fallback, 외부 endpoint 소멸 유예 후 destroy·cache 제거를
+  `ros2_topic/subscription_lifecycle.py`로 이동했다.
+- 이유와 기준: Graph 항목 조립과 rclpy subscription resource 생명주기는 실패 처리와 변경 원인이 다르다.
+  다만 기존 runtime 상태·callback·QoS 선택기는 이동하지 않고 명시적으로 주입해 실행 흐름을 보존했다.
+- 정책 보존: 기존 private facade, `runtime.DEFAULT_SUBSCRIPTION_CLEANUP_AFTER_SEC` monkeypatch 경로,
+  `topic_qos_incompatible` event code, 동일 type 재사용, destroy 실패 시 cache 유지 정책을 유지했다.
+- 결과: `ros2_topic/runtime.py`는 649줄에서 574줄로 감소했다. 신규 lifecycle 모듈은 156줄이며 자체
+  endpoint 식별, Graph API fallback count, disappearance grace period를 검증하는 테스트 3개를 추가했다.
+- 검증: Python compile, Topic/QoS targeted 33 tests, workspace install 환경 Monitor 전체 129 tests가 통과했다.
+- 남은 문제: 실제 ROS Graph 프로세스를 띄운 subscription 생성·소멸 통합 검수는 이번 구조 이동에서
+  다시 수행하지 않았다.
+- 다음 AI: runtime `update()`의 Graph 목록 순회와 disconnected 상태 보존, endpoint count 및 raw Topic
+  item 조립을 collector로 분리하고 자동 subscription callback은 runtime에 주입한다.
+
+## 2026-08-07 - Topic Graph collector 분리
+
+- 작업: Topic Graph 이름/type 필터, supported/registered/자동 구독 판정 연결, publisher/subscriber 및
+  Monitor/external endpoint count 조립, Graph present/disconnected 보존을 `ros2_topic/graph_collector.py`로
+  이동했다.
+- 이유와 기준: rclpy Graph 입력을 raw Topic item으로 바꾸는 과정은 cache lock과 callback 수신, 공개
+  snapshot 파생 필드 계산과 독립적으로 테스트할 수 있다. 자동 subscription과 Monitor endpoint 계산은
+  runtime method를 callback으로 주입해 기존 실행 순서를 유지했다.
+- 정책 보존: include/exclude와 type 제외, raw subscriber에서 Monitor endpoint를 차감하는 방식, 외부 endpoint가
+  없는 Monitor-only Topic의 disconnected 처리, 이전 `last_seen_at`/`disconnected_at` 보존 의미를 유지했다.
+- 결과: `ros2_topic/runtime.py`는 574줄에서 503줄로 감소했고, 신규 collector는 97줄이다. 필터/count,
+  사라진 Topic 보존, Monitor-only endpoint 판정을 검증하는 테스트 3개를 추가했다.
+- 검증: Python compile, Topic collector/runtime targeted 25 tests, workspace install 환경 Monitor 전체
+  132 tests가 통과했다.
+- 남은 문제: 실제 ROS Graph 프로세스의 endpoint 출현/소멸 통합 검수는 이번 구조 이동에서 재실행하지 않았다.
+- 다음 AI: runtime의 latest/Hz 공통 요청 검증과 응답 조립, message class import와 QoS 선택을 분리할지
+  변경 원인과 테스트 경계를 확인한다.
+
+## 2026-08-07 - Topic latest/Hz query support 분리
+
+- 작업: ROS Message class import, sensor/default 기반 adaptive subscription QoS 선택, timestamp window 정리와
+  Hz/age/stale 계산, latest/Hz 공개 응답 payload 조립을 `ros2_topic/query_support.py`로 이동했다.
+- 이유와 기준: import/QoS 기본 선택과 순수 응답 계약은 runtime cache orchestration과 독립적으로 검증할 수
+  있다. 반면 node 실행 여부 → Topic 존재/type 지원 → class import → subscription 보장 순서는 runtime에
+  남겨 실행 의미를 바꾸지 않았다.
+- 정책 보존: 기존 `_message_class`, `_qos_profile`, `_latest_response`, `_hz_response` private facade와 공개
+  JSON key/default, sensor preview QoS 기본값, Graph endpoint 기반 QoS 자동 선택을 유지했다.
+- 결과: `ros2_topic/runtime.py`는 503줄에서 458줄로 감소해 500줄 우선 조사 기준 아래가 됐다. 신규 query
+  support는 150줄이며 import 문법, 응답 key, timestamp pruning/Hz 계산 테스트 3개를 추가했다.
+- 검증: Python compile, Topic/QoS targeted 29 tests, workspace install 환경 Monitor 전체 135 tests가 통과했다.
+- 남은 문제: 실제 Publisher를 띄운 latest/Hz 통합 검수는 이번 구조 이동에서 재실행하지 않았다.
+- 다음 AI: Topic runtime 구간은 coordinator 수준으로 정리됐다. 다음 ROS2 우선 대상인
+  `ros2_action/runtime.py`의 Graph 수집과 status/feedback subscription 책임을 조사한다.

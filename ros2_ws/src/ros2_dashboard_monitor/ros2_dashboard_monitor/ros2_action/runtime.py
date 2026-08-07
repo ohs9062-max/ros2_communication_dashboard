@@ -6,15 +6,17 @@ import logging
 from time import time
 from typing import Any, Callable
 
-from rclpy.action.graph import (
-    get_action_client_names_and_types_by_node,
-    get_action_names_and_types,
-    get_action_server_names_and_types_by_node,
-)
 from rclpy.qos import QoSProfile, qos_profile_action_status_default, qos_profile_services_default
 
 from ros2_dashboard_monitor.ros2_action.discovery import build_action_item
 from ros2_dashboard_monitor.ros2_action.filters import is_action_included
+from ros2_dashboard_monitor.ros2_action.graph import (
+    action_clients_by_node,
+    action_count_maps,
+    action_servers_by_node,
+    merge_action_counts,
+    read_action_names_and_types,
+)
 from ros2_dashboard_monitor.ros2_action.models import action_meta
 from ros2_dashboard_monitor.ros2_action.result_runtime import ActionResultRuntime
 from ros2_dashboard_monitor.ros2_action.subscriptions import (
@@ -186,46 +188,10 @@ class ActionRuntime:
         return count
 
     def _action_names_and_types(self) -> list[tuple[str, list[str]]]:
-        node = self._node_getter()
-        if node is None:
-            return []
-
-        try:
-            return get_action_names_and_types(node)
-        except Exception as exc:  # pragma: no cover
-            LOGGER.warning('Failed to read action graph: %s', exc)
-            return []
+        return read_action_names_and_types(self._node_getter())
 
     def _action_count_maps(self) -> tuple[dict[str, int], dict[str, int]]:
-        node = self._node_getter()
-        if node is None:
-            return {}, {}
-
-        server_counts: dict[str, int] = {}
-        client_counts: dict[str, int] = {}
-        try:
-            node_names = node.get_node_names_and_namespaces()
-        except Exception as exc:  # pragma: no cover
-            LOGGER.warning('Failed to read ROS2 node graph: %s', exc)
-            return server_counts, client_counts
-
-        for node_name, namespace in node_names:
-            self._merge_action_counts(
-                counts=server_counts,
-                names_and_types=self._action_servers_by_node(
-                    node_name,
-                    namespace,
-                ),
-            )
-            self._merge_action_counts(
-                counts=client_counts,
-                names_and_types=self._action_clients_by_node(
-                    node_name,
-                    namespace,
-                ),
-            )
-
-        return server_counts, client_counts
+        return action_count_maps(self._node_getter())
 
     def _action_servers_by_node(
         self,
@@ -233,23 +199,7 @@ class ActionRuntime:
         namespace: str,
     ) -> list[tuple[str, list[str]]]:
         node = self._node_getter()
-        if node is None:
-            return []
-
-        try:
-            return get_action_server_names_and_types_by_node(
-                node,
-                node_name,
-                namespace,
-            )
-        except Exception as exc:  # pragma: no cover
-            LOGGER.debug(
-                'Failed to read action servers for %s%s: %s',
-                namespace,
-                node_name,
-                exc,
-            )
-            return []
+        return action_servers_by_node(node, node_name, namespace)
 
     def _action_clients_by_node(
         self,
@@ -257,23 +207,7 @@ class ActionRuntime:
         namespace: str,
     ) -> list[tuple[str, list[str]]]:
         node = self._node_getter()
-        if node is None:
-            return []
-
-        try:
-            return get_action_client_names_and_types_by_node(
-                node,
-                node_name,
-                namespace,
-            )
-        except Exception as exc:  # pragma: no cover
-            LOGGER.debug(
-                'Failed to read action clients for %s%s: %s',
-                namespace,
-                node_name,
-                exc,
-            )
-            return []
+        return action_clients_by_node(node, node_name, namespace)
 
     @staticmethod
     def _merge_action_counts(
@@ -281,8 +215,7 @@ class ActionRuntime:
         counts: dict[str, int],
         names_and_types: list[tuple[str, list[str]]],
     ) -> None:
-        for name, _types in names_and_types:
-            counts[name] = counts.get(name, 0) + 1
+        merge_action_counts(counts, names_and_types)
 
     def _ensure_subscriptions(
         self,
