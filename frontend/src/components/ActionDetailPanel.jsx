@@ -2,6 +2,7 @@ import { formatMs, formatRelativeTime, formatTime } from '../utils/format.js'
 import { withExecutionNode } from '../utils/participants.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
+import { QosDetails } from './QosDetails.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
 export function ActionDetailPanel({ action, participants }) {
@@ -92,6 +93,8 @@ export function ActionDetailPanel({ action, participants }) {
         <DetailLine label="상태 이유" value={action.reason ?? '-'} />
         <DetailLine label="마지막 갱신" value={formatTime(action.last_updated)} />
       </DetailSection>
+
+      <QosDetails qos={action.qos} title="Action 내부 통신 QoS" />
 
       <DetailSection collapsible title="연결 정보">
         <DetailLine

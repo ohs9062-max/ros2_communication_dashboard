@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any, Iterable, Literal
 
+from rclpy.event_handler import PublisherEventCallbacks, SubscriptionEventCallbacks
 from rclpy.qos import QoSCompatibility, QoSProfile, qos_check_compatible
 
 
@@ -57,13 +57,16 @@ def choose_topic_qos(
     profiles = [item['_profile'] for item in endpoints]
     public_endpoints = [{key: value for key, value in item.items() if key != '_profile'} for item in endpoints]
     if not profiles:
-        return deepcopy(default_profile), qos_state(
+        return clone_qos_profile(default_profile), qos_state(
             status='unknown', source='default_profile', local=default_profile,
             remote=public_endpoints, auto_applied=False,
             reason='상대 Topic endpoint QoS를 Graph에서 확인할 수 없어 기본 프로필을 사용합니다.',
         )
 
-    candidates = _unique_profiles([*profiles, default_profile])
+    candidates = _unique_profiles([
+        *(normalize_qos_profile(profile, default_profile) for profile in profiles),
+        normalize_qos_profile(default_profile, default_profile),
+    ])
     ranked: list[tuple[int, int, QoSProfile, list[str]]] = []
     for index, candidate in enumerate(candidates):
         reasons = []
@@ -82,7 +85,7 @@ def choose_topic_qos(
     total = len(profiles)
     status = 'compatible' if compatible_count == total else ('partial' if compatible_count else 'incompatible')
     mismatch_policies = _mismatch_policies(reasons)
-    return deepcopy(selected), qos_state(
+    return clone_qos_profile(selected), qos_state(
         status=status,
         source='graph_profile_comparison',
         local=selected,
@@ -92,6 +95,7 @@ def choose_topic_qos(
         auto_applied=True,
         compatible_endpoint_count=compatible_count,
         remote_endpoint_count=total,
+        qos_error_type='topic_qos_incompatible' if status == 'incompatible' else None,
     )
 
 
@@ -110,6 +114,66 @@ def qos_state(
         'qos_auto_applied': auto_applied,
         **extra,
     }
+
+
+def incompatible_qos_callback(state: dict[str, Any], error_type: str):
+    """DDS/RMW incompatible QoS event를 공통 상태 모델에 반영합니다."""
+    def callback(event: Any) -> None:
+        policy = str(getattr(event, 'last_policy_kind', 'unknown')).lower()
+        state.update({
+            'qos_status': 'incompatible',
+            'qos_detection_source': 'incompatible_qos_event',
+            'mismatch_policies': [policy],
+            'mismatch_reason': f'RMW incompatible QoS event (policy={policy})',
+            'qos_error_type': error_type,
+        })
+    return callback
+
+
+def subscription_events(state: dict[str, Any], error_type: str) -> SubscriptionEventCallbacks:
+    return SubscriptionEventCallbacks(
+        incompatible_qos=incompatible_qos_callback(state, error_type),
+    )
+
+
+def publisher_events(state: dict[str, Any], error_type: str) -> PublisherEventCallbacks:
+    return PublisherEventCallbacks(
+        incompatible_qos=incompatible_qos_callback(state, error_type),
+    )
+
+
+def clone_qos_profile(profile: QoSProfile) -> QoSProfile:
+    return QoSProfile(
+        history=profile.history,
+        depth=profile.depth,
+        reliability=profile.reliability,
+        durability=profile.durability,
+        lifespan=profile.lifespan,
+        deadline=profile.deadline,
+        liveliness=profile.liveliness,
+        liveliness_lease_duration=profile.liveliness_lease_duration,
+        avoid_ros_namespace_conventions=profile.avoid_ros_namespace_conventions,
+    )
+
+
+def normalize_qos_profile(profile: QoSProfile, fallback: QoSProfile) -> QoSProfile:
+    """Graph 조회 전용 UNKNOWN 정책을 endpoint 생성 가능한 값으로 치환합니다."""
+    def resolved(name: str):
+        value = getattr(profile, name)
+        if str(getattr(value, 'name', value)).upper() in {'UNKNOWN', 'SYSTEM_DEFAULT'}:
+            return getattr(fallback, name)
+        return value
+    return QoSProfile(
+        history=resolved('history'),
+        depth=profile.depth if int(profile.depth) > 0 else fallback.depth,
+        reliability=resolved('reliability'),
+        durability=resolved('durability'),
+        lifespan=profile.lifespan,
+        deadline=profile.deadline,
+        liveliness=resolved('liveliness'),
+        liveliness_lease_duration=profile.liveliness_lease_duration,
+        avoid_ros_namespace_conventions=profile.avoid_ros_namespace_conventions,
+    )
 
 
 def _unique_profiles(profiles: Iterable[QoSProfile]) -> list[QoSProfile]:

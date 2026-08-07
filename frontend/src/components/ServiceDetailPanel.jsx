@@ -2,6 +2,7 @@ import { formatMs, formatRelativeTime, formatTime } from '../utils/format.js'
 import { withExecutionNode } from '../utils/participants.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
+import { QosDetails } from './QosDetails.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
 export function ServiceDetailPanel({ participants, service }) {
@@ -57,6 +58,8 @@ export function ServiceDetailPanel({ participants, service }) {
         <DetailLine label="상태 이유" value={service.reason ?? '-'} />
         <DetailLine label="마지막 갱신" value={formatTime(service.last_updated)} />
       </DetailSection>
+
+      <QosDetails qos={service} title="Service QoS" />
 
       <DetailSection collapsible title="연결 정보">
         <DetailLine

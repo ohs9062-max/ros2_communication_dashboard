@@ -5,6 +5,8 @@ from __future__ import annotations
 from time import time
 from typing import Any, Callable
 
+from rclpy.qos import qos_profile_services_default
+
 from ros2_dashboard_monitor.ros2_service.active_check import (
     allowlist_map,
     build_request,
@@ -238,6 +240,10 @@ class ServiceActiveCheckRuntime:
         if client is not None:
             return client
 
-        client = node.create_client(service_class, name)
+        client = node.create_client(
+            service_class,
+            name,
+            qos_profile=qos_profile_services_default,
+        )
         self._active_check_clients[name] = client
         return client

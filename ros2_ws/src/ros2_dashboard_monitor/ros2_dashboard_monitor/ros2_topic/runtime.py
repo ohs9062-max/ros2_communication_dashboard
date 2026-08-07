@@ -10,7 +10,7 @@ from typing import Any, Callable
 from rclpy.qos import QoSProfile, qos_profile_sensor_data
 
 from ros2_dashboard_monitor.config_loader import MonitorConfig
-from ros2_dashboard_monitor.qos import choose_topic_qos
+from ros2_dashboard_monitor.qos import choose_topic_qos, subscription_events
 from ros2_dashboard_monitor.resource_state import (
     disconnected_resource,
     mark_graph_present,
@@ -487,6 +487,7 @@ class TopicRuntime:
                 name,
                 self._latest_message_callback(name, topic_type),
                 qos_profile,
+                event_callbacks=subscription_events(qos, 'topic_qos_incompatible'),
             )
             self._subscriptions[name] = build_subscription_entry(
                 topic_type=topic_type,

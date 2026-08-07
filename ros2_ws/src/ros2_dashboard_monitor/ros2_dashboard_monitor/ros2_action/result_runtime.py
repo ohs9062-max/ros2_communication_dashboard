@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from rclpy.qos import qos_profile_services_default
+
 from ros2_dashboard_monitor.ros2_action.result import (
     build_get_result_request,
     build_result_error_state,
@@ -234,6 +236,7 @@ class ActionResultRuntime:
         client = node.create_client(
             service_class,
             f'{name}/_action/get_result',
+            qos_profile=qos_profile_services_default,
         )
         self._action_result_clients[name] = client
         return client

@@ -307,7 +307,7 @@ export function registryItem(item, kind, {
     subtitle: fullType,
     title: item.file_name,
     graphConflicts: messageState?.graph_conflicts ?? [],
-    qos: { depth: 10, profile: 'default' },
+    qos: { mode: 'adaptive' },
     topicStates: kind === 'message'
       ? receiveTopics.filter((state) => state.topic_type === fullType)
       : [],
@@ -403,7 +403,7 @@ export function packageTypeItem(packageItem, item, kind, {
     subtitle: item.type,
     title: item.name ?? item.type,
     graphConflicts: messageState?.graph_conflicts ?? [],
-    qos: { depth: 10, profile: 'default' },
+    qos: { mode: 'adaptive' },
     topicStates: kind === 'message'
       ? receiveTopics.filter((state) => state.topic_type === item.type)
       : [],

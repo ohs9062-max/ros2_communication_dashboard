@@ -11,7 +11,7 @@ from rclpy.action.graph import (
     get_action_names_and_types,
     get_action_server_names_and_types_by_node,
 )
-from rclpy.qos import QoSProfile
+from rclpy.qos import QoSProfile, qos_profile_action_status_default, qos_profile_services_default
 
 from ros2_dashboard_monitor.ros2_action.discovery import build_action_item
 from ros2_dashboard_monitor.ros2_action.filters import is_action_included
@@ -27,6 +27,7 @@ from ros2_dashboard_monitor.ros2_action.subscriptions import (
     update_status_runtime,
 )
 from ros2_dashboard_monitor.config_loader import MonitorConfig
+from ros2_dashboard_monitor.qos import choose_topic_qos, qos_state, subscription_events
 from ros2_dashboard_monitor.resource_state import (
     disconnected_resource,
     mark_graph_present,
@@ -131,6 +132,7 @@ class ActionRuntime:
                 runtime=runtime,
             )
             mark_graph_present(action, observed_at=updated_at)
+            action['qos'] = capabilities['qos']
             actions.append(action)
 
         current_keys = {
@@ -338,6 +340,7 @@ class ActionRuntime:
                 'result_supported': False,
                 'result_policy': None,
                 'result_reason': 'action monitor is not running',
+                'qos': {},
             }
 
         return {
@@ -347,6 +350,7 @@ class ActionRuntime:
             'result_supported': bool(entry.get('result_supported')),
             'result_policy': entry.get('result_policy'),
             'result_reason': entry.get('result_reason'),
+            'qos': entry.get('qos', {}),
         }
 
     def _maybe_create_status_subscription(
@@ -366,11 +370,18 @@ class ActionRuntime:
             return False
 
         try:
+            qos_profile, qos = choose_topic_qos(
+                node, f'{name}/_action/status', local_role='subscription',
+                default_profile=qos_profile_action_status_default,
+            )
+            if qos.get('qos_status') == 'incompatible':
+                qos['qos_error_type'] = 'action_status_qos_incompatible'
             subscription = node.create_subscription(
                 message_class,
                 f'{name}/_action/status',
                 self._status_callback(name),
-                QoSProfile(depth=10),
+                qos_profile,
+                event_callbacks=subscription_events(qos, 'action_status_qos_incompatible'),
             )
         except Exception as exc:  # pragma: no cover
             LOGGER.warning(
@@ -381,6 +392,7 @@ class ActionRuntime:
             return False
 
         entry['status_subscription'] = subscription
+        entry.setdefault('qos', self._default_action_qos())['status'] = qos
         return True
 
     def _maybe_create_feedback_subscription(
@@ -405,11 +417,18 @@ class ActionRuntime:
             return False
 
         try:
+            qos_profile, qos = choose_topic_qos(
+                node, f'{name}/_action/feedback', local_role='subscription',
+                default_profile=QoSProfile(depth=10),
+            )
+            if qos.get('qos_status') == 'incompatible':
+                qos['qos_error_type'] = 'action_feedback_qos_incompatible'
             subscription = node.create_subscription(
                 message_class,
                 f'{name}/_action/feedback',
                 self._feedback_callback(name),
-                QoSProfile(depth=10),
+                qos_profile,
+                event_callbacks=subscription_events(qos, 'action_feedback_qos_incompatible'),
             )
         except Exception as exc:  # pragma: no cover
             LOGGER.warning(
@@ -420,8 +439,23 @@ class ActionRuntime:
             return False
 
         entry['feedback_subscription'] = subscription
+        entry.setdefault('qos', self._default_action_qos())['feedback'] = qos
         entry['feedback_reason'] = None
         return True
+
+    @staticmethod
+    def _default_action_qos() -> dict[str, Any]:
+        service = qos_state(
+            status='unknown', source='default_profile', local=qos_profile_services_default,
+            reason='Action service endpoint QoS는 Graph에서 확인할 수 없습니다.',
+        )
+        return {
+            'goal': service,
+            'result': service.copy(),
+            'cancel': service.copy(),
+            'feedback': qos_state(status='unknown', source='unavailable', local=None),
+            'status': qos_state(status='unknown', source='unavailable', local=None),
+        }
 
     def _runtime_snapshot(self, name: str) -> dict[str, Any]:
         with self._lock:

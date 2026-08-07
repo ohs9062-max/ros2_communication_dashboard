@@ -31,7 +31,7 @@ class _FakeNode:
         self.topic_name = '/demo_cleaning_schedule'
         self.topic_type = 'example_interfaces/msg/String'
 
-    def create_subscription(self, message_class, topic_name, callback, qos):
+    def create_subscription(self, message_class, topic_name, callback, qos, **_kwargs):
         subscription = {
             'message_class': message_class,
             'topic_name': topic_name,

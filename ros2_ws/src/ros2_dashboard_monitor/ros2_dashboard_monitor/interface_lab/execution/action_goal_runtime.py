@@ -7,6 +7,7 @@ from time import time
 from typing import Any, Callable
 
 from rclpy.action import ActionClient
+from rclpy.qos import QoSProfile, qos_profile_action_status_default, qos_profile_services_default
 from rclpy.action.graph import (
     get_action_client_names_and_types_by_node,
     get_action_names_and_types,
@@ -35,6 +36,7 @@ from ros2_dashboard_monitor.interface_lab.execution.action_discovery import (
     merge_action_counts,
     query_action_endpoints,
 )
+from ros2_dashboard_monitor.qos import choose_topic_qos, qos_state
 
 
 MAX_HISTORY_ITEMS = 30
@@ -54,6 +56,7 @@ class ActionGoalRuntime:
         self._client_pool: RuntimeClientPool[tuple[str, str], ActionClient] = RuntimeClientPool(lock)
         self._history = BoundedExecutionHistory(lock, MAX_HISTORY_ITEMS)
         self._goal_handles: dict[tuple[str, str], Any] = {}
+        self._client_qos: dict[tuple[str, str], dict[str, Any]] = {}
         self._receive_reset_at: float | None = None
         self._receive_reset_by_key: dict[tuple[str | None, str | None], float] = {}
 
@@ -61,6 +64,7 @@ class ActionGoalRuntime:
         """Interface Lab에서 cache와 runtime 상태를 초기화하는 함수입니다."""
         with self._lock:
             self._goal_handles = {}
+            self._client_qos = {}
             self._receive_reset_at = None
             self._receive_reset_by_key = {}
         self._client_pool.clear()
@@ -116,17 +120,19 @@ class ActionGoalRuntime:
         if node is None:
             raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
 
-        return execute_action_goal(
+        result = execute_action_goal(
             action_name=action_name,
             action_type=action_type,
             goal_data=goal_data,
             timeout=timeout,
             client_getter=self._client,
             result_builder=self._result,
-            record_history=self._record_history,
+            record_history=self._record_history_with_qos,
             goal_handle_store=self._store_goal_handle,
             goal_handle_remove=self._remove_goal_handle,
         )
+        result['qos'] = self._action_qos(action_name)
+        return result
 
     def _store_goal_handle(self, action_name: str, action_type: str, goal_handle: Any) -> None:
         with self._lock:
@@ -163,6 +169,7 @@ class ActionGoalRuntime:
             'action_type': action_type,
             'cancel_requested': True,
             'cancel_accepted': accepted,
+            'qos': self._action_qos(action_name),
         }
 
     def history(self) -> dict[str, Any]:
@@ -288,7 +295,10 @@ class ActionGoalRuntime:
     ) -> dict[tuple[str, str], dict[str, bool]]:
         """Action별 Interface Lab Client 생성 상태를 반환합니다."""
         return {
-            key: {'interface_client_created': True}
+            key: {
+                'interface_client_created': True,
+                'qos': self._client_qos.get(key, self._action_qos(key[0])),
+            }
             for key in self._client_pool.keys()
         }
 
@@ -391,7 +401,18 @@ class ActionGoalRuntime:
             node = self._node_getter()
             if node is None:
                 raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
-            return ActionClient(node, action_class, name)
+            profiles = self._action_qos_profiles(node, name)
+            self._client_qos[key] = profiles['state']
+            return ActionClient(
+                node,
+                action_class,
+                name,
+                goal_service_qos_profile=profiles['goal'],
+                result_service_qos_profile=profiles['result'],
+                cancel_service_qos_profile=profiles['cancel'],
+                feedback_sub_qos_profile=profiles['feedback'],
+                status_sub_qos_profile=profiles['status'],
+            )
 
         return self._client_pool.get_or_create(key, create_client)
 
@@ -428,10 +449,59 @@ class ActionGoalRuntime:
             'callable': callable_now,
             'executable': callable_now,
             'reason': reason,
+            'qos': self._action_qos(graph_item['name'] if graph_item else ''),
             'saved_path': entry.get('saved_path'),
             'source': entry.get('source', 'single_interface'),
             'package_name': entry.get('package_name'),
         }
+
+    def _action_qos_profiles(self, node: Any, name: str) -> dict[str, Any]:
+        feedback, feedback_state = choose_topic_qos(
+            node, f'{name}/_action/feedback', local_role='subscription',
+            default_profile=QoSProfile(depth=10),
+        )
+        status, status_state = choose_topic_qos(
+            node, f'{name}/_action/status', local_role='subscription',
+            default_profile=qos_profile_action_status_default,
+        )
+        service_state = qos_state(
+            status='unknown', source='default_profile', local=qos_profile_services_default,
+            reason='Action service endpoint QoS는 Graph에서 확인할 수 없어 기본 Service QoS를 사용합니다.',
+        )
+        for part, state in (('feedback', feedback_state), ('status', status_state)):
+            if state.get('qos_status') == 'incompatible':
+                state['qos_error_type'] = f'action_{part}_qos_incompatible'
+        return {
+            'goal': qos_profile_services_default,
+            'result': qos_profile_services_default,
+            'cancel': qos_profile_services_default,
+            'feedback': feedback,
+            'status': status,
+            'state': {
+                'goal': service_state,
+                'result': service_state,
+                'cancel': service_state,
+                'feedback': feedback_state,
+                'status': status_state,
+            },
+        }
+
+    def _action_qos(self, name: str) -> dict[str, Any]:
+        key = next((key for key in self._client_qos if key[0] == name), None)
+        if key is not None:
+            return self._client_qos[key]
+        node = self._node_getter()
+        if node is None or not name:
+            service = qos_state(
+                status='unknown', source='default_profile', local=qos_profile_services_default,
+                reason='상대 QoS를 확인할 Action endpoint가 없습니다.',
+            )
+            return {part: service for part in ('goal', 'result', 'cancel', 'feedback', 'status')}
+        return self._action_qos_profiles(node, name)['state']
+
+    def _record_history_with_qos(self, item: dict[str, Any]) -> None:
+        item['qos'] = self._action_qos(str(item.get('action_name') or ''))
+        self._record_history(item)
 
     @staticmethod
     def _merge_action_counts(

@@ -29,6 +29,7 @@ from ros2_dashboard_monitor.interface_lab.execution.topic_support import (
     topic_qos as _topic_qos,
     safe_count as _safe_count,
 )
+from ros2_dashboard_monitor.qos import publisher_events, subscription_events
 
 
 class InterfaceReceiveRuntime:
@@ -152,6 +153,7 @@ class InterfaceReceiveRuntime:
             topic_name,
             lambda message: self._record_topic_message(topic_name, topic_type, message),
             qos_profile,
+            event_callbacks=subscription_events(qos, 'topic_qos_incompatible'),
         )
         with self._lock:
             previous = self._topics.get(key) or {}
@@ -663,7 +665,10 @@ class InterfaceReceiveRuntime:
             if node is None:
                 raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
             qos_profile, qos = _topic_qos(node, topic_name, local_role='publisher')
-            publisher = node.create_publisher(message_class, topic_name, qos_profile)
+            publisher = node.create_publisher(
+                message_class, topic_name, qos_profile,
+                event_callbacks=publisher_events(qos, 'topic_qos_incompatible'),
+            )
             self._publishers[key] = {'publisher': publisher, 'qos': qos}
             return publisher, True
 

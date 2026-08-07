@@ -9,7 +9,7 @@ class FakeNode:
         self.publishers = []
         self.topic_graph = []
 
-    def create_subscription(self, message_class, topic_name, callback, qos):
+    def create_subscription(self, message_class, topic_name, callback, qos, **_kwargs):
         subscription = {
             'message_class': message_class,
             'topic_name': topic_name,
@@ -22,7 +22,7 @@ class FakeNode:
     def destroy_subscription(self, subscription):
         self.subscriptions.remove(subscription)
 
-    def create_publisher(self, message_class, topic_name, qos):
+    def create_publisher(self, message_class, topic_name, qos, **_kwargs):
         publisher = FakePublisher(message_class, topic_name, qos)
         self.publishers.append(publisher)
         return publisher

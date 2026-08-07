@@ -7,6 +7,7 @@ import { withExecutionNode } from '../utils/participants.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { KeyValueTable } from './KeyValueTable.jsx'
+import { QosDetails } from './QosDetails.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
 export function TopicDetailPanel({ topic, latest, hz, participants }) {
@@ -55,6 +56,8 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
           value={formatRelativeTime(topic.last_updated)}
         />
       </DetailSection>
+
+      <QosDetails qos={topic} title="Topic QoS" />
 
       <DetailSection collapsible title="연결 정보">
         <div className="detail-line">

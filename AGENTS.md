@@ -10,6 +10,38 @@
 기존의 API 호환, ROS2 Graph API, 자동 감시와 사용자 명시 실행 분리, Alert, QoS,
 Interface Lab 안전 정책은 계속 유효하다.
 
+### 0.0 AI 작업 인수인계 기록
+
+모든 AI 작업자는 작업을 시작하기 전에 이 문서와 함께 다음 두 파일의 최신 기록을 확인한다.
+
+```text
+.codex/CURRENT_STATUS.md
+.codex/WORK_LOG.md
+```
+
+모든 작업이 끝나면 별도 사용자 요청이 없어도 `.codex/WORK_LOG.md`에 날짜와 함께 작업 기록을
+누적한다. 작업 결과로 프로젝트의 구현 상태, 구조, 정책, 검증 상태 또는 다음 작업 지점이
+바뀌었으면 `.codex/CURRENT_STATUS.md`도 함께 갱신한다.
+
+작은 작업은 한두 줄로 짧게 기록할 수 있다. 큰 기능 구현, 리팩토링, 구조 변경, 정책 변경,
+트러블슈팅은 반드시 다음 내용을 남긴다.
+
+```text
+무엇을 작업했는지
+왜 그렇게 작업했는지
+어떤 기준으로 판단했는지
+주요 변경 내용
+검증 결과
+남은 문제
+다음 AI가 알아야 할 내용
+```
+
+다음 AI가 추가 조사 없이 바로 이어서 작업할 수 있도록 현재 상태와 다음 작업 지점을 명확히
+쓴다. 구현되지 않았거나 검증하지 않은 내용을 완료된 것처럼 기록하지 않는다. 코드와 문서가
+다르면 실제 코드와 실행 결과를 기준으로 기록하고 문서 불일치를 별도로 표시한다. 기존 작업
+트리가 dirty 상태라면 사용자 변경을 보존하고 staged/unstaged/untracked 상태도 필요한 범위에서
+알린다. `git commit`과 `git push`는 별도 사용자 요청 없이 실행하지 않는다.
+
 ### 0.1 현재 최상위 구조
 
 ```text
@@ -282,7 +314,7 @@ cd backend && .venv/bin/python -m pytest -q tests
 cd frontend && npm run lint && npm run build
 ```
 
-현재 기준 전체 ROS2 test 결과는 110 tests, 0 failures다. 사용자 업로드 package가 없어도
+2026-08-07 마지막 전체 검수 기준 ROS2 test 결과는 119 tests, 0 failures다. 사용자 업로드 package가 없어도
 Monitor 자체 test가 특정 업로드 package에 직접 의존하지 않게 유지한다.
 
 ### 0.9 다음 Frontend/Backend 기능 리팩토링 기준

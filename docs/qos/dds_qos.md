@@ -479,3 +479,19 @@ Searched for "mismatch"
 ### 💡 요약
 - **QoS 불일치 전용 경고 로직은 현재 코드에 없습니다.**
 - 현재는 QoS 불일치가 일어나 메시지가 안 오면 **단순 미수신(`topic_message_missing` / `topic_stale`) 경고**로 표현됩니다.
+
+## 구현 현황 (2026-08-06)
+
+위 조사 이후 QoS 처리가 구현되었다. Topic은 Graph endpoint의 실제 QoS를 수집하고
+`rclpy.qos.qos_check_compatible()`로 비교하여 Dashboard와 Interface Lab의 Publisher 또는
+Subscription 프로필을 선택한다. 모든 endpoint와 호환되면 `compatible`, 일부만 호환되면
+`partial`, 명백히 호환되지 않으면 `incompatible`로 반환한다. DDS/RMW incompatible QoS
+event가 발생하면 판정 근거는 `incompatible_qos_event`로 갱신된다.
+
+Service Graph는 상대 endpoint QoS를 제공하지 않으므로 `qos_profile_services_default`를
+명시적으로 사용하고 `qos_detection_source=default_profile`, `qos_status=unknown`으로
+표시한다. timeout과 server unavailable은 QoS 오류로 판정하지 않는다.
+
+Action은 Goal/Result/Cancel Service와 Feedback/Status Topic을 분리한다. 세 Service는
+Service 기본 QoS를 사용하며, 두 Topic은 Graph endpoint QoS에 맞춘 프로필을 선택한다.
+API와 상세 화면은 다섯 경로의 QoS 상태를 각각 표시한다.

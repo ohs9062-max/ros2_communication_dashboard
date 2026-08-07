@@ -485,7 +485,7 @@ function TopicWorkspaceDetail({
         <div className="interface-service-state warning">{topicPublishWarning}</div>
       )}
       <p className="muted">
-        full_type {item.fullType} · QoS {item.qos?.profile ?? 'default'} depth {item.qos?.depth ?? 10}
+        full_type {item.fullType} · QoS {item.qos?.mode === 'adaptive' ? '상대 endpoint 자동 적용' : '실행 결과에서 확인'}
       </p>
       {schemaFields(item.schema).map((field) => (
         <RequestField

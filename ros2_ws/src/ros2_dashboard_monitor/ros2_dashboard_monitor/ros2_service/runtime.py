@@ -6,7 +6,10 @@ import logging
 from time import time
 from typing import Any, Callable
 
+from rclpy.qos import qos_profile_services_default
+
 from ros2_dashboard_monitor.config_loader import MonitorConfig
+from ros2_dashboard_monitor.qos import qos_state
 from ros2_dashboard_monitor.resource_state import (
     disconnected_resource,
     mark_graph_present,
@@ -126,6 +129,11 @@ class ServiceRuntime:
                 active_check_cache=active_check_cache,
             )
             mark_graph_present(service, observed_at=updated_at)
+            service.update(qos_state(
+                status='unknown', source='default_profile',
+                local=qos_profile_services_default,
+                reason='Service Graph API에서 상대 QoS를 확인할 수 없습니다.',
+            ))
             services.append(service)
 
         current_keys = {

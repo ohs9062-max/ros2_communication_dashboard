@@ -212,7 +212,7 @@ def test_action_client_cache_is_keyed_by_name_and_type():
     import ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime as goal_runtime
 
     original = goal_runtime.ActionClient
-    goal_runtime.ActionClient = lambda _node, action_class, name: created.append(
+    goal_runtime.ActionClient = lambda _node, action_class, name, **_kwargs: created.append(
         (name, action_class),
     ) or object()
     try:
