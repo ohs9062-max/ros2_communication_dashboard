@@ -53,6 +53,9 @@ ros2_dashboard/
 - Interface Upload의 Apply 초기 조회, 외부 refresh signal 처리, Monitor 재연결 후 import 확인과
   fallback timer는 `useInterfaceControlLifecycle`로 분리됐다. 열린 실행 panel 새로고침은 각
   Topic/Service/Action controller의 `load()` 경로를 재사용한다.
+- Interface Upload의 Topic·Service·Action 실행 controller 생성, Service/Action Receive 선택 동기화와
+  Receive가 실행 후보를 교체하는 연결은 `useInterfaceExecutionSuite`가 담당한다. 개별 실행 및 Receive
+  상태/명령 구현은 기존 controller hook에 유지한다.
 - Interface Upload의 관리/Receive/Topic·Service·Action panel 전환, 실행 후보 로딩, 확장 상태 알림은
   `useInterfacePanelCoordinator`가 담당한다. Management controller는 관리 데이터 조회 결과만 반환하고
   다른 기능 panel을 직접 닫지 않는다.
@@ -67,6 +70,12 @@ ros2_dashboard/
 - Overview의 Alert 및 Node/Topic/Service/Action 미리보기 카드는 `OverviewPreviewGrid.jsx`, 상태 분포
   column/table과 percent/count 전환은 `OverviewColumnChart.jsx`가 담당한다. `OverviewPage.jsx`는 resource
   summary 계산과 Alert source별 상세 화면 이동 정책을 담당한다.
+- Action Table의 Feedback/Result preview 선택과 배지 상태·라벨·정렬 우선순위 정책은
+  `features/actions/actionPresentation.js`가 담당한다. `ActionTable.jsx`는 정렬 상태, 행과 modal 렌더링을
+  담당한다.
+- Action 상세의 연결 Node/endpoint, 실행 측정, capability와 JSON preview 영역은
+  `features/actions/ActionDetailSections.jsx`가 담당한다. Goal/Result 상태 한글 라벨과 tone도
+  `actionPresentation.js`에 모았으며 `ActionDetailPanel.jsx`는 안내, 기본 상태, QoS와 section 조립을 담당한다.
 - Interface Upload toolbar와 수동 Interface 등록/작성 form은 각각 `InterfaceUploadToolbar.jsx`,
   `InterfaceManualPanel.jsx`로 분리됐다.
 - 구 `InterfaceUploadParts.jsx`는 제거됐다. Registry/schema View는 `InterfaceRegistryParts.jsx`,
@@ -126,6 +135,11 @@ ros2_dashboard/
   초기화 순서를 유지한다.
 - Interface Lab Action Goal history의 Feedback/Result 이벤트 변환, reset 경계 필터링, Action별 최근
   결과와 성공·실패·취소 누적 summary는 `execution/action_history.py`가 담당한다.
+- Interface Lab ActionClient의 이름/type별 재사용, Goal/Result/Cancel Service와 Feedback/Status Topic의
+  5개 QoS 선택 및 실제 사용 상태 보존은 `execution/action_client_pool.py`가 담당한다.
+  등록 Registry/package Action 정규화, Graph exact type 매칭, callable 상태와 실행 허용 판정은
+  `execution/action_discovery.py`가 담당한다. `action_goal_runtime.py`는 Goal/Cancel 실행, 활성 Goal과
+  history 흐름을 조정한다.
 - Interface Lab Service Client의 기본 QoS 적용, 이름/type별 생성·재사용과 Dashboard 생성 상태는
   `execution/service_client_pool.py`가 담당한다. Call 원본 저장, Receive 이벤트 변환, reset 경계와
   Service별 최근 결과/누적 summary는 `execution/service_history.py`가 담당하며
@@ -147,6 +161,9 @@ ros2_dashboard/
   `InterfaceUploadView.jsx`가 담당하고 Topic·Service·Action 실행 panel 선택은
   `InterfaceExecutionWorkspace.jsx`가 담당한다. `InterfaceUploadControl.jsx`은 controller 상태와 command를
   각 View props 계약으로 조립한다.
+- Topic·Service·Action 실행 Controller, Receive Controller와 관리 Toolbar·수동 입력·Build 실패·Registry·
+  Package 상태를 하위 panel props 계약으로 변환하는 순수 adapter는
+  `model/interfaceUploadViewProps.js`가 담당한다. Control은 hook 호출과 adapter 입력 조립을 담당한다.
 - Monitor FastAPI transport의 Content-Length/stream 이중 크기 제한과 JSON object 요청 검증은
   `transport/request_parsing.py`가 담당한다. Interface Router는 endpoint별 payload 변환과 도메인 오류의
   HTTP status 매핑을 담당한다.
@@ -224,6 +241,13 @@ Interface Service Client/이력 분리 후 직접 pytest: 158 passed
 Frontend Workspace Registry/package 모델 분리 후 lint/build/direct model 실행: 성공
 Frontend Visualization Toolbar/Node picker 분리 후 lint/build: 성공
 Frontend Overview Preview/상태 차트 분리 후 lint/build: 성공
+Frontend Interface Upload 실행/Receive View props adapter 분리 후 lint/build/direct adapter 실행: 성공
+Frontend Action Feedback/Result 표시 정책 분리 후 lint/build/direct presentation 실행: 성공
+Frontend Action 상세 section/상태 표시 정책 분리 후 lint/build/direct presentation 실행: 성공
+Frontend Interface Upload 관리 View props adapter 분리 후 lint/build/direct adapter 실행: 성공
+Frontend Interface Upload 실행 composition hook 분리 후 lint/build: 성공
+Interface Action Client pool/QoS 분리 후 Monitor 직접 pytest: 158 passed
+Interface Action 등록/Graph/callable discovery 분리 후 Monitor 직접 pytest: 161 passed
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -245,8 +269,8 @@ Frontend Overview Preview/상태 차트 분리 후 lint/build: 성공
 1. 먼저 현재 staged/unstaged/untracked QoS diff를 보존한 채 범위를 재확인한다.
 2. QoS 관련 정적 검사, ROS2 119 tests, Backend tests, Frontend lint/build를 변경 후 다시 실행한다.
 3. 사용자 승인 시에만 QoS 변경과 문서 변경을 의도별 commit으로 정리한다.
-4. Overview Preview/상태 차트 분리는 완료됐다. 다음 우선 대상은 455줄
-   `InterfaceUploadControl.jsx`의 여러 controller 결과 → View props mapping 경계다. 이후 372줄
-   `ActionDetailPanel.jsx`와 341줄 `ActionTable.jsx`의 표현 책임을 점검한다.
+4. Action Table/상세, Interface Upload 조립, Interface Action Client pool/QoS와 discovery 분리는
+   완료됐다. `action_goal_runtime.py`는 333줄 coordinator가 됐다. 다음은 499줄 `ros_monitor.py` 또는
+   385줄 Topic Alert 정책 등 남은 Monitor 파일을 책임 기준으로 재평가한다.
 5. 신규 기능은 WSS와 MariaDB Alert 이력 설계를 우선하며, 미구현 항목을 현재 기능으로
    보고하지 않는다.

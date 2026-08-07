@@ -7,7 +7,6 @@ from time import time
 from typing import Any, Callable
 
 from rclpy.action import ActionClient
-from rclpy.qos import QoSProfile, qos_profile_action_status_default, qos_profile_services_default
 from rclpy.action.graph import (
     get_action_client_names_and_types_by_node,
     get_action_names_and_types,
@@ -16,10 +15,7 @@ from rclpy.action.graph import (
 from ros2_dashboard_monitor.interface_lab.apply.runtime import refresh_install_python_paths
 from ros2_dashboard_monitor.interface_lab.management.registry import registry_snapshot
 from ros2_dashboard_monitor.interface_lab.management.packages import registered_package_actions
-from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import (
-    BoundedExecutionHistory,
-    RuntimeClientPool,
-)
+from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import BoundedExecutionHistory
 
 
 from ros2_dashboard_monitor.interface_lab.execution.action_support import (
@@ -30,19 +26,21 @@ from ros2_dashboard_monitor.interface_lab.execution.action_support import (
     schema_from_action_class as _schema_from_action_class,
 )
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_executor import execute_action_goal
+from ros2_dashboard_monitor.interface_lab.execution.action_client_pool import ActionClientPool
 from ros2_dashboard_monitor.interface_lab.execution.action_history import (
     build_receive_history,
     summarize_action_history,
 )
 from ros2_dashboard_monitor.interface_lab.execution.action_discovery import (
     build_action_count_maps,
+    build_action_state,
+    build_callable_actions,
     discover_action_graph,
+    find_allowed_action,
     merge_action_counts,
     query_action_endpoints,
+    registered_actions_from_registry,
 )
-from ros2_dashboard_monitor.qos import choose_topic_qos, qos_state
-
-
 MAX_HISTORY_ITEMS = 30
 
 
@@ -57,10 +55,13 @@ class ActionGoalRuntime:
     ) -> None:
         self._lock = lock
         self._node_getter = node_getter
-        self._client_pool: RuntimeClientPool[tuple[str, str], ActionClient] = RuntimeClientPool(lock)
+        self._client_pool = ActionClientPool(
+            lock=lock,
+            node_getter=node_getter,
+            client_factory=lambda *args, **kwargs: ActionClient(*args, **kwargs),
+        )
         self._history = BoundedExecutionHistory(lock, MAX_HISTORY_ITEMS)
         self._goal_handles: dict[tuple[str, str], Any] = {}
-        self._client_qos: dict[tuple[str, str], dict[str, Any]] = {}
         self._receive_reset_at: float | None = None
         self._receive_reset_by_key: dict[tuple[str | None, str | None], float] = {}
 
@@ -68,7 +69,6 @@ class ActionGoalRuntime:
         """Interface Lab에서 cache와 runtime 상태를 초기화하는 함수입니다."""
         with self._lock:
             self._goal_handles = {}
-            self._client_qos = {}
             self._receive_reset_at = None
             self._receive_reset_by_key = {}
         self._client_pool.clear()
@@ -79,29 +79,7 @@ class ActionGoalRuntime:
         refresh_install_python_paths()
         registered = self._registered_actions()
         graph = self._action_graph()
-        actions: list[dict[str, Any]] = []
-
-        for entry in registered:
-            action_type = entry['action_type']
-            matching = [
-                item for item in graph
-                if item['type'] == action_type
-            ]
-            if not matching:
-                actions.append(self._action_state(entry, None))
-                continue
-            for graph_item in matching:
-                actions.append(self._action_state(entry, graph_item))
-
-        actions.sort(key=lambda item: (item['action_type'], item['action_name']))
-        return {
-            'actions': actions,
-            'meta': {
-                'count': len(actions),
-                'registered_count': len(registered),
-                'callable_count': sum(1 for item in actions if item['callable']),
-            },
-        }
+        return build_callable_actions(registered, graph, self._action_qos)
 
     def send_goal(
         self,
@@ -220,66 +198,26 @@ class ActionGoalRuntime:
         self,
     ) -> dict[tuple[str, str], dict[str, bool]]:
         """Action별 Interface Lab Client 생성 상태를 반환합니다."""
-        return {
-            key: {
-                'interface_client_created': True,
-                'qos': self._client_qos.get(key, self._action_qos(key[0])),
-            }
-            for key in self._client_pool.keys()
-        }
+        return self._client_pool.dashboard_state()
 
     def _allowed_action(
         self,
         action_name: str,
         action_type: str,
     ) -> dict[str, Any] | None:
-        registered = self._registered_actions()
-        if not any(
-            item['action_type'] == action_type
-            and item['import_available'] is True
-            for item in registered
-        ):
-            return None
-
-        for item in self._action_graph():
-            if (
-                item['name'] == action_name
-                and item['type'] == action_type
-                and item['server_count'] > 0
-            ):
-                return item
-        return None
+        return find_allowed_action(
+            action_name,
+            action_type,
+            self._registered_actions(),
+            self._action_graph(),
+        )
 
     def _registered_actions(self) -> list[dict[str, Any]]:
-        registry = registry_snapshot()['interface_registry']
-        actions = []
-        for item in registry.get('actions', []):
-            build = item.get('build') or {}
-            package_name = build.get('interface_package')
-            type_name = item.get('type_name')
-            if not package_name or not type_name:
-                continue
-            action_type = f'{package_name}/action/{type_name}'
-            goal_schema = item.get('parsed', {}).get('goal', [])
-            result_schema = item.get('parsed', {}).get('result', [])
-            feedback_schema = item.get('parsed', {}).get('feedback', [])
-            if build.get('import_available') is True and not goal_schema:
-                goal_schema, result_schema, feedback_schema = _schema_from_action_class(action_type)
-            actions.append({
-                'file_name': item.get('file_name'),
-                'type_name': type_name,
-                'action_type': action_type,
-                'goal_schema': goal_schema,
-                'result_schema': result_schema,
-                'feedback_schema': feedback_schema,
-                'saved_path': build.get('saved_path'),
-                'import_available': build.get('import_available') is True,
-                'import_error': build.get('import_error'),
-                'source': item.get('source', 'single_upload'),
-                'package_name': package_name,
-            })
-        actions.extend(registered_package_actions())
-        return actions
+        return registered_actions_from_registry(
+            registry_snapshot()['interface_registry'],
+            registered_package_actions(),
+            _schema_from_action_class,
+        )
 
     def _action_graph(self) -> list[dict[str, Any]]:
         return discover_action_graph(
@@ -322,108 +260,20 @@ class ActionGoalRuntime:
         )
 
     def _client(self, name: str, action_type: str, action_class: type):
-        key = (name, action_type)
-        def create_client():
-            node = self._node_getter()
-            if node is None:
-                raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
-            profiles = self._action_qos_profiles(node, name)
-            self._client_qos[key] = profiles['state']
-            return ActionClient(
-                node,
-                action_class,
-                name,
-                goal_service_qos_profile=profiles['goal'],
-                result_service_qos_profile=profiles['result'],
-                cancel_service_qos_profile=profiles['cancel'],
-                feedback_sub_qos_profile=profiles['feedback'],
-                status_sub_qos_profile=profiles['status'],
-            )
-
-        return self._client_pool.get_or_create(key, create_client)
+        return self._client_pool.get_or_create(name, action_type, action_class)
 
     def _action_state(
         self,
         entry: dict[str, Any],
         graph_item: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        server_count = int(graph_item.get('server_count') or 0) if graph_item else 0
-        server_available = server_count > 0
-        import_available = entry['import_available'] is True
-        callable_now = import_available and server_available
-        reason = None
-        if not import_available:
-            reason = entry.get('import_error') or 'import 불가'
-        elif not server_available:
-            reason = '서버 없음'
-        return {
-            'action_name': graph_item['name'] if graph_item else '',
-            'action_type': entry['action_type'],
-            'full_type': entry['action_type'],
-            'graph_type': graph_item['type'] if graph_item else None,
-            'selected_import_type': entry['action_type'],
-            'file_name': entry['file_name'],
-            'type_name': entry['type_name'],
-            'goal_schema': entry['goal_schema'],
-            'result_schema': entry['result_schema'],
-            'feedback_schema': entry['feedback_schema'],
-            'import_available': import_available,
-            'import_error': entry.get('import_error'),
-            'server_available': server_available,
-            'server_count': server_count,
-            'client_count': int(graph_item.get('client_count') or 0) if graph_item else 0,
-            'callable': callable_now,
-            'executable': callable_now,
-            'reason': reason,
-            'qos': self._action_qos(graph_item['name'] if graph_item else ''),
-            'saved_path': entry.get('saved_path'),
-            'source': entry.get('source', 'single_interface'),
-            'package_name': entry.get('package_name'),
-        }
+        return build_action_state(entry, graph_item, self._action_qos)
 
     def _action_qos_profiles(self, node: Any, name: str) -> dict[str, Any]:
-        feedback, feedback_state = choose_topic_qos(
-            node, f'{name}/_action/feedback', local_role='subscription',
-            default_profile=QoSProfile(depth=10),
-        )
-        status, status_state = choose_topic_qos(
-            node, f'{name}/_action/status', local_role='subscription',
-            default_profile=qos_profile_action_status_default,
-        )
-        service_state = qos_state(
-            status='unknown', source='default_profile', local=qos_profile_services_default,
-            reason='Action service endpoint QoS는 Graph에서 확인할 수 없어 기본 Service QoS를 사용합니다.',
-        )
-        for part, state in (('feedback', feedback_state), ('status', status_state)):
-            if state.get('qos_status') == 'incompatible':
-                state['qos_error_type'] = f'action_{part}_qos_incompatible'
-        return {
-            'goal': qos_profile_services_default,
-            'result': qos_profile_services_default,
-            'cancel': qos_profile_services_default,
-            'feedback': feedback,
-            'status': status,
-            'state': {
-                'goal': service_state,
-                'result': service_state,
-                'cancel': service_state,
-                'feedback': feedback_state,
-                'status': status_state,
-            },
-        }
+        return self._client_pool.qos_profiles(node, name)
 
     def _action_qos(self, name: str) -> dict[str, Any]:
-        key = next((key for key in self._client_qos if key[0] == name), None)
-        if key is not None:
-            return self._client_qos[key]
-        node = self._node_getter()
-        if node is None or not name:
-            service = qos_state(
-                status='unknown', source='default_profile', local=qos_profile_services_default,
-                reason='상대 QoS를 확인할 Action endpoint가 없습니다.',
-            )
-            return {part: service for part in ('goal', 'result', 'cancel', 'feedback', 'status')}
-        return self._action_qos_profiles(node, name)['state']
+        return self._client_pool.qos_state(name)
 
     def _record_history_with_qos(self, item: dict[str, Any]) -> None:
         item['qos'] = self._action_qos(str(item.get('action_name') or ''))

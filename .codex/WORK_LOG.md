@@ -928,3 +928,131 @@
   이동에서 재실행하지 않았다.
 - 다음 AI: `frontend/src/components/InterfaceUploadControl.jsx`의 controller 결과를 View props로 변환하는
   대형 mapping 책임을 조사해 hook 또는 adapter 경계를 분리한다.
+
+## 2026-08-07 - Interface Upload 실행/Receive View props adapter 분리
+
+- 작업: Topic·Service·Action 실행 Controller와 Receive Controller의 내부 상태/명령을 각 panel props로
+  변환하는 로직을 `model/interfaceUploadViewProps.js`의 순수 adapter 네 개로 이동했다.
+- 이유와 기준: API 실행 상태 이름과 표현 component 계약은 변경 주기가 다르며, Control 안의 대형 inline
+  mapping은 wiring 누락을 찾기 어렵다. hook 호출/수명주기는 Control에 유지하고 변환만 분리했다.
+- 정책 보존: 실행 field update, importable filter, publish/continuous/call/goal 명령, timeout, 결과/history,
+  Receive mode별 start/stop/reset/search/select와 expanded/open 조건을 유지했다.
+- 결과: `InterfaceUploadControl.jsx`는 455줄에서 372줄로 감소했고 신규 adapter는 142줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, adapter callback 생성 직접 ESM 실행과 `git diff --check`가
+  통과했다. 284 modules, 초기 bundle 210.21 KB(gzip 66.66 KB), Interface Lab chunk 123.06 KB이며
+  500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 각 실행/Receive panel을 조작하는 E2E는 이번 wiring 이동에서 재실행하지
+  않았다. 관리 panel props와 네 실행 hook의 상호 연결은 Control에 남아 있다.
+- Git 상태: 작업 중 사용자 측 새 기준선 `1434411`이 확인됐고, 이번 adapter 변경과 이 기록만 미커밋이다.
+- 다음 AI: `frontend/src/components/ActionDetailPanel.jsx`와 `ActionTable.jsx`의 QoS/상태/연결/실행 표시 경계를
+  조사해 독립 subview를 분리한다.
+
+## 2026-08-07 - Frontend Action Feedback/Result 표시 정책 분리
+
+- 작업: Action Feedback/Result preview 선택, 배지 value/label과 table 정렬 우선순위 계산을
+  `features/actions/actionPresentation.js`로 이동했다.
+- 이유와 기준: 실행 결과 상태를 `수신됨`, `대기 중`, `Goal 미관찰`, `Result Timeout` 등으로 판정하는 로직은
+  table DOM과 독립적인 표시 정책이다. Table은 정렬·선택·별표·preview modal 렌더링에 집중시켰다.
+- 정책 보존: last goal summary 우선, runtime fallback, validation/goal 전송/accept/result timeout,
+  abort/cancel/error/unavailable, Feedback 지원 여부와 기존 sortValue 우선순위를 유지했다.
+- 결과: `ActionTable.jsx`는 341줄에서 227줄로 감소했고 신규 presentation model은 105줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, 대표 Feedback/Result 상태 분기 직접 ESM 실행과
+  `git diff --check`가 통과했다. 285 modules, 초기 bundle 210.21 KB(gzip 66.65 KB), Actions chunk
+  22.07 KB이며 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 Action 정렬, JSON preview modal과 배지 표시를 확인하는 E2E는 이번 순수 정책
+  이동에서 재실행하지 않았다.
+- 다음 AI: `frontend/src/components/ActionDetailPanel.jsx`의 기본/통신/실행 상태, QoS와 JSON preview section을
+  독립 subview로 분리한다.
+
+## 2026-08-07 - Frontend Action 상세 section과 상태 표시 정책 분리
+
+- 작업: Action 연결 Node/endpoint, 실행 측정, capability와 6개 JSON preview 영역을
+  `features/actions/ActionDetailSections.jsx`로 이동했다. Goal/Result 상태 라벨과 tone 판정은 기존
+  `actionPresentation.js`에 통합했다.
+- 이유와 기준: 안내/기본 상태/QoS를 조립하는 Panel과 연결·실행·지원 여부·원시 데이터 section은 각각
+  독립적인 표현 책임이다. 상태 코드 해석은 Table과 동일하게 presentation model에 두었다.
+- 정책 보존: Dashboard 제외 Node 수와 원본 endpoint 수, 내부 실행 Node 보완, Goal 상태/실행 가능/서버 전송,
+  validation 안내, 시간·결과·성공/실패, status/feedback/result 지원 여부, 모든 JSON preview와 Action 내부
+  Goal/Result/Cancel/Feedback/Status QoS 표시를 유지했다.
+- 결과: `ActionDetailPanel.jsx`는 372줄에서 111줄로 감소했다. 신규 detail sections는 122줄이고 공통 Action
+  presentation model은 150줄이 됐다.
+- 검증: Frontend `npm run lint`, `npm run build`, 대표 status label/tone 직접 ESM 실행과 `git diff --check`가
+  통과했다. 286 modules, 초기 bundle 210.21 KB(gzip 66.66 KB), Actions chunk 22.44 KB이며 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 상세 section expand, 연결 Node, QoS와 JSON 표시를 확인하는 E2E는 이번 View
+  이동에서 재실행하지 않았다.
+- 다음 AI: `frontend/src/components/InterfaceUploadControl.jsx`의 관리 panel props 조립과 Topic/Service/Action/
+  Receive hook orchestration 경계를 조사해 다음 독립 hook 또는 adapter를 분리한다.
+
+## 2026-08-07 - Interface Upload 관리 View props adapter 분리
+
+- 작업: Toolbar, 수동 Interface 입력, Build 실패, Registry, 업로드 Package의 상태와 callback을 View 계약으로
+  바꾸는 로직을 `model/interfaceUploadViewProps.js`의 `managementViewProps()`로 이동했다.
+- 이유와 기준: 관리 Controller 내부 이름과 표현 component의 props 구조는 독립적으로 변경될 수 있다. 기존
+  실행/Receive adapter와 동일한 경계에 순수 변환을 모으고 hook 호출과 삭제 후 후보 갱신 순서는 Control에
+  유지했다.
+- 정책 보존: Apply/CMake 재생성과 build log, 수동 작성·검증·편집 취소, Registry/package 삭제, expanded
+  전환, 파일·폴더 upload와 replace, WebSocket/reload/feedback 표시 조건을 유지했다.
+- 결과: `InterfaceUploadControl.jsx`는 372줄에서 324줄로 감소했고 adapter 파일은 142줄에서 215줄이 됐다.
+- 검증: Frontend `npm run lint`, `npm run build`, 관리 adapter callback/failed 표시 직접 ESM 실행과
+  `git diff --check`가 통과했다. 286 modules, 초기 bundle 210.21 KB(gzip 66.66 KB), Interface Lab chunk
+  125.03 KB이며 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 upload/apply/manual/삭제 UI를 조작하는 E2E는 이번 wiring 이동에서
+  재실행하지 않았다. 여러 실행/수신 hook의 호출과 상호 연결 wiring은 Control에 남아 있다.
+- 다음 AI: `InterfaceUploadControl.jsx`의 Topic·Service·Action·Receive hook orchestration을 하나의 독립
+  composition hook으로 옮길 수 있는지 조사하되 controller 간 selection 동기화와 lifecycle 순서를 보존한다.
+
+## 2026-08-07 - Interface Upload 실행 composition hook 분리
+
+- 작업: Topic·Service·Action 실행 controller 생성과 Receive controller 연결을 신규
+  `hooks/useInterfaceExecutionSuite.js`로 이동했다.
+- 이유와 기준: 개별 controller 구현은 이미 기능별로 분리되어 있지만 Service/Action 선택을 Receive 선택과
+  동기화하고 Receive refresh가 세 실행 후보 목록을 교체하는 의존 관계는 Control의 화면 조립 책임이 아니다.
+- 주요 변경: Suite가 공용 Topic 목록과 Receive용 Service/Action 선택 key를 소유하고 네 controller를 올바른
+  순서로 조립한다. Control에는 management, panel coordinator, lifecycle과 최종 View adapter 조립을 남겼다.
+- 정책 보존: Topic 자동 후보, 사용자 입력 선택, Service/Action 선택 동기화, Receive 목록 refresh,
+  실행 후보 replace, busy/feedback 및 `onStateChanged` 전달 경로를 유지했다.
+- 결과: `InterfaceUploadControl.jsx`는 324줄에서 251줄로 감소했고 composition hook은 52줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite가 287 modules를
+  변환했고 초기 bundle은 210.21 KB(gzip 66.66 KB), Interface Lab chunk는 125.39 KB로 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 네 controller 간 선택 및 refresh 연동 E2E는 이번 구조 이동에서 재실행하지
+  않았다. React hook 단위 테스트 기반은 현재 별도로 구성돼 있지 않다.
+- 다음 AI: Frontend의 이번 Interface Upload coordinator 분리는 여기서 마무리하고, Monitor의 남은
+  300~500줄 runtime을 줄 수가 아닌 책임 기준으로 조사해 다음 분리 대상을 정한다.
+
+## 2026-08-07 - Interface Action Client pool과 QoS 상태 분리
+
+- 작업: Interface Lab ActionClient의 생성·재사용과 Goal/Result/Cancel/Feedback/Status별 QoS 선택 및 상태
+  보존을 신규 `execution/action_client_pool.py`의 `ActionClientPool`로 이동했다.
+- 이유와 기준: `action_goal_runtime.py`는 Goal 허용·실행·취소와 history 흐름을 조정해야 하지만 client cache와
+  ROS entity 생성 QoS는 별도 생명주기를 가진다. 이미 분리된 `ServiceClientPool`과 대칭 구조를 적용했다.
+- 주요 변경: 이름/type tuple로 client를 재사용하고, Action service 3종은 기본 Service QoS, Feedback/Status는
+  Graph endpoint 기반 adaptive Topic QoS를 선택하며 생성 당시 상태를 pool에 보존한다. Runtime의 `_client`,
+  `_action_qos_profiles`, `_action_qos`는 기존 테스트/내부 호출 호환 facade로 유지했다.
+- 결과: `action_goal_runtime.py`는 483줄에서 417줄로 감소했고 신규 pool은 110줄이다.
+- 검증: Python compileall, Monitor 직접 `python3 -m pytest -q ros2_ws/src/ros2_dashboard_monitor/test`,
+  `git diff --check`가 통과했으며 158 tests passed다.
+- 트러블슈팅: 최초 전체 테스트에서 Runtime 생성 후 `ActionClient` 심볼을 교체하는 기존 cache key 테스트 1개가
+  실패했다. client factory를 실제 생성 시점에 모듈 심볼을 조회하는 lambda로 바꿔 테스트 seam과 기존 동적
+  대체 가능성을 복구했고 재실행에서 전부 통과했다.
+- 남은 문제: 실제 ROS Action server를 띄운 통합 Goal/Feedback/Result/Cancel 검수는 이번 구조 이동에서
+  재실행하지 않았다. 공개 payload와 QoS 판정 로직 자체는 기존 전체 단위 테스트로 확인했다.
+- 다음 AI: `action_goal_runtime.py`에 남은 등록 Action 후보 조립과 Graph 허용 검사/상태 조립을 별도 discovery
+  service로 이동할 가치가 있는지 조사한다. `ros_monitor.py`는 이미 다수 helper에 위임된 coordinator이므로
+  줄 수만으로 우선 분리하지 않는다.
+
+## 2026-08-07 - Interface Action 등록 후보와 Graph 상태 조립 분리
+
+- 작업: Registry/package Action 정규화, 등록 type과 Graph type exact match, callable 응답 조립과 Goal 실행
+  허용 판정을 `execution/action_discovery.py`로 이동했다.
+- 이유와 기준: Registry 형식 해석과 ROS2 Graph 사실 결합은 Goal 전송·취소 생명주기와 독립적인 discovery
+  책임이다. 기존 Graph endpoint 조회 helper와 같은 모듈에 배치해 Action 후보 생성 흐름을 한곳에 모았다.
+- 주요 변경: import 가능한데 parsed schema가 없는 Action의 generated class schema 보완, package Action 병합,
+  동일 이름의 다른 type 구분, server/client count와 QoS 결합, import/server 부재 reason을 순수 함수로 분리했다.
+  Runtime의 `_registered_actions`, `_allowed_action`, `_action_state`는 기존 내부 호환 facade로 유지했다.
+- 결과: `action_goal_runtime.py`는 417줄에서 333줄로 감소하고 `action_discovery.py`는 68줄에서 197줄이 됐다.
+- 검증: 신규 discovery 계약 테스트 3개를 추가했다. Python compileall, Monitor 전체 직접 pytest,
+  `git diff --check`가 통과했으며 `161 passed`다.
+- 남은 문제: 실제 ROS Graph와 업로드 Action package를 함께 사용한 Browser E2E는 이번 순수 조립 이동에서
+  재실행하지 않았다. 공개 응답 key와 exact type 정책은 신규/기존 테스트로 확인했다.
+- 다음 AI: Action Goal runtime은 실행 coordinator로 축소됐으므로 추가 분리를 잠시 멈추고,
+  `ros_monitor.py`, Topic Alert 또는 다른 300줄 이상 Monitor 파일의 혼합 책임을 비교한다.

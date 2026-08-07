@@ -6,6 +6,12 @@ import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 import { PriorityStarButton } from './PriorityStarButton.jsx'
+import {
+  actionFeedbackPreview,
+  actionResultPreview,
+  feedbackDisplay,
+  resultDisplay,
+} from '../features/actions/actionPresentation.js'
 
 const ACTION_SORT_COLUMNS = {
   status: { value: (action) => action.status },
@@ -210,132 +216,12 @@ export function ActionTable({
   )
 }
 
-function actionFeedbackPreview(action) {
-  return (
-    action.last_goal_summary?.last_feedback_preview ??
-    action.runtime?.feedback_preview
-  )
-}
-
-function actionResultPreview(action) {
-  return (
-    action.last_goal_summary?.last_result_preview ??
-    action.runtime?.result_preview
-  )
-}
-
 function FeedbackBadge({ action }) {
   const display = feedbackDisplay(action)
   return <StatusBadge label={display.label} value={display.value} />
 }
 
-function feedbackDisplay(action) {
-  const summary = action.last_goal_summary
-  if (summary?.last_feedback_preview) {
-    return resultState('feedback_received', '수신됨', 9)
-  }
-  if (summary?.error_type === 'validation_error') {
-    return resultState('validation_error', '검증 실패', 1)
-  }
-  const runtime = action.runtime ?? {}
-  const lastGoalStatus = String(runtime.last_goal_status || '').toLowerCase()
-
-  if (runtime.feedback_error) {
-    return resultState('feedback_error', '수신 오류', 1)
-  }
-  if (runtime.feedback_preview) {
-    return resultState('feedback_received', '수신됨', 8)
-  }
-  if (['executing', 'accepted', 'canceling'].includes(lastGoalStatus)) {
-    return resultState('feedback_waiting', '대기 중', 5)
-  }
-  if ((runtime.observed_goal_count ?? 0) === 0) {
-    return resultState('goal_unobserved', 'Goal 미관찰', 0)
-  }
-  if (action.feedback_supported === false) {
-    return resultState('feedback_unsupported', '미지원', 0)
-  }
-
-  return resultState('feedback_none', '수신 없음', 0)
-}
-
 function ResultBadge({ action }) {
   const display = resultDisplay(action)
   return <StatusBadge label={display.label} value={display.value} />
-}
-
-function resultDisplay(action) {
-  const summary = action.last_goal_summary
-  const summaryStatus = String(summary?.last_goal_status || '').toLowerCase()
-  if (summaryStatus === 'aborted') {
-    return resultState('aborted', '실패 종료', 1)
-  }
-  if (summaryStatus === 'canceled') {
-    return resultState('result_canceled', '취소됨', 4)
-  }
-  if (summaryStatus === 'result_timeout') {
-    return resultState('result_timeout', 'Result Timeout', 2)
-  }
-  if (summaryStatus === 'result_receive_failed') {
-    return resultState('result_receive_failed', 'Result 수신 실패', 1)
-  }
-  if (summaryStatus === 'goal_rejected') {
-    return resultState('goal_rejected', 'Goal 거절', 3)
-  }
-  if (['goal_send_failed', 'goal_accept_timeout'].includes(summaryStatus)) {
-    return resultState(summaryStatus, 'Goal 전송 실패', 1)
-  }
-  if (summary?.last_result_preview) {
-    return resultState(summary.success ? 'success' : 'failed', summary.success ? '성공' : '실패', 9)
-  }
-  if (summary?.error_type === 'validation_error') {
-    return resultState('validation_error', '검증 실패', 1)
-  }
-  const runtime = action.runtime ?? {}
-  const resultStatus = String(runtime.result_status || '').toLowerCase()
-  const lastGoalStatus = String(runtime.last_goal_status || '').toLowerCase()
-
-  if (resultStatus) {
-    if (resultStatus === 'success' || resultStatus === 'succeeded') {
-      return resultState('success', '성공', 8)
-    }
-    if (resultStatus === 'aborted') {
-      return resultState('aborted', '실패 종료', 1)
-    }
-    if (resultStatus === 'canceled') {
-      return resultState('result_canceled', '취소됨', 4)
-    }
-    if (resultStatus === 'timeout') {
-      return resultState('timeout', 'Timeout', 2)
-    }
-    if (resultStatus === 'error') {
-      return resultState('result_error', '결과 조회 오류', 2)
-    }
-    if (resultStatus === 'unavailable') {
-      return resultState('result_none', '결과 없음', 0)
-    }
-  }
-
-  if (runtime.result_error) {
-    return resultState('result_error', '결과 조회 오류', 2)
-  }
-
-  if (lastGoalStatus === 'executing') {
-    return resultState('result_waiting', '결과 대기', 6)
-  }
-  if (lastGoalStatus === 'accepted') {
-    return resultState('accepted', 'Goal 수락', 5)
-  }
-  if (lastGoalStatus === 'canceling') {
-    return resultState('result_canceled', '취소 중', 4)
-  }
-  if ((runtime.observed_goal_count ?? 0) === 0) {
-    return resultState('goal_unobserved', 'Goal 미관찰', 0)
-  }
-
-  return resultState('result_none', '결과 없음', 0)
-}
-
-function resultState(value, label, sortValue) {
-  return { label, sortValue, value }
 }
