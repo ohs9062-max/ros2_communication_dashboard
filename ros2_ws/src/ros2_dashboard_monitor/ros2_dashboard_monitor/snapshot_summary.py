@@ -5,6 +5,35 @@ from __future__ import annotations
 from typing import Any
 
 
+def assemble_websocket_snapshot(
+    *,
+    timestamp: float,
+    topic_snapshot: dict[str, Any],
+    service_snapshot: dict[str, Any],
+    action_snapshot: dict[str, Any],
+    node_snapshot: dict[str, Any],
+    alerts: dict[str, Any],
+) -> dict[str, Any]:
+    """전체 Cache snapshot을 Browser WebSocket용 경량 payload로 축약합니다."""
+    return {
+        'type': 'monitor_snapshot',
+        'timestamp': timestamp,
+        'data': {
+            'topics': websocket_topic_meta(topic_snapshot['topics']),
+            'services': websocket_service_meta(
+                service_snapshot['services'], service_snapshot['meta'],
+            ),
+            'actions': websocket_action_meta(
+                action_snapshot['actions'], action_snapshot['meta'],
+            ),
+            'nodes': websocket_node_meta(
+                node_snapshot['nodes'], node_snapshot['meta'],
+            ),
+            'alerts': alerts['data'],
+        },
+    }
+
+
 def websocket_topic_meta(topics: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         'count': len(topics),

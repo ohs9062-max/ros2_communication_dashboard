@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 from time import time
 from typing import Any, Callable
-
-from rclpy.qos import QoSProfile, qos_profile_action_status_default, qos_profile_services_default
 
 from ros2_dashboard_monitor.ros2_action.discovery import build_action_item
 from ros2_dashboard_monitor.ros2_action.filters import is_action_included
@@ -19,25 +16,26 @@ from ros2_dashboard_monitor.ros2_action.graph import (
 )
 from ros2_dashboard_monitor.ros2_action.models import action_meta
 from ros2_dashboard_monitor.ros2_action.result_runtime import ActionResultRuntime
+from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import (
+    action_capabilities,
+    create_feedback_subscription,
+    create_status_subscription,
+    default_action_qos,
+    destroy_entry_subscriptions,
+    monitor_subscription_count,
+)
 from ros2_dashboard_monitor.ros2_action.subscriptions import (
     action_entry_matches,
     build_action_subscription_entry,
-    load_feedback_message_class,
-    load_status_message_class,
     runtime_snapshot,
     update_feedback_runtime,
     update_status_runtime,
 )
 from ros2_dashboard_monitor.config_loader import MonitorConfig
-from ros2_dashboard_monitor.qos import choose_topic_qos, qos_state, subscription_events
 from ros2_dashboard_monitor.resource_state import (
     disconnected_resource,
     mark_graph_present,
 )
-
-
-LOGGER = logging.getLogger(__name__)
-
 
 class ActionRuntime:
     """Action 모니터링 runtime 상태와 cache를 관리하는 클래스입니다."""
@@ -169,23 +167,9 @@ class ActionRuntime:
 
     def monitor_subscriber_count(self, topic_name: str) -> int:
         """Action status·feedback 관찰용 내부 subscription 수를 반환합니다."""
-        count = 0
         with self._lock:
             entries = list(self._subscriptions.items())
-
-        for action_name, entry in entries:
-            if (
-                topic_name == f'{action_name}/_action/status'
-                and entry.get('status_subscription') is not None
-            ):
-                count += 1
-            if (
-                topic_name == f'{action_name}/_action/feedback'
-                and entry.get('feedback_subscription') is not None
-            ):
-                count += 1
-
-        return count
+        return monitor_subscription_count(entries, topic_name)
 
     def _action_names_and_types(self) -> list[tuple[str, list[str]]]:
         return read_action_names_and_types(self._node_getter())
@@ -265,68 +249,20 @@ class ActionRuntime:
 
     @staticmethod
     def _capabilities(entry: dict[str, Any] | None) -> dict[str, Any]:
-        if entry is None:
-            return {
-                'status_supported': False,
-                'feedback_supported': False,
-                'feedback_reason': 'action monitor is not running',
-                'result_supported': False,
-                'result_policy': None,
-                'result_reason': 'action monitor is not running',
-                'qos': {},
-            }
-
-        return {
-            'status_supported': bool(entry.get('status_supported')),
-            'feedback_supported': bool(entry.get('feedback_supported')),
-            'feedback_reason': entry.get('feedback_reason'),
-            'result_supported': bool(entry.get('result_supported')),
-            'result_policy': entry.get('result_policy'),
-            'result_reason': entry.get('result_reason'),
-            'qos': entry.get('qos', {}),
-        }
+        return action_capabilities(entry)
 
     def _maybe_create_status_subscription(
         self,
         name: str,
         entry: dict[str, Any],
     ) -> bool:
-        node = self._node_getter()
-        if node is None:
-            return False
-
-        if not self._config.actions_auto_monitor_status:
-            return False
-
-        message_class = load_status_message_class()
-        if message_class is None:
-            return False
-
-        try:
-            qos_profile, qos = choose_topic_qos(
-                node, f'{name}/_action/status', local_role='subscription',
-                default_profile=qos_profile_action_status_default,
-            )
-            if qos.get('qos_status') == 'incompatible':
-                qos['qos_error_type'] = 'action_status_qos_incompatible'
-            subscription = node.create_subscription(
-                message_class,
-                f'{name}/_action/status',
-                self._status_callback(name),
-                qos_profile,
-                event_callbacks=subscription_events(qos, 'action_status_qos_incompatible'),
-            )
-        except Exception as exc:  # pragma: no cover
-            LOGGER.warning(
-                'Failed to subscribe action status topic %s: %s',
-                name,
-                exc,
-            )
-            return False
-
-        entry['status_subscription'] = subscription
-        entry.setdefault('qos', self._default_action_qos())['status'] = qos
-        return True
+        return create_status_subscription(
+            node=self._node_getter(),
+            name=name,
+            entry=entry,
+            enabled=self._config.actions_auto_monitor_status,
+            callback=self._status_callback(name),
+        )
 
     def _maybe_create_feedback_subscription(
         self,
@@ -334,61 +270,18 @@ class ActionRuntime:
         action_type: str | None,
         entry: dict[str, Any],
     ) -> bool:
-        node = self._node_getter()
-        if node is None:
-            return False
-
-        if not self._config.actions_auto_monitor_feedback:
-            entry['feedback_reason'] = 'feedback monitoring disabled'
-            return False
-
-        message_class = load_feedback_message_class(action_type)
-        if message_class is None:
-            entry['feedback_reason'] = (
-                'failed to import feedback message class'
-            )
-            return False
-
-        try:
-            qos_profile, qos = choose_topic_qos(
-                node, f'{name}/_action/feedback', local_role='subscription',
-                default_profile=QoSProfile(depth=10),
-            )
-            if qos.get('qos_status') == 'incompatible':
-                qos['qos_error_type'] = 'action_feedback_qos_incompatible'
-            subscription = node.create_subscription(
-                message_class,
-                f'{name}/_action/feedback',
-                self._feedback_callback(name),
-                qos_profile,
-                event_callbacks=subscription_events(qos, 'action_feedback_qos_incompatible'),
-            )
-        except Exception as exc:  # pragma: no cover
-            LOGGER.warning(
-                'Failed to subscribe action feedback topic %s: %s',
-                name,
-                exc,
-            )
-            return False
-
-        entry['feedback_subscription'] = subscription
-        entry.setdefault('qos', self._default_action_qos())['feedback'] = qos
-        entry['feedback_reason'] = None
-        return True
+        return create_feedback_subscription(
+            node=self._node_getter(),
+            name=name,
+            action_type=action_type,
+            entry=entry,
+            enabled=self._config.actions_auto_monitor_feedback,
+            callback=self._feedback_callback(name),
+        )
 
     @staticmethod
     def _default_action_qos() -> dict[str, Any]:
-        service = qos_state(
-            status='unknown', source='default_profile', local=qos_profile_services_default,
-            reason='Action service endpoint QoS는 Graph에서 확인할 수 없습니다.',
-        )
-        return {
-            'goal': service,
-            'result': service.copy(),
-            'cancel': service.copy(),
-            'feedback': qos_state(status='unknown', source='unavailable', local=None),
-            'status': qos_state(status='unknown', source='unavailable', local=None),
-        }
+        return default_action_qos()
 
     def _runtime_snapshot(self, name: str) -> dict[str, Any]:
         with self._lock:
@@ -452,19 +345,4 @@ class ActionRuntime:
         self,
         entry: dict[str, Any],
     ) -> None:
-        node = self._node_getter()
-        if node is None:
-            return
-
-        for key in ('status_subscription', 'feedback_subscription'):
-            subscription = entry.get(key)
-            if subscription is None:
-                continue
-
-            try:
-                node.destroy_subscription(subscription)
-            except Exception as exc:  # pragma: no cover
-                LOGGER.warning(
-                    'Failed to destroy action subscription: %s',
-                    exc,
-                )
+        destroy_entry_subscriptions(self._node_getter(), entry)

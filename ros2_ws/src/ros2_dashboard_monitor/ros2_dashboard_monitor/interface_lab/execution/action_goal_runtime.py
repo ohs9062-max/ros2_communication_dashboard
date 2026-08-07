@@ -30,6 +30,10 @@ from ros2_dashboard_monitor.interface_lab.execution.action_support import (
     schema_from_action_class as _schema_from_action_class,
 )
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_executor import execute_action_goal
+from ros2_dashboard_monitor.interface_lab.execution.action_history import (
+    build_receive_history,
+    summarize_action_history,
+)
 from ros2_dashboard_monitor.interface_lab.execution.action_discovery import (
     build_action_count_maps,
     discover_action_graph,
@@ -184,65 +188,11 @@ class ActionGoalRuntime:
 
     def receive_history(self) -> dict[str, Any]:
         """초기화 경계 이후에 받은 feedback·result 이력을 반환합니다."""
-        goals = self.history()['goals']
-        events = []
-        for goal_index, goal in enumerate(goals):
-            goal_summary = _goal_summary(goal)
-            sent_at = goal.get('sent_at')
-            if (
-                self._receive_reset_at is not None
-                and sent_at is not None
-                and sent_at <= self._receive_reset_at
-            ):
-                continue
-            reset_at = self._receive_reset_by_key.get(
-                (goal.get('action_name'), goal.get('action_type')),
-            )
-            if reset_at is not None and sent_at is not None and sent_at <= reset_at:
-                continue
-            feedback_items = goal.get('feedback') if isinstance(goal.get('feedback'), list) else []
-            for feedback_index, feedback in enumerate(feedback_items):
-                events.append({
-                    'id': f"action-feedback-{goal.get('sent_at', goal_index)}-{feedback_index}",
-                    'direction': 'action_feedback',
-                    'action_name': goal.get('action_name'),
-                    'action_type': goal.get('action_type'),
-                    'goal': goal.get('goal'),
-                    'feedback': feedback,
-                    'result': None,
-                    'status': 'feedback',
-                    'success': goal.get('success') is True,
-                    'error_type': goal.get('error_type'),
-                    'error': goal.get('error'),
-                    'sent_to_server': goal.get('sent_to_server', False),
-                    'goal_sent_at': goal.get('sent_at'),
-                    'received_at': goal.get('sent_at'),
-                    'execution_time_ms': goal.get('elapsed_ms'),
-                    'execution_source': goal.get('execution_source'),
-                    'requester_node': goal.get('requester_node'),
-                    'raw': goal,
-                })
-            events.append({
-                'id': f"action-result-{goal.get('sent_at', goal_index)}-{goal_index}",
-                'direction': 'action_result',
-                'action_name': goal.get('action_name'),
-                'action_type': goal.get('action_type'),
-                'goal': goal.get('goal'),
-                'feedback': None,
-                'result': goal.get('result'),
-                'status': goal_summary['last_goal_status'],
-                'success': goal.get('success') is True,
-                'error_type': goal.get('error_type'),
-                'error': goal.get('error'),
-                'sent_to_server': goal.get('sent_to_server', False),
-                'goal_sent_at': goal.get('sent_at'),
-                'received_at': goal.get('sent_at'),
-                'execution_time_ms': goal.get('elapsed_ms'),
-                'execution_source': goal.get('execution_source'),
-                'requester_node': goal.get('requester_node'),
-                'raw': goal,
-            })
-        return {'history': events, 'meta': {'count': len(events)}}
+        return build_receive_history(
+            self.history()['goals'],
+            reset_at=self._receive_reset_at,
+            reset_by_key=self._receive_reset_by_key,
+        )
 
     def reset_receive_history(
         self,
@@ -264,31 +214,7 @@ class ActionGoalRuntime:
 
     def summary_by_action(self) -> dict[tuple[str, str], dict[str, Any]]:
         """Action 이름·타입별 최근 Goal 결과와 누적 건수를 요약합니다."""
-        goals = self._history.snapshot()
-        summaries: dict[tuple[str, str], dict[str, Any]] = {}
-        for goal in reversed(goals):
-            key = (str(goal.get('action_name') or ''), str(goal.get('action_type') or ''))
-            if not key[0] or not key[1]:
-                continue
-            summary = summaries.setdefault(key, {
-                'goal_count': 0,
-                'success_count': 0,
-                'failure_count': 0,
-                'canceled_count': 0,
-                'history': [],
-            })
-            goal_summary = _goal_summary(goal)
-            summary['goal_count'] += 1
-            if goal.get('success') is True:
-                summary['success_count'] += 1
-            else:
-                summary['failure_count'] += 1
-            if goal_summary['last_goal_status'] == 'canceled':
-                summary['canceled_count'] += 1
-            summary['history'].insert(0, goal_summary)
-            summary['history'] = summary['history'][:5]
-            summary.update(goal_summary)
-        return summaries
+        return summarize_action_history(self._history.snapshot())
 
     def dashboard_state_by_action(
         self,

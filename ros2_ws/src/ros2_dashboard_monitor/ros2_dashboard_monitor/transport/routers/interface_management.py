@@ -4,6 +4,10 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from ros2_dashboard_monitor.transport.request_parsing import (
+    read_json_object,
+    read_limited_body,
+)
 from ros2_dashboard_monitor.interface_lab.apply.runtime import mark_interface_change_pending
 from ros2_dashboard_monitor.interface_lab.management.packages import (
     InterfacePackageError,
@@ -40,23 +44,15 @@ router = APIRouter()
 @router.post('/ros/interfaces/upload')
 async def upload_ros_interface(request: Request) -> dict[str, Any]:
     """업로드된 단일 msg·srv·action 파일을 검사해 Registry에 등록합니다."""
-    content_length = request.headers.get('content-length')
-    if content_length:
-        try:
-            request_size = int(content_length)
-        except ValueError:
-            request_size = 0
-        if request_size > MAX_INTERFACE_FILE_SIZE + 64 * 1024:
-            raise HTTPException(status_code=413, detail='업로드 요청이 너무 큽니다.')
-
-    body = bytearray()
-    async for chunk in request.stream():
-        body.extend(chunk)
-        if len(body) > MAX_INTERFACE_FILE_SIZE + 64 * 1024:
-            raise HTTPException(status_code=413, detail='업로드 요청이 너무 큽니다.')
+    body = await read_limited_body(
+        request,
+        payload_limit=MAX_INTERFACE_FILE_SIZE,
+        multipart_overhead=64 * 1024,
+        too_large_detail='업로드 요청이 너무 큽니다.',
+    )
     try:
         file_name, content = extract_multipart_file(
-            request.headers.get('content-type', ''), bytes(body),
+            request.headers.get('content-type', ''), body,
         )
         entry = register_interface(file_name, content)
         if not default_registry_path().is_file():
@@ -146,12 +142,7 @@ def delete_interface_registry_entry(
 @router.post('/ros/interfaces/manual-type')
 async def register_manual_interface_type(request: Request) -> dict[str, Any]:
     """FastAPI Router에서 interface 등록 정보를 저장하는 함수입니다."""
-    try:
-        payload = await request.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail='JSON object 요청 본문이 필요합니다.')
+    payload = await read_json_object(request)
     try:
         entry = register_manual_type(
             full_type=str(payload.get('full_type') or ''),
@@ -171,12 +162,7 @@ async def register_manual_interface_type(request: Request) -> dict[str, Any]:
 @router.post('/ros/interfaces/manual-definition')
 async def write_manual_interface_definition(request: Request) -> dict[str, Any]:
     """사용자가 입력한 Interface 정의를 파일과 Registry에 저장합니다."""
-    try:
-        payload = await request.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail='JSON object 요청 본문이 필요합니다.')
+    payload = await read_json_object(request)
     try:
         entry = write_manual_definition(
             package=str(payload.get('package') or 'uploaded_interfaces'),
@@ -197,12 +183,7 @@ async def write_manual_interface_definition(request: Request) -> dict[str, Any]:
 @router.post('/ros/interfaces/manual-definition/validate')
 async def validate_manual_interface_definition(request: Request) -> dict[str, Any]:
     """FastAPI Router에서 입력값을 검증하는 함수입니다."""
-    try:
-        payload = await request.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail='JSON object 요청 본문이 필요합니다.')
+    payload = await read_json_object(request)
     try:
         result = validate_manual_definition(
             package=str(payload.get('package') or 'uploaded_interfaces'),
@@ -222,12 +203,7 @@ async def validate_manual_interface_definition(request: Request) -> dict[str, An
 @router.put('/ros/interfaces/manual-definition/{kind}/{type_name}')
 async def update_manual_interface_definition(kind: str, type_name: str, request: Request) -> dict[str, Any]:
     """FastAPI Router에서 runtime 상태를 갱신하는 함수입니다."""
-    try:
-        payload = await request.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail='JSON object 요청 본문이 필요합니다.')
+    payload = await read_json_object(request)
     try:
         entry = update_manual_definition(
             kind=kind,
@@ -279,23 +255,15 @@ async def upload_ros_interface_package(
     replace: bool = Query(False),
 ) -> dict[str, Any]:
     """업로드된 zip을 검증해 Interface package 저장소에 등록합니다."""
-    content_length = request.headers.get('content-length')
-    if content_length:
-        try:
-            request_size = int(content_length)
-        except ValueError:
-            request_size = 0
-        if request_size > MAX_PACKAGE_ZIP_SIZE + 64 * 1024:
-            raise HTTPException(status_code=413, detail='패키지 업로드 요청이 너무 큽니다.')
-
-    body = bytearray()
-    async for chunk in request.stream():
-        body.extend(chunk)
-        if len(body) > MAX_PACKAGE_ZIP_SIZE + 64 * 1024:
-            raise HTTPException(status_code=413, detail='패키지 업로드 요청이 너무 큽니다.')
+    body = await read_limited_body(
+        request,
+        payload_limit=MAX_PACKAGE_ZIP_SIZE,
+        multipart_overhead=64 * 1024,
+        too_large_detail='패키지 업로드 요청이 너무 큽니다.',
+    )
     try:
         file_name, content = extract_multipart_file(
-            request.headers.get('content-type', ''), bytes(body),
+            request.headers.get('content-type', ''), body,
         )
         entry = upload_interface_package(file_name, content, replace=replace)
     except InterfacePackageError as exc:
@@ -317,23 +285,15 @@ async def upload_ros_interface_package_folder(
     replace: bool = Query(False),
 ) -> dict[str, Any]:
     """브라우저가 보낸 폴더 파일들을 검증해 Interface package로 등록합니다."""
-    content_length = request.headers.get('content-length')
-    if content_length:
-        try:
-            request_size = int(content_length)
-        except ValueError:
-            request_size = 0
-        if request_size > MAX_PACKAGE_ZIP_SIZE + 512 * 1024:
-            raise HTTPException(status_code=413, detail='패키지 폴더 업로드 요청이 너무 큽니다.')
-
-    body = bytearray()
-    async for chunk in request.stream():
-        body.extend(chunk)
-        if len(body) > MAX_PACKAGE_ZIP_SIZE + 512 * 1024:
-            raise HTTPException(status_code=413, detail='패키지 폴더 업로드 요청이 너무 큽니다.')
+    body = await read_limited_body(
+        request,
+        payload_limit=MAX_PACKAGE_ZIP_SIZE,
+        multipart_overhead=512 * 1024,
+        too_large_detail='패키지 폴더 업로드 요청이 너무 큽니다.',
+    )
     try:
         files = extract_multipart_package_files(
-            request.headers.get('content-type', ''), bytes(body),
+            request.headers.get('content-type', ''), body,
         )
         entry = upload_interface_package_folder(files, replace=replace)
     except InterfacePackageError as exc:

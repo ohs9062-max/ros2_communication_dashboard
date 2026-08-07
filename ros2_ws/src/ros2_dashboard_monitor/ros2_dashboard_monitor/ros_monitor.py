@@ -6,24 +6,20 @@ from threading import Lock, Thread
 from time import time
 from typing import Any
 
-import rclpy
 from rclpy.node import Node
 
-from ros2_dashboard_monitor.ros2_action.alerts import build_action_alerts
+from ros2_dashboard_monitor.alert_assembler import (
+    alert_response,
+    collect_runtime_alerts,
+    reconcile_alert_state,
+)
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime import ActionGoalRuntime
 from ros2_dashboard_monitor.ros2_action.runtime import ActionRuntime
 from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.interface_lab.execution.topic_runtime import InterfaceReceiveRuntime
-from ros2_dashboard_monitor.ros2_node.alerts import build_node_alerts
 from ros2_dashboard_monitor.ros2_node.runtime import NodeRuntime
-from ros2_dashboard_monitor.ros2_service.alerts import build_service_alerts
 from ros2_dashboard_monitor.interface_lab.execution.service_call_runtime import ServiceCallRuntime
 from ros2_dashboard_monitor.ros2_service.runtime import ServiceRuntime
-from ros2_dashboard_monitor.ros2_topic.alerts import (
-    build_alert_meta,
-    build_alerts,
-    retain_alerts,
-)
 from ros2_dashboard_monitor.ros2_topic.runtime import TopicRuntime
 from ros2_dashboard_monitor.topology import build_role_node_index
 from ros2_dashboard_monitor.priority_state import PriorityState
@@ -31,7 +27,14 @@ from ros2_dashboard_monitor.monitor_helpers import (
     runtime_state_map as _runtime_state_map,
     service_effective_status as _service_effective_status,
 )
+from ros2_dashboard_monitor.monitor_lifecycle import (
+    create_monitor_node,
+    shutdown_monitor_node,
+    spin_monitor_node,
+    start_spin_thread,
+)
 from ros2_dashboard_monitor.snapshot_summary import (
+    assemble_websocket_snapshot,
     websocket_action_meta,
     websocket_node_meta,
     websocket_service_meta,
@@ -115,30 +118,19 @@ class RosMonitor:
         if self._thread and self._thread.is_alive():
             return
 
-        rclpy.init(args=None)
-        self._node = Node('ros2_dashboard_topic_monitor')
-        self._node.create_timer(
-            self._config.poll_interval_sec,
-            self._update_graph,
+        self._node = create_monitor_node(
+            poll_interval_sec=self._config.poll_interval_sec,
+            update_callback=self._update_graph,
         )
         self._update_graph()
-
-        self._thread = Thread(target=self._spin, daemon=True)
-        self._thread.start()
+        self._thread = start_spin_thread(self._spin)
 
     def stop(self) -> None:
         """timer와 실행 Runtime을 정리하고 rclpy Node를 종료합니다."""
         node = self._node
         self._receive_runtime.stop_all_continuous_publishes()
 
-        if rclpy.ok():
-            rclpy.shutdown()
-
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-
-        if node is not None:
-            node.destroy_node()
+        shutdown_monitor_node(node, self._thread)
 
         self._thread = None
         self._node = None
@@ -428,28 +420,14 @@ class RosMonitor:
         node_snapshot = self.node_snapshot()
         alerts = self.alerts()
 
-        return {
-            'type': 'monitor_snapshot',
-            'timestamp': timestamp,
-            'data': {
-                'topics': self._websocket_topic_meta(
-                    topic_snapshot['topics'],
-                ),
-                'services': self._websocket_service_meta(
-                    service_snapshot['services'],
-                    service_snapshot['meta'],
-                ),
-                'actions': self._websocket_action_meta(
-                    action_snapshot['actions'],
-                    action_snapshot['meta'],
-                ),
-                'nodes': self._websocket_node_meta(
-                    node_snapshot['nodes'],
-                    node_snapshot['meta'],
-                ),
-                'alerts': alerts['data'],
-            },
-        }
+        return assemble_websocket_snapshot(
+            timestamp=timestamp,
+            topic_snapshot=topic_snapshot,
+            service_snapshot=service_snapshot,
+            action_snapshot=action_snapshot,
+            node_snapshot=node_snapshot,
+            alerts=alerts,
+        )
 
     def latest_message(self, name: str) -> dict[str, Any]:
         """지정한 Topic의 최신 수신 메시지를 TopicRuntime에서 가져옵니다."""
@@ -468,80 +446,28 @@ class RosMonitor:
         node_snapshot = self._node_runtime.snapshot()
         nodes = node_snapshot['nodes']
 
-        alerts = build_alerts(
+        alerts = collect_runtime_alerts(
             topics=topics,
             subscriptions=subscriptions,
+            services=services,
+            actions=actions,
+            nodes=nodes,
             detected_at=detected_at,
             stale_timeout_sec=self._config.stale_timeout_sec,
             required_stream_names=self._config.topics_required_stream_names,
             command_names=self._config.topics_command_names,
         )
-        alerts.extend(
-            build_service_alerts(
-                services=services,
-                detected_at=detected_at,
-            ),
-        )
-        alerts.extend(
-            build_action_alerts(
-                actions=actions,
-                detected_at=detected_at,
-            ),
-        )
-        alerts.extend(
-            build_node_alerts(
-                nodes=nodes,
-                detected_at=detected_at,
-            ),
-        )
         with self._lock:
-            current_ids = {
-                alert['id'] for alert in alerts if alert.get('id')
-            }
-            self._dismissed_alert_ids.intersection_update(current_ids)
-            alerts = [
-                alert for alert in alerts
-                if alert.get('id') not in self._dismissed_alert_ids
-            ]
-            alerts = retain_alerts(
-                alert_history=self._alert_history,
+            alerts, alert_history, visible_ids = reconcile_alert_state(
                 current_alerts=alerts,
-                history_limit=50,
+                dismissed_alert_ids=self._dismissed_alert_ids,
+                alert_history=self._alert_history,
                 retained_alerts=self._retained_alerts,
-                retained_codes={
-                    'topic_message_missing',
-                    'topic_stale',
-                    'topic_disconnected',
-                    'service_disconnected',
-                    'service_call_failed',
-                    'service_call_timeout',
-                    'action_disconnected',
-                    'action_goal_aborted',
-                    'action_goal_canceled',
-                    'action_goal_rejected',
-                    'action_goal_send_failed',
-                    'action_result_timeout',
-                    'action_result_unavailable',
-                    'node_stale',
-                },
                 detected_at=detected_at,
             )
-            alert_history = [
-                alert.copy() for alert in self._alert_history
-            ]
-            self._visible_alert_ids = {
-                alert['id'] for alert in alerts
-                if alert.get('id')
-                and alert.get('alert_state') != 'resolved'
-            }
+            self._visible_alert_ids = visible_ids
 
-        return {
-            'success': True,
-            'data': alerts,
-            'history': alert_history,
-            'meta': build_alert_meta(alerts),
-            'message': 'ROS2 alerts fetched successfully',
-        }
+        return alert_response(alerts, alert_history)
 
     def reset_alert_history(self) -> dict[str, int]:
         """해결된 Alert의 메모리 history만 삭제합니다."""
@@ -561,16 +487,7 @@ class RosMonitor:
         return {'cleared': len(dismissed_ids)}
 
     def _spin(self) -> None:
-        if self._node is None:
-            return
-
-        try:
-            rclpy.spin(self._node)
-        except rclpy.executors.ExternalShutdownException:
-            pass
-        except Exception:
-            if rclpy.ok():
-                raise
+        spin_monitor_node(self._node)
 
     def _update_graph(self) -> None:
         self._node_runtime.update()

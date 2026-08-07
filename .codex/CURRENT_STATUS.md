@@ -105,6 +105,35 @@ ros2_dashboard/
 - Topic latest/Hz의 Message class import, adaptive subscription QoS 선택, timestamp window 기반
   Hz/age/stale 계산과 공개 응답 payload는 `ros2_topic/query_support.py`가 담당한다. runtime은 요청 검증,
   subscription 보장과 cache 접근 순서를 조정한다.
+- Action Graph 전체 조회와 Node별 server/client endpoint count 집계는 `ros2_action/graph.py`가 담당한다.
+  `ActionRuntime`의 기존 Graph private method는 테스트·호환 facade로 유지된다.
+- Action status/feedback subscription 생성, endpoint별 adaptive QoS와 capability 상태, 내부 subscriber count,
+  subscription destroy는 `ros2_action/subscription_lifecycle.py`가 담당한다. runtime은 entry 교체와 result
+  runtime support/cleanup 순서를 조정한다.
+- Topic·Service·Action·Node Alert 생성 병합과 dismissed/retained/resolved/history 상태 전이는
+  `alert_assembler.py`가 담당한다. `RosMonitor`는 각 runtime snapshot을 수집하고 lock 아래 상태 전이 결과를
+  저장한다.
+- Browser WebSocket용 경량 `monitor_snapshot` payload와 Topic/Service/Action/Node meta 축약은
+  `snapshot_summary.py`가 담당한다. `RosMonitor`는 원본 snapshot과 Alert를 수집해 전달한다.
+- rclpy 초기화, Monitor Node/timer 생성, daemon spin thread 시작, shutdown/join/destroy는
+  `monitor_lifecycle.py`가 담당한다. `RosMonitor.stop()`은 Interface runtime 중지·clear와 Alert cache
+  초기화 순서를 유지한다.
+- Interface Lab Action Goal history의 Feedback/Result 이벤트 변환, reset 경계 필터링, Action별 최근
+  결과와 성공·실패·취소 누적 summary는 `execution/action_history.py`가 담당한다.
+- Frontend Interface Lab Receive의 Topic·Service·Action mode별 Panel 선택과 Workbench View는
+  `features/interface-lab/InterfaceReceiveWorkspace.jsx`가 담당한다. `InterfaceUploadControl`은 각 Controller
+  상태와 callback을 mode별 props로 그룹화한다.
+- Frontend Interface Lab의 Graph Service/Action entry 병합과 callable workspace item 변환은
+  `model/workspaceGraphItems.js`가 담당한다. Registry/package item 병합은 `workspaceItems.js`에 남아 있다.
+- Frontend 수동 Interface 입력 상태, 기존 type 등록, definition 작성·수정·문법 검증은
+  `hooks/useManualInterfaceController.js`가 담당한다. 상위 management controller는 삭제·upload·apply 및
+  Registry/Package 상태 동기화를 담당하고 기존 평면 반환값을 재노출한다.
+- Frontend Service/Action 수신 관찰의 선택·검색·start/stop·전체/선택 history reset은 범용
+  `hooks/useResourceReceiveObserver.js`가 담당한다. Topic은 실제 subscription 생성/중지가 필요하므로
+  `useInterfaceReceiveController.js`에 별도 흐름으로 유지한다.
+- Monitor FastAPI transport의 Content-Length/stream 이중 크기 제한과 JSON object 요청 검증은
+  `transport/request_parsing.py`가 담당한다. Interface Router는 endpoint별 payload 변환과 도메인 오류의
+  HTTP status 매핑을 담당한다.
 - Topic/Service/Action/Node 감시 폴더명은 각각 `ros2_topic`, `ros2_service`, `ros2_action`,
   `ros2_node`다.
 
@@ -155,6 +184,17 @@ Topic snapshot 조립 단위 테스트 추가 후 직접 pytest: 126 passed
 Topic subscription lifecycle 단위 테스트 추가 후 직접 pytest: 129 passed
 Topic Graph collector 단위 테스트 추가 후 직접 pytest: 132 passed
 Topic query support 단위 테스트 추가 후 직접 pytest: 135 passed
+Action Graph 집계 단위 테스트 추가 후 직접 pytest: 138 passed
+Action subscription lifecycle 단위 테스트 추가 후 직접 pytest: 141 passed
+Monitor Alert assembler 단위 테스트 추가 후 직접 pytest: 144 passed
+WebSocket 경량 snapshot 계약 테스트 추가 후 직접 pytest: 145 passed
+Monitor rclpy lifecycle 단위 테스트 추가 후 직접 pytest: 148 passed
+Interface Action history 단위 테스트 추가 후 직접 pytest: 151 passed
+Frontend Interface Receive Workspace 분리 후 lint/build: 성공, 초기 bundle 210.21 KB
+Frontend Workspace Graph item 분리 후 lint/build/direct model 실행: 성공
+Frontend Manual Interface controller 분리 후 lint/build: 성공
+Frontend Service/Action receive observer 분리 후 lint/build: 성공
+Monitor transport request parser 단위 테스트 추가 후 직접 pytest: 156 passed
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -176,7 +216,7 @@ Topic query support 단위 테스트 추가 후 직접 pytest: 135 passed
 1. 먼저 현재 staged/unstaged/untracked QoS diff를 보존한 채 범위를 재확인한다.
 2. QoS 관련 정적 검사, ROS2 119 tests, Backend tests, Frontend lint/build를 변경 후 다시 실행한다.
 3. 사용자 승인 시에만 QoS 변경과 문서 변경을 의도별 commit으로 정리한다.
-4. Topic runtime은 458줄 coordinator로 축소되어 이번 우선 분리 구간을 마쳤다. 다음 ROS2 우선 대상은
-   `ros2_action/runtime.py`의 Graph 수집, status/feedback subscription과 상태 조립 경계를 다시 확인한다.
+4. `transport/routers/interface_management.py`는 공통 request parser 분리 후 338줄로 감소했다. 다음 구간은
+   Package upload/folder/list/delete endpoint를 별도 Router로 분리하고 기존 root router에 include한다.
 5. 신규 기능은 WSS와 MariaDB Alert 이력 설계를 우선하며, 미구현 항목을 현재 기능으로
    보고하지 않는다.

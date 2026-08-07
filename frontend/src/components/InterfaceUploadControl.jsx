@@ -11,12 +11,7 @@ import {
   RegisteredInterfacesPanel,
   UploadedPackagesPanel,
 } from '../features/interface-lab/InterfaceManagementPanels.jsx'
-import {
-  ActionReceivePanel,
-  InterfaceReceiveWorkbench,
-  ServiceReceivePanel,
-  TopicReceivePanel,
-} from '../features/interface-lab/InterfaceReceivePanels.jsx'
+import { InterfaceReceiveWorkspace } from '../features/interface-lab/InterfaceReceiveWorkspace.jsx'
 import { useInterfaceManagementController } from '../features/interface-lab/hooks/useInterfaceManagementController.js'
 import { useActionExecutionController } from '../features/interface-lab/hooks/useActionExecutionController.js'
 import { useInterfaceControlLifecycle } from '../features/interface-lab/hooks/useInterfaceControlLifecycle.js'
@@ -311,76 +306,66 @@ export function InterfaceUploadControl({
           onValidateDefinition={validateCurrentManualDefinition}
         />
       )}
-      {showReceivePanel && (
-        <InterfaceReceiveWorkbench
-          expanded={topicExpandedActive}
-          mode={receiveMode}
-          onModeChange={selectReceiveMode}
-          onToggleExpanded={toggleWorkspaceExpanded}
-        >
-          {receiveMode === 'topic' && (
-            <TopicReceivePanel
-              allMessages={callableMessages}
-              allTopics={availableTopics}
-              filteredTopics={filteredReceiveTopics}
-              importableOnly={topicImportableOnly}
-              onImportableOnlyChange={setTopicImportableOnly}
-              onMessageSelect={(key) => {
-                setSelectedMessageKey(key)
-              }}
-              onRefresh={loadReceiveState}
-              onResetAll={resetAllTopicReceiveHistory}
-              onResetSelected={resetSelectedTopicReceiveHistory}
-              onSearchChange={setReceiveTopicSearch}
-              onStart={startSelectedTopicReceive}
-              onStop={stopSelectedTopicReceive}
-              onTopicNameChange={setSelectedReceiveTopic}
-              receiveHistory={visibleReceiveTopicHistory}
-              receiving={selectedTopicReceiving}
-              receivingTopics={receiveTopics}
-              search={receiveTopicSearch}
-              selectedMessage={selectedMessage}
-              selectedMessageKey={selectedMessageKey}
-              selectedTopic={selectedReceiveTopic}
-              visibleMessages={visibleCallableMessages}
-            />
-          )}
-          {receiveMode === 'service' && (
-            <ServiceReceivePanel
-              activeKey={activeReceiveServiceKey}
-              history={visibleReceiveServiceHistory}
-              items={callableServices}
-              onRefresh={loadReceiveState}
-              onResetAll={resetServiceReceiveHistory}
-              onResetSelected={resetSelectedServiceReceiveHistory}
-              onSearchChange={setReceiveServiceSearch}
-              onSelect={setSelectedServiceKey}
-              onStart={startSelectedServiceReceive}
-              onStop={stopSelectedServiceReceive}
-              search={receiveServiceSearch}
-              selectedKey={selectedReceiveServiceKey}
-              visibleItems={filteredReceiveServices}
-            />
-          )}
-          {receiveMode === 'action' && (
-            <ActionReceivePanel
-              activeKey={activeReceiveActionKey}
-              history={visibleReceiveActionHistory}
-              items={callableActions}
-              onRefresh={loadReceiveState}
-              onResetAll={resetActionReceiveHistory}
-              onResetSelected={resetSelectedActionReceiveHistory}
-              onSearchChange={setReceiveActionSearch}
-              onSelect={setSelectedActionKey}
-              onStart={startSelectedActionReceive}
-              onStop={stopSelectedActionReceive}
-              search={receiveActionSearch}
-              selectedKey={selectedReceiveActionKey}
-              visibleItems={filteredReceiveActions}
-            />
-          )}
-        </InterfaceReceiveWorkbench>
-      )}
+      <InterfaceReceiveWorkspace
+        action={{
+          activeKey: activeReceiveActionKey,
+          history: visibleReceiveActionHistory,
+          items: callableActions,
+          onRefresh: loadReceiveState,
+          onResetAll: resetActionReceiveHistory,
+          onResetSelected: resetSelectedActionReceiveHistory,
+          onSearchChange: setReceiveActionSearch,
+          onSelect: setSelectedActionKey,
+          onStart: startSelectedActionReceive,
+          onStop: stopSelectedActionReceive,
+          search: receiveActionSearch,
+          selectedKey: selectedReceiveActionKey,
+          visibleItems: filteredReceiveActions,
+        }}
+        expanded={topicExpandedActive}
+        mode={receiveMode}
+        onModeChange={selectReceiveMode}
+        onToggleExpanded={toggleWorkspaceExpanded}
+        open={showReceivePanel}
+        service={{
+          activeKey: activeReceiveServiceKey,
+          history: visibleReceiveServiceHistory,
+          items: callableServices,
+          onRefresh: loadReceiveState,
+          onResetAll: resetServiceReceiveHistory,
+          onResetSelected: resetSelectedServiceReceiveHistory,
+          onSearchChange: setReceiveServiceSearch,
+          onSelect: setSelectedServiceKey,
+          onStart: startSelectedServiceReceive,
+          onStop: stopSelectedServiceReceive,
+          search: receiveServiceSearch,
+          selectedKey: selectedReceiveServiceKey,
+          visibleItems: filteredReceiveServices,
+        }}
+        topic={{
+          allMessages: callableMessages,
+          allTopics: availableTopics,
+          filteredTopics: filteredReceiveTopics,
+          importableOnly: topicImportableOnly,
+          onImportableOnlyChange: setTopicImportableOnly,
+          onMessageSelect: setSelectedMessageKey,
+          onRefresh: loadReceiveState,
+          onResetAll: resetAllTopicReceiveHistory,
+          onResetSelected: resetSelectedTopicReceiveHistory,
+          onSearchChange: setReceiveTopicSearch,
+          onStart: startSelectedTopicReceive,
+          onStop: stopSelectedTopicReceive,
+          onTopicNameChange: setSelectedReceiveTopic,
+          receiveHistory: visibleReceiveTopicHistory,
+          receiving: selectedTopicReceiving,
+          receivingTopics: receiveTopics,
+          search: receiveTopicSearch,
+          selectedMessage,
+          selectedMessageKey,
+          selectedTopic: selectedReceiveTopic,
+          visibleMessages: visibleCallableMessages,
+        }}
+      />
       {applyStatus?.build_status === 'failed' && (
         <BuildFailurePanel
           applying={applying}

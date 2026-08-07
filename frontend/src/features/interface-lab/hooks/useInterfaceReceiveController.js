@@ -19,6 +19,7 @@ import {
 import { fetchTopics } from '../../../api/monitoring.js'
 import { actionKey, serviceKey } from '../model/interfaceUploadModel.js'
 import { topicHasType } from '../../../utils/interfaceTopics.js'
+import { useResourceReceiveObserver } from './useResourceReceiveObserver.js'
 
 export function useInterfaceReceiveController({
   actions,
@@ -42,10 +43,6 @@ export function useInterfaceReceiveController({
   const [selectedTopic, setSelectedTopic] = useState('')
   const selectedTopicSourceRef = useRef('empty')
   const [topicSearch, setTopicSearch] = useState('')
-  const [activeServiceKey, setActiveServiceKey] = useState('')
-  const [serviceSearch, setServiceSearch] = useState('')
-  const [activeActionKey, setActiveActionKey] = useState('')
-  const [actionSearch, setActionSearch] = useState('')
   const [topicHistory, setTopicHistory] = useState([])
   const [serviceHistory, setServiceHistory] = useState([])
   const [actionHistory, setActionHistory] = useState([])
@@ -60,22 +57,6 @@ export function useInterfaceReceiveController({
       return `${topic.name} ${topicType}`.toLowerCase().includes(keyword)
     })
   }, [availableTopics, selectedMessage?.message_type, topicSearch])
-  const filteredServices = services.filter((service) => {
-    const keyword = serviceSearch.trim().toLowerCase()
-    if (!keyword) return true
-    return `${service.service_name ?? service.file_name ?? ''} ${service.service_type ?? ''}`.toLowerCase().includes(keyword)
-  })
-  const filteredActions = actions.filter((action) => {
-    const keyword = actionSearch.trim().toLowerCase()
-    if (!keyword) return true
-    return `${action.action_name ?? action.file_name ?? ''} ${action.action_type ?? ''}`.toLowerCase().includes(keyword)
-  })
-  const selectedService = services.find(
-    (service) => serviceKey(service) === selectedReceiveServiceKey,
-  )
-  const selectedAction = actions.find(
-    (action) => actionKey(action) === selectedReceiveActionKey,
-  )
   const selectedTopicReceiving = topics.some((topic) =>
     topic.topic_name === selectedTopic
     && (!selectedMessage?.message_type || topic.topic_type === selectedMessage.message_type)
@@ -85,16 +66,6 @@ export function useInterfaceReceiveController({
     (!selectedTopic || event.topic_name === selectedTopic)
     && (!selectedMessage?.message_type || event.topic_type === selectedMessage.message_type),
   )
-  const visibleServiceHistory = selectedService && activeServiceKey === selectedReceiveServiceKey
-    ? serviceHistory.filter((event) =>
-      event.service_name === selectedService.service_name
-      && event.service_type === selectedService.service_type)
-    : []
-  const visibleActionHistory = selectedAction && activeActionKey === selectedReceiveActionKey
-    ? actionHistory.filter((event) =>
-      event.action_name === selectedAction.action_name
-      && event.action_type === selectedAction.action_type)
-    : []
 
   useEffect(() => {
     if (!selectedMessage?.message_type) return
@@ -174,6 +145,51 @@ export function useInterfaceReceiveController({
     setSelectedReceiveServiceKey,
   ])
 
+  const serviceObserver = useResourceReceiveObserver({
+    history: serviceHistory,
+    itemKey: serviceKey,
+    items: services,
+    kind: 'Service',
+    load,
+    nameField: 'service_name',
+    resetHistory: resetReceiveServiceHistory,
+    selectedKey: selectedReceiveServiceKey,
+    setFeedback,
+    typeField: 'service_type',
+  })
+  const actionObserver = useResourceReceiveObserver({
+    history: actionHistory,
+    itemKey: actionKey,
+    items: actions,
+    kind: 'Action',
+    load,
+    nameField: 'action_name',
+    resetHistory: resetReceiveActionHistory,
+    selectedKey: selectedReceiveActionKey,
+    setFeedback,
+    typeField: 'action_type',
+  })
+  const {
+    activeKey: activeServiceKey,
+    filteredItems: filteredServices,
+    reset: resetServices,
+    search: serviceSearch,
+    setSearch: setServiceSearch,
+    start: startService,
+    stop: stopService,
+    visibleHistory: visibleServiceHistory,
+  } = serviceObserver
+  const {
+    activeKey: activeActionKey,
+    filteredItems: filteredActions,
+    reset: resetActions,
+    search: actionSearch,
+    setSearch: setActionSearch,
+    start: startAction,
+    stop: stopAction,
+    visibleHistory: visibleActionHistory,
+  } = actionObserver
+
   useEffect(() => {
     if (!open || mode === 'mock') return undefined
     const timer = window.setInterval(() => load({ silent: true }), 1000)
@@ -252,104 +268,6 @@ export function useInterfaceReceiveController({
       setFeedback({
         tone: 'success',
         text: `수신 중 Topic ${payload.data?.removed ?? 0}개와 이력 ${payload.data?.cleared ?? 0}개를 전체 삭제했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const startService = async () => {
-    if (!selectedService) {
-      setFeedback({ tone: 'error', text: '수신할 Service를 선택하세요.' })
-      return
-    }
-    try {
-      await resetReceiveServiceHistory({
-        service_name: selectedService.service_name,
-        service_type: selectedService.service_type,
-      })
-      setActiveServiceKey(selectedReceiveServiceKey)
-      await load()
-      setFeedback({ tone: 'success', text: `${selectedService.service_name} Service 수신 관찰을 시작했습니다.` })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const stopService = async () => {
-    if (!activeServiceKey) {
-      setFeedback({ tone: 'warning', text: '수신 중인 Service 관찰 항목이 없습니다.' })
-      return
-    }
-    setActiveServiceKey('')
-    setFeedback({ tone: 'warning', text: 'Service 수신 관찰을 중지했습니다.' })
-  }
-
-  const resetServices = async (selectedOnly = false) => {
-    if (selectedOnly && !selectedService) {
-      setFeedback({ tone: 'error', text: '리셋할 Service를 선택하세요.' })
-      return
-    }
-    try {
-      const payload = await resetReceiveServiceHistory(selectedOnly ? {
-        service_name: selectedService.service_name,
-        service_type: selectedService.service_type,
-      } : undefined)
-      await load()
-      setFeedback({
-        tone: 'success',
-        text: selectedOnly
-          ? `${selectedService.service_name} 수신 이력 ${payload.data?.cleared ?? 0}개를 리셋했습니다.`
-          : `Service 수신 이력 ${payload.data?.cleared ?? 0}개를 전체 리셋했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const startAction = async () => {
-    if (!selectedAction) {
-      setFeedback({ tone: 'error', text: '수신할 Action을 선택하세요.' })
-      return
-    }
-    try {
-      await resetReceiveActionHistory({
-        action_name: selectedAction.action_name,
-        action_type: selectedAction.action_type,
-      })
-      setActiveActionKey(selectedReceiveActionKey)
-      await load()
-      setFeedback({ tone: 'success', text: `${selectedAction.action_name} Action 수신 관찰을 시작했습니다.` })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const stopAction = async () => {
-    if (!activeActionKey) {
-      setFeedback({ tone: 'warning', text: '수신 중인 Action 관찰 항목이 없습니다.' })
-      return
-    }
-    setActiveActionKey('')
-    setFeedback({ tone: 'warning', text: 'Action 수신 관찰을 중지했습니다.' })
-  }
-
-  const resetActions = async (selectedOnly = false) => {
-    if (selectedOnly && !selectedAction) {
-      setFeedback({ tone: 'error', text: '리셋할 Action을 선택하세요.' })
-      return
-    }
-    try {
-      const payload = await resetReceiveActionHistory(selectedOnly ? {
-        action_name: selectedAction.action_name,
-        action_type: selectedAction.action_type,
-      } : undefined)
-      await load()
-      setFeedback({
-        tone: 'success',
-        text: selectedOnly
-          ? `${selectedAction.action_name} 수신 이력 ${payload.data?.cleared ?? 0}개를 리셋했습니다.`
-          : `Action 수신 이력 ${payload.data?.cleared ?? 0}개를 전체 리셋했습니다.`,
       })
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message })

@@ -599,3 +599,207 @@
 - 남은 문제: 실제 Publisher를 띄운 latest/Hz 통합 검수는 이번 구조 이동에서 재실행하지 않았다.
 - 다음 AI: Topic runtime 구간은 coordinator 수준으로 정리됐다. 다음 ROS2 우선 대상인
   `ros2_action/runtime.py`의 Graph 수집과 status/feedback subscription 책임을 조사한다.
+
+## 2026-08-07 - Action Graph API와 endpoint count 집계 분리
+
+- 작업: 전체 Action 이름/type 조회, ROS Node 목록 순회, Node별 Action server/client 조회와 이름별 count
+  병합을 `ros2_action/graph.py`로 이동했다.
+- 이유와 기준: rclpy Action Graph 조회 실패 처리와 endpoint 집계는 status/feedback subscription 및
+  result runtime 상태와 독립된 읽기 책임이다. 기존 runtime private method는 facade로 유지해 테스트 대체
+  지점과 호출 계약을 보존했다.
+- 정책 보존: Graph/Node별 조회 실패 시 빈 결과 fallback, 동일 Action의 복수 server/client count 누적,
+  runtime `_action_count_maps` monkeypatch 가능성과 public Action snapshot 구조를 유지했다.
+- 결과: `ros2_action/runtime.py`는 537줄에서 470줄로 감소했다. 신규 Graph 모듈은 122줄이며 다중 Node
+  집계와 Graph/Node 조회 실패 fallback 테스트 3개를 추가했다.
+- 검증: Python compile, Action/QoS/Topology targeted 20 tests, workspace install 환경 Monitor 전체
+  138 tests가 통과했다.
+- 남은 문제: 실제 Action server/client Node를 띄운 Graph count 통합 검수는 이번 구조 이동에서
+  재실행하지 않았다.
+- 다음 AI: status/feedback subscription 생성과 adaptive QoS, capability 저장, 사라진 Action cleanup을
+  lifecycle 모듈로 분리하되 result runtime cleanup 순서를 유지한다.
+
+## 2026-08-07 - Action status/feedback subscription lifecycle 분리
+
+- 작업: Action status/feedback subscription 생성, Graph endpoint 기반 adaptive QoS 선택과 불일치 error type,
+  Action service/topic 기본 QoS 상태, capability snapshot, Monitor 내부 subscriber count, entry subscription
+  destroy를 `ros2_action/subscription_lifecycle.py`로 이동했다.
+- 이유와 기준: rclpy endpoint 생성·파괴 및 QoS 상태는 Action Graph item 조립과 result 관찰 orchestration과
+  독립된 resource lifecycle이다. runtime에는 entry type 교체, status/feedback/result support 결과 저장,
+  사라진 Action의 result cleanup 순서를 유지했다.
+- 정책 보존: Goal/Result/Cancel은 service default/unknown, Feedback/Status는 Graph 비교, endpoint별
+  `action_feedback_qos_incompatible`/`action_status_qos_incompatible`, feedback 비활성/import 실패 사유,
+  기존 private facade와 snapshot key를 유지했다.
+- 결과: `ros2_action/runtime.py`는 470줄에서 348줄로 감소했다. 신규 lifecycle 모듈은 200줄이며 Status QoS
+  저장, Feedback disabled reason, count/capability/destroy를 검증하는 테스트 3개를 추가했다.
+- 검증: Python compile, Action lifecycle/runtime/QoS targeted 22 tests, workspace install 환경 Monitor 전체
+  141 tests가 통과했다.
+- 남은 문제: 실제 Action server의 BEST_EFFORT feedback/status endpoint를 사용한 통합 검수는 이번 구조
+  이동에서 재실행하지 않았다.
+- 다음 AI: Action runtime은 coordinator 수준으로 정리됐다. 현재 가장 큰 ROS2 coordinator인 582줄
+  `ros_monitor.py`의 update/snapshot/alert 조립 책임을 조사한다.
+
+## 2026-08-07 - Monitor Alert 생성과 메모리 상태 전이 분리
+
+- 작업: Topic·Service·Action·Node Alert builder 호출과 병합, retained 대상 code 집합, dismissed ID 정리,
+  active/resolved history 전이, visible ID 계산과 공개 응답 조립을 `alert_assembler.py`로 이동했다.
+- 이유와 기준: ROS Runtime snapshot 수집은 coordinator 책임이지만 수집 완료된 상태에서 Alert를 계산하고
+  메모리 정책을 적용하는 과정은 독립적인 정책 계층이다. lock 소유권은 `RosMonitor`에 유지했다.
+- 정책 보존: 기존 retained code 14개, history limit 50, 현재 발생 중인 dismissed Alert 숨김, 해결된 Alert
+  history 복사, `success/data/history/meta/message` 응답 key와 reset 동작을 유지했다.
+- 결과: `ros_monitor.py`는 582줄에서 527줄로 감소했다. 신규 assembler는 107줄이며 Runtime 경고 병합,
+  dismissed 교집합 정리, 공개 응답 key를 검증하는 테스트 3개를 추가했다.
+- 검증: 첫 targeted 실행은 존재하지 않는 Node Alert 파일명을 지정해 테스트 수집 전 실패했다. 실제 파일
+  범위로 정정한 Alert targeted 38 tests, Python compile, workspace install 환경 Monitor 전체 144 tests가
+  통과했다.
+- 남은 문제: Alert 영속 MariaDB 연결은 아직 구현되지 않았으며 현재 history는 Monitor 메모리 상태다.
+- 다음 AI: `ros_monitor.py`의 WebSocket 경량 snapshot payload 조립을 분리한 뒤 start/stop/spin lifecycle
+  분리 필요성을 검토한다.
+
+## 2026-08-07 - WebSocket 경량 snapshot payload 조립 분리
+
+- 작업: Topic/Service/Action/Node snapshot과 Alert 응답을 Browser WebSocket용 `monitor_snapshot`으로
+  축약하는 조립 함수를 `snapshot_summary.py`에 추가하고 `RosMonitor.websocket_snapshot()`은 원본 상태
+  수집과 timestamp 전달만 담당하게 했다.
+- 이유와 기준: snapshot 수집은 coordinator의 실행 순서 책임이지만 고정된 WebSocket payload와 meta 축약은
+  transport 표현 책임이다. 기존 class static meta helper는 이전 테스트와 내부 호환을 위해 유지했다.
+- 정책 보존: `type/timestamp/data`, `topics/services/actions/nodes/alerts` key, Topic latest preview,
+  callable/실행/상태 count 계산과 Alert `data` 전달 의미를 유지했다.
+- 결과: `ros_monitor.py`는 527줄에서 514줄로 감소했다. 경량 payload 전체 key와 주요 meta를 검증하는
+  테스트 1개를 추가했다.
+- 검증: WebSocket/runtime/topic targeted 24 tests, Python compile, workspace install 환경 Monitor 전체
+  145 tests가 통과했다.
+- 남은 문제: 실제 Browser WebSocket 연결·재연결 통합은 이번 순수 payload 이동에서 재실행하지 않았다.
+- 다음 AI: rclpy Node/timer/thread start/stop/spin lifecycle을 분리해 `RosMonitor`를 500줄 아래 coordinator로
+  정리하되 모든 Interface runtime clear 순서를 보존한다.
+
+## 2026-08-07 - Monitor rclpy Node와 spin thread lifecycle 분리
+
+- 작업: rclpy init, 고정 Monitor Node 생성, Graph update timer 등록, daemon spin thread 시작,
+  shutdown → thread join → Node destroy와 정상 ExternalShutdown 예외 처리를 `monitor_lifecycle.py`로 이동했다.
+- 이유와 기준: ROS process resource 생명주기는 Topic/Service/Action runtime 조립과 독립적인 실패·정리
+  경계를 가진다. Interface continuous publish 중지와 각 runtime clear, Alert cache 초기화는 기존
+  `RosMonitor.stop()`에 남겨 의미와 순서를 보존했다.
+- 정책 보존: Node 이름 `ros2_dashboard_topic_monitor`, 설정 poll interval, 최초 `_update_graph()` 후 spin,
+  이미 살아 있는 thread의 start 무시, join timeout 2초, shutdown 중 예외 정책을 유지했다.
+- 결과: `ros_monitor.py`는 514줄에서 499줄로 감소해 500줄 우선 조사 기준 아래가 됐다. 신규 lifecycle
+  모듈은 58줄이며 init/timer, daemon thread 실행, shutdown/join/destroy 테스트 3개를 추가했다.
+- 검증: lifecycle/runtime/WebSocket targeted 12 tests, Python compile, workspace install 환경 Monitor 전체
+  148 tests가 통과했다.
+- 남은 문제: 실제 Monitor process를 장시간 기동·종료하는 통합 검수는 이번 구조 이동에서 재실행하지 않았다.
+- 다음 AI: `ros_monitor.py` coordinator 구간은 정리됐다. 다음 대형 ROS2 대상인 557줄 Interface Lab
+  `action_goal_runtime.py`의 Goal 실행, client/QoS 상태와 history 책임을 조사한다.
+
+## 2026-08-07 - Interface Lab Action Goal history 이벤트·summary 분리
+
+- 작업: 저장된 Goal history를 Feedback/Result 수신 이벤트로 펼치는 변환, 전체/Action별 reset 시각 필터,
+  Action name/type별 성공·실패·취소 누적과 최근 summary 5건 계산을 `execution/action_history.py`로 이동했다.
+- 이유와 기준: Goal 전송/Cancel/Client QoS는 rclpy 실행 책임이지만 저장된 dict history의 화면 이벤트 변환과
+  통계 계산은 순수 데이터 모델 책임이다. `ActionGoalRuntime`은 history storage와 reset 시각을 소유한다.
+- 정책 보존: Feedback 이벤트 뒤 Result 이벤트 순서, 기존 event key와 ID 형식, global/exact reset 경계,
+  summary key/count/최근 5건 제한을 유지했다. 기존 테스트가 직접 import하는 `_goal_summary` alias도
+  runtime에서 호환 re-export한다.
+- 결과: `action_goal_runtime.py`는 557줄에서 483줄로 감소했다. 신규 history 모듈은 127줄이며 이벤트 순서,
+  reset 경계, outcome count와 history 제한 테스트 3개를 추가했다.
+- 검증: targeted 19 tests는 통과했다. 첫 전체 수집에서 `_goal_summary` alias 제거로 ImportError가 발생해
+  alias를 복구했고, Python compile과 workspace install 환경 Monitor 전체 151 tests가 최종 통과했다.
+- 남은 문제: 실제 Goal feedback/result/cancel 통합 실행은 이번 순수 history 이동에서 재실행하지 않았다.
+- 다음 AI: Frontend의 490줄 `InterfaceUploadControl.jsx`와 490줄 `workspaceItems.js` 중 UI 조립 책임이 남은
+  `InterfaceUploadControl.jsx`를 먼저 조사한다.
+
+## 2026-08-07 - Frontend Interface Receive Workspace View 분리
+
+- 작업: Interface Lab Receive Workbench와 mode별 Topic·Service·Action panel 선택을
+  `features/interface-lab/InterfaceReceiveWorkspace.jsx`로 이동했다. 상위 `InterfaceUploadControl`은 각
+  Controller 상태와 callback을 `topic/service/action` props 객체로 그룹화해 전달한다.
+- 이유와 기준: API/상태 orchestration은 상위 Controller 조립 책임이지만 mode에 따른 View 선택과 공통
+  Workbench layout은 독립 표현 책임이다. 기존 Panel 컴포넌트와 props 계약은 변경하지 않았다.
+- 정책 보존: Receive panel open/expanded/mode 전환, Topic importable filter·start/stop/history reset,
+  Service/Action 선택·검색·start/stop·전체/선택 reset과 실행 Panel 선택 동기화를 유지했다.
+- 결과: `InterfaceUploadControl.jsx`는 490줄에서 475줄로 감소했고 신규 Workspace View는 32줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`가 통과했다. 273 modules가 변환됐고 초기 index bundle은
+  210.21 KB(gzip 66.65 KB), InterfaceLab lazy chunk는 117.11 KB로 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 Receive 탭을 전환하고 ROS Topic/Service/Action을 수신하는 E2E 검수는
+  이번 View 이동에서 재실행하지 않았다.
+- 다음 AI: 490줄 `features/interface-lab/model/workspaceItems.js`의 Topic/Service/Action별 모델 변환과
+  공통 key/filter helper 경계를 조사한다.
+
+## 2026-08-07 - Frontend Workspace Graph Service/Action 모델 분리
+
+- 작업: Graph Service/Action과 callable 후보의 name/type exact merge, server availability 보완, 실행 history
+  연결과 callable workspace item 변환을 `model/workspaceGraphItems.js`로 이동했다. 기존
+  `workspaceItems.js` export는 re-export로 유지했다.
+- 이유와 기준: Graph endpoint 기반 모델은 Registry/package source 모델과 입력 변경 주기가 다르다.
+  `buildWorkspaceItems()`는 각 source item을 모으고 type별 merge/filter하는 coordinator로 유지했다.
+- 추가 수정: `workspaceItems.js`가 사용하면서 import하지 않던 `firstType`, `matchesWorkspaceFilter` 중
+  `matchesWorkspaceFilter` import를 복구했고, `firstType`는 신규 Graph 모듈에서 명시적으로 import했다.
+  이는 build 시 식별되지 않을 수 있지만 실제 함수 실행 시 발생할 ReferenceError를 예방한다.
+- 정책 보존: Service/Action exact name+type key, Graph 값 위에 callable metadata 덮어쓰기, history 필터,
+  `callable_service`/`callable_action` item key와 기존 공개 export 경로를 유지했다.
+- 결과: `workspaceItems.js`는 490줄에서 388줄로 감소했고 신규 Graph item 모듈은 120줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, 최소 입력의 `buildWorkspaceItems()` 직접 ESM 실행이
+  통과했다. 274 modules, 초기 bundle 210.21 KB(gzip 66.66 KB), InterfaceLab chunk 117.44 KB이며
+  500 KB 경고가 없다.
+- 남은 문제: 실제 Registry/package/Graph가 혼합된 복합 데이터에 대한 Frontend 단위 테스트 체계는 없다.
+- 다음 AI: 432줄 `hooks/useInterfaceManagementController.js`에서 Registry/package/apply 상태와 mutation
+  orchestration의 독립 경계를 조사한다.
+
+## 2026-08-07 - Frontend Manual Interface Controller 분리
+
+- 작업: 수동 Interface panel의 mode/kind/type/name/definition/editing 상태, 편집 시작, 기존 build type 등록,
+  definition 작성·수정과 사전 문법 검증을 `hooks/useManualInterfaceController.js`로 이동했다.
+- 이유와 기준: 수동 입력 form과 validation mutation은 package upload/apply/delete 및 Registry 목록 UI와
+  독립된 사용자 흐름이다. 공통 busy/feedback과 load Registry/Apply callback은 명시적으로 주입했다.
+- 정책 보존: `uploaded_interfaces` package 이름, 기존 success/warning/error 메시지 의미, 작성 성공 후
+  Registry·Apply reload, edit 상태 초기화와 `onStateChanged`, 기존 management hook 평면 반환 key 및
+  `MANUAL_INTERFACE_PACKAGE` export를 유지했다.
+- 결과: `useInterfaceManagementController.js`는 432줄에서 389줄로 감소했고 신규 manual hook은 136줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`가 통과했다. 275 modules, 초기 bundle 210.21 KB
+  (gzip 66.66 KB), InterfaceLab chunk 118.35 KB이며 500 KB 경고가 없다.
+- 남은 문제: 수동 Interface API를 실제 Backend/Monitor에 요청하는 Browser E2E는 이번 hook 이동에서
+  재실행하지 않았다.
+- 다음 AI: 394줄 `hooks/useInterfaceReceiveController.js`에서 Topic 수신과 Service/Action history 상태의
+  독립 경계를 조사한다.
+
+## 2026-08-07 - Frontend Service/Action Receive Observer 분리
+
+- 작업: Service와 Action 수신 관찰에서 반복되던 선택 item 조회, 검색 filter, active key, 선택 대상 history,
+  start/stop, 전체/선택 reset 흐름을 범용 `hooks/useResourceReceiveObserver.js`로 이동했다.
+- 이유와 기준: Service/Action의 “수신”은 새 ROS subscription을 만드는 것이 아니라 사용자 실행 history를
+  선택해 관찰하는 동일한 UI 정책이다. Topic은 실제 Monitor subscription start/stop과 Graph 후보 자동 선택이
+  필요하므로 기존 receive controller에 별도로 유지했다.
+- 정책 보존: exact name/type reset payload, start 시 기존 history reset 후 polling reload, active selection에서만
+  history 표시, 검색 대상, 기존 성공/경고/오류 메시지와 상위 hook의 평면 반환 key를 유지했다.
+- 결과: `useInterfaceReceiveController.js`는 394줄에서 312줄로 감소했고 범용 observer hook은 96줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`가 통과했다. 276 modules, 초기 bundle 210.21 KB
+  (gzip 66.65 KB), InterfaceLab chunk 117.68 KB이며 500 KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 Service/Action 관찰 start/stop/reset을 실행하는 E2E 검수는 이번 hook 이동에서
+  재실행하지 않았다.
+- 다음 AI: 378줄 Monitor `transport/routers/interface_management.py`에서 HTTP parsing/validation과
+  Registry/package filesystem 작업 호출이 올바르게 분리되어 있는지 조사한다.
+
+## 2026-08-07 - 기능 분리 리팩토링 진행률 재평가
+
+- 현재 코드, 대형 파일 분포, 완료된 책임 분리와 검수 기록을 기준으로 전체 기능 분리 리팩토링을 약
+  78% 완료로 평가했다. ROS2 Monitor 약 82%, Frontend 약 76%, 순수 FastAPI Backend 약 72% 수준이다.
+- 남은 핵심은 Monitor Interface management router, config loader와 일부 runtime 경계, Frontend
+  Visualization/Overview/Interface Lab 잔여 coordinator, Backend service/repository 경계 재점검 및 전체
+  stack 통합 검수다. 줄 수만 줄이는 작업은 완료 기준으로 계산하지 않았다.
+- 현재 미커밋 변경 파일은 23개다. 다음 작업 전에 변경 묶음을 보존하고 구간 검수를 계속한다.
+
+## 2026-08-07 - Monitor transport request parsing 분리
+
+- 작업: 업로드 Content-Length 선검사와 실제 async stream 누적 크기 제한, JSON decode와 object type 검증을
+  `transport/request_parsing.py`로 이동했다. 단일 Interface, ZIP package, folder multipart endpoint가 동일
+  helper를 사용하도록 변경했다.
+- 이유와 기준: body 크기 제한과 JSON shape 검증은 Registry/Package 도메인 작업이 아니라 HTTP transport
+  보안·파싱 책임이다. endpoint별 payload limit/overhead와 기존 오류 문구는 Router에서 명시적으로 전달한다.
+- 정책 보존: 단일 파일 64 KiB multipart overhead, ZIP 64 KiB, folder 512 KiB, header가 없거나 잘못된 경우에도
+  실제 stream 상한 적용, 기존 400/413 status와 detail, 공개 endpoint/응답 key를 유지했다.
+- 결과: `interface_management.py`는 378줄에서 338줄로 감소했고 공통 parser는 50줄이다. Header/stream
+  overflow, 정상 body, JSON object/비-object/decode 실패 테스트 5개를 추가했다.
+- 검증: 첫 targeted 수집은 pytest 예약 fixture 이름 `request`를 parametrize 인자로 사용해 실패했다.
+  `incoming_request`로 정정 후 targeted 17 tests, Python compile, workspace install 환경 Monitor 전체
+  156 tests가 통과했다.
+- 남은 문제: 실제 multipart HTTP upload 통합 요청은 이번 helper 이동에서 재실행하지 않았다.
+- 다음 AI: Package upload/folder/list/delete endpoint를 별도 Router 모듈로 이동하고 root router include와
+  공개 경로가 유지되는지 검증한다.
