@@ -1,13 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ManualInterfacePanel,
-  InterfaceUploadToolbar,
-  actionKey,
-  defaultRequestValues,
-  messageKey,
-  normalizeNumericValues,
-  serviceKey,
-} from '../features/interface-lab/InterfaceUploadParts.jsx'
+import { useRef, useState } from 'react'
+import { ManualInterfacePanel } from '../features/interface-lab/InterfaceManualPanel.jsx'
+import { InterfaceUploadToolbar } from '../features/interface-lab/InterfaceUploadToolbar.jsx'
 import {
   ActionExecutionPanel,
   ServiceExecutionPanel,
@@ -25,37 +18,12 @@ import {
   TopicReceivePanel,
 } from '../features/interface-lab/InterfaceReceivePanels.jsx'
 import { useInterfaceManagementController } from '../features/interface-lab/hooks/useInterfaceManagementController.js'
-import {
-  graphPublishTopicCandidates,
-  topicHasType,
-  topicNameTypeWarning,
-} from '../utils/interfaceTopics.js'
-import { fetchInterfaceApplyStatus, fetchInterfacePackages, fetchInterfaceRegistry } from '../api/interfaceManagement.js'
-import { fetchTopics } from '../api/monitoring.js'
-import {
-  callRegisteredService,
-  fetchActionGoalHistory,
-  fetchCallableActions,
-  fetchCallableMessages,
-  fetchCallableServices,
-  fetchContinuousTopicPublishes,
-  fetchReceiveActionHistory,
-  fetchReceiveServiceHistory,
-  fetchReceiveTopicHistory,
-  fetchReceiveTopics,
-  fetchServiceCallHistory,
-  fetchTopicPublishHistory,
-  publishTopicMessage,
-  resetReceiveActionHistory,
-  resetReceiveServiceHistory,
-  resetReceiveTopicHistory,
-  resetTopicPublishHistory,
-  sendActionGoal,
-  startReceiveTopic,
-  startContinuousTopicPublish,
-  stopContinuousTopicPublish,
-  stopReceiveTopic,
-} from '../api/interfaceExecution.js'
+import { useActionExecutionController } from '../features/interface-lab/hooks/useActionExecutionController.js'
+import { useInterfaceControlLifecycle } from '../features/interface-lab/hooks/useInterfaceControlLifecycle.js'
+import { useInterfacePanelCoordinator } from '../features/interface-lab/hooks/useInterfacePanelCoordinator.js'
+import { useInterfaceReceiveController } from '../features/interface-lab/hooks/useInterfaceReceiveController.js'
+import { useServiceExecutionController } from '../features/interface-lab/hooks/useServiceExecutionController.js'
+import { useTopicExecutionController } from '../features/interface-lab/hooks/useTopicExecutionController.js'
 
 export function InterfaceUploadControl({
   onStateChanged,
@@ -66,15 +34,6 @@ export function InterfaceUploadControl({
   const inputRef = useRef(null)
   const packageFolderInputRef = useRef(null)
   const packageInputRef = useRef(null)
-  const lastRefreshSignalRef = useRef(refreshSignal)
-  const [showCallableTopics, setShowCallableTopics] = useState(false)
-  const [showCallableServices, setShowCallableServices] = useState(false)
-  const [showCallableActions, setShowCallableActions] = useState(false)
-  const closeExecutionPanels = useCallback(() => {
-    setShowCallableTopics(false)
-    setShowCallableServices(false)
-    setShowCallableActions(false)
-  }, [])
   const {
     applyStatus, applyUploadedInterfaces, applying, buildLogTail, busy,
     editingManualDefinition, feedback,
@@ -91,655 +50,205 @@ export function InterfaceUploadControl({
     showRegistry, startEditingManualDefinition, submitManualDefinition,
     submitManualType, validateCurrentManualDefinition,
   } = useInterfaceManagementController({
-    onCloseExecutionPanels: closeExecutionPanels,
     onStateChanged,
   })
-  const [callableServices, setCallableServices] = useState([])
-  const [selectedServiceKey, setSelectedServiceKey] = useState('')
-  const [requestValues, setRequestValues] = useState({})
-  const [timeoutSec, setTimeoutSec] = useState(2)
-  const [serviceCallBusy, setServiceCallBusy] = useState(false)
-  const [serviceCallResult, setServiceCallResult] = useState(null)
-  const [serviceCallHistory, setServiceCallHistory] = useState([])
-  const [callableActions, setCallableActions] = useState([])
-  const [selectedActionKey, setSelectedActionKey] = useState('')
-  const [goalValues, setGoalValues] = useState({})
-  const [goalTimeoutSec, setGoalTimeoutSec] = useState(10)
-  const [actionGoalBusy, setActionGoalBusy] = useState(false)
-  const [actionGoalResult, setActionGoalResult] = useState(null)
-  const [actionGoalHistory, setActionGoalHistory] = useState([])
-  const [showReceivePanel, setShowReceivePanel] = useState(false)
-  const [receiveMode, setReceiveMode] = useState('topic')
   const [availableTopics, setAvailableTopics] = useState([])
-  const [receiveTopics, setReceiveTopics] = useState([])
-  const [selectedReceiveTopic, setSelectedReceiveTopic] = useState('')
-  const selectedReceiveTopicSourceRef = useRef('empty')
-  const [receiveTopicSearch, setReceiveTopicSearch] = useState('')
-  const [callableMessages, setCallableMessages] = useState([])
-  const [topicImportableOnly, setTopicImportableOnly] = useState(false)
-  const [selectedMessageKey, setSelectedMessageKey] = useState('')
-  const [topicPublishName, setTopicPublishName] = useState('')
-  const [topicPublishHz, setTopicPublishHz] = useState(10)
-  const topicPublishNameSourceRef = useRef('empty')
-  const [topicMessageValues, setTopicMessageValues] = useState({})
-  const [topicPublishBusy, setTopicPublishBusy] = useState(false)
-  const [topicPublishResult, setTopicPublishResult] = useState(null)
-  const [topicPublishHistory, setTopicPublishHistory] = useState([])
-  const [continuousTopicPublishes, setContinuousTopicPublishes] = useState([])
   const [selectedReceiveServiceKey, setSelectedReceiveServiceKey] = useState('')
-  const [activeReceiveServiceKey, setActiveReceiveServiceKey] = useState('')
-  const [receiveServiceSearch, setReceiveServiceSearch] = useState('')
-  const [serviceImportableOnly, setServiceImportableOnly] = useState(false)
   const [selectedReceiveActionKey, setSelectedReceiveActionKey] = useState('')
-  const [activeReceiveActionKey, setActiveReceiveActionKey] = useState('')
-  const [receiveActionSearch, setReceiveActionSearch] = useState('')
-  const [actionImportableOnly, setActionImportableOnly] = useState(false)
-  const [receiveTopicHistory, setReceiveTopicHistory] = useState([])
-  const [receiveServiceHistory, setReceiveServiceHistory] = useState([])
-  const [receiveActionHistory, setReceiveActionHistory] = useState([])
-  const [topicWorkspaceExpanded, setTopicWorkspaceExpanded] = useState(false)
-
-  const toggleBuildLog = () => {
-    setShowBuildLog((value) => !value)
-    setShowRegistry(false)
-    setShowPackages(false)
-    setShowCallableTopics(false)
-    setShowCallableServices(false)
-    setShowCallableActions(false)
-  }
-  const disabled = busy || applying || serviceCallBusy || actionGoalBusy || topicPublishBusy
-  const topicExpandedActive = topicWorkspaceExpanded
-    && (
-      showPackages
-      || (
-        showReceivePanel
-        && (
-          (showCallableTopics && receiveMode === 'topic')
-          || (showCallableServices && receiveMode === 'service')
-          || (showCallableActions && receiveMode === 'action')
-          || (!showCallableTopics && !showCallableServices && !showCallableActions && receiveMode !== 'mock')
-        )
-      )
-    )
-  const selectedService = callableServices.find(
-    (service) => serviceKey(service) === selectedServiceKey,
-  )
-  const selectedAction = callableActions.find(
-    (action) => actionKey(action) === selectedActionKey,
-  )
-  const selectedMessage = callableMessages.find(
-    (message) => messageKey(message) === selectedMessageKey,
-  )
-  const publishGraphTopics = useMemo(
-    () => graphPublishTopicCandidates(availableTopics, selectedMessage?.message_type),
-    [availableTopics, selectedMessage?.message_type],
-  )
-  const topicPublishWarning = topicNameTypeWarning(
+  const {
+    activeContinuousPublish,
+    busy: topicPublishBusy,
+    changePublishName: setTopicPublishName,
+    load: loadTopicExecution,
+    messageValues: topicMessageValues,
+    messages: callableMessages,
+    publish: publishSelectedTopicMessage,
+    publishGraphTopics,
+    publishHz: topicPublishHz,
+    publishName: topicPublishName,
+    publishWarning: topicPublishWarning,
+    replace: setCallableMessages,
+    resetHistory: resetSelectedTopicPublishHistory,
+    result: topicPublishResult,
+    select: setSelectedMessageKey,
+    selected: selectedMessage,
+    selectedKey: selectedMessageKey,
+    setImportableOnly: setTopicImportableOnly,
+    setMessageValues: setTopicMessageValues,
+    setPublishHz: setTopicPublishHz,
+    startContinuous: startSelectedContinuousTopicPublish,
+    stopContinuous: stopSelectedContinuousTopicPublish,
+    importableOnly: topicImportableOnly,
+    visibleHistory: visiblePublishHistory,
+    visibleMessages: visibleCallableMessages,
+  } = useTopicExecutionController({
     availableTopics,
-    topicPublishName,
-    selectedMessage?.message_type,
-  )
-  const activeContinuousPublish = continuousTopicPublishes.find((item) =>
-    item.active
-    && item.topic_name === topicPublishName.trim()
-    && item.topic_type === selectedMessage?.message_type)
-  const activeContinuousPublishKey = activeContinuousPublish
-    ? `${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
-    : ''
-  const visibleCallableMessages = topicImportableOnly
-    ? callableMessages.filter((message) => message.import_available)
-    : callableMessages
-  const visibleCallableServices = serviceImportableOnly
-    ? callableServices.filter((service) => service.import_available)
-    : callableServices
-  const visibleCallableActions = actionImportableOnly
-    ? callableActions.filter((action) => action.import_available)
-    : callableActions
-  const filteredReceiveTopics = useMemo(() => {
-    const keyword = receiveTopicSearch.trim().toLowerCase()
-    const selectedType = selectedMessage?.message_type
-    return availableTopics.filter((topic) => {
-      const topicType = topic.type ?? topic.types?.[0] ?? ''
-      if (selectedType && !topicHasType(topic, selectedType)) return false
-      if (!keyword) return true
-      return `${topic.name} ${topicType}`.toLowerCase().includes(keyword)
-    })
-  }, [availableTopics, receiveTopicSearch, selectedMessage?.message_type])
-  const selectedTopicReceiving = receiveTopics.some((topic) =>
-    topic.topic_name === selectedReceiveTopic
-    && (!selectedMessage?.message_type || topic.topic_type === selectedMessage.message_type)
-    && topic.receiving !== false,
-  )
-  const visibleReceiveTopicHistory = receiveTopicHistory.filter((event) =>
-    (!selectedReceiveTopic || event.topic_name === selectedReceiveTopic)
-    && (!selectedMessage?.message_type || event.topic_type === selectedMessage.message_type),
-  )
-  const visiblePublishHistory = topicPublishHistory.filter((event) =>
-    (!topicPublishName || event.topic_name === topicPublishName)
-    && (!selectedMessage?.message_type || event.topic_type === selectedMessage.message_type),
-  )
-
-  useEffect(() => {
-    if (!selectedMessage?.message_type) return
-    const currentName = topicPublishName.trim()
-    const currentIsCandidate = publishGraphTopics.some((topic) => topic.name === currentName)
-    const source = topicPublishNameSourceRef.current
-
-    if (source === 'user') {
-      if (currentName) return
-    } else if (source === 'graph') {
-      if (currentIsCandidate) return
-      topicPublishNameSourceRef.current = 'empty'
-      setTopicPublishName('')
-      return
-    } else if (source === 'auto' && publishGraphTopics.length !== 1) {
-      topicPublishNameSourceRef.current = 'empty'
-      setTopicPublishName('')
-      return
-    }
-
-    if (publishGraphTopics.length === 1) {
-      const nextName = publishGraphTopics[0].name
-      if (source === 'auto' && currentName === nextName) return
-      topicPublishNameSourceRef.current = 'auto'
-      setTopicPublishName(nextName)
-    }
-  }, [publishGraphTopics, selectedMessage?.message_type, topicPublishName])
-
-  useEffect(() => {
-    if (!selectedMessage?.message_type) return
-    const currentIsCandidate = filteredReceiveTopics.some(
-      (topic) => topic.name === selectedReceiveTopic,
-    )
-    const source = selectedReceiveTopicSourceRef.current
-    if (source === 'user' && selectedReceiveTopic.trim()) return
-    if ((source === 'auto' || source === 'graph') && currentIsCandidate) return
-
-    const nextTopicName = filteredReceiveTopics[0]?.name ?? ''
-    selectedReceiveTopicSourceRef.current = nextTopicName ? 'auto' : 'empty'
-    setSelectedReceiveTopic(nextTopicName)
-  }, [filteredReceiveTopics, selectedMessage?.message_type, selectedReceiveTopic])
-  const filteredReceiveServices = callableServices.filter((service) => {
-    const keyword = receiveServiceSearch.trim().toLowerCase()
-    if (!keyword) return true
-    return `${service.service_name ?? service.file_name ?? ''} ${service.service_type ?? ''}`.toLowerCase().includes(keyword)
+    onStateChanged,
+    setFeedback,
   })
-  const filteredReceiveActions = callableActions.filter((action) => {
-    const keyword = receiveActionSearch.trim().toLowerCase()
-    if (!keyword) return true
-    return `${action.action_name ?? action.file_name ?? ''} ${action.action_type ?? ''}`.toLowerCase().includes(keyword)
+  const {
+    busy: serviceCallBusy,
+    execute: executeServiceCall,
+    history: serviceCallHistory,
+    importableOnly: serviceImportableOnly,
+    load: loadServiceExecution,
+    replace: setCallableServices,
+    requestValues,
+    result: serviceCallResult,
+    select: setSelectedServiceKey,
+    selected: selectedService,
+    selectedKey: selectedServiceKey,
+    services: callableServices,
+    setImportableOnly: setServiceImportableOnly,
+    setRequestValues,
+    setTimeoutSec,
+    timeoutSec,
+    visibleServices: visibleCallableServices,
+  } = useServiceExecutionController({
+    onSelectionChange: setSelectedReceiveServiceKey,
+    onStateChanged,
   })
-  const selectedReceiveService = callableServices.find(
-    (service) => serviceKey(service) === selectedReceiveServiceKey,
-  )
-  const selectedReceiveAction = callableActions.find(
-    (action) => actionKey(action) === selectedReceiveActionKey,
-  )
-  const visibleReceiveServiceHistory = selectedReceiveService && activeReceiveServiceKey === selectedReceiveServiceKey
-    ? receiveServiceHistory.filter((event) =>
-      event.service_name === selectedReceiveService.service_name
-      && event.service_type === selectedReceiveService.service_type)
-    : []
-  const visibleReceiveActionHistory = selectedReceiveAction && activeReceiveActionKey === selectedReceiveActionKey
-    ? receiveActionHistory.filter((event) =>
-      event.action_name === selectedReceiveAction.action_name
-      && event.action_type === selectedReceiveAction.action_type)
-    : []
+  const {
+    actions: callableActions,
+    busy: actionGoalBusy,
+    execute: executeActionGoal,
+    goalValues,
+    history: actionGoalHistory,
+    importableOnly: actionImportableOnly,
+    load: loadActionExecution,
+    replace: setCallableActions,
+    result: actionGoalResult,
+    select: setSelectedActionKey,
+    selected: selectedAction,
+    selectedKey: selectedActionKey,
+    setGoalValues,
+    setImportableOnly: setActionImportableOnly,
+    setTimeoutSec: setGoalTimeoutSec,
+    timeoutSec: goalTimeoutSec,
+    visibleActions: visibleCallableActions,
+  } = useActionExecutionController({
+    onSelectionChange: setSelectedReceiveActionKey,
+    onStateChanged,
+  })
+  const {
+    actionSearch: receiveActionSearch,
+    activeActionKey: activeReceiveActionKey,
+    activeServiceKey: activeReceiveServiceKey,
+    changeTopic: setSelectedReceiveTopic,
+    filteredActions: filteredReceiveActions,
+    filteredServices: filteredReceiveServices,
+    filteredTopics: filteredReceiveTopics,
+    load: loadReceiveState,
+    mode: receiveMode,
+    open: showReceivePanel,
+    resetActions: resetReceiveActions,
+    resetAllTopics: resetAllTopicReceiveHistory,
+    resetSelectedTopic: resetSelectedTopicReceiveHistory,
+    resetServices: resetReceiveServices,
+    selectedTopic: selectedReceiveTopic,
+    selectedTopicReceiving,
+    serviceSearch: receiveServiceSearch,
+    setActionSearch: setReceiveActionSearch,
+    setMode: setReceiveMode,
+    setOpen: setShowReceivePanel,
+    setServiceSearch: setReceiveServiceSearch,
+    setTopicSearch: setReceiveTopicSearch,
+    startAction: startSelectedActionReceive,
+    startService: startSelectedServiceReceive,
+    startTopic: startSelectedTopicReceive,
+    stopAction: stopSelectedActionReceive,
+    stopService: stopSelectedServiceReceive,
+    stopTopic: stopSelectedTopicReceive,
+    topicSearch: receiveTopicSearch,
+    topics: receiveTopics,
+    visibleActionHistory: visibleReceiveActionHistory,
+    visibleServiceHistory: visibleReceiveServiceHistory,
+    visibleTopicHistory: visibleReceiveTopicHistory,
+  } = useInterfaceReceiveController({
+    actions: callableActions,
+    availableTopics,
+    replaceActions: setCallableActions,
+    replaceMessages: setCallableMessages,
+    replaceServices: setCallableServices,
+    selectedMessage,
+    selectedReceiveActionKey,
+    selectedReceiveServiceKey,
+    services: callableServices,
+    setAvailableTopics,
+    setBusy,
+    setFeedback,
+    setSelectedReceiveActionKey,
+    setSelectedReceiveServiceKey,
+  })
 
-  useEffect(() => {
-    if (!visibleCallableMessages.length) {
-      if (selectedMessageKey) setSelectedMessageKey('')
-      return
-    }
-    if (visibleCallableMessages.some((message) => messageKey(message) === selectedMessageKey)) {
-      return
-    }
-    const nextMessage = visibleCallableMessages[0]
-    setSelectedMessageKey(messageKey(nextMessage))
-    setTopicMessageValues(defaultRequestValues(nextMessage.message_schema ?? []))
-    setTopicPublishResult(null)
-  }, [selectedMessageKey, visibleCallableMessages])
+  const {
+    expandedActive: topicExpandedActive,
+    openActionPanel,
+    openPackages,
+    openReceivePanel,
+    openRegistry,
+    openServicePanel,
+    openTopicPanel,
+    selectReceiveMode,
+    showCallableActions,
+    showCallableServices,
+    showCallableTopics,
+    toggleBuildLog,
+    toggleWorkspaceExpanded,
+  } = useInterfacePanelCoordinator({
+    loadActionExecution,
+    loadPackages,
+    loadReceiveState,
+    loadRegistry,
+    loadServiceExecution,
+    loadTopicExecution,
+    onExpandedChange: onTopicWorkspaceExpandedChange,
+    receiveMode,
+    setBusy,
+    setFeedback,
+    setReceiveMode,
+    setShowBuildLog,
+    setShowManualInput,
+    setShowPackages,
+    setShowReceivePanel,
+    setShowRegistry,
+    showPackages,
+    showReceivePanel,
+  })
 
-  useEffect(() => {
-    if (!visibleCallableServices.length) {
-      if (selectedServiceKey) {
-        setSelectedServiceKey('')
-        setSelectedReceiveServiceKey('')
-      }
-      return
-    }
-    if (visibleCallableServices.some((service) => serviceKey(service) === selectedServiceKey)) {
-      return
-    }
-    const nextService = visibleCallableServices[0]
-    const nextKey = serviceKey(nextService)
-    setSelectedServiceKey(nextKey)
-    setSelectedReceiveServiceKey(nextKey)
-    setRequestValues(defaultRequestValues(nextService.request_schema ?? []))
-    setServiceCallResult(null)
-  }, [selectedServiceKey, visibleCallableServices])
+  useInterfaceControlLifecycle({
+    loadActionExecution,
+    loadApplyStatus,
+    loadServiceExecution,
+    loadTopicExecution,
+    refreshSignal,
+    reloadPhase,
+    runImportCheck,
+    setApplyStatus,
+    setBuildLogTail,
+    setFeedback,
+    setPackages,
+    setRegistry,
+    setReloadPhase,
+    showCallableActions,
+    showCallableServices,
+    showCallableTopics,
+    showPackages,
+    showRegistry,
+    websocketStatus: websocket?.status,
+  })
 
-  useEffect(() => {
-    if (!visibleCallableActions.length) {
-      if (selectedActionKey) {
-        setSelectedActionKey('')
-        setSelectedReceiveActionKey('')
-      }
-      return
-    }
-    if (visibleCallableActions.some((action) => actionKey(action) === selectedActionKey)) {
-      return
-    }
-    const nextAction = visibleCallableActions[0]
-    const nextKey = actionKey(nextAction)
-    setSelectedActionKey(nextKey)
-    setSelectedReceiveActionKey(nextKey)
-    setGoalValues(defaultRequestValues(nextAction.goal_schema ?? []))
-    setActionGoalResult(null)
-  }, [selectedActionKey, visibleCallableActions])
-
+  const disabled = busy || applying || serviceCallBusy || actionGoalBusy || topicPublishBusy
   const startEditManualDefinition = (item) => {
     startEditingManualDefinition(item)
   }
 
-  const loadReceiveState = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setBusy(true)
-    try {
-      const [
-        topicsPayload,
-        receivingPayload,
-        topicHistoryPayload,
-        servicePayload,
-        actionPayload,
-        messagesPayload,
-        publishHistoryPayload,
-        continuousPublishPayload,
-        callableServicesPayload,
-        callableActionsPayload,
-      ] = await Promise.all([
-        fetchTopics(),
-        fetchReceiveTopics(),
-        fetchReceiveTopicHistory('', { limit: 500 }),
-        fetchReceiveServiceHistory(),
-        fetchReceiveActionHistory(),
-        fetchCallableMessages(),
-        fetchTopicPublishHistory({ limit: 100 }),
-        fetchContinuousTopicPublishes(),
-        fetchCallableServices(),
-        fetchCallableActions(),
-      ])
-      const topics = topicsPayload.data?.topics ?? topicsPayload.data ?? []
-      const services = callableServicesPayload.data ?? []
-      const actions = callableActionsPayload.data ?? []
-      const messages = messagesPayload.data ?? []
-      setAvailableTopics(topics)
-      setReceiveTopics(receivingPayload.data ?? [])
-      setReceiveTopicHistory(topicHistoryPayload.data ?? [])
-      setReceiveServiceHistory(servicePayload.data ?? [])
-      setReceiveActionHistory(actionPayload.data ?? [])
-      setCallableMessages(messages)
-      setTopicPublishHistory(publishHistoryPayload.data ?? [])
-      setContinuousTopicPublishes(continuousPublishPayload.data ?? [])
-      setCallableServices(services)
-      setCallableActions(actions)
-      if (!selectedMessageKey && messages[0]) {
-        const nextKey = messageKey(messages[0])
-        setSelectedMessageKey(nextKey)
-        setTopicMessageValues(defaultRequestValues(messages[0].message_schema ?? []))
-      }
-      if (!selectedReceiveServiceKey && services[0]) {
-        setSelectedReceiveServiceKey(serviceKey(services[0]))
-      }
-      if (!selectedReceiveActionKey && actions[0]) {
-        setSelectedReceiveActionKey(actionKey(actions[0]))
-      }
-    } catch (error) {
-      if (!silent) setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      if (!silent) setBusy(false)
-    }
-  }, [selectedMessageKey, selectedReceiveActionKey, selectedReceiveServiceKey, setBusy, setFeedback])
-
-  const startSelectedTopicReceive = async () => {
-    if (!selectedReceiveTopic.trim()) {
-      setFeedback({ tone: 'error', text: '수신할 Topic 이름을 입력하세요.' })
-      return
-    }
-    const topicType = selectedMessage?.message_type
-    if (!topicType) {
-      setFeedback({ tone: 'error', text: '수신할 Message full_type을 선택하세요.' })
-      return
-    }
-    try {
-      await startReceiveTopic({
-        topic_name: selectedReceiveTopic.trim(),
-        topic_type: topicType,
-        history_limit: 500,
-      })
-      await loadReceiveState()
-      setFeedback({ tone: 'success', text: `${selectedReceiveTopic.trim()} · ${topicType} 수신을 시작했습니다.` })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const stopSelectedTopicReceive = async () => {
-    try {
-      await stopReceiveTopic({
-        topic_name: selectedReceiveTopic,
-        topic_type: selectedMessage?.message_type,
-      })
-      await loadReceiveState()
-      setFeedback({ tone: 'warning', text: `${selectedReceiveTopic} 수신을 중지했습니다.` })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const resetSelectedTopicReceiveHistory = async () => {
-    if (!selectedReceiveTopic) {
-      setFeedback({ tone: 'error', text: '리셋할 Topic을 선택하세요.' })
-      return
-    }
-    try {
-      const selectedType = selectedMessage?.message_type
-      const payload = await resetReceiveTopicHistory(selectedReceiveTopic, selectedType)
-      setReceiveTopics(payload.data?.topics ?? [])
-      setReceiveTopicHistory((items) => items.filter((event) =>
-        event.topic_name !== selectedReceiveTopic
-        || (selectedType && event.topic_type !== selectedType)))
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `${selectedReceiveTopic} 수신 항목 ${payload.data?.removed ?? 0}개와 이력 ${payload.data?.cleared ?? 0}개를 삭제했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const publishSelectedTopicMessage = async () => {
-    if (!topicPublishName.trim()) {
-      setTopicPublishResult({ success: false, error: 'Publish할 Topic 이름을 입력하세요.' })
-      return
-    }
-    if (!selectedMessage?.message_type) {
-      setTopicPublishResult({ success: false, error: 'Publish할 Message full_type을 선택하세요.' })
-      return
-    }
-    setTopicPublishBusy(true)
-    setTopicPublishResult(null)
-    try {
-      const payload = await publishTopicMessage({
-        topic_name: topicPublishName.trim(),
-        topic_type: selectedMessage.message_type,
-        full_type: selectedMessage.message_type,
-        message: normalizeNumericValues(topicMessageValues, selectedMessage.message_schema),
-      })
-      setTopicPublishResult(payload)
-      const historyPayload = await fetchTopicPublishHistory({ limit: 100 })
-      setTopicPublishHistory(historyPayload.data ?? [])
-      onStateChanged?.()
-    } catch (error) {
-      setTopicPublishResult({ success: false, error: error.message })
-    } finally {
-      setTopicPublishBusy(false)
-    }
-  }
-
-  const startSelectedContinuousTopicPublish = async () => {
-    if (!topicPublishName.trim() || !selectedMessage?.message_type) {
-      setTopicPublishResult({ success: false, error: 'Publish Topic 이름과 Message full_type을 선택하세요.' })
-      return
-    }
-    setTopicPublishBusy(true)
-    setTopicPublishResult(null)
-    try {
-      const result = await startContinuousTopicPublish({
-        topic_name: topicPublishName.trim(),
-        topic_type: selectedMessage.message_type,
-        full_type: selectedMessage.message_type,
-        message: normalizeNumericValues(topicMessageValues, selectedMessage.message_schema),
-        hz: Number(topicPublishHz),
-      })
-      setTopicPublishResult(result)
-      const state = await fetchContinuousTopicPublishes()
-      setContinuousTopicPublishes(state.data ?? [])
-      onStateChanged?.()
-    } catch (error) {
-      setTopicPublishResult({ success: false, error: error.message })
-    } finally {
-      setTopicPublishBusy(false)
-    }
-  }
-
-  const stopSelectedContinuousTopicPublish = async () => {
-    if (!topicPublishName.trim() || !selectedMessage?.message_type) return
-    setTopicPublishBusy(true)
-    try {
-      const result = await stopContinuousTopicPublish({
-        topic_name: topicPublishName.trim(),
-        topic_type: selectedMessage.message_type,
-      })
-      setTopicPublishResult(result)
-      const state = await fetchContinuousTopicPublishes()
-      setContinuousTopicPublishes(state.data ?? [])
-      onStateChanged?.()
-    } catch (error) {
-      setTopicPublishResult({ success: false, error: error.message })
-    } finally {
-      setTopicPublishBusy(false)
-    }
-  }
-
-  const resetSelectedTopicPublishHistory = async () => {
-    try {
-      const payload = await resetTopicPublishHistory({
-        topic_name: topicPublishName,
-        topic_type: selectedMessage?.message_type,
-      })
-      const historyPayload = await fetchTopicPublishHistory({ limit: 100 })
-      setTopicPublishHistory(historyPayload.data ?? [])
-      setFeedback({
-        tone: 'success',
-        text: `Topic Publish 이력 ${payload.data?.cleared ?? 0}개를 리셋했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const resetAllTopicReceiveHistory = async () => {
-    try {
-      const payload = await resetReceiveTopicHistory()
-      setReceiveTopics(payload.data?.topics ?? [])
-      setReceiveTopicHistory([])
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `수신 중 Topic ${payload.data?.removed ?? 0}개와 이력 ${payload.data?.cleared ?? 0}개를 전체 삭제했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const startSelectedServiceReceive = async () => {
-    if (!selectedReceiveService) {
-      setFeedback({ tone: 'error', text: '수신할 Service를 선택하세요.' })
-      return
-    }
-    try {
-      await resetReceiveServiceHistory({
-        service_name: selectedReceiveService.service_name,
-        service_type: selectedReceiveService.service_type,
-      })
-      setActiveReceiveServiceKey(selectedReceiveServiceKey)
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `${selectedReceiveService.service_name} Service 수신 관찰을 시작했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const stopSelectedServiceReceive = async () => {
-    if (!activeReceiveServiceKey) {
-      setFeedback({ tone: 'warning', text: '수신 중인 Service 관찰 항목이 없습니다.' })
-      return
-    }
-    setActiveReceiveServiceKey('')
-    setFeedback({ tone: 'warning', text: 'Service 수신 관찰을 중지했습니다.' })
-  }
-
-  const resetServiceReceiveHistory = async () => {
-    try {
-      const payload = await resetReceiveServiceHistory()
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `Service 수신 이력 ${payload.data?.cleared ?? 0}개를 전체 리셋했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const resetSelectedServiceReceiveHistory = async () => {
-    if (!selectedReceiveService) {
-      setFeedback({ tone: 'error', text: '리셋할 Service를 선택하세요.' })
-      return
-    }
-    try {
-      const payload = await resetReceiveServiceHistory({
-        service_name: selectedReceiveService.service_name,
-        service_type: selectedReceiveService.service_type,
-      })
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `${selectedReceiveService.service_name} 수신 이력 ${payload.data?.cleared ?? 0}개를 리셋했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const startSelectedActionReceive = async () => {
-    if (!selectedReceiveAction) {
-      setFeedback({ tone: 'error', text: '수신할 Action을 선택하세요.' })
-      return
-    }
-    try {
-      await resetReceiveActionHistory({
-        action_name: selectedReceiveAction.action_name,
-        action_type: selectedReceiveAction.action_type,
-      })
-      setActiveReceiveActionKey(selectedReceiveActionKey)
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `${selectedReceiveAction.action_name} Action 수신 관찰을 시작했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const stopSelectedActionReceive = async () => {
-    if (!activeReceiveActionKey) {
-      setFeedback({ tone: 'warning', text: '수신 중인 Action 관찰 항목이 없습니다.' })
-      return
-    }
-    setActiveReceiveActionKey('')
-    setFeedback({ tone: 'warning', text: 'Action 수신 관찰을 중지했습니다.' })
-  }
-
-  const resetActionReceiveHistory = async () => {
-    try {
-      const payload = await resetReceiveActionHistory()
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `Action 수신 이력 ${payload.data?.cleared ?? 0}개를 전체 리셋했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const resetSelectedActionReceiveHistory = async () => {
-    if (!selectedReceiveAction) {
-      setFeedback({ tone: 'error', text: '리셋할 Action을 선택하세요.' })
-      return
-    }
-    try {
-      const payload = await resetReceiveActionHistory({
-        action_name: selectedReceiveAction.action_name,
-        action_type: selectedReceiveAction.action_type,
-      })
-      await loadReceiveState()
-      setFeedback({
-        tone: 'success',
-        text: `${selectedReceiveAction.action_name} 수신 이력 ${payload.data?.cleared ?? 0}개를 리셋했습니다.`,
-      })
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    }
-  }
-
-  const loadCallableTopics = async (keepOpen = false) => {
-    setBusy(true)
-    try {
-      const [messagesPayload, publishHistoryPayload] = await Promise.all([
-        fetchCallableMessages(),
-        fetchTopicPublishHistory({ limit: 100 }),
-      ])
-      const messages = messagesPayload.data ?? []
-      setCallableMessages(messages)
-      setTopicPublishHistory(publishHistoryPayload.data ?? [])
-      setShowCallableTopics(true)
-      if (!keepOpen) {
-        setShowRegistry(false)
-        setShowPackages(false)
-        setShowCallableServices(false)
-        setShowCallableActions(false)
-        setShowBuildLog(false)
-      }
-      const selectableMessages = topicImportableOnly
-        ? messages.filter((message) => message.import_available)
-        : messages
-      const selectedStillExists = selectableMessages.some(
-        (message) => messageKey(message) === selectedMessageKey,
-      )
-      const nextSelected = selectedStillExists
-        ? selectedMessageKey
-        : selectableMessages[0] ? messageKey(selectableMessages[0]) : ''
-      setSelectedMessageKey(nextSelected)
-      const nextMessage = selectableMessages.find(
-        (message) => messageKey(message) === nextSelected,
-      )
-      if (nextMessage) {
-        setTopicMessageValues(defaultRequestValues(nextMessage.message_schema ?? []))
-      }
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const refreshExecutionCandidatesAfterDelete = async () => {
-    const [messagesPayload, servicesPayload, actionsPayload] = await Promise.all([
-      fetchCallableMessages(),
-      fetchCallableServices(),
-      fetchCallableActions(),
+    await Promise.all([
+      loadTopicExecution(),
+      loadServiceExecution(),
+      loadActionExecution(),
     ])
-    setCallableMessages(messagesPayload.data ?? [])
-    setCallableServices(servicesPayload.data ?? [])
-    setCallableActions(actionsPayload.data ?? [])
   }
 
   const handleRemoveManualDefinition = (item) =>
@@ -751,348 +260,10 @@ export function InterfaceUploadControl({
   const handleRemoveRegistryEntry = (item) =>
     removeRegistryEntry(item, refreshExecutionCandidatesAfterDelete)
 
-  const loadCallableServices = async (keepOpen = false) => {
-    setBusy(true)
-    try {
-      const [servicesPayload, historyPayload] = await Promise.all([
-        fetchCallableServices(),
-        fetchServiceCallHistory(),
-      ])
-      const services = servicesPayload.data ?? []
-      setCallableServices(services)
-      setServiceCallHistory(historyPayload.data ?? [])
-      setShowCallableServices(true)
-      if (!keepOpen) {
-        setShowRegistry(false)
-        setShowPackages(false)
-        setShowCallableTopics(false)
-        setShowCallableActions(false)
-        setShowBuildLog(false)
-      }
-      const selectableServices = serviceImportableOnly
-        ? services.filter((service) => service.import_available)
-        : services
-      const selectedStillExists = selectableServices.some(
-        (service) => serviceKey(service) === selectedServiceKey,
-      )
-      const nextSelected = selectedStillExists
-        ? selectedServiceKey
-        : selectableServices[0] ? serviceKey(selectableServices[0]) : ''
-      setSelectedServiceKey(nextSelected)
-      setSelectedReceiveServiceKey(nextSelected)
-      const nextService = selectableServices.find(
-        (service) => serviceKey(service) === nextSelected,
-      )
-      if (nextService) {
-        setRequestValues(defaultRequestValues(nextService.request_schema))
-      }
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const loadCallableActions = async (keepOpen = false) => {
-    setBusy(true)
-    try {
-      const [actionsPayload, historyPayload] = await Promise.all([
-        fetchCallableActions(),
-        fetchActionGoalHistory(),
-      ])
-      const actions = actionsPayload.data ?? []
-      setCallableActions(actions)
-      setActionGoalHistory(historyPayload.data ?? [])
-      setShowCallableActions(true)
-      if (!keepOpen) {
-        setShowRegistry(false)
-        setShowPackages(false)
-        setShowCallableTopics(false)
-        setShowCallableServices(false)
-        setShowBuildLog(false)
-      }
-      const selectableActions = actionImportableOnly
-        ? actions.filter((action) => action.import_available)
-        : actions
-      const selectedStillExists = selectableActions.some(
-        (action) => actionKey(action) === selectedActionKey,
-      )
-      const nextSelected = selectedStillExists
-        ? selectedActionKey
-        : selectableActions[0] ? actionKey(selectableActions[0]) : ''
-      setSelectedActionKey(nextSelected)
-      setSelectedReceiveActionKey(nextSelected)
-      const nextAction = selectableActions.find(
-        (action) => actionKey(action) === nextSelected,
-      )
-      if (nextAction) {
-        setGoalValues(defaultRequestValues(nextAction.goal_schema))
-      }
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const executeServiceCall = async () => {
-    if (!selectedService || !selectedService.callable) {
-      setServiceCallResult({ success: false, error: '호출 가능한 Service가 없습니다.' })
-      return
-    }
-    setServiceCallBusy(true)
-    setServiceCallResult(null)
-    try {
-      const payload = await callRegisteredService({
-        service_name: selectedService.service_name,
-        service_type: selectedService.service_type,
-        request: normalizeNumericValues(requestValues, selectedService.request_schema),
-        timeout_sec: timeoutSec,
-      })
-      setServiceCallResult(payload)
-      const historyPayload = await fetchServiceCallHistory()
-      setServiceCallHistory(historyPayload.data ?? [])
-      onStateChanged?.()
-    } catch (error) {
-      setServiceCallResult({ success: false, error: error.message })
-    } finally {
-      setServiceCallBusy(false)
-    }
-  }
-
-  const executeActionGoal = async () => {
-    if (!selectedAction || !selectedAction.callable) {
-      setActionGoalResult({ success: false, error: '실행 가능한 Action이 없습니다.' })
-      return
-    }
-    setActionGoalBusy(true)
-    setActionGoalResult(null)
-    try {
-      const payload = await sendActionGoal({
-        action_name: selectedAction.action_name,
-        action_type: selectedAction.action_type,
-        full_type: selectedAction.full_type ?? selectedAction.selected_import_type ?? selectedAction.action_type,
-        goal: normalizeNumericValues(goalValues, selectedAction.goal_schema),
-        timeout_sec: goalTimeoutSec,
-      })
-      setActionGoalResult(payload)
-      const historyPayload = await fetchActionGoalHistory()
-      setActionGoalHistory(historyPayload.data ?? [])
-      onStateChanged?.()
-    } catch (error) {
-      setActionGoalResult({ success: false, accepted: false, error: error.message })
-    } finally {
-      setActionGoalBusy(false)
-    }
-  }
-
-  useEffect(() => {
-    loadApplyStatus().catch((error) => {
-      setFeedback({ tone: 'warning', text: `적용 상태를 읽을 수 없습니다: ${error.message}` })
-    })
-  }, [loadApplyStatus, setFeedback])
-
-  useEffect(() => {
-    if (lastRefreshSignalRef.current === refreshSignal) return
-    lastRefreshSignalRef.current = refreshSignal
-
-    const refreshOpenState = async () => {
-      try {
-        const statusPayload = await fetchInterfaceApplyStatus()
-        setApplyStatus(statusPayload.data)
-        setBuildLogTail(statusPayload.data?.log_tail ?? '')
-        if (showRegistry) {
-          const registryPayload = await fetchInterfaceRegistry()
-          setRegistry(registryPayload.data)
-          setShowRegistry(true)
-        }
-        if (showPackages) {
-          const packagesPayload = await fetchInterfacePackages()
-          setPackages(packagesPayload.data ?? [])
-          setShowPackages(true)
-        }
-        if (showCallableTopics) {
-          const [messagesPayload, publishHistoryPayload] = await Promise.all([
-            fetchCallableMessages(),
-            fetchTopicPublishHistory({ limit: 100 }),
-          ])
-          const messages = messagesPayload.data ?? []
-          setCallableMessages(messages)
-          setTopicPublishHistory(publishHistoryPayload.data ?? [])
-          setShowCallableTopics(true)
-          const selectableMessages = topicImportableOnly
-            ? messages.filter((message) => message.import_available)
-            : messages
-          const selectedStillExists = selectableMessages.some(
-            (message) => messageKey(message) === selectedMessageKey,
-          )
-          const nextSelected = selectedStillExists
-            ? selectedMessageKey
-            : selectableMessages[0] ? messageKey(selectableMessages[0]) : ''
-          setSelectedMessageKey(nextSelected)
-          const nextMessage = selectableMessages.find(
-            (message) => messageKey(message) === nextSelected,
-          )
-          if (nextMessage) {
-            setTopicMessageValues(defaultRequestValues(nextMessage.message_schema ?? []))
-          }
-        }
-        if (showCallableServices) {
-          const [servicesPayload, historyPayload] = await Promise.all([
-            fetchCallableServices(),
-            fetchServiceCallHistory(),
-          ])
-          const services = servicesPayload.data ?? []
-          setCallableServices(services)
-          setServiceCallHistory(historyPayload.data ?? [])
-          setShowCallableServices(true)
-          const selectedStillExists = services.some(
-            (service) => serviceKey(service) === selectedServiceKey,
-          )
-          const nextSelected = selectedStillExists
-            ? selectedServiceKey
-            : services[0] ? serviceKey(services[0]) : ''
-          setSelectedServiceKey(nextSelected)
-          const nextService = services.find(
-            (service) => serviceKey(service) === nextSelected,
-          )
-          if (nextService) {
-            setRequestValues(defaultRequestValues(nextService.request_schema))
-          }
-        }
-        if (showCallableActions) {
-          const [actionsPayload, historyPayload] = await Promise.all([
-            fetchCallableActions(),
-            fetchActionGoalHistory(),
-          ])
-          const actions = actionsPayload.data ?? []
-          setCallableActions(actions)
-          setActionGoalHistory(historyPayload.data ?? [])
-          setShowCallableActions(true)
-          const selectedStillExists = actions.some(
-            (action) => actionKey(action) === selectedActionKey,
-          )
-          const nextSelected = selectedStillExists
-            ? selectedActionKey
-            : actions[0] ? actionKey(actions[0]) : ''
-          setSelectedActionKey(nextSelected)
-          const nextAction = actions.find(
-            (action) => actionKey(action) === nextSelected,
-          )
-          if (nextAction) {
-            setGoalValues(defaultRequestValues(nextAction.goal_schema))
-          }
-        }
-      } catch (error) {
-        setFeedback({ tone: 'warning', text: `상태 새로고침에 실패했습니다: ${error.message}` })
-      }
-    }
-
-    refreshOpenState()
-  }, [
-    refreshSignal,
-    selectedActionKey,
-    selectedMessageKey,
-    selectedServiceKey,
-    showCallableActions,
-    showCallableTopics,
-    showCallableServices,
-    showPackages,
-    showRegistry,
-    setApplyStatus,
-    setBuildLogTail,
-    setFeedback,
-    setPackages,
-    setRegistry,
-    setShowPackages,
-    setShowRegistry,
-    topicImportableOnly,
-  ])
-
-  useEffect(() => {
-    if (reloadPhase === 'scheduled' && websocket?.status !== 'connected') {
-      setReloadPhase('reconnecting')
-    }
-    if (reloadPhase === 'reconnecting' && websocket?.status === 'connected') {
-      runImportCheck()
-    }
-  }, [reloadPhase, runImportCheck, setReloadPhase, websocket?.status])
-
-  useEffect(() => {
-    if (reloadPhase !== 'scheduled') return undefined
-    const timer = window.setTimeout(() => {
-      runImportCheck()
-    }, 5000)
-    return () => window.clearTimeout(timer)
-  }, [reloadPhase, runImportCheck])
-
-  useEffect(() => {
-    if (!showReceivePanel || receiveMode === 'mock') return undefined
-    const timer = window.setInterval(() => {
-      loadReceiveState({ silent: true })
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [
-    activeReceiveActionKey,
-    activeReceiveServiceKey,
-    loadReceiveState,
-    receiveMode,
-    showReceivePanel,
-  ])
-
-  useEffect(() => {
-    if (!activeContinuousPublishKey) return undefined
-    const timer = window.setInterval(async () => {
-      try {
-        const payload = await fetchContinuousTopicPublishes()
-        setContinuousTopicPublishes(payload.data ?? [])
-      } catch {
-        // The regular page refresh and explicit stop action will surface API errors.
-      }
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [activeContinuousPublishKey])
-
-  useEffect(() => {
-    onTopicWorkspaceExpandedChange?.(topicExpandedActive)
-    return () => onTopicWorkspaceExpandedChange?.(false)
-  }, [onTopicWorkspaceExpandedChange, topicExpandedActive])
-
-  const openExecutionPanel = async (mode, loader) => {
-    setShowReceivePanel(true)
-    setReceiveMode(mode)
-    await loader()
-    await loadReceiveState({ silent: true })
-  }
-
-  const openReceivePanel = () => {
-    setShowReceivePanel(true)
-    setShowCallableTopics(false)
-    setShowCallableServices(false)
-    setShowCallableActions(false)
-    setShowManualInput(false)
-    setShowRegistry(false)
-    setShowPackages(false)
-    setShowBuildLog(false)
-    loadReceiveState()
-  }
-
-  const selectReceiveMode = async (mode) => {
-    setReceiveMode(mode)
-    if (mode === 'mock') {
-      setShowCallableTopics(false)
-      setShowCallableServices(false)
-      setShowCallableActions(false)
-      return
-    }
-    const loaders = {
-      action: loadCallableActions,
-      service: loadCallableServices,
-      topic: loadCallableTopics,
-    }
-    await loaders[mode]?.()
-    await loadReceiveState({ silent: true })
-  }
+  const resetServiceReceiveHistory = () => resetReceiveServices(false)
+  const resetSelectedServiceReceiveHistory = () => resetReceiveServices(true)
+  const resetActionReceiveHistory = () => resetReceiveActions(false)
+  const resetSelectedActionReceiveHistory = () => resetReceiveActions(true)
 
   return (
     <div className={topicExpandedActive ? 'interface-upload-control topic-workbench-expanded' : 'interface-upload-control'}>
@@ -1104,12 +275,12 @@ export function InterfaceUploadControl({
         inputRef={inputRef}
         onApply={applyUploadedInterfaces}
         onFile={handleFile}
-        onOpenAction={() => openExecutionPanel('action', loadCallableActions)}
-        onOpenPackages={loadPackages}
+        onOpenAction={openActionPanel}
+        onOpenPackages={openPackages}
         onOpenReceive={openReceivePanel}
-        onOpenRegistry={loadRegistry}
-        onOpenService={() => openExecutionPanel('service', loadCallableServices)}
-        onOpenTopic={() => openExecutionPanel('topic', loadCallableTopics)}
+        onOpenRegistry={openRegistry}
+        onOpenService={openServicePanel}
+        onOpenTopic={openTopicPanel}
         onPackageFile={handlePackageFile}
         onPackageFolder={handlePackageFolder}
         onReplaceChange={setReplacePackage}
@@ -1145,7 +316,7 @@ export function InterfaceUploadControl({
           expanded={topicExpandedActive}
           mode={receiveMode}
           onModeChange={selectReceiveMode}
-          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          onToggleExpanded={toggleWorkspaceExpanded}
         >
           {receiveMode === 'topic' && (
             <TopicReceivePanel
@@ -1155,10 +326,7 @@ export function InterfaceUploadControl({
               importableOnly={topicImportableOnly}
               onImportableOnlyChange={setTopicImportableOnly}
               onMessageSelect={(key) => {
-                const message = callableMessages.find((item) => messageKey(item) === key)
                 setSelectedMessageKey(key)
-                setTopicMessageValues(defaultRequestValues(message?.message_schema ?? []))
-                setTopicPublishResult(null)
               }}
               onRefresh={loadReceiveState}
               onResetAll={resetAllTopicReceiveHistory}
@@ -1166,10 +334,7 @@ export function InterfaceUploadControl({
               onSearchChange={setReceiveTopicSearch}
               onStart={startSelectedTopicReceive}
               onStop={stopSelectedTopicReceive}
-              onTopicNameChange={(value, source) => {
-                selectedReceiveTopicSourceRef.current = value ? source : 'empty'
-                setSelectedReceiveTopic(value)
-              }}
+              onTopicNameChange={setSelectedReceiveTopic}
               receiveHistory={visibleReceiveTopicHistory}
               receiving={selectedTopicReceiving}
               receivingTopics={receiveTopics}
@@ -1189,13 +354,7 @@ export function InterfaceUploadControl({
               onResetAll={resetServiceReceiveHistory}
               onResetSelected={resetSelectedServiceReceiveHistory}
               onSearchChange={setReceiveServiceSearch}
-              onSelect={(key) => {
-                const service = callableServices.find((item) => serviceKey(item) === key)
-                setSelectedReceiveServiceKey(key)
-                setSelectedServiceKey(key)
-                setRequestValues(defaultRequestValues(service?.request_schema ?? []))
-                setServiceCallResult(null)
-              }}
+              onSelect={setSelectedServiceKey}
               onStart={startSelectedServiceReceive}
               onStop={stopSelectedServiceReceive}
               search={receiveServiceSearch}
@@ -1212,13 +371,7 @@ export function InterfaceUploadControl({
               onResetAll={resetActionReceiveHistory}
               onResetSelected={resetSelectedActionReceiveHistory}
               onSearchChange={setReceiveActionSearch}
-              onSelect={(key) => {
-                const action = callableActions.find((item) => actionKey(item) === key)
-                setSelectedReceiveActionKey(key)
-                setSelectedActionKey(key)
-                setGoalValues(defaultRequestValues(action?.goal_schema ?? []))
-                setActionGoalResult(null)
-              }}
+              onSelect={setSelectedActionKey}
               onStart={startSelectedActionReceive}
               onStop={stopSelectedActionReceive}
               search={receiveActionSearch}
@@ -1252,7 +405,7 @@ export function InterfaceUploadControl({
         <UploadedPackagesPanel
           expanded={topicExpandedActive}
           onDelete={handleRemovePackage}
-          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          onToggleExpanded={toggleWorkspaceExpanded}
           packages={packages}
         />
       )}
@@ -1273,16 +426,10 @@ export function InterfaceUploadControl({
           onPublish={publishSelectedTopicMessage}
           onResetHistory={resetSelectedTopicPublishHistory}
           onSelect={(key) => {
-            const message = callableMessages.find((item) => messageKey(item) === key)
             setSelectedMessageKey(key)
-            setTopicMessageValues(defaultRequestValues(message?.message_schema ?? []))
-            setTopicPublishResult(null)
           }}
-          onTopicNameChange={(value, sourceKind) => {
-            topicPublishNameSourceRef.current = value ? sourceKind : 'empty'
-            setTopicPublishName(value)
-          }}
-          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          onTopicNameChange={setTopicPublishName}
+          onToggleExpanded={toggleWorkspaceExpanded}
           publishGraphTopics={publishGraphTopics}
           publishHz={topicPublishHz}
           publishName={topicPublishName}
@@ -1303,15 +450,9 @@ export function InterfaceUploadControl({
           onExecute={executeServiceCall}
           onFieldChange={(name, value) => setRequestValues((current) => ({ ...current, [name]: value }))}
           onImportableOnlyChange={setServiceImportableOnly}
-          onSelect={(key) => {
-            const service = callableServices.find((item) => serviceKey(item) === key)
-            setSelectedServiceKey(key)
-            setSelectedReceiveServiceKey(key)
-            setRequestValues(defaultRequestValues(service?.request_schema ?? []))
-            setServiceCallResult(null)
-          }}
+          onSelect={setSelectedServiceKey}
           onTimeoutChange={setTimeoutSec}
-          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          onToggleExpanded={toggleWorkspaceExpanded}
           requestValues={requestValues}
           result={serviceCallResult}
           selected={selectedService}
@@ -1333,15 +474,9 @@ export function InterfaceUploadControl({
           onExecute={executeActionGoal}
           onFieldChange={(name, value) => setGoalValues((current) => ({ ...current, [name]: value }))}
           onImportableOnlyChange={setActionImportableOnly}
-          onSelect={(key) => {
-            const action = callableActions.find((item) => actionKey(item) === key)
-            setSelectedActionKey(key)
-            setSelectedReceiveActionKey(key)
-            setGoalValues(defaultRequestValues(action?.goal_schema ?? []))
-            setActionGoalResult(null)
-          }}
+          onSelect={setSelectedActionKey}
           onTimeoutChange={setGoalTimeoutSec}
-          onToggleExpanded={() => setTopicWorkspaceExpanded((value) => !value)}
+          onToggleExpanded={toggleWorkspaceExpanded}
           result={actionGoalResult}
           selected={selectedAction}
           selectedKey={selectedActionKey}

@@ -4,21 +4,33 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
-import tempfile
-import threading
 from datetime import datetime, timezone
 from email.parser import BytesParser
 from email.policy import default
 from pathlib import Path, PurePath
 from typing import Any
 
-import yaml
-
 from ros2_dashboard_monitor.interface_lab.paths import persistent_monitor_config_dir, ros_workspace_root
 from ros2_dashboard_monitor.interface_lab.management.errors import InterfaceUploadError
 from ros2_dashboard_monitor.interface_lab.management.interface_parser import parse_interface
 from ros2_dashboard_monitor.interface_lab.management.import_checker import check_import as _check_import
+from ros2_dashboard_monitor.interface_lab.management.interface_package_installer import (
+    atomic_write as _atomic_write,
+    dependency_candidates as _dependency_candidates,
+    failed_build_info,
+    install_interface,
+)
+from ros2_dashboard_monitor.interface_lab.management.registry_storage import (
+    REGISTRY_LOCK as _REGISTRY_LOCK,
+    load_registry as _load_registry,
+    write_registry as _write_registry,
+)
+from ros2_dashboard_monitor.interface_lab.management.registry_apply_status import (
+    apply_summary as build_registry_apply_summary,
+    mark_build_applied,
+    missing_registry_summary,
+    refresh_import_status,
+)
 
 
 ALLOWED_KINDS = {'msg', 'srv', 'action'}
@@ -28,12 +40,7 @@ KIND_COLLECTIONS = {
     'action': 'actions',
 }
 MAX_INTERFACE_FILE_SIZE = 256 * 1024
-_REGISTRY_LOCK = threading.Lock()
 TYPE_NAME_PATTERN = re.compile(r'^[A-Z][A-Za-z0-9]*$')
-DEPENDENCY_PATTERN = re.compile(
-    r'(?<![A-Za-z0-9_])([A-Za-z][A-Za-z0-9_]*)/'
-    r'[A-Za-z][A-Za-z0-9_]*(?:\[[^]]*\])?',
-)
 
 
 def default_registry_path() -> Path:
@@ -149,198 +156,17 @@ def register_interface(
 def _install_interface(
     safe_name: str, kind: str, type_name: str, raw_text: str,
 ) -> dict[str, Any]:
-    package_name, package_path = default_interface_package()
-    package_xml = package_path / 'package.xml'
-    cmake_path = package_path / 'CMakeLists.txt'
-    if (
-        not package_path.is_dir()
-        or not package_xml.is_file()
-        or not cmake_path.is_file()
-    ):
-        raise InterfaceUploadError(
-            f'interface 패키지 구성을 찾을 수 없습니다: {package_path}',
-        )
-
-    declared_name = re.search(
-        r'<name>\s*([^<]+)\s*</name>',
-        package_xml.read_text(encoding='utf-8'),
+    return install_interface(
+        safe_name, kind, type_name, raw_text,
+        package=default_interface_package(),
+        check_import=_check_import,
+        display_path=_display_path,
     )
-    if not declared_name or declared_name.group(1).strip() != package_name:
-        raise InterfaceUploadError('INTERFACE_PACKAGE_NAME과 package.xml의 패키지명이 다릅니다.')
-
-    dependencies = _dependency_candidates(raw_text, package_name)
-    destination = package_path / kind / safe_name
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        _atomic_write(destination, raw_text)
-        if package_name == 'uploaded_interfaces':
-            from ros2_dashboard_monitor.interface_lab.management.manual_interfaces import (
-                regenerate_uploaded_interfaces_package,
-            )
-            regenerate_uploaded_interfaces_package(package_path)
-            cmake_changed = True
-            package_changed = True
-        else:
-            cmake_changed = _update_cmake(cmake_path, f'{kind}/{safe_name}', dependencies)
-            package_changed = _update_package_xml(package_xml, dependencies)
-    except (OSError, UnicodeError) as exc:
-        raise InterfaceUploadError(f'interface 패키지 반영에 실패했습니다: {exc}') from exc
-
-    import_available, import_error = _check_import(package_name, kind, type_name)
-    backend_root = ros_workspace_root()
-    saved_path = _display_path(destination)
-    return {
-        'interface_package': package_name,
-        'saved_path': saved_path,
-        'absolute_saved_path': str(destination),
-        'file_saved': True,
-        'cmake_registered': True,
-        'cmake_updated': cmake_changed,
-        'package_xml_checked': True,
-        'package_xml_updated': package_changed,
-        'dependency_candidates': dependencies,
-        'rebuild_required': True,
-        'import_available': import_available,
-        'import_error': import_error,
-        'error': None,
-    }
 
 
 def _failed_build_info(raw_text: str, error: str) -> dict[str, Any]:
     package_name, _ = default_interface_package()
-    return {
-        'interface_package': package_name,
-        'saved_path': None,
-        'file_saved': False,
-        'cmake_registered': False,
-        'package_xml_checked': False,
-        'dependency_candidates': _dependency_candidates(raw_text, package_name),
-        'rebuild_required': False,
-        'import_available': False,
-        'import_error': None,
-        'error': error,
-    }
-
-
-def _dependency_candidates(raw_text: str, package_name: str) -> list[str]:
-    without_comments = '\n'.join(
-        line.split('#', 1)[0] for line in raw_text.splitlines()
-    )
-    return sorted({
-        match for match in DEPENDENCY_PATTERN.findall(without_comments)
-        if match != package_name
-    })
-
-
-def _update_cmake(path: Path, interface_path: str, dependencies: list[str]) -> bool:
-    text = path.read_text(encoding='utf-8')
-    match = re.search(r'rosidl_generate_interfaces\s*\(', text)
-    if not match:
-        raise InterfaceUploadError('CMakeLists.txt에 rosidl_generate_interfaces 블록이 없습니다.')
-    end = _closing_parenthesis(text, match.end() - 1)
-    block = text[match.start():end + 1]
-    updated = block
-    if f'"{interface_path}"' not in updated and interface_path not in updated:
-        dependency_position = re.search(r'^\s*DEPENDENCIES\b', updated, re.MULTILINE)
-        insertion = dependency_position.start() if dependency_position else updated.rfind(')')
-        updated = updated[:insertion] + f'  "{interface_path}"\n' + updated[insertion:]
-    for dependency in dependencies:
-        if not re.search(
-            rf'\b{re.escape(dependency)}\b', _dependencies_section(updated),
-        ):
-            dep_match = re.search(r'^(\s*DEPENDENCIES\b[^\n]*)', updated, re.MULTILINE)
-            if dep_match:
-                line = dep_match.group(1) + f' {dependency}'
-                updated = updated[:dep_match.start()] + line + updated[dep_match.end():]
-            else:
-                updated = updated[:-1] + f'  DEPENDENCIES {dependency}\n)'
-    prefix = ''
-    for dependency in dependencies:
-        if not re.search(
-            rf'find_package\s*\(\s*{re.escape(dependency)}\s+REQUIRED\s*\)',
-            text,
-        ):
-            prefix += f'find_package({dependency} REQUIRED)\n'
-    result = text[:match.start()] + prefix + updated + text[end + 1:]
-    if result == text:
-        return False
-    _backup(path)
-    _atomic_write(path, result)
-    return True
-
-
-def _dependencies_section(block: str) -> str:
-    match = re.search(r'\bDEPENDENCIES\b(.*)', block, re.DOTALL)
-    return match.group(1) if match else ''
-
-
-def _closing_parenthesis(text: str, opening: int) -> int:
-    depth = 0
-    for index in range(opening, len(text)):
-        if text[index] == '(':
-            depth += 1
-        elif text[index] == ')':
-            depth -= 1
-            if depth == 0:
-                return index
-    raise InterfaceUploadError('rosidl_generate_interfaces 블록이 닫히지 않았습니다.')
-
-
-def _update_package_xml(path: Path, dependencies: list[str]) -> bool:
-    text = path.read_text(encoding='utf-8')
-    additions: list[str] = []
-    required = [
-        ('build_depend', 'rosidl_default_generators'),
-        ('exec_depend', 'rosidl_default_runtime'),
-    ]
-    for tag, name in required:
-        if not re.search(
-            rf'<(?:{tag}|depend)>\s*{re.escape(name)}\s*'
-            rf'</(?:{tag}|depend)>',
-            text,
-        ):
-            additions.append(f'  <{tag}>{name}</{tag}>')
-    for dependency in dependencies:
-        if not re.search(
-            rf'<(?:depend|build_depend|exec_depend)>\s*'
-            rf'{re.escape(dependency)}\s*'
-            rf'</(?:depend|build_depend|exec_depend)>',
-            text,
-        ):
-            additions.append(f'  <depend>{dependency}</depend>')
-    if not re.search(
-        r'<member_of_group>\s*rosidl_interface_packages\s*</member_of_group>',
-        text,
-    ):
-        additions.append('  <member_of_group>rosidl_interface_packages</member_of_group>')
-    if not additions:
-        return False
-    marker = text.find('  <export>')
-    if marker < 0:
-        marker = text.find('</package>')
-    if marker < 0:
-        raise InterfaceUploadError('package.xml의 package 닫기 태그를 찾을 수 없습니다.')
-    result = text[:marker] + '\n'.join(additions) + '\n\n' + text[marker:]
-    _backup(path)
-    _atomic_write(path, result)
-    return True
-
-
-def _backup(path: Path) -> None:
-    backup = path.with_name(f'{path.name}.bak')
-    if not backup.exists():
-        shutil.copy2(path, backup)
-
-
-def _atomic_write(path: Path, content: str) -> None:
-    temporary_name = ''
-    with tempfile.NamedTemporaryFile(
-        mode='w', encoding='utf-8', dir=path.parent,
-        prefix=f'.{path.name}.', delete=False,
-    ) as temporary:
-        temporary_name = temporary.name
-        temporary.write(content)
-    os.replace(temporary_name, path)
+    return failed_build_info(raw_text, error, package_name=package_name)
 
 
 def registry_snapshot(registry_path: Path | None = None) -> dict[str, Any]:
@@ -394,16 +220,10 @@ def mark_registry_build_applied(
 ) -> dict[str, Any]:
     """build가 끝난 Registry 항목의 build_required 표시를 해제합니다."""
     path = registry_path or default_registry_path()
-    applied_at = datetime.now(timezone.utc).isoformat()
+    applied_at = datetime.now(timezone.utc)
     with _REGISTRY_LOCK:
         registry = _load_registry(path)
-        for item in _iter_registry_items(registry):
-            build = item.get('build')
-            if not isinstance(build, dict) or build.get('error'):
-                continue
-            build['rebuild_required'] = False
-            build['last_build_status'] = 'success'
-            build['last_build_at'] = applied_at
+        mark_build_applied(registry, applied_at=applied_at)
         _write_registry(path, registry)
         return registry
 
@@ -413,24 +233,15 @@ def refresh_registry_imports(
 ) -> dict[str, Any]:
     """Interface Lab에서 생성된 interface 타입 import 가능 여부를 확인하는 함수입니다."""
     path = registry_path or default_registry_path()
-    checked_at = datetime.now(timezone.utc).isoformat()
+    checked_at = datetime.now(timezone.utc)
     with _REGISTRY_LOCK:
         registry = _load_registry(path)
-        for item in _iter_registry_items(registry):
-            build = item.get('build')
-            if not isinstance(build, dict):
-                continue
-            package_name = build.get('interface_package')
-            kind = item.get('file_kind')
-            type_name = item.get('type_name')
-            if not package_name or kind not in ALLOWED_KINDS or not type_name:
-                continue
-            available, error = _check_import(str(package_name), str(kind), str(type_name))
-            build['import_available'] = available
-            build['import_error'] = error
-            build['import_checked_at'] = checked_at
-            if available:
-                build['rebuild_required'] = False
+        refresh_import_status(
+            registry,
+            allowed_kinds=ALLOWED_KINDS,
+            checked_at=checked_at,
+            check_import=_check_import,
+        )
         summary = _registry_apply_summary(
             registry,
             registry_path=path,
@@ -471,42 +282,6 @@ def _safe_file_name(file_name: str) -> str:
     return safe_name
 
 
-def _empty_registry() -> dict[str, Any]:
-    return {
-        'interface_registry': {
-            'messages': [],
-            'services': [],
-            'actions': [],
-        },
-    }
-
-
-def _load_registry(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        return _empty_registry()
-    try:
-        data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        raise InterfaceUploadError(f'타입 registry를 읽을 수 없습니다: {exc}') from exc
-
-    root = data.get('interface_registry') if isinstance(data, dict) else None
-    if not isinstance(root, dict):
-        return _empty_registry()
-    normalized = _empty_registry()
-    for name in KIND_COLLECTIONS.values():
-        value = root.get(name)
-        normalized['interface_registry'][name] = value if isinstance(value, list) else []
-    return normalized
-
-
-def _iter_registry_items(registry: dict[str, Any]):
-    root = registry.get('interface_registry', {})
-    for collection_name in KIND_COLLECTIONS.values():
-        collection = root.get(collection_name, [])
-        if isinstance(collection, list):
-            yield from collection
-
-
 def _registry_apply_summary(
     registry: dict[str, Any],
     *,
@@ -514,202 +289,25 @@ def _registry_apply_summary(
     require_import_available: bool,
     update_registry: bool,
 ) -> dict[str, Any]:
-    package_name, package_path = default_interface_package()
-    package_xml = package_path / 'package.xml'
-    cmake_path = package_path / 'CMakeLists.txt'
-    cmake_text = _read_optional_text(cmake_path)
-    package_text = _read_optional_text(package_xml)
-    not_applied: list[dict[str, Any]] = []
-    import_pending: list[dict[str, Any]] = []
-    total = 0
-
-    for item in _iter_registry_items(registry):
-        total += 1
-        build = item.setdefault('build', {})
-        if not isinstance(build, dict):
-            build = {}
-            item['build'] = build
-
-        kind = str(item.get('file_kind') or '')
-        file_name = str(item.get('file_name') or '')
-        if item.get('source') == 'manual_type':
-            if update_registry:
-                package_name = str(build.get('interface_package') or '').strip()
-                type_name = str(item.get('type_name') or '').strip()
-                if package_name and kind in ALLOWED_KINDS and type_name:
-                    available, error = _check_import(package_name, kind, type_name)
-                    build['import_available'] = available
-                    build['import_error'] = error
-                    build['rebuild_required'] = False
-            if require_import_available and not build.get('import_available'):
-                not_applied.append({
-                    'file_name': file_name,
-                    'saved_path': None,
-                    'reason': build.get('import_error') or 'import_available false',
-                })
-            continue
-        item_package_path = build.get('absolute_interface_package_path') or build.get('interface_package_path')
-        active_package_path = Path(str(item_package_path)).resolve() if item_package_path else package_path
-        active_package_name = str(build.get('interface_package') or package_name)
-        active_package_xml = active_package_path / 'package.xml'
-        active_cmake_path = active_package_path / 'CMakeLists.txt'
-        active_cmake_text = _read_optional_text(active_cmake_path)
-        active_package_text = _read_optional_text(active_package_xml)
-        interface_path = f'{kind}/{file_name}' if kind and file_name else ''
-        actual_path = _registered_interface_path(active_package_path, build, interface_path)
-        file_saved = actual_path.is_file()
-        cmake_registered = bool(
-            interface_path
-            and active_cmake_text
-            and (
-                interface_path in active_cmake_text
-                or f'"{interface_path}"' in active_cmake_text
-            )
-        )
-        package_xml_checked = _package_xml_satisfies(
-            active_package_text,
-            active_package_name,
-            build.get('dependency_candidates', []),
-        )
-
-        if update_registry:
-            build['interface_package'] = active_package_name
-            build['interface_package_path'] = _display_path(active_package_path)
-            build['saved_path'] = _display_path(actual_path) if file_saved else build.get('saved_path')
-            build['absolute_saved_path'] = str(actual_path) if file_saved else build.get('absolute_saved_path')
-            build['file_saved'] = file_saved
-            build['cmake_registered'] = cmake_registered
-            build['package_xml_checked'] = package_xml_checked
-
-        reasons: list[str] = []
-        if build.get('error'):
-            reasons.append(str(build['error']))
-        if not file_saved:
-            reasons.append('file_saved false')
-        if not cmake_registered:
-            reasons.append('cmake_registered false')
-        if not package_xml_checked:
-            reasons.append('package_xml_checked false')
-
-        import_available = bool(build.get('import_available'))
-        if require_import_available and not import_available:
-            reasons.append('import_available false')
-        elif not require_import_available and not import_available:
-            import_pending.append({
-                'file_name': file_name,
-                'reason': build.get('import_error') or 'import-check pending after reload',
-            })
-
-        if reasons:
-            not_applied.append({
-                'file_name': file_name,
-                'saved_path': build.get('saved_path'),
-                'reason': ', '.join(reasons),
-            })
-
-    real_apply_success = total > 0 and not not_applied
-    ready_for_build = total > 0 and not any(
-        item for item in not_applied
-        if 'import_available false' not in item['reason']
+    return build_registry_apply_summary(
+        registry,
+        registry_path=registry_path,
+        require_import_available=require_import_available,
+        update_registry=update_registry,
+        default_package=default_interface_package(),
+        workspace_root=ros_workspace_root(),
+        allowed_kinds=ALLOWED_KINDS,
+        check_import=_check_import,
+        display_path=_display_path,
     )
-    status = 'success' if real_apply_success else 'partial'
-    if total == 0:
-        status = 'empty'
-    return {
-        'status': status,
-        'real_apply_success': real_apply_success,
-        'ready_for_build': ready_for_build,
-        'registry_exists': registry_path.is_file(),
-        'registry_path': _display_path(registry_path),
-        'interface_package': package_name,
-        'interface_package_path': _display_path(package_path),
-        'total': total,
-        'applied_count': total - len(not_applied),
-        'not_applied': not_applied,
-        'import_pending': import_pending,
-        'requires_import_available': require_import_available,
-    }
 
 
 def _missing_registry_summary(path: Path) -> dict[str, Any]:
-    package_name, package_path = default_interface_package()
-    return {
-        'status': 'failed',
-        'real_apply_success': False,
-        'ready_for_build': False,
-        'registry_exists': False,
-        'registry_path': _display_path(path),
-        'interface_package': package_name,
-        'interface_package_path': _display_path(package_path),
-        'total': 0,
-        'applied_count': 0,
-        'not_applied': [{
-            'file_name': None,
-            'saved_path': None,
-            'reason': f'interface_registry.yaml 파일이 없습니다: {_display_path(path)}',
-        }],
-        'import_pending': [],
-        'requires_import_available': False,
-    }
-
-
-def _registered_interface_path(
-    package_path: Path,
-    build: dict[str, Any],
-    interface_path: str,
-) -> Path:
-    saved = build.get('absolute_saved_path') or build.get('saved_path')
-    if saved:
-        saved_path = Path(str(saved))
-        if not saved_path.is_absolute():
-            project_root = ros_workspace_root().parent
-            if saved_path.parts and saved_path.parts[0] == ros_workspace_root().name:
-                saved_path = project_root / saved_path
-            else:
-                saved_path = ros_workspace_root() / saved_path
-        return saved_path
-    return package_path / interface_path
-
-
-def _package_xml_satisfies(
-    package_text: str,
-    package_name: str,
-    dependencies: Any,
-) -> bool:
-    if not package_text:
-        return False
-    if not re.search(rf'<name>\s*{re.escape(package_name)}\s*</name>', package_text):
-        return False
-    if not re.search(
-        r'<(?:build_depend|depend)>\s*rosidl_default_generators\s*</(?:build_depend|depend)>',
-        package_text,
-    ):
-        return False
-    if not re.search(
-        r'<(?:exec_depend|depend)>\s*rosidl_default_runtime\s*</(?:exec_depend|depend)>',
-        package_text,
-    ):
-        return False
-    if not re.search(
-        r'<member_of_group>\s*rosidl_interface_packages\s*</member_of_group>',
-        package_text,
-    ):
-        return False
-    for dependency in dependencies if isinstance(dependencies, list) else []:
-        if not re.search(
-            rf'<(?:depend|build_depend|exec_depend)>\s*{re.escape(str(dependency))}\s*'
-            rf'</(?:depend|build_depend|exec_depend)>',
-            package_text,
-        ):
-            return False
-    return True
-
-
-def _read_optional_text(path: Path) -> str:
-    try:
-        return path.read_text(encoding='utf-8')
-    except (OSError, UnicodeError):
-        return ''
+    return missing_registry_summary(
+        path,
+        default_package=default_interface_package(),
+        display_path=_display_path,
+    )
 
 
 def _display_path(path: Path) -> str:
@@ -719,22 +317,3 @@ def _display_path(path: Path) -> str:
         return resolved.relative_to(root).as_posix()
     except ValueError:
         return str(resolved)
-
-
-def _write_registry(path: Path, registry: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_name = ''
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode='w', encoding='utf-8', dir=path.parent,
-            prefix=f'.{path.name}.', delete=False,
-        ) as temporary:
-            temporary_name = temporary.name
-            yaml.safe_dump(
-                registry, temporary, allow_unicode=True, sort_keys=False,
-            )
-        os.replace(temporary_name, path)
-    except OSError as exc:
-        if temporary_name:
-            Path(temporary_name).unlink(missing_ok=True)
-        raise InterfaceUploadError(f'타입 registry를 저장할 수 없습니다: {exc}') from exc

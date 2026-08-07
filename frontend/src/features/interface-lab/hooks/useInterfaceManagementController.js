@@ -18,13 +18,13 @@ import {
   validateManualDefinition,
   writeManualDefinition,
 } from '../../../api/interfaceManagement.js'
-import { interfaceCounts, registryRowKey } from '../InterfaceUploadParts.jsx'
+import { interfaceCounts, registryRowKey } from '../model/interfaceUploadModel.js'
 
 export const MANUAL_INTERFACE_PACKAGE = 'uploaded_interfaces'
 
 const ACCEPTED_EXTENSIONS = ['.msg', '.srv', '.action']
 
-export function useInterfaceManagementController({ onCloseExecutionPanels, onStateChanged }) {
+export function useInterfaceManagementController({ onStateChanged }) {
   const [busy, setBusy] = useState(false)
   const [applying, setApplying] = useState(false)
   const [reloadPhase, setReloadPhase] = useState('idle')
@@ -71,10 +71,11 @@ export function useInterfaceManagementController({ onCloseExecutionPanels, onSta
       if (!keepOpen) {
         setShowRegistry(false)
         setShowBuildLog(false)
-        onCloseExecutionPanels()
       }
+      return true
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message })
+      return false
     } finally {
       setBusy(false)
     }
@@ -89,10 +90,11 @@ export function useInterfaceManagementController({ onCloseExecutionPanels, onSta
       if (!keepOpen) {
         setShowPackages(false)
         setShowBuildLog(false)
-        onCloseExecutionPanels()
       }
+      return true
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message })
+      return false
     } finally {
       setBusy(false)
     }

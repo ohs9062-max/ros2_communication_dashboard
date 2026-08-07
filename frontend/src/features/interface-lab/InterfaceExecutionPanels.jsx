@@ -5,14 +5,16 @@ import {
   ReceiveHistory,
   RequestField,
   ServiceCallHistory,
+} from './InterfaceExecutionShared.jsx'
+import {
   actionKey,
   actionStatusLabel,
+  messageKey,
   serviceKey,
   serviceStatusLabel,
-  messageKey,
   topicGraphStatusLabel,
   topicStatusLabel,
-} from './InterfaceUploadParts.jsx'
+} from './model/interfaceUploadModel.js'
 
 function PanelHeading({ expanded, onToggleExpanded, showExpand, title }) {
   return (

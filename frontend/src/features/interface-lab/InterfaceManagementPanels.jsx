@@ -1,8 +1,10 @@
 import {
   PackageRegistry,
   RegistryGroup,
+} from './InterfaceRegistryParts.jsx'
+import {
   deletedRegistryItemsFor,
-} from './InterfaceUploadParts.jsx'
+} from './model/interfaceUploadModel.js'
 
 export function BuildFailurePanel({
   applying,

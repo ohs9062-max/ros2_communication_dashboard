@@ -41,6 +41,47 @@ ros2_dashboard/
 - Interface Lab의 등록, package upload, build/apply/import 확인과 Topic Publish/Receive,
   Service Call, Action Goal/Feedback/Result/Cancel 실행은 Monitor 영역에 있다.
 - Frontend는 route lazy loading과 기능별 API/Interface Lab panel 분리가 적용되어 있다.
+- Interface Lab의 Topic Publish/Continuous Publish, Service Call, Action Goal 실행 상태·선택 보정·
+  API 호출·history 갱신은 각각 `useTopicExecutionController`, `useServiceExecutionController`,
+  `useActionExecutionController` hook으로 분리되어 있다.
+- Topic/Service/Action Receive의 목록·검색·start/stop/reset·history·1초 polling은
+  `useInterfaceReceiveController`로 분리되어 있다.
+- Interface Lab Workspace의 Service/Topic/Action 상세 View와 schema/history/JSON 공통 UI는
+  `features/interface-lab/workspace/` 아래 기능별 component로 분리되어 있다.
+- Interface Lab model은 `model/workspaceItems.js`, `schemaValues.js`, `executionHistory.js`,
+  `workspaceDataUtils.js`, `workspacePresentation.js`로 분리됐고 구 `interfaceLabModel.js`는 제거됐다.
+- Interface Upload의 Apply 초기 조회, 외부 refresh signal 처리, Monitor 재연결 후 import 확인과
+  fallback timer는 `useInterfaceControlLifecycle`로 분리됐다. 열린 실행 panel 새로고침은 각
+  Topic/Service/Action controller의 `load()` 경로를 재사용한다.
+- Interface Upload의 관리/Receive/Topic·Service·Action panel 전환, 실행 후보 로딩, 확장 상태 알림은
+  `useInterfacePanelCoordinator`가 담당한다. Management controller는 관리 데이터 조회 결과만 반환하고
+  다른 기능 panel을 직접 닫지 않는다.
+- Interface Lab 목록의 inline 실행은 `useInlineTopicController`와
+  `useInlineServiceActionController`로 분리됐고, `useInlineWorkspaceController`는 현재 선택 종류에
+  맞는 상태와 명령을 조합한다.
+- Visualization graph 변환은 전체 graph coordinator `graphTransform.js`, 선택 Node graph
+  `graphNodeView.js`, node/edge 모델 `graphElements.js`, 숨김·활성 정책 `graphFilters.js`로 분리됐다.
+- Interface Upload toolbar와 수동 Interface 등록/작성 form은 각각 `InterfaceUploadToolbar.jsx`,
+  `InterfaceManualPanel.jsx`로 분리됐다.
+- 구 `InterfaceUploadParts.jsx`는 제거됐다. Registry/schema View는 `InterfaceRegistryParts.jsx`,
+  실행 입력·결과·history View는 `InterfaceExecutionShared.jsx`, 순수 key/status/value helper는
+  `model/interfaceUploadModel.js`에 있다.
+- Interface Lab Topic의 지속 Publish thread/state 관리는 `topic_continuous_runtime.py`로 분리됐고,
+  `topic_runtime.py`는 기존 public method를 통해 이를 위임한다.
+- Interface Lab Topic Publisher 재사용·adaptive QoS 상태·destroy는 `topic_publisher_pool.py`, Publish
+  history 상한/조회/조건 삭제는 공통 `BoundedExecutionHistory`가 담당한다.
+- Interface Lab Topic Subscription 생성·중지·adaptive QoS·수신 history/state는
+  `topic_receive_runtime.py`가 담당하며 `topic_runtime.py`는 public facade/coordinator 역할을 한다.
+- Interface Lab의 등록 Message 조회·실행 가능 검증·schema 조립은 `topic_message_registry.py`, Topic
+  Graph 조회·type 충돌 상태 계산은 `topic_graph.py`가 담당한다. `topic_runtime.py`에는 단일 Publish
+  요청 조립과 분리 runtime 위임만 남아 있다.
+- Interface registry YAML의 정규화·원자적 저장·공유 lock은 `management/registry_storage.py`, 단일
+  업로드 파일의 생성 package 저장과 CMake/package.xml 갱신은 `interface_package_installer.py`가
+  담당한다. `registry.py`는 기존 public API와 등록 흐름을 조정한다.
+- Registry build 완료 표시, import 상태 갱신, 실제 파일/CMake/package.xml 기반 apply 판정은
+  `management/registry_apply_status.py`가 담당한다. `registry.py`는 lock 범위와 저장 시점을 관리한다.
+- 업로드 package의 ZIP/폴더 입력 크기·경로·symlink·허용 파일 검사는 `management/package_archive.py`,
+  package Registry YAML 정규화·원자적 저장은 `package_registry_storage.py`가 담당한다.
 - Topic/Service/Action/Node 감시 폴더명은 각각 `ros2_topic`, `ros2_service`, `ros2_action`,
   `ros2_node`다.
 
@@ -68,6 +109,7 @@ staged/unstaged diff를 먼저 확인해야 한다.
 - `config.md`, `docs/qos/dds_qos.md`에도 미커밋 변경이 있다. 소유권과 의도를 확인하지 않고
   되돌리거나 포함 범위를 넓히지 않는다.
 - 위 QoS 구현은 마지막 검수에서 동작했지만 아직 현재 Git 기준선에 커밋되지 않았다.
+- `InterfaceUploadControl.jsx` Controller/수명주기 분리 변경과 관련 신규 hook도 현재 미커밋 상태다.
 
 ## 마지막 확인된 검증 상태
 
@@ -82,6 +124,8 @@ Frontend 초기 bundle: 약 210 KB, 500 KB 경고 없음
 실제 BEST_EFFORT LaserScan: endpoint QoS 자동 적용 후 수신 성공
 실제 AddTwoInts Service: 7 + 5 = 12 응답 성공
 실제 Action: goal/feedback/result 및 cancel accepted/canceled 확인
+Monitor 설치 executable 및 localhost transport 단기 기동/종료: 성공
+Backend 단독 uvicorn 단기 기동/종료: 성공
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -103,7 +147,7 @@ Frontend 초기 bundle: 약 210 KB, 500 KB 경고 없음
 1. 먼저 현재 staged/unstaged/untracked QoS diff를 보존한 채 범위를 재확인한다.
 2. QoS 관련 정적 검사, ROS2 119 tests, Backend tests, Frontend lint/build를 변경 후 다시 실행한다.
 3. 사용자 승인 시에만 QoS 변경과 문서 변경을 의도별 commit으로 정리한다.
-4. 다음 기능 리팩토링은 Interface Lab controller/model/view 잔여 책임과 큰 ROS runtime의
-   client pool/history/assembler 경계를 우선 조사한다.
+4. 다음 ROS2 리팩토링은 `interface_lab/management/packages.py`에 남은 package import/apply 상태와
+   package identity/interface 수집 책임을 분리한다. 이후 501줄 `manual_interfaces.py`를 재평가한다.
 5. 신규 기능은 WSS와 MariaDB Alert 이력 설계를 우선하며, 미구현 항목을 현재 기능으로
    보고하지 않는다.

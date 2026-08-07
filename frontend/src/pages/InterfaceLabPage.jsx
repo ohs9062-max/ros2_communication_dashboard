@@ -1,5 +1,6 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { InterfaceUploadControl } from '../components/InterfaceUploadControl.jsx'
+import { useInlineWorkspaceController } from '../features/interface-lab/hooks/useInlineWorkspaceController.js'
 import { useInterfaceLabSnapshot } from '../features/interface-lab/hooks/useInterfaceLabSnapshot.js'
 import {
   InlineWorkspace,
@@ -10,27 +11,10 @@ import {
 import {
   buildSummary,
   buildWorkspaceItems,
-  defaultValues,
-  normalizeNumericValues,
+} from '../features/interface-lab/model/workspaceItems.js'
+import {
   relatedWorkspaceItems,
-} from '../features/interface-lab/interfaceLabModel.js'
-import {
-  graphPublishTopicCandidates,
-  topicNameTypeWarning,
-} from '../utils/interfaceTopics.js'
-import {
-  callRegisteredService,
-  cancelActionGoal,
-  fetchContinuousTopicPublishes,
-  publishTopicMessage,
-  resetReceiveTopicHistory,
-  resetTopicPublishHistory,
-  sendActionGoal,
-  startReceiveTopic,
-  startContinuousTopicPublish,
-  stopContinuousTopicPublish,
-  stopReceiveTopic,
-} from '../api/interfaceExecution.js'
+} from '../features/interface-lab/model/workspacePresentation.js'
 
 const GROUPS = [
   { id: 'all', label: '전체' },
@@ -60,18 +44,6 @@ export function InterfaceLabPage({ websocket }) {
   const [activeGroup, setActiveGroup] = useState('all')
   const [selected, setSelected] = useState(null)
   const [selectedHistoryItem, setSelectedHistoryItem] = useState(null)
-  const [requestValues, setRequestValues] = useState({})
-  const [goalValues, setGoalValues] = useState({})
-  const [messageValues, setMessageValues] = useState({})
-  const [topicPublishName, setTopicPublishName] = useState('')
-  const [topicPublishHz, setTopicPublishHz] = useState(10)
-  const [topicSubscribeName, setTopicSubscribeName] = useState('')
-  const topicPublishNameSourceRef = useRef('empty')
-  const [timeoutSec, setTimeoutSec] = useState(2)
-  const [goalTimeoutSec, setGoalTimeoutSec] = useState(10)
-  const [cancelingGoal, setCancelingGoal] = useState(false)
-  const [executing, setExecuting] = useState(false)
-  const [inlineResult, setInlineResult] = useState(null)
   const [error, setError] = useState(null)
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [workbenchResetKey, setWorkbenchResetKey] = useState(0)
@@ -84,26 +56,6 @@ export function InterfaceLabPage({ websocket }) {
 
   const handleWorkbenchStateChanged = () => {
     refresh({ notifyWorkbench: false })
-  }
-
-  const resetInterfaceLab = async () => {
-    setActiveGroup('all')
-    setSelected(null)
-    setSelectedHistoryItem(null)
-    setRequestValues({})
-    setGoalValues({})
-    setMessageValues({})
-    topicPublishNameSourceRef.current = 'empty'
-    setTopicPublishName('')
-    setTopicPublishHz(10)
-    setTopicSubscribeName('')
-    setTimeoutSec(2)
-    setGoalTimeoutSec(10)
-    setInlineResult(null)
-    setError(null)
-    setTopicWorkbenchExpanded(false)
-    setWorkbenchResetKey((value) => value + 1)
-    await refresh({ notifyWorkbench: false })
   }
 
   useEffect(() => {
@@ -138,279 +90,64 @@ export function InterfaceLabPage({ websocket }) {
   const selectedDetail = workspaceItems.find((item) => item.id === selected?.id)
     ?? workspaceItems.find((item) => item.stableKey === selected?.stableKey)
     ?? null
-  const publishGraphTopics = useMemo(
-    () => graphPublishTopicCandidates(topics, selectedDetail?.fullType),
-    [selectedDetail?.fullType, topics],
-  )
-  const selectedMessageDefaultTopic = selectedDetail?.connectedTopics?.[0]?.name
-    ?? selectedDetail?.topicStates?.[0]?.topic_name
-    ?? ''
-  const topicPublishWarning = topicNameTypeWarning(
-    topics,
+  const {
+    activeContinuousPublish,
+    cancelAction: cancelSelectedAction,
+    cancelingGoal,
+    executeAction: executeSelectedAction,
+    executeService: executeSelectedService,
+    executing,
+    goalTimeoutSec,
+    goalValues,
+    messageValues,
+    publishGraphTopics,
+    publishTopic: publishSelectedTopic,
+    requestValues,
+    reset: resetInlineWorkspace,
+    resetTopicHistories: resetSelectedTopicHistories,
+    result: inlineResult,
+    selectPublishGraphTopic,
+    setGoalTimeoutSec,
+    setGoalValues,
+    setMessageValues,
+    setRequestValues,
+    setTimeoutSec,
+    setTopicPublishHz,
+    setTopicSubscribeName,
+    startContinuousTopic: startSelectedContinuousTopicPublish,
+    startTopicSubscribe: startSelectedTopicSubscribe,
+    stopContinuousTopic: stopSelectedContinuousTopicPublish,
+    stopTopicSubscribe: stopSelectedTopicSubscribe,
+    timeoutSec,
+    topicPublishHz,
     topicPublishName,
-    selectedDetail?.fullType,
-  )
-  const activeContinuousPublish = continuousTopicPublishes.find((item) =>
-    item.active
-    && item.topic_name === topicPublishName
-    && item.topic_type === selectedDetail?.fullType)
-  const activeContinuousPublishKey = activeContinuousPublish
-    ? `${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
-    : ''
+    topicPublishWarning,
+    topicSubscribeName,
+    updateTopicPublishName,
+  } = useInlineWorkspaceController({
+    continuousTopicPublishes,
+    refresh,
+    selectedDetail,
+    topics,
+    updateSnapshotField,
+  })
   const relatedItems = useMemo(
     () => relatedWorkspaceItems(selectedDetail, workspaceItems),
     [selectedDetail, workspaceItems],
   )
 
   useEffect(() => {
-    if (!activeContinuousPublishKey) return undefined
-    const timer = window.setInterval(async () => {
-      try {
-        const payload = await fetchContinuousTopicPublishes()
-        updateSnapshotField('continuousTopicPublishes', payload.data ?? [])
-      } catch {
-        // Explicit actions and the regular refresh surface connection errors.
-      }
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [activeContinuousPublishKey, updateSnapshotField])
-
-  useEffect(() => {
     setSelectedHistoryItem(null)
-    setInlineResult(null)
-    if (selectedDetail?.kind === 'service' || selectedDetail?.kind === 'callable_service') {
-      setRequestValues(defaultValues(selectedDetail.schema ?? []))
-    } else if (selectedDetail?.kind === 'action' || selectedDetail?.kind === 'callable_action') {
-      setGoalValues(defaultValues(selectedDetail.schema ?? []))
-    } else if (selectedDetail?.kind === 'message') {
-      setMessageValues(defaultValues(selectedDetail.schema ?? []))
-      setTopicSubscribeName(selectedMessageDefaultTopic)
-    }
-  }, [selectedDetail?.kind, selectedDetail?.schema, selectedDetail?.stableKey, selectedMessageDefaultTopic])
+  }, [selectedDetail?.stableKey])
 
-  useEffect(() => {
-    if (selectedDetail?.kind !== 'message') return
-    const currentName = topicPublishName.trim()
-    const currentIsCandidate = publishGraphTopics.some((topic) => topic.name === currentName)
-    const source = topicPublishNameSourceRef.current
-
-    if (source === 'user') {
-      if (currentName) return
-    } else if (source === 'graph') {
-      if (currentIsCandidate) return
-      topicPublishNameSourceRef.current = 'empty'
-      setTopicPublishName('')
-      return
-    } else if (source === 'auto' && publishGraphTopics.length !== 1) {
-      topicPublishNameSourceRef.current = 'empty'
-      setTopicPublishName('')
-      return
-    }
-
-    if (publishGraphTopics.length === 1) {
-      const nextName = publishGraphTopics[0].name
-      if (source === 'auto' && currentName === nextName) return
-      topicPublishNameSourceRef.current = 'auto'
-      setTopicPublishName(nextName)
-    }
-  }, [publishGraphTopics, selectedDetail?.kind, selectedDetail?.fullType, topicPublishName])
-
-  const updateTopicPublishName = (value) => {
-    topicPublishNameSourceRef.current = value ? 'user' : 'empty'
-    setTopicPublishName(value)
-  }
-
-  const selectPublishGraphTopic = (value) => {
-    topicPublishNameSourceRef.current = value ? 'graph' : 'empty'
-    setTopicPublishName(value)
-  }
-
-  const executeSelectedService = async () => {
-    const target = selectedDetail?.connectedServices?.find((service) => service.callable)
-      ?? (selectedDetail?.kind === 'callable_service' ? selectedDetail.status : null)
-    if (!target?.service_name || !target?.service_type) {
-      setInlineResult({ success: false, error: '호출 가능한 Service가 없습니다.' })
-      return
-    }
-    setExecuting(true)
-    setInlineResult(null)
-    try {
-      const result = await callRegisteredService({
-        service_name: target.service_name,
-        service_type: target.service_type,
-        request: normalizeNumericValues(requestValues, selectedDetail.schema),
-        timeout_sec: timeoutSec,
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, error: nextError.message, sent_to_server: false })
-    } finally {
-      setExecuting(false)
-    }
-  }
-
-  const executeSelectedAction = async () => {
-    const target = selectedDetail?.connectedActions?.find((action) => action.callable)
-      ?? (selectedDetail?.kind === 'callable_action' ? selectedDetail.status : null)
-    if (!target?.action_name || !target?.action_type) {
-      setInlineResult({ success: false, accepted: false, error: '실행 가능한 Action이 없습니다.' })
-      return
-    }
-    setExecuting(true)
-    setInlineResult(null)
-    try {
-      const result = await sendActionGoal({
-        action_name: target.action_name,
-        action_type: target.action_type,
-        full_type: target.full_type ?? target.selected_import_type ?? target.action_type,
-        goal: normalizeNumericValues(goalValues, selectedDetail.schema),
-        timeout_sec: goalTimeoutSec,
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, accepted: false, error: nextError.message, sent_to_server: false })
-    } finally {
-      setExecuting(false)
-    }
-  }
-
-  const cancelSelectedAction = async () => {
-    const target = selectedDetail?.connectedActions?.find((action) => action.callable)
-      ?? (selectedDetail?.kind === 'callable_action' ? selectedDetail.status : null)
-    if (!target?.action_name || !target?.action_type) return
-    setCancelingGoal(true)
-    try {
-      const result = await cancelActionGoal({
-        action_name: target.action_name,
-        action_type: target.action_type,
-        timeout_sec: goalTimeoutSec,
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, error: nextError.message, error_type: 'cancel_failed' })
-    } finally {
-      setCancelingGoal(false)
-    }
-  }
-
-  const publishSelectedTopic = async () => {
-    if (!selectedDetail?.fullType) {
-      setInlineResult({ success: false, error: 'Message full_type이 없습니다.' })
-      return
-    }
-    if (!topicPublishName) {
-      setInlineResult({ success: false, error: 'Publish할 Topic 이름을 입력하세요.' })
-      return
-    }
-    setExecuting(true)
-    setInlineResult(null)
-    try {
-      const result = await publishTopicMessage({
-        topic_name: topicPublishName,
-        topic_type: selectedDetail.fullType,
-        full_type: selectedDetail.fullType,
-        message: normalizeNumericValues(messageValues, selectedDetail.schema),
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, error: nextError.message, sent_to_topic: false })
-    } finally {
-      setExecuting(false)
-    }
-  }
-
-  const startSelectedContinuousTopicPublish = async () => {
-    if (!selectedDetail?.fullType || !topicPublishName) {
-      setInlineResult({ success: false, error: 'Message full_type과 Publish Topic 이름이 필요합니다.' })
-      return
-    }
-    setExecuting(true)
-    setInlineResult(null)
-    try {
-      const result = await startContinuousTopicPublish({
-        topic_name: topicPublishName,
-        topic_type: selectedDetail.fullType,
-        full_type: selectedDetail.fullType,
-        message: normalizeNumericValues(messageValues, selectedDetail.schema),
-        hz: Number(topicPublishHz),
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, error: nextError.message, sent_to_topic: false })
-    } finally {
-      setExecuting(false)
-    }
-  }
-
-  const stopSelectedContinuousTopicPublish = async () => {
-    if (!selectedDetail?.fullType || !topicPublishName) return
-    setExecuting(true)
-    try {
-      const result = await stopContinuousTopicPublish({
-        topic_name: topicPublishName,
-        topic_type: selectedDetail.fullType,
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, error: nextError.message })
-    } finally {
-      setExecuting(false)
-    }
-  }
-
-  const startSelectedTopicSubscribe = async () => {
-    if (!selectedDetail?.fullType || !topicSubscribeName) {
-      setInlineResult({ success: false, error: 'Topic 이름과 Message full_type이 필요합니다.' })
-      return
-    }
-    try {
-      const result = await startReceiveTopic({
-        topic_name: topicSubscribeName,
-        topic_type: selectedDetail.fullType,
-        full_type: selectedDetail.fullType,
-        history_limit: 500,
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, error: nextError.message })
-    }
-  }
-
-  const stopSelectedTopicSubscribe = async () => {
-    if (!selectedDetail?.fullType || !topicSubscribeName) return
-    try {
-      const result = await stopReceiveTopic({
-        topic_name: topicSubscribeName,
-        topic_type: selectedDetail.fullType,
-        full_type: selectedDetail.fullType,
-      })
-      setInlineResult(result)
-      await refresh({ notifyWorkbench: false })
-    } catch (nextError) {
-      setInlineResult({ success: false, error: nextError.message })
-    }
-  }
-
-  const resetSelectedTopicHistories = async () => {
-    const payload = selectedDetail?.fullType && topicSubscribeName
-      ? { topicName: topicSubscribeName, topicType: selectedDetail.fullType }
-      : {}
-    await Promise.all([
-      resetReceiveTopicHistory(payload.topicName, payload.topicType),
-      resetTopicPublishHistory(
-        payload.topicName
-          ? { topic_name: payload.topicName, topic_type: payload.topicType }
-          : {},
-      ),
-    ])
-    setInlineResult({ success: true, message: 'Topic 수신 항목과 Publish/Subscribe 이력을 초기화했습니다.' })
+  const resetInterfaceLab = async () => {
+    setActiveGroup('all')
+    setSelected(null)
+    setSelectedHistoryItem(null)
+    resetInlineWorkspace()
+    setError(null)
+    setTopicWorkbenchExpanded(false)
+    setWorkbenchResetKey((value) => value + 1)
     await refresh({ notifyWorkbench: false })
   }
 

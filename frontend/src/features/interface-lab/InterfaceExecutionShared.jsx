@@ -1,0 +1,121 @@
+import {
+  defaultFieldValue,
+  isComplexType,
+  isNumericType,
+} from './model/interfaceUploadModel.js'
+
+export function ActionGoalResult({ result }) {
+  return (
+    <div className="interface-action-result">
+      <span className={result.accepted ? 'success' : 'error'}>
+        {result.accepted ? 'accepted' : 'rejected/failed'}
+      </span>
+      {Array.isArray(result.feedback) && result.feedback.length > 0 && (
+        <div className="interface-action-feedback">
+          <span>feedback</span>
+          <ul>{result.feedback.map((item, index) => (
+            <li key={`${index}-${JSON.stringify(item)}`}><code>{JSON.stringify(item)}</code></li>
+          ))}</ul>
+        </div>
+      )}
+      <CallResultBlock result={result} successPayload={result.result} />
+    </div>
+  )
+}
+
+export function CallResultBlock({ result, successPayload }) {
+  const validationError = result.error_type === 'validation_error'
+  return (
+    <>
+      {validationError && (
+        <div className="interface-validation-warning">입력값이 선택한 ROS2 타입과 맞지 않아 전송하지 않았습니다.</div>
+      )}
+      <pre className={`interface-service-result ${result.success ? 'success' : 'error'}`}>
+        {JSON.stringify(result.success ? successPayload : result, null, 2)}
+      </pre>
+    </>
+  )
+}
+
+export function RequestField({ disabled = false, field, onChange, value }) {
+  if (!field.name) return null
+  const type = field.type ?? ''
+  if (type === 'bool' || type === 'boolean') {
+    return (
+      <label className="interface-service-field inline">
+        <input checked={Boolean(value)} disabled={disabled} onChange={(event) => onChange(event.target.checked)} type="checkbox" />
+        <span>{field.name}</span>
+      </label>
+    )
+  }
+  if (isComplexType(type)) {
+    return (
+      <label className="interface-service-field">
+        <span>{field.name} <small>{type} · JSON</small></span>
+        <textarea
+          disabled={disabled}
+          onChange={(event) => {
+            try { onChange(JSON.parse(event.target.value || 'null')) }
+            catch { onChange(event.target.value) }
+          }}
+          rows={type.includes('[') || type.startsWith('sequence<') ? 4 : 3}
+          value={typeof value === 'string' ? value : JSON.stringify(value ?? defaultFieldValue(type), null, 2)}
+        />
+      </label>
+    )
+  }
+  return (
+    <label className="interface-service-field">
+      <span>{field.name} <small>{type}</small></span>
+      <input disabled={disabled} onChange={(event) => onChange(event.target.value)} type={isNumericType(type) ? 'number' : 'text'} value={value ?? ''} />
+    </label>
+  )
+}
+
+export function ServiceCallHistory({ calls }) {
+  if (!calls.length) return null
+  return (
+    <div className="interface-service-history">
+      <span>최근 실행</span>
+      <ul>{calls.slice(0, 3).map((call) => (
+        <li key={`${call.called_at}-${call.service_name}`}>
+          {call.service_name} · {call.success ? '성공' : '실패'} · {Math.round(call.elapsed_ms ?? 0)}ms
+        </li>
+      ))}</ul>
+    </div>
+  )
+}
+
+export function ActionGoalHistory({ goals }) {
+  if (!goals.length) return null
+  return (
+    <div className="interface-service-history">
+      <span>최근 Goal</span>
+      <ul>{goals.slice(0, 3).map((goal) => (
+        <li key={`${goal.sent_at}-${goal.action_name}`}>
+          {goal.action_name} · {goal.accepted ? 'accepted' : 'rejected'} · {Math.round(goal.elapsed_ms ?? 0)}ms
+        </li>
+      ))}</ul>
+    </div>
+  )
+}
+
+export function ReceiveHistory({ items = [], title }) {
+  return (
+    <div className="interface-receive-history">
+      <strong>{title} · {items.length}개</strong>
+      {items.length ? (
+        <ul>{items.map((item, index) => (
+          <li key={`${title}-${index}-${item.id ?? item.topic_name ?? item.service_name ?? item.action_name}`}>
+            <span>
+              {item.topic_name ?? item.service_name ?? item.action_name ?? item.direction ?? 'event'}
+              {' · '}
+              {item.status ?? (item.receiving ? 'receiving' : item.success === false ? 'failed' : 'ok')}
+            </span>
+            <pre>{JSON.stringify(item.last_message ?? item.message_json ?? item.response ?? item.result ?? item.feedback ?? item, null, 2)}</pre>
+          </li>
+        ))}</ul>
+      ) : <small>수신 이력이 없습니다.</small>}
+    </div>
+  )
+}

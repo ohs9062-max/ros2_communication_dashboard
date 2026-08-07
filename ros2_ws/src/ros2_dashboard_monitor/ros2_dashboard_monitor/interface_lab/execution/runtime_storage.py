@@ -63,3 +63,10 @@ class BoundedExecutionHistory:
     def snapshot(self) -> list[dict[str, Any]]:
         with _locked(self._lock):
             return [item.copy() for item in self._items]
+
+    def remove(self, predicate: Callable[[dict[str, Any]], bool]) -> int:
+        """조건에 맞는 항목을 제거하고 제거 개수를 반환합니다."""
+        with _locked(self._lock):
+            before = len(self._items)
+            self._items = [item for item in self._items if not predicate(item)]
+            return before - len(self._items)

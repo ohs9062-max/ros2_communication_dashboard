@@ -3,3 +3,7 @@
 
 class InterfaceUploadError(ValueError):
     """업로드 또는 interface 정의가 유효하지 않을 때 발생합니다."""
+
+
+class InterfacePackageError(ValueError):
+    """업로드 ROS Interface package가 유효하지 않을 때 발생합니다."""

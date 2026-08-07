@@ -1,11 +1,13 @@
 import {
   ReceiveHistory,
+} from './InterfaceExecutionShared.jsx'
+import {
   actionKey,
   messageKey,
   serviceKey,
   topicGraphStatusLabel,
   topicStatusLabel,
-} from './InterfaceUploadParts.jsx'
+} from './model/interfaceUploadModel.js'
 
 export function InterfaceReceiveWorkbench({ children, expanded, mode, onModeChange, onToggleExpanded }) {
   return (
