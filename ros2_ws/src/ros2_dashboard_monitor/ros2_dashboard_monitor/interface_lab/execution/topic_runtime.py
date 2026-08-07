@@ -22,12 +22,11 @@ from ros2_dashboard_monitor.interface_lab.execution.topic_support import (
     DEFAULT_TOPIC_HISTORY_LIMIT,
     MAX_PUBLISH_HISTORY_ITEMS,
     InterfaceReceiveError,
-    default_qos as _default_qos,
     interface_lab_node as _interface_lab_node,
     is_action_internal_topic as _is_action_internal_topic,
     normalize_limit as _normalize_limit,
     normalize_publish_hz as _normalize_publish_hz,
-    qos_info as _qos_info,
+    topic_qos as _topic_qos,
     safe_count as _safe_count,
 )
 
@@ -49,7 +48,7 @@ class InterfaceReceiveRuntime:
         with self._lock:
             topics = list(self._topics.values())
             self._topics = {}
-            publishers = list(self._publishers.values())
+            publishers = [item['publisher'] for item in self._publishers.values()]
             self._publishers = {}
             self._publish_history = []
             self._continuous_publishes = {}
@@ -147,11 +146,12 @@ class InterfaceReceiveRuntime:
                 existing['graph_state'] = graph_state
                 existing['receiving'] = True
                 return self._topic_state(key, existing)
+        qos_profile, qos = _topic_qos(node, topic_name, local_role='subscription')
         subscription = node.create_subscription(
             message_class,
             topic_name,
             lambda message: self._record_topic_message(topic_name, topic_type, message),
-            _default_qos(topic_type),
+            qos_profile,
         )
         with self._lock:
             previous = self._topics.get(key) or {}
@@ -161,7 +161,7 @@ class InterfaceReceiveRuntime:
                 'history_limit': limit,
                 'subscription': subscription,
                 'receiving': True,
-                'qos': _qos_info(topic_type),
+                'qos': qos,
                 'graph_state': graph_state,
                 'history': previous.get('history', []),
                 'message_count': previous.get('message_count', 0),
@@ -329,7 +329,7 @@ class InterfaceReceiveRuntime:
                     'Interface Lab의 일반 Message Publish에서 사용할 수 없습니다.'
                 ),
                 'graph_state': graph_state,
-                'qos': _qos_info(topic_type),
+                'qos': self._publish_qos_state(topic_name, topic_type),
             }
             self._record_publish_history(result)
             return result
@@ -351,7 +351,7 @@ class InterfaceReceiveRuntime:
                     f'{topic_type} Publisher를 생성할 수 없습니다.'
                 ),
                 'graph_state': graph_state,
-                'qos': _qos_info(topic_type),
+                'qos': self._publish_qos_state(topic_name, topic_type),
             }
             self._record_publish_history(result)
             return result
@@ -372,7 +372,7 @@ class InterfaceReceiveRuntime:
                     'error': str(exc),
                     'details': exc.details,
                     'graph_state': graph_state,
-                    'qos': _qos_info(topic_type),
+                    'qos': self._publish_qos_state(topic_name, topic_type),
                 }
                 self._record_publish_history(result)
                 return result
@@ -392,7 +392,7 @@ class InterfaceReceiveRuntime:
                 'published_at': started_at,
                 'subscriber_count': graph_state.get('subscriber_count', 0),
                 'graph_state': graph_state,
-                'qos': _qos_info(topic_type),
+                'qos': self._publish_qos_state(topic_name, topic_type),
             }
         except Exception as exc:
             result = {
@@ -405,7 +405,7 @@ class InterfaceReceiveRuntime:
                 'published_at': started_at,
                 'error': str(exc),
                 'graph_state': graph_state,
-                'qos': _qos_info(topic_type),
+                'qos': self._publish_qos_state(topic_name, topic_type),
             }
             self._record_publish_history(result)
             if isinstance(exc, InterfaceReceiveError):
@@ -656,15 +656,26 @@ class InterfaceReceiveRuntime:
     def _publisher(self, topic_name: str, topic_type: str, message_class: type):
         key = (topic_name, topic_type)
         with self._lock:
-            publisher = self._publishers.get(key)
-            if publisher is not None:
-                return publisher, False
+            entry = self._publishers.get(key)
+            if entry is not None:
+                return entry['publisher'], False
             node = self._node_getter()
             if node is None:
                 raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
-            publisher = node.create_publisher(message_class, topic_name, _default_qos(topic_type))
-            self._publishers[key] = publisher
+            qos_profile, qos = _topic_qos(node, topic_name, local_role='publisher')
+            publisher = node.create_publisher(message_class, topic_name, qos_profile)
+            self._publishers[key] = {'publisher': publisher, 'qos': qos}
             return publisher, True
+
+    def _publish_qos_state(self, topic_name: str, topic_type: str) -> dict[str, Any]:
+        with self._lock:
+            entry = self._publishers.get((topic_name, topic_type))
+            if entry is not None:
+                return entry['qos']
+        node = self._node_getter()
+        if node is None:
+            return {}
+        return _topic_qos(node, topic_name, local_role='publisher')[1]
 
     def _record_publish_history(self, item: dict[str, Any]) -> None:
         item.setdefault('execution_source', 'interface_lab')

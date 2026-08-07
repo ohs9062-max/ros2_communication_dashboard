@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from rclpy.qos import QoSProfile
+
+from ros2_dashboard_monitor.qos import choose_topic_qos
+
 
 DEFAULT_TOPIC_HISTORY_LIMIT = 500
 MAX_TOPIC_HISTORY_LIMIT = 500
@@ -50,17 +54,13 @@ def normalize_publish_hz(value: float) -> float:
     return hz
 
 
-def default_qos(_topic_type: str) -> int:
-    return 10
-
-
-def qos_info(topic_type: str) -> dict[str, Any]:
-    return {
-        'depth': 10,
-        'profile': 'sensor_data_hint' if topic_type.startswith('sensor_msgs/msg/') else 'default',
-        'reliability': 'default',
-        'durability': 'default',
-    }
+def topic_qos(node: Any, topic_name: str, *, local_role: str):
+    return choose_topic_qos(
+        node,
+        topic_name,
+        local_role=local_role,
+        default_profile=QoSProfile(depth=10),
+    )
 
 
 def safe_count(callback: Callable[[], int]) -> int:

@@ -5,6 +5,8 @@ from __future__ import annotations
 from time import time
 from typing import Any, Callable
 
+from rclpy.qos import qos_profile_services_default
+
 from ros2_dashboard_monitor.interface_lab.apply.runtime import refresh_install_python_paths
 from ros2_dashboard_monitor.interface_lab.common.value_converter import (
     build_ros_message,
@@ -25,6 +27,7 @@ from ros2_dashboard_monitor.interface_lab.execution.service_call_executor import
 from ros2_dashboard_monitor.ros2_service.active_check import (
     load_service_class,
 )
+from ros2_dashboard_monitor.qos import qos_state
 
 
 MAX_HISTORY_ITEMS = 30
@@ -110,7 +113,7 @@ class ServiceCallRuntime:
         if node is None:
             raise ServiceCallError('ROS2 monitor node가 실행 중이 아닙니다.')
 
-        return execute_service_call(
+        result = execute_service_call(
             service_name=service_name,
             service_type=service_type,
             request_data=request_data,
@@ -118,11 +121,13 @@ class ServiceCallRuntime:
             service_class_loader=load_service_class,
             client_getter=self._client,
             validation_result_builder=self._validation_result,
-            record_history=self._record_history,
+            record_history=self._record_history_with_qos,
             error_class=ServiceCallError,
             message_builder=build_ros_message,
             response_serializer=ros_message_to_json,
         )
+        result.update(self._service_qos())
+        return result
 
     def history(self) -> dict[str, Any]:
         """최근 Service Call 실행 이력을 복사해 반환합니다."""
@@ -219,7 +224,7 @@ class ServiceCallRuntime:
     ) -> dict[tuple[str, str], dict[str, bool]]:
         """Service별 Interface Lab Client 생성 상태를 반환합니다."""
         return {
-            key: {'interface_client_created': True}
+            key: {'interface_client_created': True, **self._service_qos()}
             for key in self._client_pool.keys()
         }
 
@@ -283,7 +288,11 @@ class ServiceCallRuntime:
             node = self._node_getter()
             if node is None:
                 raise ServiceCallError('ROS2 monitor node가 실행 중이 아닙니다.')
-            return node.create_client(service_class, name)
+            return node.create_client(
+                service_class,
+                name,
+                qos_profile=qos_profile_services_default,
+            )
 
         return self._client_pool.get_or_create(key, create_client)
 
@@ -321,7 +330,22 @@ class ServiceCallRuntime:
             'saved_path': entry.get('saved_path'),
             'source': entry.get('source', 'single_interface'),
             'package_name': entry.get('package_name'),
+            **self._service_qos(),
         }
+
+    @staticmethod
+    def _service_qos() -> dict[str, Any]:
+        return qos_state(
+            status='unknown',
+            source='default_profile',
+            local=qos_profile_services_default,
+            reason='Service Graph API에서 상대 endpoint QoS를 제공하지 않아 기본 Service QoS를 사용합니다.',
+            auto_applied=False,
+        )
+
+    def _record_history_with_qos(self, item: dict[str, Any]) -> None:
+        item.update(self._service_qos())
+        self._record_history(item)
 
     def _record_history(self, item: dict[str, Any]) -> None:
         item.setdefault('execution_source', 'interface_lab')

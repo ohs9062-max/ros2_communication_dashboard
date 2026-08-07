@@ -7,14 +7,10 @@ from importlib import import_module
 from time import time
 from typing import Any, Callable
 
-from rclpy.qos import (
-    DurabilityPolicy,
-    QoSProfile,
-    ReliabilityPolicy,
-    qos_profile_sensor_data,
-)
+from rclpy.qos import QoSProfile, qos_profile_sensor_data
 
 from ros2_dashboard_monitor.config_loader import MonitorConfig
+from ros2_dashboard_monitor.qos import choose_topic_qos
 from ros2_dashboard_monitor.resource_state import (
     disconnected_resource,
     mark_graph_present,
@@ -88,6 +84,7 @@ class TopicRuntime:
                     'message_preview': copy_message_preview(entry.get('message_preview')),
                     'last_received_at': entry.get('last_received_at'),
                     'message_count': len(entry.get('timestamps', [])),
+                    'qos': entry.get('qos'),
                 }
                 for name, entry in self._subscriptions.items()
             }
@@ -171,6 +168,15 @@ class TopicRuntime:
             topic['message_count'] = latest.get('message_count', 0)
             topic['detailed_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
             topic['last_error'] = subscription_errors.get(name)
+            topic.update(latest.get('qos') or {
+                'qos_status': 'unknown',
+                'qos_detection_source': 'unavailable',
+                'local_qos': None,
+                'remote_qos': [],
+                'mismatch_policies': [],
+                'mismatch_reason': None,
+                'qos_auto_applied': False,
+            })
 
         return {
             'topics': topics,
@@ -475,15 +481,17 @@ class TopicRuntime:
             if entry is not None:
                 node.destroy_subscription(entry['subscription'])
 
+            qos_profile, qos = self._qos_profile(name, topic_type)
             subscription = node.create_subscription(
                 message_class,
                 name,
                 self._latest_message_callback(name, topic_type),
-                self._qos_profile(name, topic_type),
+                qos_profile,
             )
             self._subscriptions[name] = build_subscription_entry(
                 topic_type=topic_type,
                 subscription=subscription,
+                qos=qos,
             )
 
     def _has_subscription(self, name: str, topic_type: str) -> bool:
@@ -663,40 +671,13 @@ class TopicRuntime:
 
     def _qos_profile(self, topic_name: str, topic_type: str):
         node = self._node_getter()
-        endpoint_reader = getattr(node, 'get_publishers_info_by_topic', None)
-        if endpoint_reader is not None:
-            try:
-                endpoints = endpoint_reader(topic_name)
-            except Exception:
-                endpoints = []
-            for endpoint in endpoints:
-                publisher_qos = getattr(endpoint, 'qos_profile', None)
-                if publisher_qos is None:
-                    continue
-                reliability = getattr(
-                    publisher_qos,
-                    'reliability',
-                    ReliabilityPolicy.UNKNOWN,
-                )
-                durability = getattr(
-                    publisher_qos,
-                    'durability',
-                    DurabilityPolicy.UNKNOWN,
-                )
-                if reliability == ReliabilityPolicy.UNKNOWN:
-                    reliability = ReliabilityPolicy.RELIABLE
-                if durability == DurabilityPolicy.UNKNOWN:
-                    durability = DurabilityPolicy.VOLATILE
-                return QoSProfile(
-                    depth=10,
-                    reliability=reliability,
-                    durability=durability,
-                )
-
-        if topic_type in SENSOR_PREVIEW_TYPES:
-            return qos_profile_sensor_data
-
-        return QoSProfile(depth=10)
+        default = qos_profile_sensor_data if topic_type in SENSOR_PREVIEW_TYPES else QoSProfile(depth=10)
+        return choose_topic_qos(
+            node,
+            topic_name,
+            local_role='subscription',
+            default_profile=default,
+        )
 
     @staticmethod
     def _latest_response(
