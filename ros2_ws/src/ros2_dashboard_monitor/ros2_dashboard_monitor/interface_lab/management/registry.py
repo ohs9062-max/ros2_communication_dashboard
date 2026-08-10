@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 import os
-import re
 from datetime import datetime, timezone
 from email.parser import BytesParser
 from email.policy import default
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import Any
 
 from ros2_dashboard_monitor.interface_lab.paths import persistent_monitor_config_dir, ros_workspace_root
 from ros2_dashboard_monitor.interface_lab.management.errors import InterfaceUploadError
-from ros2_dashboard_monitor.interface_lab.management.interface_parser import parse_interface
+from ros2_dashboard_monitor.interface_lab.management.interface_upload import (
+    ALLOWED_KINDS,
+    MAX_INTERFACE_FILE_SIZE,
+    TYPE_NAME_PATTERN,
+    prepare_interface_upload,
+    safe_file_name as _safe_file_name,
+)
+from ros2_dashboard_monitor.interface_lab.management.interface_parser import (
+    parse_interface,
+)
 from ros2_dashboard_monitor.interface_lab.management.import_checker import check_import as _check_import
 from ros2_dashboard_monitor.interface_lab.management.interface_package_installer import (
     atomic_write as _atomic_write,
@@ -33,16 +41,11 @@ from ros2_dashboard_monitor.interface_lab.management.registry_apply_status impor
 )
 
 
-ALLOWED_KINDS = {'msg', 'srv', 'action'}
 KIND_COLLECTIONS = {
     'msg': 'messages',
     'srv': 'services',
     'action': 'actions',
 }
-MAX_INTERFACE_FILE_SIZE = 256 * 1024
-TYPE_NAME_PATTERN = re.compile(r'^[A-Z][A-Za-z0-9]*$')
-
-
 def default_registry_path() -> Path:
     """단일 Interface Registry YAML의 기본 경로를 반환합니다."""
     backend_root = ros_workspace_root()
@@ -90,40 +93,11 @@ def register_interface(
     registry_path: Path | None = None,
 ) -> dict[str, Any]:
     """Interface Lab에서 interface 등록 정보를 저장하는 함수입니다."""
-    safe_name = _safe_file_name(file_name)
-    suffix = Path(safe_name).suffix.lower()
-    kind = suffix.removeprefix('.')
-    if kind not in ALLOWED_KINDS:
-        raise InterfaceUploadError('.msg, .srv, .action 파일만 업로드할 수 있습니다.')
-    if not content:
-        raise InterfaceUploadError('빈 파일은 업로드할 수 없습니다.')
-    if len(content) > MAX_INTERFACE_FILE_SIZE:
-        raise InterfaceUploadError(
-            f'파일 크기는 {MAX_INTERFACE_FILE_SIZE // 1024}KB 이하여야 합니다.',
-        )
-    try:
-        raw_text = content.decode('utf-8')
-    except UnicodeDecodeError as exc:
-        raise InterfaceUploadError('파일은 UTF-8 텍스트여야 합니다.') from exc
-
-    type_name = Path(safe_name).stem
-    if not TYPE_NAME_PATTERN.fullmatch(type_name):
-        raise InterfaceUploadError(
-            '타입 이름은 대문자로 시작하고 영문자와 숫자만 포함해야 합니다.',
-        )
-
-    entry: dict[str, Any] = {
-        'file_name': safe_name,
-        'file_kind': kind,
-        'type_name': type_name,
-        'uploaded_at': datetime.now(timezone.utc).isoformat(),
-        'raw_text': raw_text,
-    }
-    try:
-        entry['parsed'] = parse_interface(raw_text, kind)
-    except InterfaceUploadError as exc:
-        entry['parsed'] = {}
-        entry['parsed_error'] = str(exc)
+    entry = prepare_interface_upload(file_name, content)
+    safe_name = entry['file_name']
+    kind = entry['file_kind']
+    type_name = entry['type_name']
+    raw_text = entry['raw_text']
 
     path = registry_path or default_registry_path()
     with _REGISTRY_LOCK:
@@ -272,14 +246,6 @@ def registry_apply_summary(
         )
         _write_registry(path, registry)
         return summary
-
-
-def _safe_file_name(file_name: str) -> str:
-    normalized = file_name.replace('\\', '/')
-    safe_name = PurePath(normalized).name.strip()
-    if not safe_name or safe_name in {'.', '..'} or '\x00' in safe_name:
-        raise InterfaceUploadError('파일명이 올바르지 않습니다.')
-    return safe_name
 
 
 def _registry_apply_summary(

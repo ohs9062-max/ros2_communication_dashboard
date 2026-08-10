@@ -8,44 +8,39 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from ros2_dashboard_monitor.interface_lab.paths import (
-    persistent_monitor_config_dir,
-    ros_workspace_root,
-)
-from ros2_dashboard_monitor.interface_lab.management.registry import (
-    mark_registry_build_applied,
-    registry_apply_summary,
-    refresh_registry_imports,
-)
-from ros2_dashboard_monitor.interface_lab.management.packages import (
-    mark_packages_build_applied,
-    package_apply_summary,
-    packages_snapshot,
-    refresh_package_imports,
-)
 from ros2_dashboard_monitor.interface_lab.apply.errors import (
     InterfaceApplyError,
     InterfaceApplyInProgress,
 )
 from ros2_dashboard_monitor.interface_lab.apply.status_storage import (
     read_log_tail as _read_log_tail,
-    read_status,
     write_status as _write_status,
     write_text as _write_text,
+)
+from ros2_dashboard_monitor.interface_lab.apply.state import (
+    apply_status as _apply_status,
+    default_apply_log_path,
+    default_apply_status_path,
+    empty_status as _empty_status,
+    mark_interface_change_pending,
+    read_apply_status as _read_status,
+    record_import_check_status,
+    ros_workspace_path,
 )
 from ros2_dashboard_monitor.interface_lab.apply.workspace_packages import (
     cleanup_build_artifacts as cleanup_uploaded_package_build_artifacts,
     duplicate_packages as duplicate_workspace_packages,
-    uploaded_package_names,
 )
-from ros2_dashboard_monitor.interface_lab.apply.install_paths import (
-    find_site_packages,
-    refresh_python_paths,
+from ros2_dashboard_monitor.interface_lab.apply.import_check import (
+    combined_apply_summary,
+    find_install_site_packages,
+    mark_build_applied,
+    refresh_install_python_paths,
+    run_import_check_and_update_registry,
+    uploaded_interface_package_names,
 )
-from ros2_dashboard_monitor.interface_lab.apply.summary import combine as combine_apply_summaries
 from ros2_dashboard_monitor.interface_lab.apply.build_executor import (
     COLCON_COMMAND,
     format_build_log,
@@ -59,55 +54,9 @@ from ros2_dashboard_monitor.interface_lab.apply import result_builder
 _APPLY_LOCK = threading.Lock()
 
 
-def ros_workspace_path() -> Path:
-    """colcon build를 실행할 Backend ROS workspace 경로를 반환합니다."""
-    return ros_workspace_root()
-
-
-def default_apply_status_path() -> Path:
-    """Interface Lab에서 interface build/apply 상태를 처리하는 함수입니다."""
-    backend_root = ros_workspace_path()
-    configured_value = os.getenv('INTERFACE_APPLY_STATUS_PATH')
-    if not configured_value:
-        return persistent_monitor_config_dir() / 'interface_apply_status.yaml'
-    configured = Path(configured_value)
-    return configured if configured.is_absolute() else backend_root / configured
-
-
-def default_apply_log_path() -> Path:
-    """Interface Lab에서 interface build/apply 상태를 처리하는 함수입니다."""
-    backend_root = ros_workspace_path()
-    configured_value = os.getenv('INTERFACE_APPLY_LOG_PATH')
-    if not configured_value:
-        return persistent_monitor_config_dir() / 'interface_apply_last.log'
-    configured = Path(configured_value)
-    return configured if configured.is_absolute() else backend_root / configured
-
-
 def apply_status() -> dict[str, Any]:
     """Interface Lab에서 interface build/apply 상태를 처리하는 함수입니다."""
-    status = _read_status()
-    status['running'] = _APPLY_LOCK.locked()
-    status['log_tail'] = _read_log_tail(Path(status.get('log_path') or default_apply_log_path()))
-    return status
-
-
-def mark_interface_change_pending(message: str) -> dict[str, Any]:
-    """Interface 변경 뒤 build가 필요하다는 상태와 변경 사유를 저장합니다."""
-    status = _read_status()
-    status.update({
-        'running': False,
-        'status': 'rebuild_required',
-        'build_status': 'rebuild_required',
-        'real_apply_success': False,
-        'build_required': True,
-        'change_message': message,
-        'changed_at': datetime.now(timezone.utc).isoformat(),
-        'reload_scheduled': False,
-        'restart_scheduled': False,
-    })
-    _write_status(default_apply_status_path(), status)
-    return status
+    return _apply_status(running=_APPLY_LOCK.locked())
 
 
 def run_interface_apply() -> dict[str, Any]:
@@ -210,8 +159,7 @@ def run_interface_apply() -> dict[str, Any]:
             'added': [],
         }
         if build_success:
-            mark_registry_build_applied()
-            mark_packages_build_applied()
+            mark_build_applied()
             path_refresh = refresh_install_python_paths(workspace)
             import_check = run_import_check_and_update_registry(workspace)
             summary = import_check['summary']
@@ -259,113 +207,3 @@ def restart_monitor_after_delay(delay_sec: float = 0.75) -> None:
     """Apply 응답 전송 뒤 동일 PID로 Monitor Python 프로세스를 교체합니다."""
     time.sleep(delay_sec)
     os.execv(sys.executable, [sys.executable, *sys.argv])
-
-
-def uploaded_interface_package_names() -> list[str]:
-    """현재 업로드 저장소에 등록된 package 이름을 반환합니다."""
-    try:
-        registry = packages_snapshot()
-    except Exception:
-        return []
-    return uploaded_package_names(registry)
-
-
-def _empty_status() -> dict[str, Any]:
-    workspace = ros_workspace_path()
-    log_path = default_apply_log_path()
-    return {
-        'running': False,
-        'status': 'idle',
-        'build_status': 'idle',
-        'real_apply_success': False,
-        'started_at': None,
-        'finished_at': None,
-        'returncode': None,
-        'workspace_path': str(workspace),
-        'log_path': str(log_path),
-        'reload_scheduled': False,
-        'restart_scheduled': False,
-        'reload_trigger_path': None,
-        'error': None,
-        'summary': None,
-        'not_applied': [],
-        'install_python_paths': [],
-        'install_python_paths_added': [],
-        'import_check': None,
-    }
-
-
-def run_import_check_and_update_registry(workspace_path: Path | None = None) -> dict[str, Any]:
-    """Interface Lab에서 runtime 상태를 갱신하는 함수입니다."""
-    workspace = workspace_path or ros_workspace_path()
-    path_refresh = refresh_install_python_paths(workspace)
-    registry = refresh_registry_imports()
-    package_registry = refresh_package_imports()
-    summary = combined_apply_summary(
-        registry_summary=registry.get('apply_summary'),
-        package_summary=package_registry.get('apply_summary'),
-        require_import_available=True,
-    )
-    return {
-        'real_apply_success': bool(summary['real_apply_success']),
-        'status': summary['status'],
-        'summary': summary,
-        'not_applied': summary['not_applied'],
-        'install_python_paths': path_refresh['site_packages'],
-        'install_python_paths_added': path_refresh['added'],
-    }
-
-
-def combined_apply_summary(
-    *,
-    registry_summary: dict[str, Any] | None = None,
-    package_summary: dict[str, Any] | None = None,
-    require_import_available: bool = False,
-) -> dict[str, Any]:
-    """Interface Lab에서 interface build/apply 상태를 처리하는 함수입니다."""
-    single = registry_summary or registry_apply_summary(
-        require_import_available=require_import_available,
-    )
-    packages = package_summary or package_apply_summary(
-        require_import_available=require_import_available,
-    )
-    return combine_apply_summaries(
-        single,
-        packages,
-        require_import_available=require_import_available,
-    )
-
-
-def record_import_check_status(result: dict[str, Any]) -> dict[str, Any]:
-    """Interface Lab에서 생성된 interface 타입 import 가능 여부를 확인하는 함수입니다."""
-    status = _read_status()
-    status['real_apply_success'] = bool(result.get('real_apply_success'))
-    if status.get('build_status') == 'success':
-        status['status'] = 'success' if result.get('real_apply_success') else 'import_failed'
-        status['reload_scheduled'] = False
-        status['restart_scheduled'] = False
-        status['error'] = None if result.get('real_apply_success') else (
-            '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
-        )
-    status['summary'] = result.get('summary')
-    status['not_applied'] = result.get('not_applied', [])
-    status['install_python_paths'] = result.get('install_python_paths', [])
-    status['install_python_paths_added'] = result.get('install_python_paths_added', [])
-    status['import_check'] = result
-    _write_status(default_apply_status_path(), status)
-    status['log_tail'] = _read_log_tail(Path(status.get('log_path') or default_apply_log_path()))
-    return status
-
-
-def refresh_install_python_paths(workspace_path: Path | None = None) -> dict[str, list[str]]:
-    """install의 Python site-packages를 찾아 현재 sys.path에 반영합니다."""
-    return refresh_python_paths(workspace_path or ros_workspace_path())
-
-
-def find_install_site_packages(workspace_path: Path | None = None) -> list[Path]:
-    """workspace install 아래의 Python site-packages 경로를 찾습니다."""
-    return find_site_packages(workspace_path or ros_workspace_path())
-
-
-def _read_status() -> dict[str, Any]:
-    return read_status(default_apply_status_path(), default_factory=_empty_status)

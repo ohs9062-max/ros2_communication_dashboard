@@ -1,8 +1,6 @@
-import {
-  ActionExecutionPanel,
-  ServiceExecutionPanel,
-  TopicExecutionPanel,
-} from './InterfaceExecutionPanels.jsx'
+import { ActionExecutionPanel } from './execution/ActionExecutionPanel.jsx'
+import { ServiceExecutionPanel } from './execution/ServiceExecutionPanel.jsx'
+import { TopicExecutionPanel } from './execution/TopicExecutionPanel.jsx'
 
 export function InterfaceExecutionWorkspace({ action, service, topic }) {
   return (

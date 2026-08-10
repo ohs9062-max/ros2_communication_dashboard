@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import os
-import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,8 +39,14 @@ from ros2_dashboard_monitor.interface_lab.management.package_apply_status import
 )
 from ros2_dashboard_monitor.interface_lab.management.package_inspector import (
     PACKAGE_NAME_PATTERN,
-    collect_interfaces,
-    validate_package_identity as _validate_package_identity,
+)
+from ros2_dashboard_monitor.interface_lab.management.package_installer import (
+    install_package_root,
+)
+from ros2_dashboard_monitor.interface_lab.management.package_interfaces import (
+    registered_actions,
+    registered_messages,
+    registered_services,
 )
 
 def default_packages_registry_path() -> Path:
@@ -109,79 +114,16 @@ def upload_interface_package_folder(
 
 
 def _store_package_root(package_root: Path, *, replace: bool) -> dict[str, Any]:
-    uploaded_root = default_uploaded_packages_root()
-    uploaded_root.mkdir(parents=True, exist_ok=True)
-    package_name = _validate_package_identity(package_root)
-    interfaces = collect_interfaces(
+    return install_package_root(
         package_root,
-        package_name,
+        uploaded_root=default_uploaded_packages_root(),
+        replace=replace,
         parse_interface=parse_interface,
         dependency_candidates=_dependency_candidates,
         display_path=_display_path,
+        upsert_entry=upsert_package_entry,
+        registry_path=default_packages_registry_path(),
     )
-    total_interfaces = sum(len(items) for items in interfaces.values())
-    if total_interfaces == 0:
-        raise InterfacePackageError('msg/srv/action 인터페이스가 하나 이상 필요합니다.')
-
-    destination = uploaded_root / package_name
-    if destination.exists() and not replace:
-        raise InterfacePackageError(
-            f'{package_name} 패키지가 이미 있습니다.',
-        )
-
-    staging = uploaded_root / f'.{package_name}.staging'
-    backup = uploaded_root / f'.{package_name}.backup'
-    shutil.rmtree(staging, ignore_errors=True)
-    shutil.rmtree(backup, ignore_errors=True)
-    shutil.copytree(package_root, staging, symlinks=False)
-    try:
-        if destination.exists():
-            destination.rename(backup)
-        staging.rename(destination)
-        shutil.rmtree(backup, ignore_errors=True)
-    except OSError as exc:
-        shutil.rmtree(destination, ignore_errors=True)
-        if backup.exists():
-            backup.rename(destination)
-        shutil.rmtree(staging, ignore_errors=True)
-        raise InterfacePackageError(f'패키지 저장에 실패했습니다: {exc}') from exc
-
-    _rebase_interface_paths(interfaces, destination)
-    entry = {
-        'name': package_name,
-        'path': _display_path(destination),
-        'absolute_path': str(destination.resolve()),
-        'source': 'uploaded_package',
-        'uploaded_at': datetime.now(timezone.utc).isoformat(),
-        'last_build_status': 'pending',
-        'import_available': False,
-        'import_error': None,
-        'error': None,
-        'dependency_candidates': sorted({
-            dep for items in interfaces.values()
-            for item in items
-            for dep in item.get('dependency_candidates', [])
-        }),
-        'dependency_missing': [],
-        'interfaces': interfaces,
-        'rebuild_required': True,
-    }
-    registry = upsert_package_entry(entry)
-    entry['registry_path'] = _display_path(default_packages_registry_path())
-    entry['registry'] = registry
-    return entry
-
-
-def _rebase_interface_paths(
-    interfaces: dict[str, list[dict[str, Any]]],
-    package_root: Path,
-) -> None:
-    for items in interfaces.values():
-        for item in items:
-            relative = Path(str(item.get('relative_path') or ''))
-            absolute = package_root / relative
-            item['saved_path'] = _display_path(absolute)
-            item['absolute_saved_path'] = str(absolute.resolve())
 
 
 def packages_snapshot() -> dict[str, Any]:
@@ -266,73 +208,17 @@ def package_apply_summary(
 
 def registered_package_services() -> list[dict[str, Any]]:
     """업로드 package에서 import 가능한 Service 타입만 반환합니다."""
-    return _registered_package_interfaces('srv', 'service_type', 'request', 'response')
+    return registered_services(packages_snapshot())
 
 
 def registered_package_messages() -> list[dict[str, Any]]:
     """Interface Lab에서 interface 등록 정보를 저장하는 함수입니다."""
-    entries = []
-    for package in packages_snapshot()['packages']:
-        for item in package.get('interfaces', {}).get('msg', []):
-            entries.append({
-                'source': 'uploaded_package',
-                'package_name': package.get('name'),
-                'file_name': item.get('file_name'),
-                'type_name': item.get('type_name'),
-                'message_type': item.get('type'),
-                'message_schema': item.get('parsed', []) if isinstance(item.get('parsed'), list) else [],
-                'saved_path': item.get('saved_path'),
-                'import_available': item.get('import_available') is True,
-                'import_error': item.get('import_error') or package.get('import_error'),
-            })
-    return entries
+    return registered_messages(packages_snapshot())
 
 
 def registered_package_actions() -> list[dict[str, Any]]:
     """업로드 package에서 import 가능한 Action 타입만 반환합니다."""
-    entries = []
-    for package in packages_snapshot()['packages']:
-        for item in package.get('interfaces', {}).get('action', []):
-            parsed = item.get('parsed') if isinstance(item.get('parsed'), dict) else {}
-            entries.append({
-                'source': 'uploaded_package',
-                'package_name': package.get('name'),
-                'file_name': item.get('file_name'),
-                'type_name': item.get('type_name'),
-                'action_type': item.get('type'),
-                'goal_schema': parsed.get('goal', []),
-                'result_schema': parsed.get('result', []),
-                'feedback_schema': parsed.get('feedback', []),
-                'saved_path': item.get('saved_path'),
-                'import_available': item.get('import_available') is True,
-                'import_error': item.get('import_error') or package.get('import_error'),
-            })
-    return entries
-
-
-def _registered_package_interfaces(
-    kind: str,
-    type_key: str,
-    request_key: str,
-    response_key: str,
-) -> list[dict[str, Any]]:
-    entries = []
-    for package in packages_snapshot()['packages']:
-        for item in package.get('interfaces', {}).get(kind, []):
-            parsed = item.get('parsed') if isinstance(item.get('parsed'), dict) else {}
-            entries.append({
-                'source': 'uploaded_package',
-                'package_name': package.get('name'),
-                'file_name': item.get('file_name'),
-                'type_name': item.get('type_name'),
-                type_key: item.get('type'),
-                'request_schema': parsed.get(request_key, []),
-                'response_schema': parsed.get(response_key, []),
-                'saved_path': item.get('saved_path'),
-                'import_available': item.get('import_available') is True,
-                'import_error': item.get('import_error') or package.get('import_error'),
-            })
-    return entries
+    return registered_actions(packages_snapshot())
 
 
 def _check_import(package_name: str, kind: str, type_name: str) -> tuple[bool, str | None]:

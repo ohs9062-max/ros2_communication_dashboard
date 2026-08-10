@@ -1,9 +1,6 @@
-import {
-  ActionReceivePanel,
-  InterfaceReceiveWorkbench,
-  ServiceReceivePanel,
-  TopicReceivePanel,
-} from './InterfaceReceivePanels.jsx'
+import { InterfaceReceiveWorkbench } from './receive/InterfaceReceiveWorkbench.jsx'
+import { ResourceReceivePanel } from './receive/ResourceReceivePanel.jsx'
+import { TopicReceivePanel } from './receive/TopicReceivePanel.jsx'
 
 export function InterfaceReceiveWorkspace({
   action,
@@ -25,8 +22,8 @@ export function InterfaceReceiveWorkspace({
       onToggleExpanded={onToggleExpanded}
     >
       {mode === 'topic' && <TopicReceivePanel {...topic} />}
-      {mode === 'service' && <ServiceReceivePanel {...service} />}
-      {mode === 'action' && <ActionReceivePanel {...action} />}
+      {mode === 'service' && <ResourceReceivePanel {...service} kind="service" />}
+      {mode === 'action' && <ResourceReceivePanel {...action} kind="action" />}
     </InterfaceReceiveWorkbench>
   )
 }

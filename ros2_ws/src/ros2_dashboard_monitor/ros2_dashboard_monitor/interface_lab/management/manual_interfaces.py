@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +28,13 @@ from ros2_dashboard_monitor.interface_lab.management.manual_registry import (
     remove_exact_entry,
     upsert_entry,
 )
+from ros2_dashboard_monitor.interface_lab.management.manual_entries import (
+    manual_definition_entry,
+    manual_type_entry,
+)
+from ros2_dashboard_monitor.interface_lab.management.manual_delete import (
+    delete_generated_interface,
+)
 from ros2_dashboard_monitor.interface_lab.management.manual_validation import (
     parse_full_type as _parse_full_type,
     validate_manual_definition,
@@ -45,29 +51,16 @@ def register_manual_type(
     """Interface Lab에서 interface 등록 정보를 저장하는 함수입니다."""
     package_name, kind, type_name = _parse_full_type(full_type)
     import_available, import_error = _check_import(package_name, kind, type_name)
-    entry = {
-        'file_name': f'{type_name}.{kind}',
-        'file_kind': kind,
-        'type_name': type_name,
-        'full_type': full_type,
-        'source': 'manual_type',
-        'allowlisted': bool(allowlisted),
-        'description': description,
-        'uploaded_at': datetime.now(timezone.utc).isoformat(),
-        'raw_text': '',
-        'parsed': {},
-        'build': {
-            'interface_package': package_name,
-            'file_saved': False,
-            'cmake_registered': False,
-            'package_xml_checked': False,
-            'rebuild_required': False,
-            'import_available': import_available,
-            'import_error': import_error,
-            'manual_registration': True,
-            'error': None,
-        },
-    }
+    entry = manual_type_entry(
+        full_type=full_type,
+        package_name=package_name,
+        kind=kind,
+        type_name=type_name,
+        allowlisted=allowlisted,
+        description=description,
+        import_available=import_available,
+        import_error=import_error,
+    )
     _upsert_registry_entry(entry, registry_path)
     return entry
 
@@ -103,32 +96,19 @@ def write_manual_definition(
     dependencies = package_state['dependencies']
 
     import_available, import_error = _check_import(package_name, kind, type_name)
-    entry = {
-        'file_name': file_name,
-        'file_kind': kind,
-        'type_name': type_name,
-        'full_type': f'{package_name}/{kind}/{type_name}',
-        'source': 'manual_definition',
-        'allowlisted': True,
-        'uploaded_at': datetime.now(timezone.utc).isoformat(),
-        'raw_text': raw_text,
-        'parsed': parsed,
-        'build': {
-            'interface_package': package_name,
-            'interface_package_path': _display_path(package_root),
-            'absolute_interface_package_path': str(package_root),
-            'saved_path': _display_path(destination),
-            'absolute_saved_path': str(destination),
-            'file_saved': True,
-            'cmake_registered': True,
-            'package_xml_checked': True,
-            'dependency_candidates': dependencies,
-            'rebuild_required': True,
-            'import_available': import_available,
-            'import_error': import_error,
-            'error': None,
-        },
-    }
+    entry = manual_definition_entry(
+        package_name=package_name,
+        kind=kind,
+        type_name=type_name,
+        raw_text=raw_text,
+        parsed=parsed,
+        package_root=package_root,
+        destination=destination,
+        dependencies=dependencies,
+        import_available=import_available,
+        import_error=import_error,
+        display_path=_display_path,
+    )
     _upsert_registry_entry(entry, registry_path)
     return entry
 
@@ -210,37 +190,16 @@ def delete_uploaded_interface(
     )
     if removed is None:
         raise InterfaceUploadError('삭제할 registry 항목을 찾을 수 없습니다.')
-    package_name = str(
-        removed.get('build', {}).get('interface_package')
-        or str(removed.get('full_type', '')).split('/', 1)[0]
-    )
-    if package_name != 'uploaded_interfaces':
-        raise InterfaceUploadError('이 삭제 경로는 uploaded_interfaces 단일 파일만 지원합니다.')
-
-    package_root = generated_interface_package_root()
-    target = package_root / kind / file_name
-    deleted_file = target.is_file()
-    if deleted_file:
-        target.unlink()
-    package_state = regenerate_uploaded_interfaces_package(package_root)
-    remove_uploaded_interface_registry_entry(
+    return delete_generated_interface(
+        removed=removed,
         kind=kind,
         file_name=file_name,
-        source=removed.get('source'),
-        full_type=removed.get('full_type'),
+        package_root=generated_interface_package_root(),
+        regenerate_package=regenerate_uploaded_interfaces_package,
+        remove_registry_entry=remove_uploaded_interface_registry_entry,
         registry_path=path,
+        display_path=_display_path,
     )
-    return {
-        'deleted_file': deleted_file,
-        'file_deleted': deleted_file,
-        'file_path': _display_path(target),
-        'full_type': removed.get('full_type'),
-        'removed': removed,
-        **package_state,
-        'rebuild_required': True,
-        'build_required': True,
-        'message': 'interface 파일과 registry 항목을 삭제하고 package metadata를 재생성했습니다.',
-    }
 
 
 def remove_uploaded_interface_registry_entry(

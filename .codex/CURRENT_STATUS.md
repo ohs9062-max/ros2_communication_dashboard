@@ -87,24 +87,48 @@ ros2_dashboard/
   history 상한/조회/조건 삭제는 공통 `BoundedExecutionHistory`가 담당한다.
 - Interface Lab Topic Subscription 생성·중지·adaptive QoS·수신 history/state는
   `topic_receive_runtime.py`가 담당하며 `topic_runtime.py`는 public facade/coordinator 역할을 한다.
+- Topic Receive 메시지 JSON 변환, sequence/count/last event 갱신, Topic별 bounded history 조회와 선택 reset은
+  `execution/topic_receive_history.py`의 `TopicReceiveHistory`가 담당한다. `topic_receive_runtime.py`는
+  subscription start/stop/destroy와 공개 receive 상태에 집중한다.
 - Interface Lab의 등록 Message 조회·실행 가능 검증·schema 조립은 `topic_message_registry.py`, Topic
   Graph 조회·type 충돌 상태 계산은 `topic_graph.py`가 담당한다. `topic_runtime.py`에는 단일 Publish
   요청 조립과 분리 runtime 위임만 남아 있다.
 - Interface registry YAML의 정규화·원자적 저장·공유 lock은 `management/registry_storage.py`, 단일
   업로드 파일의 생성 package 저장과 CMake/package.xml 갱신은 `interface_package_installer.py`가
   담당한다. `registry.py`는 기존 public API와 등록 흐름을 조정한다.
+- 단일 `.msg/.srv/.action` 업로드의 안전한 파일명, kind/크기/UTF-8/PascalCase 검증과 interface parsing
+  기본 Registry entry 준비는 `management/interface_upload.py`가 담당한다. `registry.py`는 기존 상수,
+  `_safe_file_name`, `parse_interface` 호환 import를 재노출하며 설치와 Registry 저장을 조정한다.
 - Registry build 완료 표시, import 상태 갱신, 실제 파일/CMake/package.xml 기반 apply 판정은
   `management/registry_apply_status.py`가 담당한다. `registry.py`는 lock 범위와 저장 시점을 관리한다.
 - 업로드 package의 ZIP/폴더 입력 크기·경로·symlink·허용 파일 검사는 `management/package_archive.py`,
   package Registry YAML 정규화·원자적 저장은 `package_registry_storage.py`가 담당한다.
+- 검증된 업로드 package의 identity/interface 검사, staging·backup 기반 원자적 폴더 교체, 저장 경로 재매핑과
+  Registry entry 생성은 `management/package_installer.py`가 담당한다. `packages.py`는 ZIP/폴더 입력 조립과
+  Registry 조회·삭제·상태·실행 후보 공개 API를 조정한다.
+- 업로드 package Registry의 msg/srv/action 항목을 Interface Lab 실행 후보 schema와 import 상태 payload로
+  변환하는 순수 정책은 `management/package_interfaces.py`가 담당한다. `packages.py`의 기존
+  `registered_package_*` 함수는 Registry snapshot을 읽어 해당 변환을 호출한다.
 - 업로드 package의 build/import/apply 상태는 `management/package_apply_status.py`, package.xml과
   CMake identity 검증 및 msg/srv/action 정의 수집은 `package_inspector.py`가 담당한다.
 - 사용자 직접 작성 Interface 검증은 `management/manual_validation.py`, Registry CRUD는
   `manual_registry.py`, generated package의 파일 스캔·의존성 수집·CMake/package.xml 재생성은
   `generated_package.py`가 담당한다. `manual_interfaces.py`는 공개 작성·수정·삭제 흐름을 조정한다.
+- 파일 없는 기존 ROS type 등록과 generated package에 저장한 manual definition의 Registry payload 모델은
+  `management/manual_entries.py`가 담당한다. `manual_interfaces.py`는 검증, import 확인, filesystem/package
+  갱신과 Registry 저장 순서를 조정한다.
+- Manual/single-upload generated interface 삭제 시 package 소유권 확인, 파일 제거, CMake/package.xml
+  metadata 재생성과 exact Registry entry 제거 순서는 `management/manual_delete.py`가 담당한다.
+  `manual_interfaces.py`는 입력 검증과 Registry 대상 조회 후 해당 lifecycle을 호출한다.
 - Interface Apply 상태 YAML/log I/O는 `apply/status_storage.py`, workspace package 중복 검사와 package
   범위 생성물 정리는 `workspace_packages.py`, install Python 경로 반영은 `install_paths.py`, 단일/package
   apply 상태 병합은 `summary.py`가 담당한다.
+- Interface Apply 상태/log 경로 결정, idle 상태, rebuild pending과 import-check 결과 상태 전이 및 log tail
+  결합은 `apply/state.py`가 담당한다. `apply/runtime.py`는 기존 공개 import를 재노출하면서 build/preflight/
+  import 실행 순서를 조정한다.
+- Install Python 경로 반영, 단일 Interface와 package build 완료 표시, Registry import 재검사와 apply summary
+  병합은 `apply/import_check.py`가 담당한다. `apply/runtime.py`의 기존 import-check/summary/path 함수 import
+  경로는 재노출해 호환을 유지한다.
 - Interface Apply colcon 호출과 build/skip/error 로그 조립은 `apply/build_executor.py`, 단계별 공개 상태
   payload 조립은 `result_builder.py`가 담당한다. `apply/runtime.py`는 lock, preflight, build/import 순서를
   조정한다.
@@ -117,17 +141,26 @@ ros2_dashboard/
 - Topic subscription의 생성·type 변경 교체, Monitor 소유 endpoint 계산, 외부 endpoint 소멸 후 유예
   정리는 `ros2_topic/subscription_lifecycle.py`가 담당한다. runtime의 기존 private 메서드는 호환 facade와
   callback/QoS 의존성 연결 역할만 유지한다.
+- Topic 자동 구독 판정, subscription 생성 연결, Monitor subscriber count, latest callback 상태 갱신과
+  adaptive QoS 선택은 `ros2_topic/subscription_facade.py`의 `TopicSubscriptionFacade`가 담당한다.
+  `TopicRuntime`은 기존 private 호출 계약을 상속으로 유지하며 cleanup 유예 상수 seam은 runtime에 남긴다.
 - Topic Graph 이름/type 필터링, endpoint count 조립, 외부 endpoint 존재 판정과 이전 항목의 disconnected
   보존은 `ros2_topic/graph_collector.py`가 담당한다. runtime은 이전 cache와 자동 subscription/count
   callback을 주입하고 결과 cache를 교체한다.
 - Topic latest/Hz의 Message class import, adaptive subscription QoS 선택, timestamp window 기반
   Hz/age/stale 계산과 공개 응답 payload는 `ros2_topic/query_support.py`가 담당한다. runtime은 요청 검증,
   subscription 보장과 cache 접근 순서를 조정한다.
+- Topic latest/Hz 공개 요청의 실행 상태 확인, Topic/type/import 검증, subscription 보장과 응답 조립은
+  `ros2_topic/query_facade.py`의 `TopicQueryFacade`가 담당한다. `TopicRuntime`은 이를 상속해 기존 공개 및
+  private 호출 계약을 유지하고 Graph/cache/subscription coordinator에 집중한다.
 - Action Graph 전체 조회와 Node별 server/client endpoint count 집계는 `ros2_action/graph.py`가 담당한다.
   `ActionRuntime`의 기존 Graph private method는 테스트·호환 facade로 유지된다.
 - Action status/feedback subscription 생성, endpoint별 adaptive QoS와 capability 상태, 내부 subscriber count,
   subscription destroy는 `ros2_action/subscription_lifecycle.py`가 담당한다. runtime은 entry 교체와 result
   runtime support/cleanup 순서를 조정한다.
+- Action subscription entry 교체, status/feedback callback 상태 갱신, result 지원 상태 결합과 사라진 Action
+  cleanup 조정은 `ros2_action/subscription_facade.py`의 `ActionSubscriptionFacade`가 담당한다.
+  `ActionRuntime`은 이를 상속해 기존 private/public 계약을 유지하고 Graph snapshot 조립에 집중한다.
 - Topic·Service·Action·Node Alert 생성 병합과 dismissed/retained/resolved/history 상태 전이는
   `alert_assembler.py`가 담당한다. `RosMonitor`는 각 runtime snapshot을 수집하고 lock 아래 상태 전이 결과를
   저장한다.
@@ -150,12 +183,28 @@ ros2_dashboard/
   `execution/service_client_pool.py`가 담당한다. Call 원본 저장, Receive 이벤트 변환, reset 경계와
   Service별 최근 결과/누적 summary는 `execution/service_history.py`가 담당하며
   `service_call_runtime.py`는 discovery·허용 검사·호출 실행을 조정한다.
+- Registry/package Service 정규화, generated schema 보완, Graph exact type 매칭, callable 상태 응답과
+  실행 허용 판정은 `execution/service_discovery.py`가 담당한다. `service_call_runtime.py`의 기존 private
+  discovery seam은 유지하고 실제 Call·validation·history 조정에 집중한다.
 - `RosMonitor`가 공개하는 Topic Publish/Receive, Service Call, Action Goal/Cancel 및 실행 이력 API의
   runtime 위임은 `interface_lab/facade.py`의 `InterfaceLabFacade`가 담당한다. `RosMonitor`는 이를 상속해
   기존 Router 호출 형태를 유지하고 lifecycle·Graph snapshot·Alert/priority 조정에 집중한다.
 - Frontend Interface Lab Receive의 Topic·Service·Action mode별 Panel 선택과 Workbench View는
   `features/interface-lab/InterfaceReceiveWorkspace.jsx`가 담당한다. `InterfaceUploadControl`은 각 Controller
   상태와 callback을 mode별 props로 그룹화한다.
+- Topic Receive의 Message import 필터/선택, Graph Topic 후보·직접 이름, subscription start/stop/reset과
+  active/history View는 `features/interface-lab/receive/TopicReceivePanel.jsx`가 담당한다. Receive mode tabs와
+  확장/mock 안내는 `InterfaceReceiveWorkbench.jsx`, Service/Action 검색·선택·관찰 action/history 공통 View는
+  `ResourceReceivePanel.jsx`가 담당하며 구 `InterfaceReceivePanels.jsx`는 제거됐다.
+- Interface Lab Hero, 상태 새로고침/초기화 action, resource summary 카드와 Upload/Apply Workbench 조립은
+  `features/interface-lab/InterfaceLabManagementOverview.jsx`가 담당한다. `InterfaceLabPage.jsx`는 snapshot,
+  workspace item/선택과 inline 실행 controller 조정에 집중한다.
+- Interface Lab group tabs, workspace item 목록·선택 카드, package 관련 항목과 inline 실행 상세 렌더링 및
+  inline controller→View props 배선은 `features/interface-lab/InterfaceLabWorkspaceBrowser.jsx`가 담당한다.
+  `InterfaceLabPage.jsx`는 snapshot/item 계산, 선택 상태와 management/browser View 조립만 담당한다.
+- Interface Lab 요약/목록 카드는 `workspace/WorkspaceCards.jsx`, Apply 상태 문구 정책은
+  `workspace/workspaceStatus.js`, package 연결 항목과 선택 Interface inline 상세 실행 조립은
+  `workspace/InlineWorkspace.jsx`가 담당한다. 구 `InterfaceLabWorkspace.jsx`는 제거됐다.
 - Frontend Interface Lab의 Graph Service/Action entry 병합과 callable workspace item 변환은
   `model/workspaceGraphItems.js`, Registry와 업로드 package/child interface의 source item 변환은
   `model/workspaceSourceItems.js`가 담당한다. `workspaceItems.js`는 source/graph item 조립과 type별 병합,
@@ -163,6 +212,15 @@ ros2_dashboard/
 - Frontend 수동 Interface 입력 상태, 기존 type 등록, definition 작성·수정·문법 검증은
   `hooks/useManualInterfaceController.js`가 담당한다. 상위 management controller는 삭제·upload·apply 및
   Registry/Package 상태 동기화를 담당하고 기존 평면 반환값을 재노출한다.
+- Frontend 단일 interface 다중 파일 선택·업로드 summary, ZIP/folder package 필터·업로드와 generated package
+  metadata 재생성 action은 `hooks/useInterfaceUploadActions.js`가 담당한다. Management controller는 공유
+  Registry/Apply 상태와 load callback을 주입하고 기존 handler 반환 계약을 유지한다.
+- Frontend manual definition/package/Registry 삭제, 최근 삭제 marker와 삭제 후 Registry·Package·Apply 상태
+  및 실행 후보 동기화는 `hooks/useInterfaceDeleteActions.js`가 담당한다. 현재 편집 항목 삭제 시 편집 상태
+  해제와 기존 세 remove handler 계약도 이 hook이 유지한다.
+- Frontend Apply 실행, build/import 결과 feedback, Monitor reload phase와 재연결 후 import check 및
+  Registry·Package·Apply 새로고침은 `hooks/useInterfaceApplyActions.js`가 담당한다. Management controller는
+  load callback과 setter를 주입하고 기존 apply/import handler 계약을 유지한다.
 - Frontend Service/Action 수신 관찰의 선택·검색·start/stop·전체/선택 history reset은 범용
   `hooks/useResourceReceiveObserver.js`가 담당한다. Topic은 실제 subscription 생성/중지가 필요하므로
   `useInterfaceReceiveController.js`에 별도 흐름으로 유지한다.
@@ -170,12 +228,23 @@ ros2_dashboard/
   `InterfaceUploadView.jsx`가 담당하고 Topic·Service·Action 실행 panel 선택은
   `InterfaceExecutionWorkspace.jsx`가 담당한다. `InterfaceUploadControl.jsx`은 controller 상태와 command를
   각 View props 계약으로 조립한다.
+- 등록 Topic의 Message 선택, Graph Publish 후보, 단일/연속 Publish 입력·상태·history View는
+  `features/interface-lab/execution/TopicExecutionPanel.jsx`가 담당한다. 실행 Panel의 확장 heading은
+  `ExecutionPanelHeading.jsx`를 Topic/Service/Action이 공유한다. Service request/call/history와 Action
+  goal/result/history View는 각각 `ServiceExecutionPanel.jsx`, `ActionExecutionPanel.jsx`가 담당하며 구
+  `InterfaceExecutionPanels.jsx`는 제거됐다.
 - Topic·Service·Action 실행 Controller, Receive Controller와 관리 Toolbar·수동 입력·Build 실패·Registry·
   Package 상태를 하위 panel props 계약으로 변환하는 순수 adapter는
   `model/interfaceUploadViewProps.js`가 담당한다. Control은 hook 호출과 adapter 입력 조립을 담당한다.
 - Monitor FastAPI transport의 Content-Length/stream 이중 크기 제한과 JSON object 요청 검증은
   `transport/request_parsing.py`가 담당한다. Interface Router는 endpoint별 payload 변환과 도메인 오류의
   HTTP status 매핑을 담당한다.
+- Interface Lab Topic Receive start/stop/state/history/reset endpoint는
+  `transport/routers/topic_receive.py`가 담당하며 `topic_execution.router`가 하위 Router를 include한다.
+  `topic_execution.py`에는 callable schema와 단일/연속 Publish 및 Publish history endpoint가 남는다.
+- Manual type 등록, definition 작성/검증/수정/삭제와 generated package metadata 재생성 endpoint는
+  `transport/routers/interface_manual.py`가 담당한다. `interface_management.router`는 이를 include하고 단일
+  파일 upload 및 Registry 조회·삭제 조정에 집중한다.
 - 업로드 ROS2 Interface package의 ZIP/folder upload, 목록과 삭제 HTTP endpoint는
   `transport/routers/interface_packages.py`가 담당하며 기존 `interface_management.router`가 하위 Router를
   include해 공개 경로와 transport app 등록 방식을 유지한다.

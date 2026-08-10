@@ -1121,3 +1121,451 @@
   Router가 사용하는 기존 메서드 이름은 상속으로 그대로 유지된다.
 - 다음 AI: `ros_monitor.py` 추가 분리는 중단하고 458줄 `ros2_topic/runtime.py` 또는 다른 대형 Runtime의
   남은 facade/상태 책임을 비교한다.
+
+## 2026-08-10 - 리팩토링 진행 상태 확인
+
+- 현재 상태 문서, 누적 작업 로그, Git 상태와 주요 파일 크기를 대조했다.
+- 구조/기능 분리 리팩토링은 마지막 평가 기준 전체 약 82%이며, Backend 90~95%, Frontend 80~85%,
+  ROS2 Monitor 75~80% 수준이다. 현재 작업 트리는 clean하다.
+- 마지막 완료 지점은 `RosMonitor`의 Interface Lab 공개 위임을 `InterfaceLabFacade`로 분리한 작업이다.
+  다음 조사 대상은 `ros2_topic/runtime.py`의 남은 혼합 책임이다.
+- WSS, MariaDB Alert 이력, Camera 시각화, TurtleBot Gazebo 명령 preset은 후속 신규 기능이며 위 리팩토링
+  진행률에는 포함하지 않는다.
+
+## 2026-08-10 - Topic latest/Hz 조회 facade 분리
+
+- 작업: `ros2_topic/runtime.py`의 latest message와 Hz 공개 요청 검증, subscription 보장, cache 응답 조립을
+  신규 `ros2_topic/query_facade.py`의 `TopicQueryFacade`로 이동했다.
+- 이유와 기준: Graph 수집과 subscription 생명주기는 이미 별도 모듈로 분리돼 있으며, HTTP Router가 사용하는
+  latest/Hz 조회 흐름은 동일한 실행 상태·Topic type·import 검증 경계를 가진 독립 공개 API 책임이다.
+- 정책 보존: 기존 `latest_message`, `topic_hz`와 `_latest_response`, `_hz_response`, `_topic_hz_snapshot`
+  호출 계약, 공개 JSON key, 오류 문구, adaptive subscription 생성과 Hz/stale 계산 경로를 유지했다.
+- 결과: `TopicRuntime`이 facade를 상속하도록 구성했고 `runtime.py`는 458줄에서 302줄로 감소했다. 신규
+  facade는 169줄이며 Runtime에는 Graph/cache/subscription coordinator 책임이 남았다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 후 Monitor 전체 pytest, `git diff --check`가
+  통과했으며 `166 passed`다. 최초 pytest는 workspace setup을 source하지 않아 import collection에 실패했고,
+  올바른 프로젝트 실행 환경에서 재검증했다.
+- 남은 문제: 실제 ROS Topic publisher와 REST `/latest`, `/hz`를 연결한 통합 E2E는 이번 구조 이동에서
+  재실행하지 않았다. 다음 분리는 `TopicRuntime`의 Graph 갱신 facade와 subscription callback/state 중 실제
+  독립 책임이 남았는지 조사하되, 이미 분리된 helper를 단순히 재포장하지 않는다.
+
+## 2026-08-10 - Topic subscription facade 분리
+
+- 작업: `TopicRuntime`의 자동 구독 정책 적용, subscription 생성 연결, 보유 여부와 Monitor subscriber count,
+  latest callback 상태 갱신, Message class와 adaptive QoS 선택을 신규
+  `ros2_topic/subscription_facade.py`의 `TopicSubscriptionFacade`로 이동했다.
+- 이유와 기준: Graph/cache 조정과 ROS subscription 생성·수신 callback 생명주기는 변경 이유가 다르며,
+  후자는 기존 `subscription_lifecycle.py`와 `subscriptions.py` helper를 연결하는 하나의 독립 책임이다.
+- 정책 보존: 기존 private 메서드 이름, registered interface 자동 구독, 오류 cache/log, Action 내부 subscriber
+  합산, message preview와 Hz timestamp 갱신, endpoint 기반 adaptive QoS 선택을 유지했다. 기존 테스트가
+  `runtime.DEFAULT_SUBSCRIPTION_CLEANUP_AFTER_SEC`를 교체하므로 사라진 endpoint cleanup facade는 runtime에
+  남겨 테스트 seam과 유예 정책을 보존했다.
+- 결과: `TopicRuntime`은 query facade와 subscription facade를 상속하고 Graph/cache coordinator 중심의
+  180줄로 감소했다. 신규 subscription facade는 140줄이다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고
+  `166 passed`다.
+- 남은 문제: 실제 ROS publisher의 QoS 변경과 subscription 재생성 통합 E2E는 이번 구조 이동에서
+  재실행하지 않았다. `TopicRuntime`은 현재 의미 있는 coordinator 크기이므로 줄 수만을 위한 추가 분리는
+  중단하고 다른 대형 Monitor runtime의 혼합 책임을 비교하는 것이 적절하다.
+
+## 2026-08-10 - Action subscription facade 분리
+
+- 작업: `ActionRuntime`의 status/feedback subscription entry 생성·교체, result 지원 상태 결합, callback
+  runtime 갱신, Monitor subscriber count와 사라진 Action cleanup을 신규
+  `ros2_action/subscription_facade.py`의 `ActionSubscriptionFacade`로 이동했다.
+- 이유와 기준: Action Graph 목록과 disconnected 상태를 조립하는 책임과 ROS 관찰 endpoint 생명주기 및
+  callback 상태 전이는 독립적으로 변경된다. 기존 `subscription_lifecycle.py`, `subscriptions.py`,
+  `ActionResultRuntime`을 연결하는 조정 경계를 facade로 명시했다.
+- 정책 보존: 기존 `monitor_subscriber_count` 공개 메서드와 모든 private seam, status/feedback 자동 감시 설정,
+  type 변경 시 subscription 교체, 5종 QoS capability, result support/policy/reason, stale Action cleanup 순서를
+  유지했다.
+- 결과: `ActionRuntime`은 facade를 상속하고 Graph/cache/disconnected 상태 조립 중심의 184줄로 감소했다.
+  신규 Action subscription facade는 178줄이다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고
+  `166 passed`다.
+- 남은 문제: 실제 Action server로 status/feedback/result와 type 변경 cleanup을 확인하는 통합 E2E는 이번
+  구조 이동에서 재실행하지 않았다. Action runtime도 의미 있는 coordinator 크기가 되었으므로 다음에는
+  Interface Apply 또는 package management의 남은 혼합 책임을 비교한다.
+
+## 2026-08-10 - 업로드 Interface package installer 분리
+
+- 작업: 업로드 package root의 identity와 interface 검사, 기존 package 교체를 위한 staging·backup
+  트랜잭션, 저장 후 interface 절대/표시 경로 재매핑과 Registry entry 생성을 신규
+  `management/package_installer.py`의 `install_package_root`로 이동했다.
+- 이유와 기준: `packages.py`는 ZIP/폴더 입력, Registry CRUD·apply/import 상태와 실행 후보 변환을 함께
+  담당했고, 실제 filesystem 설치 트랜잭션은 실패 복구와 보안 검증 기준이 독립적인 변경 단위다.
+- 정책 보존: 공개 `upload_interface_package`/folder API, replace 조건, package identity와 최소 interface 검사,
+  symlink 없는 copy, staging/backup 복구, dependency와 pending build 상태, Registry 응답 key를 유지했다.
+- 결과: `packages.py`는 345줄에서 282줄로 감소했고 신규 installer는 122줄이다. 공개 upload 함수와 경로
+  설정 seam은 기존 모듈에 남아 transport 및 테스트 호출 경로를 유지한다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고
+  `166 passed`다.
+- 남은 문제: 실제 대형 사용자 package와 filesystem rename 실패를 강제로 발생시키는 통합 검증은 이번
+  구조 이동에서 재실행하지 않았다. 다음 후보는 `packages.py`의 Registry 상태와 등록 interface projection
+  책임 또는 Interface Apply runtime의 상태/import-check 경계다.
+
+## 2026-08-10 - 업로드 package 실행 후보 projection 분리
+
+- 작업: package Registry의 msg/srv/action 항목을 Interface Lab 실행 후보 payload로 변환하는 로직을 신규
+  `management/package_interfaces.py`의 순수 함수 `registered_messages`, `registered_services`,
+  `registered_actions`로 이동했다.
+- 이유와 기준: Registry 저장·build/import 상태 갱신과 Topic Publish/Service Call/Action Goal이 소비하는
+  schema projection은 변경 이유가 다르며, 파일 및 ROS runtime 의존성 없이 독립 검증할 수 있다.
+- 정책 보존: 기존 `registered_package_*` 공개 함수와 import 경로, source/package/file/type 이름,
+  Message schema, Service request/response, Action goal/result/feedback, interface 우선 import 오류 fallback과
+  `import_available is True` 판정을 유지했다.
+- 결과: `packages.py`는 직전 282줄에서 231줄로 감소했고 projection 모듈은 82줄이다. 기존 공개 함수는
+  Registry snapshot 조회 후 순수 변환을 호출한다.
+- 검증: 세 interface kind의 schema와 import 상태 계약 테스트 3개를 추가했다. Python compileall, ROS2 및
+  workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고 `169 passed`다.
+- 남은 문제: 실제 업로드 package를 build/import한 뒤 세 실행 화면에 표시하는 Browser E2E는 이번 순수
+  변환 이동에서 재실행하지 않았다. package management는 적절한 크기로 축소됐으며 다음 후보는 Interface
+  Apply runtime의 상태/import-check 경계다.
+
+## 2026-08-10 - Interface Apply 영속 상태 분리
+
+- 작업: Apply 상태/log 경로 결정, idle 기본 상태, 저장 상태와 현재 lock/log tail 결합, Interface 변경 후
+  rebuild pending 전이와 import-check 결과 병합을 신규 `interface_lab/apply/state.py`로 이동했다.
+- 이유와 기준: colcon preflight/build/import 실행 순서와 YAML 상태 모델·전이는 변경 이유가 다르며, 상태
+  경계는 기존 `status_storage.py` 위에서 독립적으로 관리할 수 있다.
+- 정책 보존: `runtime.py`의 `apply_status`, `mark_interface_change_pending`, `record_import_check_status`,
+  default path와 내부 `_read_status`/`_empty_status` import 경로를 유지했다. 환경변수 상대/절대 경로,
+  build 성공 후 import 실패 상태와 기존 공개 key 및 한글 오류 문구도 유지했다.
+- 결과: `apply/runtime.py`는 371줄에서 280줄로 감소했고 신규 state 모듈은 125줄이다. Runtime은 lock,
+  preflight, 중복 검사, package 범위 cleanup, colcon build와 import 확인 순서에 집중한다.
+- 검증: Python compileall과 Monitor 전체 pytest `169 passed`를 확인했다. whitespace 수정 후 Apply 관련
+  테스트 7개와 `git diff --check`를 재실행해 통과했다.
+- 남은 문제: 실제 colcon apply 후 동일 PID Monitor 재실행 E2E는 이번 상태 이동에서 재실행하지 않았다.
+  다음 후보는 Apply import-check/summary orchestration 또는 다른 300줄 이상 runtime의 혼합 책임이다.
+
+## 2026-08-10 - Interface Apply import-check 조정 분리
+
+- 작업: 업로드 package 이름 조회, 단일/package build 완료 표시, install Python 경로 반영, Registry import
+  재검사와 apply summary 병합을 신규 `interface_lab/apply/import_check.py`로 이동했다.
+- 이유와 기준: colcon 실행과 preflight/error 처리 책임에서 build 이후 Python import 환경 및 두 Registry 상태를
+  결합하는 책임을 분리하면 Apply runtime의 실행 순서와 import 정책을 독립적으로 변경·검증할 수 있다.
+- 정책 보존: `runtime.py`의 `uploaded_interface_package_names`, `run_import_check_and_update_registry`,
+  `combined_apply_summary`, `refresh_install_python_paths`, `find_install_site_packages` import 경로와 응답 key를
+  유지했다. build 성공 시 단일/package 완료 표시 후 sys.path 반영과 import 확인을 수행하는 순서도 유지했다.
+- 결과: `apply/runtime.py`는 직전 280줄에서 209줄로 감소했고 신규 import-check 모듈은 101줄이다. Runtime은
+  lock, preflight, duplicate 검사, package 범위 cleanup, colcon 실행과 실패 상태 조립에 집중한다.
+- 검증: Python compileall과 Monitor 전체 pytest `169 passed`를 확인했다. import/whitespace 정리 후 Apply
+  관련 테스트 7개와 `git diff --check`를 재실행해 통과했다.
+- 남은 문제: 실제 새 interface build 후 install path 추가와 import 성공을 확인하는 통합 E2E는 이번 구조
+  이동에서 재실행하지 않았다. Apply runtime은 의미 있는 coordinator 크기가 되었으므로 추가 분리는
+  중단하고 다른 대형 실행 runtime을 비교하는 것이 적절하다.
+
+## 2026-08-10 - Interface Service discovery 정책 분리
+
+- 작업: 단일 Registry와 업로드 package Service 정규화, generated class schema 보완, 등록 type과 Graph type
+  exact match, callable 응답 조립과 Call 실행 허용 판정을 기존 `execution/service_discovery.py`로 이동했다.
+- 이유와 기준: Registry 형식 및 ROS Graph 사실을 결합하는 discovery 정책은 Service request 변환·전송,
+  timeout/validation과 history 생명주기에서 독립적이며, Action discovery와 대칭 구조가 적절하다.
+- 정책 보존: `ServiceCallRuntime`의 `_registered_services`, `_allowed_service`, `_service_state`, `_service_graph`
+  private seam과 공개 `callable_services` 응답 key를 유지했다. Import 가능, server count, exact type,
+  QoS unknown/default 상태와 기존 reason 문구 판정도 유지했다.
+- 결과: `service_call_runtime.py`는 330줄에서 254줄로 감소했고 확장된 service discovery는 159줄이다.
+  Runtime은 Client pool, 실제 Call executor, validation 결과와 history/QoS 기록 조정에 집중한다.
+- 검증: Registry schema 보완, callable exact match/QoS, 미등록·serverless 허용 거부 계약 테스트 3개를
+  추가했다. Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가
+  통과했고 `172 passed`다.
+- 남은 문제: 실제 Service server와 업로드 Service package를 함께 사용한 Browser E2E는 이번 discovery
+  이동에서 재실행하지 않았다. 다음 후보는 Service Runtime의 validation/history facade 또는 다른 대형
+  management/runtime의 혼합 책임이다.
+
+## 2026-08-10 - Interface Topic Receive history 분리
+
+- 작업: Topic 수신 메시지 JSON 변환과 오류 preview, sequence/count/last event 갱신, Topic별 bounded history
+  조회와 전체/이름/type별 reset을 신규 `execution/topic_receive_history.py`의 `TopicReceiveHistory`로
+  이동했다.
+- 이유와 기준: ROS subscription 생성·destroy와 수신 event 저장/검색/초기화는 생명주기와 변경 이유가 다르다.
+  Topic state dict는 공유하되 history mutation을 전용 thread-safe 저장소 경계로 모았다.
+- 정책 보존: 기존 `TopicReceiveRuntime.history`, `reset_history`, `_record_message` 호출 계약, 최신순 정렬,
+  history limit, sequence, size bytes, 직렬화 실패 event, reset 시 active subscription destroy와 공개 응답 key를
+  유지했다. 공유 dict 참조를 보존하기 위해 전체 초기화는 재할당하지 않고 `clear()`를 사용한다.
+- 결과: `topic_receive_runtime.py`는 277줄에서 222줄로 감소했고 신규 history 저장소는 116줄이다. Runtime은
+  Topic 검증, adaptive QoS subscription start/stop/destroy와 공개 receive 상태 조립에 집중한다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고
+  `172 passed`다.
+- 남은 문제: 실제 고주파 Topic에서 history limit과 직렬화 비용을 측정하는 성능/E2E 검증은 이번 구조
+  이동에서 재실행하지 않았다. 다음 후보는 manual interface management 또는 registry의 혼합 책임이다.
+
+## 2026-08-10 - 단일 Interface 업로드 입력 준비 분리
+
+- 작업: 단일 `.msg/.srv/.action` 업로드의 경로 제거 파일명 정규화, kind/빈 파일/크기/UTF-8/PascalCase
+  검증, interface parsing과 parse error를 포함한 기본 Registry entry 생성을 신규
+  `management/interface_upload.py`의 `prepare_interface_upload`로 이동했다.
+- 이유와 기준: 외부 업로드 입력의 보안·문법 검증은 Registry lock, generated package 설치와 YAML 저장에서
+  독립적인 정책이며 Router나 저장 방식과 무관하게 검증할 수 있다.
+- 정책 보존: 허용 kind, 256KB 상한, 기존 한글 오류 문구, parse 실패도 entry를 저장하는 동작, timestamp와
+  `file_name/file_kind/type_name/raw_text/parsed_error` key를 유지했다. `manual_interfaces.py`와 `packages.py`가
+  사용하던 `registry.ALLOWED_KINDS`, `TYPE_NAME_PATTERN`, `_safe_file_name`, `parse_interface` re-export도
+  유지했다.
+- 트러블슈팅: 첫 전체 테스트 collection에서 `packages.py`의 `registry.parse_interface` 호환 import 누락을
+  확인했다. `registry.py`에 명시적 re-export를 복구한 뒤 재실행했다.
+- 결과: `registry.py`는 319줄에서 285줄로 감소했고 신규 upload 입력 모듈은 67줄이다. Registry는 설치,
+  lock 범위와 YAML 상태 저장 조정에 집중한다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고
+  `172 passed`다.
+- 남은 문제: 실제 HTTP multipart의 상한/stream 검증은 transport request parser 책임이며 이번 이동에서
+  재실행하지 않았다. 다음 후보는 Registry apply 상태 I/O 조정 또는 manual definition lifecycle이다.
+
+## 2026-08-10 - Manual Interface Registry entry 모델 분리
+
+- 작업: 파일을 만들지 않는 기존 ROS type 수동 등록과 generated package에 파일로 저장하는 manual
+  definition의 Registry payload 생성을 신규 `management/manual_entries.py`의 `manual_type_entry`,
+  `manual_definition_entry`로 이동했다.
+- 이유와 기준: Registry JSON/YAML shape와 build 상태 기본값은 validation, filesystem 쓰기, CMake/package.xml
+  재생성과 독립적인 모델 책임이다. Coordinator는 실제 side effect 순서와 테스트 seam을 유지해야 한다.
+- 정책 보존: `source`, allowlist, timestamp, full type, parsed schema, file/CMake/package.xml 상태,
+  dependency/import/rebuild/error 및 절대/표시 경로 key를 유지했다. 기존 테스트가 patch하는
+  `manual_interfaces._check_import`, `generated_interface_package_root`와 Registry 함수 경로도 유지했다.
+- 결과: `manual_interfaces.py`는 329줄에서 306줄로 감소했고 신규 entry 모델은 87줄이다. 줄 수 감소보다
+  두 등록 방식의 상태 모델을 한곳에서 확인할 수 있는 책임 경계를 우선했다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고
+  `172 passed`다.
+- 남은 문제: 실제 manual definition build/import 및 Browser 수정·삭제 E2E는 이번 모델 이동에서
+  재실행하지 않았다. 다음에는 manual delete lifecycle이나 Registry apply 상태 조정의 독립성을 비교한다.
+
+## 2026-08-10 - Generated Interface 삭제 lifecycle 분리
+
+- 작업: manual definition과 single-upload generated interface 삭제의 package 소유권 확인, 실제 파일 제거,
+  남은 파일 기준 CMake/package.xml 재생성, source/full_type/file_name exact Registry 항목 제거와 응답 조립을
+  신규 `management/manual_delete.py`의 `delete_generated_interface`로 이동했다.
+- 이유와 기준: 삭제는 여러 filesystem/Registry side effect의 순서를 지켜야 하는 독립 lifecycle이며,
+  입력 validation과 삭제 대상 조회 정책과 분리해 실패 지점과 책임을 명확히 할 수 있다.
+- 정책 보존: `uploaded_interfaces` package만 허용, 없는 파일도 Registry 정리, metadata 선재생성 후 exact entry
+  제거, `deleted_file/file_deleted/build_required/rebuild_required/message` 등 공개 응답 key를 유지했다.
+  기존 `manual_interfaces.delete_uploaded_interface`와 patch 가능한 package root/regenerate/remove 함수 경로도
+  유지했다.
+- 결과: `manual_interfaces.py`는 직전 306줄에서 288줄로 감소했고 신규 delete lifecycle은 56줄이다.
+- 검증: Python compileall, ROS2 및 workspace setup 적용 Monitor 전체 pytest, `git diff --check`가 통과했고
+  `172 passed`다.
+- 남은 문제: metadata 재생성 성공 후 Registry 저장만 실패하는 실제 filesystem 장애 복구 정책은 기존과
+  동일하며 이번 구조 이동에서 확장하지 않았다. 다음 후보는 Registry apply 상태 조정 또는 다른 남은 대형
+  transport/runtime이다.
+
+## 2026-08-10 - Topic Receive transport Router 분리
+
+- 작업: Topic Receive start/stop, 현재 상태, history 조회와 reset 5개 endpoint를
+  `transport/routers/topic_execution.py`에서 신규 `topic_receive.py`로 이동하고 parent Router가 include하도록
+  구성했다.
+- 이유와 기준: 사용자가 명시적으로 실행하는 Topic Publish와 subscription 기반 Topic Receive는 API path와
+  runtime lifecycle이 다르며 독립적으로 변경된다. 기존 app Router 등록은 변경하지 않고 하위 Router 경계를
+  사용했다.
+- 정책 보존: 5개 공개 API path/method, `topic_type`/`full_type` fallback, history limit, JSON 오류 HTTP 400,
+  reset 후 현재 Topic 목록 결합과 기존 success/data/meta/message key를 유지했다.
+- 결과: `topic_execution.py`는 238줄에서 170줄로 감소하고 신규 Receive Router는 89줄이다. 기존 Router에는
+  callable Message/schema와 단일·연속 Publish, Publish history endpoint만 남았다.
+- 검증: Python compileall과 Monitor 전체 pytest `172 passed`를 확인했다. whitespace 수정 후
+  `git diff --check`가 통과했으며 실제 FastAPI app에 parent Router를 include한 OpenAPI에서 Receive 5개 경로가
+  모두 유지되는 것을 확인했다. FastAPI의 지연 `_IncludedRouter` 때문에 평면 `route.methods` 검사 대신 최종
+  OpenAPI를 검증 기준으로 사용했다.
+- 남은 문제: HTTP client로 각 Receive endpoint를 호출하는 transport 통합 테스트는 이번 이동에서 별도로
+  추가하지 않았다. 다음 후보는 Interface management Router의 upload/manual endpoint 분리다.
+
+## 2026-08-10 - Manual Interface transport Router 분리
+
+- 작업: 기존 ROS type 수동 등록, manual definition 작성·문법 검증·수정·삭제와 generated interface package
+  metadata 재생성 endpoint를 `transport/routers/interface_management.py`에서 신규
+  `interface_manual.py`로 이동하고 parent Router가 include하도록 구성했다.
+- 이유와 기준: 단일 파일 upload/Registry 조회·삭제와 manual type/definition lifecycle은 입력 payload,
+  filesystem side effect와 변경 주기가 다른 API feature다. 공개 app Router 등록은 유지하고 하위 Router로
+  기능 경계를 명시했다.
+- 정책 보존: manual 관련 6개 method 조합과 5개 공개 path, JSON object parsing, HTTP 400 도메인 오류 매핑,
+  allowlist/default package, rebuild pending 기록과 기존 success/entry/data/message key를 유지했다.
+- 결과: `interface_management.py`는 253줄에서 129줄로 감소했고 신규 manual Router는 140줄이다. Parent에는
+  단일 interface upload, Registry 조회와 generated/외부 type 구분 삭제 조정만 남았다.
+- 검증: Python compileall과 Monitor 전체 pytest `172 passed`, `git diff --check`가 통과했다. 실제 FastAPI
+  app에 parent Router를 include한 최종 OpenAPI에서 manual 5개 path와 동일 path의 PUT/DELETE method가 모두
+  유지되는 것을 확인했다.
+- 남은 문제: HTTP client로 manual write/update/delete를 실제 호출하는 transport 통합 테스트는 이번 구조
+  이동에서 별도로 추가하지 않았다. 다음 후보는 parent Registry 삭제 판정 service 또는 남은 frontend 대형
+  controller를 비교한다.
+
+## 2026-08-10 - Frontend Interface 업로드 action 분리
+
+- 작업: 단일 `.msg/.srv/.action` 다중 파일 필터·순차 업로드와 결과 summary, ZIP package/folder 입력 필터와
+  업로드, generated package CMake metadata 재생성 action을 신규
+  `features/interface-lab/hooks/useInterfaceUploadActions.js`로 이동했다.
+- 이유와 기준: 파일 input event와 upload API/feedback/status refresh 생명주기는 Apply, 삭제, manual 입력과
+  독립적으로 변경된다. 상위 management controller가 소유한 Registry/Apply 상태 setter와 load callback을
+  주입해 기존 단일 상태 원천은 유지했다.
+- 정책 보존: 허용 확장자, ZIP/folder 필터, replace option, 파일별 성공/경고/실패 summary, 부분 refresh 실패
+  warning, package interface count, upload 후 Registry/Apply/Package refresh와 `onStateChanged` 호출 순서,
+  기존 `handleFile/handlePackageFile/handlePackageFolder/regenerateUploadedInterfacesCmake` 반환 계약을 유지했다.
+- 결과: `useInterfaceManagementController.js`는 389줄에서 288줄로 감소했고 신규 upload action hook은
+  144줄이다. Controller에는 load 상태, delete/apply/manual composition과 최종 평면 계약 조립이 남았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 288 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 125.86KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser file/folder input과 replace upload 클릭 E2E는 이번 구조 이동에서 재실행하지
+  않았다. 다음 후보는 management controller의 삭제 action 또는 Apply/import action 분리다.
+
+## 2026-08-10 - Frontend Interface 삭제 action 분리
+
+- 작업: manual definition, 업로드 package, Registry entry 삭제와 삭제 후 Registry·Package·Apply 상태 동기화,
+  실행 후보 refresh 및 최근 Registry 삭제 marker 관리를 신규
+  `features/interface-lab/hooks/useInterfaceDeleteActions.js`로 이동했다.
+- 이유와 기준: 세 삭제 API는 대상은 다르지만 동일한 busy/error/feedback, 관리 목록 3종 refresh,
+  실행 후보 갱신과 `onStateChanged` lifecycle을 공유하며 upload/apply/manual 입력과 독립적으로 변경된다.
+- 정책 보존: 현재 편집 중 manual 항목 삭제 시 편집 해제, package와 파일/등록별 warning 문구,
+  최근 삭제 3건 dedupe, Registry `file_deleted` 분기, refresh 실행 순서와 기존
+  `removeManualDefinition/removePackage/removeRegistryEntry` 반환 계약을 유지했다.
+- 구현 주의: 첫 조립에서 delete hook이 manual controller의 `editingManualDefinition`보다 먼저 참조되지 않도록
+  hook 호출 순서를 manual controller destructure 뒤로 배치했다.
+- 결과: `useInterfaceManagementController.js`는 직전 288줄에서 217줄로 감소했고 신규 delete action hook은
+  106줄이다. Management Controller에는 load 상태, Apply/import, upload/delete/manual composition과 최종
+  평면 계약 조립이 남았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 289 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.67KB), Interface Lab chunk는 126.37KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 세 삭제 버튼과 현재 편집 항목 삭제 동작을 확인하는 E2E는 이번 구조 이동에서
+  재실행하지 않았다. 다음 후보는 Apply/import action 분리다.
+
+## 2026-08-10 - Frontend Interface Apply/import action 분리
+
+- 작업: Interface Apply 실행, build/import 결과 상태와 feedback, reload phase 전이, 재연결 후 import check와
+  Registry·Package·Apply 상태 갱신을 신규 `features/interface-lab/hooks/useInterfaceApplyActions.js`로
+  이동했다.
+- 이유와 기준: Apply는 upload/delete/manual 입력과 달리 Monitor 동일 PID 재시작 및 재연결 이후 import 확인을
+  포함하는 독립 lifecycle이다. Management controller의 load callback과 상태 setter를 주입해 기존 상태 원천과
+  lifecycle hook 연결을 유지했다.
+- 정책 보존: build 시작 표시, log 초기화, success/partial/import_failed/error tone과 한글 문구, not_applied 첫
+  항목 표시, scheduled/idle reload phase, Apply 후 status→Registry→Package refresh 순서, import check 후
+  Registry/Package panel open과 `onStateChanged`, 안정적인 `runImportCheck` callback 계약을 유지했다.
+- 결과: `useInterfaceManagementController.js`는 직전 217줄에서 171줄로 감소했고 신규 Apply action hook은
+  98줄이다. Management Controller는 공유 관리 상태, load 함수와 upload/delete/apply/manual hook 조립 및
+  기존 평면 반환 계약에 집중한다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 290 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 126.93KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Apply 버튼부터 Monitor 재시작·WebSocket 재연결·import check까지 Browser E2E는 이번 구조
+  이동에서 재실행하지 않았다. Management Controller는 현재 의미 있는 composition 크기이므로 추가 분리를
+  중단하고 다른 Frontend 대형 Page/Panel을 비교한다.
+
+## 2026-08-10 - Interface Lab 관리 개요 View 분리
+
+- 작업: Interface Lab Hero 설명, 초기화/상태 새로고침과 마지막 갱신 표시, 9개 summary 카드, Apply 상태 pill과
+  `InterfaceUploadControl` Workbench 조립을 신규
+  `features/interface-lab/InterfaceLabManagementOverview.jsx`로 이동했다.
+- 이유와 기준: snapshot/workspace 선택·inline 실행은 Page 조정 책임이지만, 관리 기능의 개요와 이미 계산된
+  summary/Apply 상태 표시는 입력 props와 callback만 필요한 독립 View다.
+- 정책 보존: 모든 안내 문구, reset/refresh disabled 및 상태 텍스트, summary label/tone, Apply status label,
+  workbench reset key, refresh signal, WebSocket과 expanded callback, error 표시 위치를 유지했다.
+- 결과: `InterfaceLabPage.jsx`는 322줄에서 257줄로 감소했고 신규 management overview View는 99줄이다.
+  Page에는 snapshot refresh, workspace item/selection/history와 inline execution controller 조립이 남았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 291 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 127.38KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 초기화/새로고침/summary/Workbench 표시를 확인하는 E2E는 이번 View 이동에서
+  재실행하지 않았다. 다음 후보는 Page의 workspace browser/list/inline View 분리다.
+
+## 2026-08-10 - Interface Lab Workspace Browser View 분리
+
+- 작업: 10개 group tab, workspace item 수와 카드 목록, 선택 toggle, package 관련 항목 이동, 선택 항목의
+  `InlineWorkspace` 렌더링과 inline controller→View props 배선을 신규
+  `features/interface-lab/InterfaceLabWorkspaceBrowser.jsx`로 이동했다.
+- 이유와 기준: Page는 snapshot과 선택 상태를 조정하지만, group/list/선택 inline 상세 표시는 계산된 item과
+  controller 계약만 소비하는 독립 View다. controller 결과 전체를 View에 전달해 Page의 30개 이상 개별 props
+  재배선을 제거했다.
+- 정책 보존: group label/filter 변경 시 선택 해제, 동일 카드 재클릭 toggle, history 선택 초기화, package 관련
+  Service/Action 이동, Topic publish/continuous/subscribe/reset과 Service/Action 실행·cancel의 모든 callback,
+  빈 목록 문구와 기존 DOM class를 유지했다.
+- 결과: `InterfaceLabPage.jsx`는 직전 257줄에서 144줄로 감소했고 신규 Workspace Browser는 105줄이다.
+  Page에는 snapshot refresh, summary/workspace item 계산, selected detail 보정과 두 상위 View 조립이 남았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 292 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 127.64KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 모든 group, 카드 toggle, package related 이동과 inline 통신 버튼을 확인하는
+  E2E는 이번 View 이동에서 재실행하지 않았다. InterfaceLabPage는 현재 적절한 조정 크기이므로 추가 분리를
+  중단하고 다른 대형 Panel/Page를 비교한다.
+
+## 2026-08-10 - Interface Lab Topic Execution Panel 분리
+
+- 작업: 등록 Message 필터/선택, Graph Topic 후보와 직접 이름 입력, payload field, 단일·연속 Publish,
+  Publish 결과/history View를 `features/interface-lab/execution/TopicExecutionPanel.jsx`로 이동했다. 세 실행
+  Panel이 공유하는 확장 heading은 `ExecutionPanelHeading.jsx`로 분리했다.
+- 이유와 기준: Topic 실행은 Graph 후보, Publisher 이름, Hz와 continuous 상태/history를 사용하지만
+  Service/Action은 callable target과 timeout request/goal 폼을 사용하므로 변경 이유가 다르다.
+- 정책 보존: 모든 props와 Message 상태/경고 문구, Graph/직접 입력 source callback, field disabled 조건,
+  0.1~50Hz 입력, 단일/연속 버튼 상태, result/history 렌더링과 기존 `InterfaceExecutionWorkspace` panel open
+  조건을 유지했다.
+- 트러블슈팅: 첫 lint에서 Topic과 함께 제거한 `CallResultBlock` import가 Service Panel에도 필요하다는
+  warning을 확인했다. 기존 파일에 import를 복구하고 lint/build를 재실행했다.
+- 결과: `InterfaceExecutionPanels.jsx`는 235줄에서 130줄로 감소했고 Topic Panel은 100줄, 공통 heading은
+  12줄이다. 기존 파일에는 Service/Action 실행 View만 남았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`를 재실행해 warning 없이 통과했다.
+  Vite는 294 modules를 변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 127.64KB로
+  500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 Topic Graph 후보/단일/연속 Publish와 history reset E2E는 이번 View 이동에서
+  재실행하지 않았다. 다음 후보는 Service와 Action 실행 Panel을 각각 분리하는 작업이다.
+
+## 2026-08-10 - Interface Lab Service/Action Execution Panel 분리
+
+- 작업: 등록 Service 선택·Request field·timeout·Call 결과/history View와 등록 Action 선택·Goal field·timeout·
+  Goal 결과/history View를 각각 `features/interface-lab/execution/ServiceExecutionPanel.jsx`,
+  `ActionExecutionPanel.jsx`로 이동하고 구 `InterfaceExecutionPanels.jsx`를 제거했다.
+- 이유와 기준: Service와 Action은 공통 heading/field UI를 사용하지만 request/response Call과 goal/result
+  lifecycle이 달라 독립적으로 변경된다. 이미 분리한 Topic Panel과 같은 feature 경계로 정렬했다.
+- 정책 보존: importable filter, key/status label, callable disabled 조건, schema field, timeout 입력,
+  busy button 문구, Call/Goal result와 history 렌더링, `InterfaceExecutionWorkspace`의 open 조건과 props spread를
+  유지했다. 확장 heading은 기존 공통 component를 계속 사용한다.
+- 결과: 기존 130줄 Panel 묶음 파일을 제거하고 Service/Action Panel을 각각 65줄 파일로 분리했다. Topic
+  100줄, 공통 heading 12줄과 함께 통신 종류별 View 구조가 완성됐다.
+- 검증: 구 파일 참조가 0건임을 확인했고 Frontend `npm run lint`, `npm run build`, `git diff --check`가
+  통과했다. Vite는 295 modules를 변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는
+  127.64KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser Service Call과 Action Goal 버튼 E2E는 이번 View 이동에서 재실행하지 않았다.
+  다음 후보는 Receive Panel의 Topic/Service/Action View 분리다.
+
+## 2026-08-10 - Interface Lab Topic Receive Panel 분리
+
+- 작업: Message import 필터와 full_type 선택, Graph Topic 검색 후보와 직접 Subscribe 이름, 수신 가능 상태,
+  subscription start/stop, 선택/전체 history reset, active Topic과 수신 history View를 신규
+  `features/interface-lab/receive/TopicReceivePanel.jsx`로 이동했다.
+- 이유와 기준: Topic Receive는 실제 ROS subscription 생성과 Message import/type, Graph Topic name 조합을
+  사용하지만 Service/Action Receive는 실행 runtime의 관찰 key와 history 표시를 사용하므로 변경 이유가 다르다.
+- 정책 보존: 모든 props, 검색/Message/Graph count, import/QoS 상태 label, Graph/user name source callback,
+  start disabled 조건, 다섯 action button, active/history title과 기존 DOM class를 유지했다.
+- 결과: `InterfaceReceivePanels.jsx`는 236줄에서 146줄로 감소했고 신규 Topic Receive Panel은 93줄이다.
+  `InterfaceReceiveWorkspace`가 새 경로를 직접 import하며 기존 mode 조건을 유지한다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 296 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 127.64KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser Topic subscription start/stop/reset E2E는 이번 View 이동에서 재실행하지 않았다.
+  다음 후보는 Service/Action Receive Panel과 공통 action View 분리다.
+
+## 2026-08-10 - Interface Lab Receive Workbench와 Resource Panel 분리
+
+- 작업: Receive mode tabs/확장/mock 안내를 `features/interface-lab/receive/InterfaceReceiveWorkbench.jsx`로,
+  Service/Action 검색·선택·start/stop/reset/refresh와 history View를 kind config 기반 공통
+  `ResourceReceivePanel.jsx`로 이동하고 구 `InterfaceReceivePanels.jsx`를 제거했다.
+- 이유와 기준: Workbench는 mode/layout 책임이며 Service/Action 관찰 UI는 이름/type key와 label/history title만
+  다르고 lifecycle 계약이 동일하다. Topic은 실제 subscription 및 Message/Graph 조합이 달라 별도 Panel을
+  유지했다.
+- 정책 보존: 네 mode tab, mock 확장 제외와 안내 문구, Service/Action key/name/type 표시, active key 기반
+  receiving 상태, 다섯 action button disabled/label, 각 history title, `InterfaceReceiveWorkspace` mode 조건과
+  기존 controller props spread를 유지했다.
+- 결과: 기존 146줄 묶음 파일을 제거하고 Workbench 30줄, Resource Receive 84줄, 기존 Topic Receive 93줄의
+  역할별 구조로 정리했다. Service/Action 중복 View는 config로 통합했다.
+- 검증: 구 파일 및 Service/Action Panel 이름 참조가 0건임을 확인했고 Frontend `npm run lint`,
+  `npm run build`, `git diff --check`가 통과했다. Vite는 297 modules를 변환했고 초기 bundle은
+  210.21KB(gzip 66.66KB), Interface Lab chunk는 126.97KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser Service/Action 관찰 mode와 reset/refresh E2E는 이번 View 이동에서 재실행하지
+  않았다. 다음에는 `InterfaceLabWorkspace.jsx`의 카드/inline/detail 조립 책임을 비교한다.
+
+## 2026-08-10 - Interface Lab Workspace 카드와 Inline 상세 분리
+
+- 작업: 구 `InterfaceLabWorkspace.jsx`의 요약/목록 카드 View를 `workspace/WorkspaceCards.jsx`, package 연결
+  항목과 선택 Interface 상세 실행 조립을 `workspace/InlineWorkspace.jsx`, Apply 상태 문구 변환을
+  `workspace/workspaceStatus.js`로 이동하고 구 파일을 제거했다.
+- 이유와 기준: 카드 표시는 목록·요약 presentation, inline workspace는 Topic/Service/Action 상세 실행 조립,
+  Apply label은 순수 상태 표시 정책으로 변경 이유가 다르다. 기존 상세 종류별 component가 있는
+  `workspace/` 경계에 맞춰 배치했다.
+- 정책 보존: summary/card DOM class와 badge 조건, package related item 선택, 상세 metadata와 JSON/raw View,
+  Topic Publish/Receive, Service Call, Action Goal/Cancel의 모든 props와 종류별 분기 조건을 유지했다.
+- 트러블슈팅: 최초 빌드는 통과했지만 카드 파일에서 component와 `applyStatusLabel`을 함께 export해 Fast
+  Refresh warning이 발생했다. 순수 함수를 `workspaceStatus.js`로 분리한 뒤 lint/build를 재실행했다.
+- 결과: 기존 337줄 혼합 파일을 제거하고 Inline Workspace 254줄, 카드 65줄, 상태 정책 14줄로 책임을
+  분리했다. Management Overview와 Workspace Browser는 새 모듈을 직접 import한다.
+- 검증: 구 `InterfaceLabWorkspace.jsx` 참조 0건, Frontend `npm run lint`, `npm run build`, `git diff --check`가
+  통과했다. Vite는 299 modules를 변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는
+  126.97KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 package related 선택과 Topic/Service/Action inline 실행 E2E는 이번 구조 이동에서
+  재실행하지 않았다. 다음 후보는 254줄 `InlineWorkspace.jsx`의 package related View와 공통 metadata/detail
+  shell 분리 여부다.

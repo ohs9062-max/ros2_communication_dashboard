@@ -11,6 +11,9 @@ from ros2_dashboard_monitor.interface_lab.execution.topic_support import (
     normalize_limit,
     topic_qos,
 )
+from ros2_dashboard_monitor.interface_lab.execution.topic_receive_history import (
+    TopicReceiveHistory,
+)
 from ros2_dashboard_monitor.qos import subscription_events
 
 
@@ -31,10 +34,13 @@ class TopicReceiveRuntime:
         self._graph_state = graph_state
         self._lock = lock
         self._message_loader = message_loader
-        self._message_to_json = message_to_json
         self._node_getter = node_getter
         self._topics: dict[tuple[str, str], dict[str, Any]] = {}
-        self._sequence = 0
+        self._history = TopicReceiveHistory(
+            lock=lock,
+            message_to_json=message_to_json,
+            topics=self._topics,
+        )
 
     def start(
         self,
@@ -157,22 +163,11 @@ class TopicReceiveRuntime:
         topic_type: str | None = None,
         limit: int | None = None,
     ) -> dict[str, Any]:
-        normalized_limit = normalize_limit(limit or DEFAULT_TOPIC_HISTORY_LIMIT)
-        with self._lock:
-            if topic_name and topic_type:
-                items = list(self._topics.get((topic_name, topic_type), {}).get('history', []))
-            elif topic_name:
-                items = [
-                    event
-                    for key, item in self._topics.items()
-                    if key[0] == topic_name
-                    for event in item.get('history', [])
-                ]
-            else:
-                items = [event for item in self._topics.values() for event in item.get('history', [])]
-        items.sort(key=lambda event: event.get('received_at') or 0, reverse=True)
-        visible = items[:normalized_limit]
-        return {'history': visible, 'meta': {'count': len(visible)}}
+        return self._history.response(
+            topic_name=topic_name,
+            topic_type=topic_type,
+            limit=limit,
+        )
 
     def reset_history(
         self,
@@ -180,37 +175,17 @@ class TopicReceiveRuntime:
         topic_name: str | None = None,
         topic_type: str | None = None,
     ) -> dict[str, Any]:
-        with self._lock:
-            if topic_name and topic_type:
-                item = self._topics.pop((topic_name, topic_type), None)
-                if item is None:
-                    return {
-                        'cleared': 0,
-                        'removed': 0,
-                        'topic_name': topic_name,
-                        'topic_type': topic_type,
-                    }
-                removed_items = [item]
-            elif topic_name:
-                matching_keys = [key for key in self._topics if key[0] == topic_name]
-                removed_items = [self._topics.pop(key) for key in matching_keys]
-            else:
-                removed_items = list(self._topics.values())
-                self._topics = {}
-            cleared = sum(len(item.get('history', [])) for item in removed_items)
-
+        result, removed_items = self._history.reset(
+            topic_name=topic_name,
+            topic_type=topic_type,
+        )
         self._destroy_subscriptions(removed_items)
-        return {
-            'cleared': cleared,
-            'removed': len(removed_items),
-            'topic_name': topic_name,
-            'topic_type': topic_type,
-        }
+        return result
 
     def clear(self) -> None:
         with self._lock:
             items = list(self._topics.values())
-            self._topics = {}
+            self._topics.clear()
         self._destroy_subscriptions(items)
 
     def _destroy_subscriptions(self, items: list[dict[str, Any]]) -> None:
@@ -227,37 +202,7 @@ class TopicReceiveRuntime:
                 pass
 
     def _record_message(self, topic_name: str, topic_type: str, message: Any) -> None:
-        received_at = time()
-        try:
-            message_json = self._message_to_json(message)
-            error = None
-        except Exception as exc:
-            message_json = None
-            error = str(exc)
-        preview = message_json if message_json is not None else {'error': error}
-        key = (topic_name, topic_type)
-        with self._lock:
-            item = self._topics.get(key)
-            if item is None:
-                return
-            self._sequence += 1
-            event = {
-                'topic_name': topic_name,
-                'topic_type': topic_type,
-                'received_at': received_at,
-                'sequence': self._sequence,
-                'message_preview': preview,
-                'message_json': message_json,
-                'size_bytes': len(str(preview).encode('utf-8')),
-                'error': error,
-            }
-            history = item.setdefault('history', [])
-            history.insert(0, event)
-            del history[int(item.get('history_limit') or DEFAULT_TOPIC_HISTORY_LIMIT):]
-            item['message_count'] = int(item.get('message_count') or 0) + 1
-            item['last_message'] = event
-            item['last_received_at'] = received_at
-            item['error'] = error
+        self._history.record(topic_name, topic_type, message)
 
     @staticmethod
     def _public_state(key: tuple[str, str], item: dict[str, Any]) -> dict[str, Any]:

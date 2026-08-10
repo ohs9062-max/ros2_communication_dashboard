@@ -22,8 +22,12 @@ from ros2_dashboard_monitor.interface_lab.execution.service_history import (
     call_summary_payload as _call_summary,
 )
 from ros2_dashboard_monitor.interface_lab.execution.service_discovery import (
+    build_callable_services,
+    build_service_state,
     count_service_clients,
     discover_service_graph,
+    find_allowed_service,
+    registered_services_from_registry,
 )
 from ros2_dashboard_monitor.interface_lab.execution.service_call_executor import execute_service_call
 from ros2_dashboard_monitor.ros2_service.active_check import (
@@ -68,29 +72,7 @@ class ServiceCallRuntime:
         refresh_install_python_paths()
         registered = self._registered_services()
         graph = self._service_graph()
-        services: list[dict[str, Any]] = []
-
-        for entry in registered:
-            service_type = entry['service_type']
-            matching = [
-                item for item in graph
-                if item['type'] == service_type
-            ]
-            if not matching:
-                services.append(self._service_state(entry, None))
-                continue
-            for graph_item in matching:
-                services.append(self._service_state(entry, graph_item))
-
-        services.sort(key=lambda item: (item['service_type'], item['service_name']))
-        return {
-            'services': services,
-            'meta': {
-                'count': len(services),
-                'registered_count': len(registered),
-                'callable_count': sum(1 for item in services if item['callable']),
-            },
-        }
+        return build_callable_services(registered, graph, self._service_qos())
 
     def call_service(
         self,
@@ -164,51 +146,20 @@ class ServiceCallRuntime:
         service_name: str,
         service_type: str,
     ) -> dict[str, Any] | None:
-        registered = self._registered_services()
-        if not any(
-            item['service_type'] == service_type
-            and item['import_available'] is True
-            for item in registered
-        ):
-            return None
-
-        for item in self._service_graph():
-            if (
-                item['name'] == service_name
-                and item['type'] == service_type
-                and item['server_count'] > 0
-            ):
-                return item
-        return None
+        return find_allowed_service(
+            service_name,
+            service_type,
+            self._registered_services(),
+            self._service_graph(),
+        )
 
     def _registered_services(self) -> list[dict[str, Any]]:
         registry = registry_snapshot()['interface_registry']
-        services = []
-        for item in registry.get('services', []):
-            build = item.get('build') or {}
-            package_name = build.get('interface_package')
-            type_name = item.get('type_name')
-            if not package_name or not type_name:
-                continue
-            service_type = f'{package_name}/srv/{type_name}'
-            request_schema = item.get('parsed', {}).get('request', [])
-            response_schema = item.get('parsed', {}).get('response', [])
-            if build.get('import_available') is True and not request_schema:
-                request_schema, response_schema = _schema_from_service_class(service_type)
-            services.append({
-                'file_name': item.get('file_name'),
-                'type_name': type_name,
-                'service_type': service_type,
-                'request_schema': request_schema,
-                'response_schema': response_schema,
-                'saved_path': build.get('saved_path'),
-                'import_available': build.get('import_available') is True,
-                'import_error': build.get('import_error'),
-                'source': item.get('source', 'single_upload'),
-                'package_name': package_name,
-            })
-        services.extend(registered_package_services())
-        return services
+        return registered_services_from_registry(
+            registry,
+            registered_package_services(),
+            _schema_from_service_class,
+        )
 
     def _service_graph(self) -> list[dict[str, Any]]:
         return discover_service_graph(self._node_getter, self._client_count)
@@ -224,34 +175,7 @@ class ServiceCallRuntime:
         entry: dict[str, Any],
         graph_item: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        server_count = int(graph_item.get('server_count') or 0) if graph_item else 0
-        server_available = server_count > 0
-        import_available = entry['import_available'] is True
-        callable_now = import_available and server_available
-        reason = None
-        if not import_available:
-            reason = entry.get('import_error') or 'import 불가'
-        elif not server_available:
-            reason = '서버 없음'
-        return {
-            'service_name': graph_item['name'] if graph_item else '',
-            'service_type': entry['service_type'],
-            'file_name': entry['file_name'],
-            'type_name': entry['type_name'],
-            'request_schema': entry['request_schema'],
-            'response_schema': entry['response_schema'],
-            'import_available': import_available,
-            'import_error': entry.get('import_error'),
-            'server_available': server_available,
-            'server_count': server_count,
-            'client_count': int(graph_item.get('client_count') or 0) if graph_item else 0,
-            'callable': callable_now,
-            'reason': reason,
-            'saved_path': entry.get('saved_path'),
-            'source': entry.get('source', 'single_interface'),
-            'package_name': entry.get('package_name'),
-            **self._service_qos(),
-        }
+        return build_service_state(entry, graph_item, self._service_qos())
 
     @staticmethod
     def _service_qos() -> dict[str, Any]:

@@ -1,0 +1,65 @@
+import {
+  ActionGoalHistory,
+  ActionGoalResult,
+  RequestField,
+} from '../InterfaceExecutionShared.jsx'
+import { actionKey, actionStatusLabel } from '../model/interfaceUploadModel.js'
+import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
+
+export function ActionExecutionPanel({
+  actions,
+  busy,
+  expanded,
+  goals,
+  goalValues,
+  importableOnly,
+  onExecute,
+  onFieldChange,
+  onImportableOnlyChange,
+  onSelect,
+  onTimeoutChange,
+  onToggleExpanded,
+  result,
+  selected,
+  selectedKey,
+  showExpand,
+  timeoutSec,
+  visibleActions,
+}) {
+  return (
+    <div className="interface-service-panel interface-execution-panel">
+      <ExecutionPanelHeading expanded={expanded} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Action 실행" />
+      {actions.length ? (
+        <>
+          <label className="interface-filter-check">
+            <input checked={importableOnly} onChange={(event) => onImportableOnlyChange(event.target.checked)} type="checkbox" />
+            <span>Action import됨만 보기</span><small>{visibleActions.length}/{actions.length}</small>
+          </label>
+          <label className="interface-service-field">
+            <span>Action · {visibleActions.length}/{actions.length}개</span>
+            <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
+              {visibleActions.map((action) => (
+                <option key={actionKey(action)} value={actionKey(action)}>
+                  {action.import_available ? 'import됨' : 'import 안됨'} · {actionStatusLabel(action)} · {action.action_name || action.file_name} · {action.action_type}
+                </option>
+              ))}
+            </select>
+            {!visibleActions.length && <small>Action import됨 항목이 없습니다. 적용하기 또는 import-check 이후 다시 확인하세요.</small>}
+          </label>
+          {selected && <div className={`interface-service-state ${selected.callable ? 'success' : 'warning'}`}>{actionStatusLabel(selected)}{selected.reason ? ` · ${selected.reason}` : ''}</div>}
+          {selected && <div className="interface-package-help">선택 타입 {selected.action_type}의 Goal schema {selected.goal_schema?.length ?? 0}개 필드로 폼을 생성합니다.</div>}
+          {selected?.goal_schema?.map((field) => (
+            <RequestField disabled={!selected?.callable} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={goalValues[field.name]} />
+          ))}
+          <label className="interface-service-field">
+            <span>timeout_sec</span>
+            <input disabled={!selected?.callable} min="0.1" onChange={(event) => onTimeoutChange(Number(event.target.value))} step="0.1" type="number" value={timeoutSec} />
+          </label>
+          <button className="interface-service-call-button" disabled={busy || !selected?.callable} onClick={onExecute} type="button">{busy ? '요청 전송 중…' : 'Goal 실행'}</button>
+          {result && <ActionGoalResult result={result} />}
+          <ActionGoalHistory goals={goals} />
+        </>
+      ) : <small>registry에 등록된 Action이 없습니다.</small>}
+    </div>
+  )
+}
