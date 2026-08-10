@@ -8,7 +8,6 @@ from ros2_dashboard_monitor.ros2_topic.models import (
     ALERT_CODE_TOPIC_MESSAGE_MISSING,
     ALERT_CODE_TOPIC_STALE,
     ALERT_CODE_WAITING_PUBLISHER,
-    ALERT_LEVEL_CRITICAL,
     ALERT_LEVEL_ERROR,
     ALERT_LEVEL_WARNING,
     HZ_STATUS_NEVER_RECEIVED,
@@ -18,9 +17,11 @@ from ros2_dashboard_monitor.ros2_topic.models import (
 from ros2_dashboard_monitor.ros2_topic.monitor_status_alerts import (
     monitor_status_alert as _monitor_status_alert,
 )
-
-
-ALERT_RESOLVED_RETENTION_SEC = 60.0
+from ros2_dashboard_monitor.ros2_topic.alert_retention import (
+    ALERT_RESOLVED_RETENTION_SEC,
+    build_alert_meta,
+    retain_alerts,
+)
 
 
 def build_alerts(
@@ -54,107 +55,6 @@ def build_alerts(
             alerts_by_id[monitor_status_alert['id']] = monitor_status_alert
 
     return list(alerts_by_id.values())
-
-
-def retain_alerts(
-    *,
-    alert_history: list[dict[str, Any]] | None = None,
-    current_alerts: list[dict[str, Any]],
-    history_limit: int = 50,
-    retained_alerts: dict[str, dict[str, Any]],
-    retained_codes: set[str],
-    detected_at: float,
-    resolved_retention_sec: float = ALERT_RESOLVED_RETENTION_SEC,
-) -> list[dict[str, Any]]:
-    """상태 기반 Alert를 해결 시각부터 일정 시간 메모리에 유지합니다."""
-    current_by_id = {
-        alert['id']: alert
-        for alert in current_alerts
-        if alert.get('code') in retained_codes
-    }
-    passthrough = [
-        alert for alert in current_alerts
-        if alert.get('code') not in retained_codes
-    ]
-    visible = []
-
-    for alert_id, alert in current_by_id.items():
-        cached = retained_alerts.get(alert_id, {})
-        active_alert = {
-            **alert,
-            'active': True,
-            'alert_state': 'active',
-            'first_detected_at': cached.get(
-                'first_detected_at',
-                detected_at,
-            ),
-            'last_detected_at': detected_at,
-            'resolved_at': None,
-        }
-        retained_alerts[alert_id] = active_alert
-        visible.append(active_alert.copy())
-
-    for alert_id, cached in list(retained_alerts.items()):
-        if alert_id in current_by_id:
-            continue
-
-        was_resolved = cached.get('alert_state') == 'resolved'
-        resolved_at = cached.get('resolved_at') or detected_at
-        if detected_at - float(resolved_at) >= resolved_retention_sec:
-            retained_alerts.pop(alert_id, None)
-            continue
-
-        resolved_alert = {
-            **cached,
-            'active': False,
-            'alert_state': 'resolved',
-            'resolved_at': resolved_at,
-        }
-        retained_alerts[alert_id] = resolved_alert
-        visible.append(resolved_alert.copy())
-        if alert_history is not None and not was_resolved:
-            alert_history.insert(
-                0,
-                {
-                    **resolved_alert,
-                    'origin_id': alert_id,
-                    'id': f'{alert_id}:resolved:{resolved_at}',
-                },
-            )
-            del alert_history[history_limit:]
-
-    return passthrough + visible
-
-
-def build_alert_meta(alerts: list[dict[str, Any]]) -> dict[str, int]:
-    """현재 active Alert를 심각도별로 세고 해결 건수도 반환합니다."""
-    active_alerts = [
-        alert for alert in alerts
-        if alert.get('alert_state') != 'resolved'
-    ]
-    return {
-        'count': len(alerts),
-        'active_count': len(active_alerts),
-        'resolved_count': len(alerts) - len(active_alerts),
-        'info_count': sum(
-            1 for alert in active_alerts if alert['level'] == 'info'
-        ),
-        'warning_count': sum(
-            1
-            for alert in active_alerts
-            if alert['level'] == ALERT_LEVEL_WARNING
-        ),
-        'error_count': sum(
-            1
-            for alert in active_alerts
-            if alert['level'] == ALERT_LEVEL_ERROR
-        ),
-        'critical_count': sum(
-            1
-            for alert in active_alerts
-            if alert['level'] == ALERT_LEVEL_CRITICAL
-        ),
-    }
 
 
 def _topic_alerts(

@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-07
+마지막 갱신: 2026-08-10
 
 이 문서는 다음 AI가 현재 작업 지점을 빠르게 파악하기 위한 요약이다. 세부 정책은
 `AGENTS.md`, 누적 이력은 `.codex/WORK_LOG.md`를 확인한다. 문서와 코드가 다르면 실제 코드와
@@ -31,6 +31,17 @@ ros2_dashboard/
 구 `backend/src`와 구 `topic/service/action/node` 패키지 구조를 다시 만들지 않는다.
 
 ## 현재 구현 상태
+
+- 2026-08-10 구조 리팩토링 기준으로 Frontend/Backend/Monitor source에는 300줄 이상 파일이 없으며,
+  250~300줄 파일은 Action Goal, RosMonitor, manual interface, page/controller 등 조정 책임이 명확한 항목만
+  남겼다. 줄 수만을 위한 추가 분리는 중단하고 이후 변경은 기능 요구나 실제 복수 책임이 생길 때 진행한다.
+- 현재 리팩토링 전체 회귀 기준은 Frontend lint/build, Backend 6 tests, Monitor pytest 172 tests,
+  Python compileall, colcon 5 package build와 177 tests(0 errors/failures/skipped), `git diff --check` 통과다.
+- 2026-08-10 sandbox 내부 실행은 Fast DDS UDP/socket과 loopback 제한으로 실패했지만, sandbox 밖 동일 E2E는
+  Monitor/Backend health, Monitor 연결, 공개 Topic/Service/Action/Node API와 Frontend HTML까지 통과했다.
+  당시 Graph 기준 Topic 9, Service 2, Action 1, Node 5개가 반환됐고 실행 프로세스는 검증 후 종료했다.
+- 실제 Browser UI interaction/WebSocket 재연결과 실제 ROS2 장비/Gazebo 통신 E2E는 별도 미검증 범위이며,
+  현재 작업 트리의 리팩토링 변경은 커밋되지 않은 상태다.
 
 - 구조 분리 기준선은 Git 커밋 `9d18c14`~`405071e`에 반영되어 있다. ROS2 직접 접근은
   `ros2_dashboard_monitor`, 웹 API와 Runtime Cache는 `backend/app`, UI는 `frontend`가 담당한다.
@@ -205,6 +216,64 @@ ros2_dashboard/
 - Interface Lab 요약/목록 카드는 `workspace/WorkspaceCards.jsx`, Apply 상태 문구 정책은
   `workspace/workspaceStatus.js`, package 연결 항목과 선택 Interface inline 상세 실행 조립은
   `workspace/InlineWorkspace.jsx`가 담당한다. 구 `InterfaceLabWorkspace.jsx`는 제거됐다.
+- Inline workspace의 package 연결 Service/Action 목록은 `workspace/PackageRelatedItems.jsx`, 선택 항목의
+  공통 metadata/schema/raw 표시와 Topic/Service/Action 상세 View 선택은
+  `workspace/WorkspaceDetailPanel.jsx`가 담당한다. `InlineWorkspace.jsx`에는 종류 선택과 props 배선만 남았다.
+- Topic inline 상세의 Graph 연결/conflict와 결과/history 조립은 `workspace/TopicWorkspaceDetail.jsx`,
+  Publish 후보·payload·단일/지속 실행은 `TopicPublishPanel.jsx`, Subscribe 이름·상태·start/stop/reset은
+  `TopicSubscribePanel.jsx`가 담당한다.
+- Interface Lab Receive의 Topic Graph/type/search 필터, 자동/사용자 선택 출처, 수신 여부와 history 필터,
+  start/stop/선택·전체 reset 명령은 `hooks/useTopicReceiveController.js`가 담당한다. 통합
+  `useInterfaceReceiveController.js`는 전체 snapshot 로딩, Service/Action observer와 polling을 조정한다.
+- Service 화면의 내부/관리 판정, primary/issue/search 필터와 UI summary 계산은
+  `features/services/serviceFilters.js`, 검색과 상태 filter buttons는 `ServiceFilterToolbar.jsx`가 담당한다.
+  `ServicesPage.jsx`는 Dashboard 상태, Alert→row 이동, 선택 보정과 table/detail 조립을 담당한다.
+- Visualization 선택 항목의 missing/empty, 공통 상태·연결 요약은 `VisualizationDetailPanel.jsx`,
+  Node/Topic/Service/Action별 metric과 participant/entity 목록은 `VisualizationKindDetails.jsx`, kind label과
+  status tone 정책은 `visualizationPresentation.js`가 담당한다.
+- Visualization Graph의 수동 위치 병합/prune, shift 동일-kind group drag 좌표, viewport signature,
+  node 중심 기준 nearest edge handle routing과 minimap color는 `graphInteraction.js`가 담당한다.
+  `CommunicationGraph.jsx`는 React Flow state, lifecycle, drag event와 viewport fit/reset을 조정한다.
+- Visualization Node picker의 primary/active/hidden/search 필터와 active·connection 정렬, 선택 Graph resource의
+  participant 보강은 `features/visualization/graphSelection.js`, 의미가 같은 graph 객체 재사용은
+  `useStableGraph.js`가 담당한다. `useVisualizationGraph.js`는 polling, filter state와 graph 조립을 조정한다.
+- Topic table의 개별 row·별표·상태·Hz·Dashboard 통신·preview button 표시는
+  `features/topics/TopicTableRow.jsx`, 정렬 column과 Hz/missing/last checked 표시 정책은
+  `topicTablePresentation.js`가 담당한다. `components/TopicTable.jsx`는 sort와 preview modal을 조정한다.
+- Interface Lab Topic의 지속 Publish Hz/active 상태, 활성 항목 1초 polling과 start/stop 명령은
+  `hooks/useContinuousTopicExecution.js`가 담당한다. `useTopicExecutionController.js`는 Message 선택,
+  Graph Publish 이름, 단일 Publish와 history 조정을 담당하며 기존 지속 실행 반환 key를 병합한다.
+- Monitor Interface Lab의 단일 Topic Publish 이름/type/등록 검증, Action 내부 Topic·Graph type conflict 거부,
+  Message 생성·발행과 성공/실패 결과 조립은 `execution/topic_publish_executor.py`가 담당한다.
+  `topic_runtime.py`는 Registry/Graph/Publisher/History/Continuous/Receive runtime을 조립하고 공개 facade를 유지한다.
+- Monitor Interface Lab Action의 활성 Goal handle 저장/remove와 cancel timeout/acceptance lifecycle은
+  `execution/action_goal_tracker.py`, Goal 실행 결과 payload 조립은 `action_result.py`가 담당한다.
+  `action_goal_runtime.py`는 discovery/client/history/goal executor를 조정하며 기존 private callback seam을 유지한다.
+- Action Goal 원본 history에서 feedback/result 관찰 이벤트를 만들고 전체/Action exact key별 reset timestamp를
+  적용하는 상태는 `execution/action_receive_history.py`의 `ActionReceiveHistory`가 담당한다. reset은 원본 Goal
+  history를 삭제하지 않고 Receive View 경계만 갱신한다.
+- Monitor Action의 `action/<Name>` type 문법에서 feedback topic type/class를 해석하고 GoalStatusArray class를
+  불러오는 fallback 정책은 `ros2_action/action_type_loader.py`가 담당한다. `subscriptions.py`는 기존 loader
+  symbol을 재노출하며 subscription entry와 status/feedback/result 관찰 상태 변환에 집중한다.
+- Topic/Service/Action 상태 Alert의 active→resolved 전이, first/last/resolved timestamp, 해결 history 상한,
+  retention 만료와 severity meta 집계는 `ros2_topic/alert_retention.py`가 담당한다. `ros2_topic/alerts.py`는
+  Topic connection/missing/stale 및 MonitorStatus Alert 감지에 집중하며 기존 retention symbol을 재노출한다.
+- Service active check의 generated Service class import, request 객체 생성, response JSON 변환과 nested
+  `success_field` 판정은 `ros2_service/active_check_codec.py`가 담당한다. `active_check.py`는 allowlist 지원 여부와
+  pending/success/failed/timeout/error 상태 정책을 담당하며 기존 codec symbol을 재노출한다.
+- 단일 Interface Registry와 generated package의 env/상대·절대 경로 및 표시 경로 정책은
+  `management/registry_paths.py`, multipart/form-data 파일 payload 해석은 `multipart_upload.py`가 담당한다.
+  `registry.py`는 upload 설치, Registry CRUD와 apply/import 상태 조정을 담당하며 기존 함수 경로를 재노출한다.
+- Monitor Action의 GetResult Service class/policy/reason cache와 Action 이름별 Result client 생성·재사용은
+  `ros2_action/result_client_pool.py`가 담당한다. `result_runtime.py`는 terminal Goal의 Result request future,
+  pending/error/completion 상태와 subscription entry 반영을 조정하며 기존 private 메서드를 wrapper로 유지한다.
+- Action feedback/result ROS Message의 primitive/list/slot 기반 깊이 제한 JSON-safe preview 변환은
+  `ros2_action/message_preview.py`가 담당한다. `subscriptions.py`는 기존 `message_to_preview`를 재노출하면서
+  status/feedback/Goal/result 관찰 상태 전이에 집중하고 `result.py`는 새 모듈을 직접 사용한다.
+- Interface Upload controller state를 View props로 변환하는 adapter는 실행
+  `model/executionViewProps.js`, Receive `receiveViewProps.js`, 관리 `managementViewProps.js`로 분리됐다.
+  Service/Action Receive의 동일 mapping은 Receive adapter 내부 `resourceProps`가 담당하며 구
+  `interfaceUploadViewProps.js`는 제거됐다.
 - Frontend Interface Lab의 Graph Service/Action entry 병합과 callable workspace item 변환은
   `model/workspaceGraphItems.js`, Registry와 업로드 package/child interface의 source item 변환은
   `model/workspaceSourceItems.js`가 담당한다. `workspaceItems.js`는 source/graph item 조립과 type별 병합,
@@ -329,6 +398,8 @@ Interface Action 등록/Graph/callable discovery 분리 후 Monitor 직접 pytes
 Topic MonitorStatus 전용 Alert 변환 분리 후 Monitor 직접 pytest: 163 passed
 Service/Action/Node snapshot assembler 분리 후 Monitor 직접 pytest: 163 passed
 Interface Lab 공개 facade 분리 후 Monitor 직접 pytest: 166 passed
+구조 리팩토링 종료 후 Backend WebSocket 연결 상태 회귀 테스트 포함: 7 passed
+격리 E2E WebSocket: Monitor 연결 true → 단절 false(마지막 snapshot 유지) → 재연결 true
 ```
 
 이 수치는 이후 변경 후 자동으로 유효하지 않다. 관련 코드를 수정하면 영향 범위 검수를 다시 한다.
@@ -339,7 +410,7 @@ Interface Lab 공개 facade 분리 후 Monitor 직접 pytest: 166 passed
 - Jazzy 일반 Service Graph는 상대 Service endpoint QoS를 직접 제공하지 않으므로 Service는
   `qos_profile_services_default`를 사용하며 상대 QoS 판정은 `unknown/default_profile`일 수 있다.
 - QoS 불일치를 영속 Alert 이력과 완전히 연결하는 작업은 남아 있다.
-- WSS 운영 배포 검증, MariaDB Alert 영속 저장, Camera Topic 이미지 시각화,
+- WSS 운영 TLS 배포 검증, MariaDB Alert 영속 저장, Camera Topic 이미지 시각화,
   Gazebo TurtleBot 명령 preset은 확정된 향후 요구사항이지만 아직 완료되지 않았다.
 - demo outcome server 종료 시 `rcl_shutdown already called` 중복 shutdown traceback이 관찰됐다.
   실행 기능과 별개지만 demo node cleanup 개선이 필요하다.

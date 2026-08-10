@@ -2,12 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   fetchCallableMessages,
-  fetchContinuousTopicPublishes,
   fetchTopicPublishHistory,
   publishTopicMessage,
   resetTopicPublishHistory,
-  startContinuousTopicPublish,
-  stopContinuousTopicPublish,
 } from '../../../api/interfaceExecution.js'
 import {
   defaultRequestValues,
@@ -18,6 +15,7 @@ import {
   graphPublishTopicCandidates,
   topicNameTypeWarning,
 } from '../../../utils/interfaceTopics.js'
+import { useContinuousTopicExecution } from './useContinuousTopicExecution.js'
 
 export function useTopicExecutionController({
   availableTopics,
@@ -28,13 +26,11 @@ export function useTopicExecutionController({
   const [selectedKey, setSelectedKey] = useState('')
   const [importableOnly, setImportableOnly] = useState(false)
   const [publishName, setPublishName] = useState('')
-  const [publishHz, setPublishHz] = useState(10)
   const publishNameSourceRef = useRef('empty')
   const [messageValues, setMessageValues] = useState({})
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [history, setHistory] = useState([])
-  const [continuousPublishes, setContinuousPublishes] = useState([])
 
   const visibleMessages = useMemo(
     () => importableOnly
@@ -55,13 +51,6 @@ export function useTopicExecutionController({
     publishName,
     selected?.message_type,
   )
-  const activeContinuousPublish = continuousPublishes.find((item) =>
-    item.active
-    && item.topic_name === publishName.trim()
-    && item.topic_type === selected?.message_type)
-  const activeContinuousPublishKey = activeContinuousPublish
-    ? `${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
-    : ''
   const visibleHistory = history.filter((event) =>
     (!publishName || event.topic_name === publishName)
     && (!selected?.message_type || event.topic_type === selected.message_type),
@@ -110,24 +99,21 @@ export function useTopicExecutionController({
     }
   }, [publishGraphTopics, publishName, selected?.message_type])
 
-  useEffect(() => {
-    if (!activeContinuousPublishKey) return undefined
-    const timer = window.setInterval(async () => {
-      try {
-        const payload = await fetchContinuousTopicPublishes()
-        setContinuousPublishes(payload.data ?? [])
-      } catch {
-        // Explicit actions and the regular page refresh surface transport errors.
-      }
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [activeContinuousPublishKey])
+  const continuous = useContinuousTopicExecution({
+    messageValues,
+    onStateChanged,
+    publishName,
+    selected,
+    setBusy,
+    setResult,
+  })
+  const { setContinuousPublishes } = continuous
 
   const replace = useCallback((nextMessages, nextHistory = null, nextContinuous = null) => {
     setMessages(nextMessages)
     if (nextHistory !== null) setHistory(nextHistory)
     if (nextContinuous !== null) setContinuousPublishes(nextContinuous)
-  }, [])
+  }, [setContinuousPublishes])
 
   const load = useCallback(async () => {
     const [messagesPayload, historyPayload] = await Promise.all([
@@ -173,51 +159,6 @@ export function useTopicExecutionController({
     }
   }, [messageValues, onStateChanged, publishName, selected])
 
-  const startContinuous = useCallback(async () => {
-    if (!publishName.trim() || !selected?.message_type) {
-      setResult({ success: false, error: 'Publish Topic 이름과 Message full_type을 선택하세요.' })
-      return
-    }
-    setBusy(true)
-    setResult(null)
-    try {
-      const payload = await startContinuousTopicPublish({
-        topic_name: publishName.trim(),
-        topic_type: selected.message_type,
-        full_type: selected.message_type,
-        message: normalizeNumericValues(messageValues, selected.message_schema),
-        hz: Number(publishHz),
-      })
-      setResult(payload)
-      const state = await fetchContinuousTopicPublishes()
-      setContinuousPublishes(state.data ?? [])
-      onStateChanged?.()
-    } catch (error) {
-      setResult({ success: false, error: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }, [messageValues, onStateChanged, publishHz, publishName, selected])
-
-  const stopContinuous = useCallback(async () => {
-    if (!publishName.trim() || !selected?.message_type) return
-    setBusy(true)
-    try {
-      const payload = await stopContinuousTopicPublish({
-        topic_name: publishName.trim(),
-        topic_type: selected.message_type,
-      })
-      setResult(payload)
-      const state = await fetchContinuousTopicPublishes()
-      setContinuousPublishes(state.data ?? [])
-      onStateChanged?.()
-    } catch (error) {
-      setResult({ success: false, error: error.message })
-    } finally {
-      setBusy(false)
-    }
-  }, [onStateChanged, publishName, selected?.message_type])
-
   const resetHistory = useCallback(async () => {
     try {
       const payload = await resetTopicPublishHistory({
@@ -236,10 +177,9 @@ export function useTopicExecutionController({
   }, [publishName, selected?.message_type, setFeedback])
 
   return {
-    activeContinuousPublish,
+    ...continuous,
     busy,
     changePublishName,
-    continuousPublishes,
     history,
     importableOnly,
     load,
@@ -247,7 +187,6 @@ export function useTopicExecutionController({
     messages,
     publish,
     publishGraphTopics,
-    publishHz,
     publishName,
     publishWarning,
     replace,
@@ -256,14 +195,10 @@ export function useTopicExecutionController({
     select,
     selected,
     selectedKey,
-    setContinuousPublishes,
     setHistory,
     setImportableOnly,
     setMessageValues,
-    setPublishHz,
     setResult,
-    startContinuous,
-    stopContinuous,
     visibleHistory,
     visibleMessages,
   }

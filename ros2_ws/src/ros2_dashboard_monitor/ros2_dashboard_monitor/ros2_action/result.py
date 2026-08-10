@@ -11,7 +11,7 @@ from ros2_dashboard_monitor.ros2_action.models import (
     RESULT_STATUS_UNAVAILABLE,
     goal_status_label,
 )
-from ros2_dashboard_monitor.ros2_action.subscriptions import message_to_preview
+from ros2_dashboard_monitor.ros2_action.message_preview import message_to_preview
 
 from rosidl_runtime_py.utilities import get_action
 

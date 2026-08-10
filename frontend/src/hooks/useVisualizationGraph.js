@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchActions,
   fetchNodes,
@@ -7,12 +7,9 @@ import {
 } from '../api/rosApi.js'
 import { VISUALIZATION_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildCommunicationGraph } from '../utils/graphTransform.js'
-import {
-  isHiddenGraphNode,
-  nodeConnectionCount,
-} from '../utils/graphTransform.js'
 import { buildParticipantMaps } from '../utils/participants.js'
-import { isInternalNode, isPrimaryNode } from '../utils/nodeFilters.js'
+import { participantsForGraphNode, selectVisualizationNodes } from '../features/visualization/graphSelection.js'
+import { useStableGraph } from '../features/visualization/useStableGraph.js'
 import { usePolling } from './usePolling.js'
 
 export function useVisualizationGraph() {
@@ -127,37 +124,7 @@ export function useVisualizationGraph() {
   }, [graph.nodes, selectedGraphNodeId, viewMode])
 
   const selectableNodes = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase()
-    return nodes
-      .filter((node) => {
-        if (nodeFilterMode === 'primary') {
-          return isPrimaryNode(node, { actions, services, topics })
-        }
-        if (nodeFilterMode === 'active') {
-          return node.status === 'active' && !isInternalNode(node)
-        }
-        return includeHidden || !isHiddenGraphNode(node)
-      })
-      .filter((node) => {
-        if (!normalizedSearch) {
-          return true
-        }
-        return [
-          node.full_name,
-          node.name,
-          node.namespace,
-        ].some((value) =>
-          String(value ?? '').toLowerCase().includes(normalizedSearch),
-        )
-      })
-      .sort((left, right) => {
-        const activeDelta =
-          Number(right.status === 'active') - Number(left.status === 'active')
-        if (activeDelta) {
-          return activeDelta
-        }
-        return nodeConnectionCount(right) - nodeConnectionCount(left)
-      })
+    return selectVisualizationNodes({ actions, includeHidden, nodeFilterMode, nodes, search, services, topics })
   }, [actions, includeHidden, nodeFilterMode, nodes, search, services, topics])
 
   const refresh = () => {
@@ -209,66 +176,4 @@ export function useVisualizationGraph() {
     topics,
     viewMode,
   }
-}
-
-function participantsForGraphNode(graphNode, participantMaps) {
-  const { kind, label } = graphNode.data ?? {}
-  if (kind === 'topic') {
-    return participantMaps.topicParticipants[label] ?? {
-      publishers: [],
-      subscribers: [],
-    }
-  }
-  if (kind === 'service') {
-    return participantMaps.serviceParticipants[label] ?? {
-      clients: [],
-      servers: [],
-    }
-  }
-  if (kind === 'action') {
-    return participantMaps.actionParticipants[label] ?? {
-      clients: [],
-      servers: [],
-    }
-  }
-  return null
-}
-
-function useStableGraph(nextGraph) {
-  const previous = useRef({ graph: nextGraph, signature: '' })
-  const signature = graphSignature(nextGraph)
-
-  if (previous.current.signature === signature) {
-    return previous.current.graph
-  }
-
-  previous.current = {
-    graph: nextGraph,
-    signature,
-  }
-  return nextGraph
-}
-
-function graphSignature(graph) {
-  const nodeSignature = graph.nodes
-    .map((node) => [
-      node.id,
-      node.data.kind,
-      node.data.label,
-      node.data.status,
-      node.data.type,
-      node.position.x,
-      node.position.y,
-    ].join('|'))
-    .join('::')
-  const edgeSignature = graph.edges
-    .map((edge) => [
-      edge.id,
-      edge.source,
-      edge.target,
-      edge.label,
-    ].join('|'))
-    .join('::')
-
-  return `${nodeSignature}###${edgeSignature}`
 }

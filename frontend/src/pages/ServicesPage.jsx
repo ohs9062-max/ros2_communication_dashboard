@@ -3,49 +3,8 @@ import { AlertsPreview } from '../components/AlertsPreview.jsx'
 import { ServiceDetailPanel } from '../components/ServiceDetailPanel.jsx'
 import { ServiceSummaryCards } from '../components/ServiceSummaryCards.jsx'
 import { ServiceTable } from '../components/ServiceTable.jsx'
-import { isPrimaryService } from '../utils/primaryFilters.js'
-import { matchesServiceStatusFilter } from '../utils/status.js'
-
-const SERVICE_FILTERS = [
-  { id: 'primary', label: '주요 항목' },
-  { id: 'issues', label: '대기/오류' },
-  { id: 'all', label: '전체' },
-  { id: 'internal', label: '내부/관리 포함' },
-]
-
-const ISSUE_SERVICE_STATUSES = new Set([
-  'waiting_server',
-  'disconnected',
-  'error',
-  'failed',
-  'timeout',
-])
-
-const LIFECYCLE_SERVICE_SUFFIXES = [
-  '/change_state',
-  '/get_available_states',
-  '/get_available_transitions',
-  '/get_state',
-  '/get_transition_graph',
-]
-
-const COSTMAP_MANAGEMENT_MARKERS = [
-  '/clear_around_',
-  '/clear_except_',
-  '/clear_entirely_',
-  '/get_costmap',
-  '/get_cost_',
-  '/get_obstacle_layer',
-  '/get_static_layer',
-  '/get_voxel_layer',
-]
-
-const MANAGEMENT_SERVICE_MARKERS = [
-  '/load_node',
-  '/unload_node',
-  '/load_map',
-  '/reload_database',
-]
+import { ServiceFilterToolbar } from '../features/services/ServiceFilterToolbar.jsx'
+import { filterServices, getPrimaryServices, getServiceUiSummary } from '../features/services/serviceFilters.js'
 
 export function ServicesPage({ dashboard }) {
   const [search, setSearch] = useState('')
@@ -69,14 +28,7 @@ export function ServicesPage({ dashboard }) {
   } = dashboard
 
   const primaryServices = useMemo(
-    () => services.filter(
-      (service) =>
-        (
-          service.user_primary === true ||
-          !isInternalOrManagementService(service)
-        ) &&
-        isPrimaryService(service),
-    ),
+    () => getPrimaryServices(services),
     [services],
   )
   const summary = useMemo(
@@ -85,30 +37,7 @@ export function ServicesPage({ dashboard }) {
   )
 
   const filteredServices = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase()
-    const baseServices = statusFilter === 'internal'
-      ? services
-      : statusFilter === 'primary'
-        ? primaryServices
-        : services.filter((service) => !isInternalOrManagementService(service))
-
-    return baseServices.filter((service) => {
-      const fields = [
-        service.name,
-        service.type,
-        service.category,
-        service.status,
-        service.effective_status,
-        service.call_status,
-      ]
-      const matchesSearch =
-        !normalizedSearch ||
-        fields.some((field) =>
-          String(field ?? '').toLowerCase().includes(normalizedSearch),
-        )
-
-      return matchesSearch && matchesServiceFilter(service, statusFilter)
-    })
+    return filterServices({ primaryServices, search, services, statusFilter })
   }, [primaryServices, search, services, statusFilter])
 
   useEffect(() => {
@@ -169,35 +98,12 @@ export function ServicesPage({ dashboard }) {
             {error && <span className="error-text">Service API 연결 실패</span>}
           </div>
 
-          <div className="filter-toolbar service-toolbar">
-            <input
-              aria-label="Service 검색"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Service 이름, 타입, 상태 검색"
-              type="search"
-              value={search}
-            />
-            <div className="service-filter-actions">
-              <div
-                className="filter-buttons"
-                role="group"
-                aria-label="Service 상태 필터"
-              >
-                {SERVICE_FILTERS.map((filter) => (
-                  <button
-                    className={
-                      statusFilter === filter.id ? 'filter active' : 'filter'
-                    }
-                    key={filter.id}
-                    onClick={() => setStatusFilter(filter.id)}
-                    type="button"
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ServiceFilterToolbar
+            search={search}
+            setSearch={setSearch}
+            setStatusFilter={setStatusFilter}
+            statusFilter={statusFilter}
+          />
 
           <ServiceTable
             emptyMessage={
@@ -246,75 +152,5 @@ function focusMonitorRowAttempt(name, select, attempt) {
 function findMonitorRow(name) {
   return [...document.querySelectorAll('[data-monitor-name]')].find(
     (row) => row.getAttribute('data-monitor-name') === name,
-  )
-}
-
-function matchesServiceFilter(service, filter) {
-  if (filter === 'primary') {
-    return isPrimaryService(service)
-  }
-  if (filter === 'all' || filter === 'internal') {
-    return true
-  }
-  if (filter === 'issues') {
-    return isIssueService(service)
-  }
-
-  return matchesServiceStatusFilter(service, filter)
-}
-
-function getServiceUiSummary(services, primaryServices, meta) {
-  const total =
-    meta.count ??
-    ((meta.visible_count ?? services.length) + (meta.hidden_count ?? 0))
-  const hiddenNotFetched = services.length < total ? (meta.hidden_count ?? 0) : 0
-
-  return {
-    activeCount: services.filter(
-      (service) => serviceEffectiveStatus(service) === 'active',
-    ).length,
-    internalManagementCount: services.filter(isInternalOrManagementService).length +
-      hiddenNotFetched,
-    issueCount: services.filter(isIssueService).length,
-    primaryCount: primaryServices.length,
-    waitingCount: services.filter(
-      (service) => serviceEffectiveStatus(service) === 'waiting_server',
-    ).length,
-    total,
-  }
-}
-
-function isIssueService(service) {
-  const status = serviceEffectiveStatus(service)
-  return ISSUE_SERVICE_STATUSES.has(status)
-}
-
-function serviceEffectiveStatus(service) {
-  return String(
-    service.effective_status ?? service.status ?? 'unknown',
-  ).toLowerCase()
-}
-
-function isInternalOrManagementService(service) {
-  const category = String(service.category ?? '')
-  const name = String(service.name ?? '')
-  const type = String(service.type ?? '')
-
-  return (
-    service.hidden_by_default === true ||
-    category === 'parameter' ||
-    category === 'ros_internal' ||
-    category === 'action_internal' ||
-    type.startsWith('lifecycle_msgs/srv/') ||
-    type.startsWith('composition_interfaces/srv/') ||
-    LIFECYCLE_SERVICE_SUFFIXES.some((suffix) => name.endsWith(suffix)) ||
-    name.includes('/_action/send_goal') ||
-    name.includes('/_action/get_result') ||
-    name.includes('/_action/cancel_goal') ||
-    name.includes('/_container/') ||
-    COSTMAP_MANAGEMENT_MARKERS.some((marker) => name.includes(marker)) ||
-    name.includes('/lifecycle_manager_') ||
-    name.endsWith('/manage_nodes') ||
-    MANAGEMENT_SERVICE_MARKERS.some((marker) => name.includes(marker))
   )
 }

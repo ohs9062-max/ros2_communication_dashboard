@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from time import sleep, time
 from typing import Any, Callable
 
 from rosidl_runtime_py.utilities import get_message
@@ -11,7 +10,6 @@ from ros2_dashboard_monitor.interface_lab.apply.runtime import refresh_install_p
 from ros2_dashboard_monitor.interface_lab.management.packages import registered_package_messages
 from ros2_dashboard_monitor.interface_lab.management.registry import registry_snapshot
 from ros2_dashboard_monitor.interface_lab.common.value_converter import (
-    InterfaceValidationError,
     build_ros_message,
     ros_message_to_json,
     schema_from_message_type,
@@ -41,6 +39,9 @@ from ros2_dashboard_monitor.interface_lab.execution.topic_graph import TopicGrap
 from ros2_dashboard_monitor.interface_lab.execution.topic_message_registry import (
     TopicMessageRegistry,
 )
+from ros2_dashboard_monitor.interface_lab.execution.topic_publish_executor import (
+    TopicPublishExecutor,
+)
 
 
 class InterfaceReceiveRuntime:
@@ -58,6 +59,18 @@ class InterfaceReceiveRuntime:
         )
         self._publisher_pool = TopicPublisherPool(lock=lock, node_getter=node_getter)
         self._publish_history = BoundedExecutionHistory(lock, MAX_PUBLISH_HISTORY_ITEMS)
+        self._publish_executor = TopicPublishExecutor(
+            build_message=build_ros_message,
+            ensure_registered=self._ensure_registered_message,
+            graph_state=self._topic_graph_state,
+            is_action_internal=_is_action_internal_topic,
+            message_loader=lambda message_type: get_message(message_type),
+            message_to_json=ros_message_to_json,
+            node_getter=node_getter,
+            publisher=self._publisher,
+            qos_state=self._publish_qos_state,
+            record_history=self._record_publish_history,
+        )
         self._continuous_publish_runtime = ContinuousTopicPublishRuntime(
             lock=lock,
             publish=self.publish_topic,
@@ -146,115 +159,11 @@ class InterfaceReceiveRuntime:
         payload: dict[str, Any],
     ) -> dict[str, Any]:
         """Interface Lab에서 Topic 메시지를 발행하는 함수입니다."""
-        node = self._node_getter()
-        if node is None:
-            raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
-        topic_name = topic_name.strip()
-        topic_type = topic_type.strip()
-        if not topic_name.startswith('/'):
-            raise InterfaceReceiveError('topic_name은 /로 시작해야 합니다.')
-        self._ensure_registered_message(topic_type)
-        started_at = time()
-        graph_state = self._topic_graph_state(topic_name=topic_name, topic_type=topic_type)
-        if _is_action_internal_topic(topic_name):
-            result = {
-                'success': False,
-                'published': False,
-                'sent_to_topic': False,
-                'topic_name': topic_name,
-                'topic_type': topic_type,
-                'payload': payload,
-                'published_at': started_at,
-                'error_type': 'action_internal_topic',
-                'error': (
-                    f'{topic_name}은 ROS2 Action 내부 Topic이므로 '
-                    'Interface Lab의 일반 Message Publish에서 사용할 수 없습니다.'
-                ),
-                'graph_state': graph_state,
-                'qos': self._publish_qos_state(topic_name, topic_type),
-            }
-            self._record_publish_history(result)
-            return result
-        if graph_state['conflicts']:
-            conflict_types = ', '.join(
-                sorted({str(item.get('type') or '') for item in graph_state['conflicts']})
-            )
-            result = {
-                'success': False,
-                'published': False,
-                'sent_to_topic': False,
-                'topic_name': topic_name,
-                'topic_type': topic_type,
-                'payload': payload,
-                'published_at': started_at,
-                'error_type': 'topic_type_conflict',
-                'error': (
-                    f'{topic_name}에는 다른 Message type({conflict_types})이 Graph에 있어 '
-                    f'{topic_type} Publisher를 생성할 수 없습니다.'
-                ),
-                'graph_state': graph_state,
-                'qos': self._publish_qos_state(topic_name, topic_type),
-            }
-            self._record_publish_history(result)
-            return result
-        try:
-            message_class = get_message(topic_type)
-            try:
-                message = build_ros_message(message_class, payload, label='message')
-            except InterfaceValidationError as exc:
-                result = {
-                    'success': False,
-                    'published': False,
-                    'sent_to_topic': False,
-                    'topic_name': topic_name,
-                    'topic_type': topic_type,
-                    'payload': payload,
-                    'published_at': started_at,
-                    'error_type': 'validation_error',
-                    'error': str(exc),
-                    'details': exc.details,
-                    'graph_state': graph_state,
-                    'qos': self._publish_qos_state(topic_name, topic_type),
-                }
-                self._record_publish_history(result)
-                return result
-            publisher, created = self._publisher(topic_name, topic_type, message_class)
-            if created:
-                sleep(0.5)
-                graph_state = self._topic_graph_state(topic_name=topic_name, topic_type=topic_type)
-            publisher.publish(message)
-            result = {
-                'success': True,
-                'published': True,
-                'sent_to_topic': True,
-                'topic_name': topic_name,
-                'topic_type': topic_type,
-                'payload': payload,
-                'message_json': ros_message_to_json(message),
-                'published_at': started_at,
-                'subscriber_count': graph_state.get('subscriber_count', 0),
-                'graph_state': graph_state,
-                'qos': self._publish_qos_state(topic_name, topic_type),
-            }
-        except Exception as exc:
-            result = {
-                'success': False,
-                'published': False,
-                'sent_to_topic': False,
-                'topic_name': topic_name,
-                'topic_type': topic_type,
-                'payload': payload,
-                'published_at': started_at,
-                'error': str(exc),
-                'graph_state': graph_state,
-                'qos': self._publish_qos_state(topic_name, topic_type),
-            }
-            self._record_publish_history(result)
-            if isinstance(exc, InterfaceReceiveError):
-                raise
-            raise InterfaceReceiveError(str(exc)) from exc
-        self._record_publish_history(result)
-        return result
+        return self._publish_executor.publish(
+            topic_name=topic_name,
+            topic_type=topic_type,
+            payload=payload,
+        )
 
     def publish_history(self, *, limit: int | None = None) -> dict[str, Any]:
         """최근 Topic Publish 실행 이력을 제한 개수만큼 반환합니다."""

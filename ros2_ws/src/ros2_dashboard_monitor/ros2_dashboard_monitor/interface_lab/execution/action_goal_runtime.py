@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import threading
-from time import time
 from typing import Any, Callable
 
 from rclpy.action import ActionClient
@@ -26,11 +24,13 @@ from ros2_dashboard_monitor.interface_lab.execution.action_support import (
     schema_from_action_class as _schema_from_action_class,
 )
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_executor import execute_action_goal
+from ros2_dashboard_monitor.interface_lab.execution.action_goal_tracker import ActionGoalTracker
+from ros2_dashboard_monitor.interface_lab.execution.action_result import build_action_goal_result
 from ros2_dashboard_monitor.interface_lab.execution.action_client_pool import ActionClientPool
 from ros2_dashboard_monitor.interface_lab.execution.action_history import (
-    build_receive_history,
     summarize_action_history,
 )
+from ros2_dashboard_monitor.interface_lab.execution.action_receive_history import ActionReceiveHistory
 from ros2_dashboard_monitor.interface_lab.execution.action_discovery import (
     build_action_count_maps,
     build_action_state,
@@ -61,16 +61,13 @@ class ActionGoalRuntime:
             client_factory=lambda *args, **kwargs: ActionClient(*args, **kwargs),
         )
         self._history = BoundedExecutionHistory(lock, MAX_HISTORY_ITEMS)
-        self._goal_handles: dict[tuple[str, str], Any] = {}
-        self._receive_reset_at: float | None = None
-        self._receive_reset_by_key: dict[tuple[str | None, str | None], float] = {}
+        self._goal_tracker = ActionGoalTracker(lock=lock, qos_state=self._action_qos)
+        self._receive_history = ActionReceiveHistory(self._history.snapshot)
 
     def clear(self) -> None:
         """Interface Lab에서 cache와 runtime 상태를 초기화하는 함수입니다."""
-        with self._lock:
-            self._goal_handles = {}
-            self._receive_reset_at = None
-            self._receive_reset_by_key = {}
+        self._receive_history.clear()
+        self._goal_tracker.clear()
         self._client_pool.clear()
         self._history.clear()
 
@@ -117,12 +114,10 @@ class ActionGoalRuntime:
         return result
 
     def _store_goal_handle(self, action_name: str, action_type: str, goal_handle: Any) -> None:
-        with self._lock:
-            self._goal_handles[(action_name, action_type)] = goal_handle
+        self._goal_tracker.store(action_name, action_type, goal_handle)
 
     def _remove_goal_handle(self, action_name: str, action_type: str) -> None:
-        with self._lock:
-            self._goal_handles.pop((action_name, action_type), None)
+        self._goal_tracker.remove(action_name, action_type)
 
     def cancel_goal(
         self,
@@ -133,26 +128,11 @@ class ActionGoalRuntime:
     ) -> dict[str, Any]:
         """Cancel the active user-submitted goal for an exact name/type pair."""
         timeout = _normalized_timeout(timeout_sec)
-        with self._lock:
-            goal_handle = self._goal_handles.get((action_name, action_type))
-        if goal_handle is None:
-            raise ActionGoalError('취소할 활성 Goal을 찾을 수 없습니다.')
-        event = threading.Event()
-        future = goal_handle.cancel_goal_async()
-        future.add_done_callback(lambda _future: event.set())
-        if not event.wait(timeout=timeout):
-            raise ActionGoalError(f'action cancel timeout after {timeout:.2f}s')
-        response = future.result()
-        goals_canceling = getattr(response, 'goals_canceling', [])
-        accepted = bool(goals_canceling)
-        return {
-            'success': accepted,
-            'action_name': action_name,
-            'action_type': action_type,
-            'cancel_requested': True,
-            'cancel_accepted': accepted,
-            'qos': self._action_qos(action_name),
-        }
+        return self._goal_tracker.cancel(
+            action_name=action_name,
+            action_type=action_type,
+            timeout=timeout,
+        )
 
     def history(self) -> dict[str, Any]:
         """최근 Action Goal 실행 이력을 복사해 반환합니다."""
@@ -166,11 +146,7 @@ class ActionGoalRuntime:
 
     def receive_history(self) -> dict[str, Any]:
         """초기화 경계 이후에 받은 feedback·result 이력을 반환합니다."""
-        return build_receive_history(
-            self.history()['goals'],
-            reset_at=self._receive_reset_at,
-            reset_by_key=self._receive_reset_by_key,
-        )
+        return self._receive_history.snapshot()
 
     def reset_receive_history(
         self,
@@ -179,16 +155,10 @@ class ActionGoalRuntime:
         action_type: str | None = None,
     ) -> dict[str, Any]:
         """선택한 Action의 feedback·result 이력 초기화 시각을 갱신합니다."""
-        previous = len([
-            item for item in self.receive_history()['history']
-            if not action_name
-            or (item.get('action_name') == action_name and item.get('action_type') == action_type)
-        ])
-        if action_name:
-            self._receive_reset_by_key[(action_name, action_type)] = time()
-        else:
-            self._receive_reset_at = time()
-        return {'cleared': previous}
+        return self._receive_history.reset(
+            action_name=action_name,
+            action_type=action_type,
+        )
 
     def summary_by_action(self) -> dict[tuple[str, str], dict[str, Any]]:
         """Action 이름·타입별 최근 Goal 결과와 누적 건수를 요약합니다."""
@@ -309,25 +279,19 @@ class ActionGoalRuntime:
         details: list[str] | None = None,
         sent_to_server: bool = False,
     ) -> dict[str, Any]:
-        payload = {
-            'success': success,
-            'action_name': action_name,
-            'action_type': action_type,
-            'goal': goal_data,
-            'accepted': accepted,
-            'elapsed_ms': (time() - started_at) * 1000.0,
-            'feedback': feedback,
-            'result': result,
-            'timeout_sec': timeout_sec,
-            'sent_at': started_at,
-            'sent_to_server': sent_to_server,
-        }
-        if status is not None:
-            payload['status'] = status
-        if error is not None:
-            payload['error'] = error
-        if error_type is not None:
-            payload['error_type'] = error_type
-        if details is not None:
-            payload['details'] = details
-        return payload
+        return build_action_goal_result(
+            success=success,
+            action_name=action_name,
+            action_type=action_type,
+            goal_data=goal_data,
+            accepted=accepted,
+            feedback=feedback,
+            result=result,
+            started_at=started_at,
+            timeout_sec=timeout_sec,
+            status=status,
+            error=error,
+            error_type=error_type,
+            details=details,
+            sent_to_server=sent_to_server,
+        )

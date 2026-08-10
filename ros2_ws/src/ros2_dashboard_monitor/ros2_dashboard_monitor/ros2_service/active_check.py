@@ -6,11 +6,11 @@ from typing import Any
 
 from ros2_dashboard_monitor.ros2_service.models import SERVICE_CATEGORY_USER
 
-from rosidl_runtime_py.utilities import get_service
-
-from ros2_dashboard_monitor.interface_lab.common.value_converter import (
-    build_ros_message,
-    ros_message_to_json,
+from ros2_dashboard_monitor.ros2_service.active_check_codec import (
+    build_request,
+    load_service_class,
+    response_success,
+    response_to_preview,
 )
 
 
@@ -203,36 +203,6 @@ def response_state(
     )
 
 
-def load_service_class(service_type: str) -> type:
-    """전체 Service 타입에서 generated Python Service class를 불러옵니다."""
-    return get_service(service_type)
-
-
-def build_request(service_class: type, request_data: dict[str, Any]) -> Any:
-    """active check 설정값을 generated ROS request 객체로 변환합니다."""
-    return build_ros_message(service_class.Request, request_data, label='request')
-
-
-def response_to_preview(response: Any) -> dict[str, Any]:
-    """active check 응답을 JSON preview로 변환합니다."""
-    return ros_message_to_json(response)
-
-
-def response_success(
-    response_preview: dict[str, Any],
-    success_field: str | None,
-) -> bool:
-    """설정한 응답 필드와 기대값을 비교해 성공 여부를 판단합니다."""
-    if success_field is None:
-        return True
-
-    value = _lookup_field(response_preview, success_field)
-    if isinstance(value, bool):
-        return value
-
-    return bool(value)
-
-
 def _state(
     *,
     enabled: bool,
@@ -257,13 +227,3 @@ def _state(
         state['reason'] = reason
 
     return state
-
-
-def _lookup_field(data: dict[str, Any], field_path: str) -> Any:
-    current: Any = data
-    for part in field_path.split('.'):
-        if not isinstance(current, dict) or part not in current:
-            raise KeyError(f'success_field not found: {field_path}')
-        current = current[part]
-
-    return current

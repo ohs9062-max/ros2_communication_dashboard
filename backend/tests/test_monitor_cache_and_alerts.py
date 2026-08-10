@@ -2,6 +2,7 @@ from app.alerts.service import AlertHistoryService
 from app.monitor_client.cache import MonitorCache
 from app.monitor_client.client import MonitorResponse, MonitorUnavailable
 from app.monitor_client.event_consumer import MonitorEventConsumer
+from app.routers.monitor_websocket import build_monitor_websocket_payload
 from threading import Event
 
 
@@ -12,6 +13,22 @@ def test_monitor_cache_preserves_last_snapshot_on_error() -> None:
     state = cache.snapshot()
     assert state['connected'] is False
     assert state['data']['topics']['count'] == 1
+
+
+def test_websocket_payload_keeps_snapshot_and_exposes_connection_state() -> None:
+    cache = MonitorCache()
+    cache.update({'websocket': {'type': 'monitor_snapshot', 'data': {'topics': []}}})
+
+    connected = build_monitor_websocket_payload(cache.snapshot())
+    assert connected['connected'] is True
+    assert connected['reason'] is None
+    assert connected['data'] == {'topics': []}
+
+    cache.mark_error('offline')
+    disconnected = build_monitor_websocket_payload(cache.snapshot())
+    assert disconnected['connected'] is False
+    assert disconnected['reason'] == 'offline'
+    assert disconnected['data'] == {'topics': []}
 
 
 def test_alert_history_is_owned_by_backend() -> None:

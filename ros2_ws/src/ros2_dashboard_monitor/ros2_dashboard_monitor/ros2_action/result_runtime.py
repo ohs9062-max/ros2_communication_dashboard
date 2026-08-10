@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from rclpy.qos import qos_profile_services_default
-
 from ros2_dashboard_monitor.ros2_action.result import (
     build_get_result_request,
     build_result_error_state,
@@ -17,6 +15,7 @@ from ros2_dashboard_monitor.ros2_action.subscriptions import (
     terminal_goals_ready_for_result,
     update_goal_result,
 )
+from ros2_dashboard_monitor.ros2_action.result_client_pool import ActionResultClientPool
 
 
 class ActionResultRuntime:
@@ -37,8 +36,10 @@ class ActionResultRuntime:
         )
         self._lock = lock
         self._node_getter = node_getter
-        self._action_result_clients: dict[str, Any] = {}
-        self._action_result_service_classes: dict[str, Any] = {}
+        self._client_pool = ActionResultClientPool(
+            node_getter=node_getter,
+            service_class_loader=load_result_service_class,
+        )
         self._action_result_pending: dict[tuple[str, str], Any] = {}
 
     def bind_action_subscriptions(
@@ -51,9 +52,8 @@ class ActionResultRuntime:
     def clear(self) -> None:
         """Action 모니터링에서 cache와 runtime 상태를 초기화하는 함수입니다."""
         with self._lock:
-            self._action_result_clients = {}
-            self._action_result_service_classes = {}
             self._action_result_pending = {}
+        self._client_pool.clear()
 
     def cleanup_actions(self, stale_names: list[str]) -> None:
         """사라진 Action의 Result client와 대기 future를 정리합니다."""
@@ -65,8 +65,7 @@ class ActionResultRuntime:
             for key in list(self._action_result_pending):
                 if key[0] in stale_name_set:
                     self._action_result_pending.pop(key, None)
-            for name in stale_names:
-                self._action_result_clients.pop(name, None)
+        self._client_pool.cleanup(stale_names)
 
     def support(
         self,
@@ -225,41 +224,10 @@ class ActionResultRuntime:
             self._action_result_pending.pop((action_name, goal_id), None)
 
     def _action_result_client(self, name: str, service_class: type):
-        node = self._node_getter()
-        if node is None:
-            raise RuntimeError('ROS2 monitor is not running')
-
-        client = self._action_result_clients.get(name)
-        if client is not None:
-            return client
-
-        client = node.create_client(
-            service_class,
-            f'{name}/_action/get_result',
-            qos_profile=qos_profile_services_default,
-        )
-        self._action_result_clients[name] = client
-        return client
+        return self._client_pool.client(name, service_class)
 
     def _result_service_class(
         self,
         action_type: str | None,
     ) -> tuple[type | None, str | None, str | None]:
-        cache_key = action_type or ''
-        if cache_key in self._action_result_service_classes:
-            cached = self._action_result_service_classes[cache_key]
-            return (
-                cached.get('service_class'),
-                cached.get('result_policy'),
-                cached.get('result_reason'),
-            )
-
-        service_class, result_policy, result_reason = (
-            load_result_service_class(action_type)
-        )
-        self._action_result_service_classes[cache_key] = {
-            'service_class': service_class,
-            'result_policy': result_policy,
-            'result_reason': result_reason,
-        }
-        return service_class, result_policy, result_reason
+        return self._client_pool.service_class(action_type)

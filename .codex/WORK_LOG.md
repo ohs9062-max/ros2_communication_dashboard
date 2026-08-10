@@ -1569,3 +1569,389 @@
 - 남은 문제: 실제 Browser에서 package related 선택과 Topic/Service/Action inline 실행 E2E는 이번 구조 이동에서
   재실행하지 않았다. 다음 후보는 254줄 `InlineWorkspace.jsx`의 package related View와 공통 metadata/detail
   shell 분리 여부다.
+
+## 2026-08-10 - Interface Lab Package 연결 목록과 상세 Panel 분리
+
+- 작업: `InlineWorkspace.jsx`에 있던 package 연결 Service/Action 목록을 `PackageRelatedItems.jsx`, 선택 Interface의
+  공통 metadata/schema/raw 표시와 Topic/Service/Action 상세 View 분기를 `WorkspaceDetailPanel.jsx`로 이동했다.
+- 이유와 기준: package 항목은 하위 실행 후보 탐색/선택만 담당하고, 비-package 항목은 schema와 통신 종류별
+  실행 UI를 조립한다. 상위 Inline Workspace는 항목 종류 선택과 controller props 전달만 담당하도록 했다.
+- 정책 보존: package heading/빈 목록/서버·실행 가능 문구와 선택 callback, 상세 source/full type/package/import/
+  build/server/callable/error 값, collapsible JSON/raw, 모든 Topic/Service/Action props와 kind 분기를 유지했다.
+- 결과: `InlineWorkspace.jsx`는 254줄에서 90줄로 감소했고 package 목록은 23줄, 상세 Panel은 134줄이다.
+  종류별 기존 `TopicWorkspaceDetail`, `ServiceWorkspaceDetail`, `ActionWorkspaceDetail`은 변경하지 않았다.
+- 검증: 구 내부 `InterfaceDetailPanel` 참조 0건, Frontend `npm run lint`, `npm run build`, `git diff --check`가
+  통과했다. Vite는 301 modules를 변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는
+  127.07KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser package 연결 선택과 inline 통신 실행 E2E는 이번 View 이동에서 재실행하지 않았다.
+  다음에는 181줄 `TopicWorkspaceDetail.jsx`의 Publish/Receive/history UI 책임을 비교한다.
+
+## 2026-08-10 - Interface Lab Topic Publish와 Subscribe 상세 분리
+
+- 작업: `TopicWorkspaceDetail.jsx`의 Publish 후보/이름/payload/지속 발행 UI를 `TopicPublishPanel.jsx`,
+  Subscribe 이름/활성 상태/start/stop/reset UI를 `TopicSubscribePanel.jsx`로 이동했다. 상위에는 Graph 연결과
+  type conflict, 마지막 결과/history 조립을 유지했다.
+- 이유와 기준: Publish는 Publisher 생성과 payload/Hz 실행 상태, Subscribe는 subscription key와 활성 수신
+  상태를 사용해 독립적으로 변경된다. Graph 연결 정보와 통합 history는 Topic 상세 전체 문맥에 속한다.
+- 정책 보존: Graph 후보와 직접 이름 전환, Message schema field, adaptive QoS 안내, 0.1~50Hz와 지속 발행 상태,
+  Subscribe exact topic_name/full_type 매칭, 버튼 disabled/문구, reset, 결과/history View와 기존 DOM class를 유지했다.
+- 결과: Topic 상세 181줄은 조립 38줄, Publish 95줄, Subscribe 41줄로 분리됐다. `WorkspaceDetailPanel`에서
+  사용하는 `TopicWorkspaceDetail` 공개 props 계약은 변경하지 않았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 303 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 127.25KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 Graph 후보 Publish, 지속 발행, Subscribe와 history reset E2E는 이번 View 이동에서
+  재실행하지 않았다. 다음 후보는 312줄 `useInterfaceReceiveController.js`의 mode별 상태/명령 책임 분리다.
+
+## 2026-08-10 - Interface Lab Topic Receive Controller 분리
+
+- 작업: 통합 `useInterfaceReceiveController.js`에서 Topic Graph/type/search 필터, 자동/Graph/사용자 선택 출처,
+  현재 수신 여부와 visible history, start/stop 및 선택·전체 reset 명령을 `useTopicReceiveController.js`로 이동했다.
+- 이유와 기준: Topic은 실제 subscription과 Message full_type/name 조합을 사용하지만 Service/Action은 실행
+  history 관찰 observer를 공유한다. 전체 API snapshot 병렬 로딩과 1초 polling은 세 mode를 동기화하므로 상위에
+  유지했다.
+- 정책 보존: 사용자 직접 입력 유지와 Graph 첫 후보 자동 선택, exact topic name/type 수신 상태, history limit
+  500, 모든 성공/실패 feedback 문구, reset 후 load, 상위 hook의 기존 공개 반환 key를 유지했다.
+- 트러블슈팅: 최초 연결에서 통합 loader가 하위 hook의 setter를 참조해 exhaustive-deps warning이 발생했다.
+  Topic snapshot/history state는 전체 loader가 소유하고 하위 hook에 주입하도록 조정해 순환 dependency와 경고를
+  제거했다. 내부 setter는 공개 반환값에 추가되지 않는다.
+- 결과: `useInterfaceReceiveController.js`는 312줄에서 198줄로 감소했고 Topic 전용 hook은 140줄이다.
+  상위에는 통합 load, Service/Action observer, mode/open과 polling 조정만 남았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 304 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.65KB), Interface Lab chunk는 127.49KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser의 Topic 자동 선택/직접 이름 보존과 start/stop/reset E2E는 이번 hook 이동에서
+  재실행하지 않았다. 다음 후보는 통합 Receive load를 별도 data loader로 분리할지, 다른 300줄대 Frontend
+  후보로 이동할지 비교한다.
+
+## 2026-08-10 - Service 화면 필터 정책과 Toolbar 분리
+
+- 작업: `ServicesPage.jsx`의 내부/관리 Service 판정, primary/issue/search 필터와 summary 계산을
+  `features/services/serviceFilters.js`, 검색창과 네 상태 filter button View를
+  `features/services/ServiceFilterToolbar.jsx`로 이동했다.
+- 이유와 기준: Service 분류·요약은 DOM과 무관한 순수 정책이고 Toolbar는 검색/필터 입력 표시만 담당한다.
+  페이지에는 Dashboard 상태, selected Service 보정, Alert 클릭 후 hidden 포함 및 row focus, table/detail 조립을
+  유지했다.
+- 정책 보존: lifecycle/composition/action/costmap/management Service marker, user primary 예외, hidden 미조회 수,
+  primary/issues/all/internal 네 filter 의미, 여섯 검색 field, includeHidden 동기화, 빈 목록 문구와 DOM class를
+  유지했다.
+- 결과: `ServicesPage.jsx`는 320줄에서 156줄로 감소했고 순수 필터 정책은 90줄, Toolbar는 34줄이다.
+  기존 `ServiceSummaryCards`, `ServiceTable`, `ServiceDetailPanel` 계약은 변경하지 않았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 306 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Services chunk는 17.60KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser의 네 filter 전환, Alert 클릭 row focus와 hidden Service 선택 E2E는 이번 구조 이동에서
+  재실행하지 않았다. 다음 후보는 310줄 `VisualizationDetailPanel.jsx`와 307줄 `CommunicationGraph.jsx`의
+  시각화 책임을 비교한다.
+
+## 2026-08-10 - Visualization 종류별 상세와 표시 정책 분리
+
+- 작업: `VisualizationDetailPanel.jsx`의 Node/Topic/Service/Action별 metric·participant/entity 목록을
+  `VisualizationKindDetails.jsx`, kind label과 status tone 변환을 `visualizationPresentation.js`로 이동했다.
+- 이유와 기준: missing/empty 및 공통 상태·연결 요약은 선택 상세 shell 책임이고, 종류별 ROS2 resource 정보는
+  각 entity schema 변화에 따라 독립적으로 변경된다. label/tone은 DOM과 무관한 순수 표시 정책이다.
+- 정책 보존: 사라진 선택 안내, 상태 badge와 tone, incoming/outgoing connection, Node resource 목록,
+  Topic publisher/subscriber/Hz, Service 요청자/응답자, Action Goal 실행자/요청자와 runtime 상태 문구를 유지했다.
+- 결과: `VisualizationDetailPanel.jsx`는 310줄에서 122줄로 감소했고 종류별 상세는 81줄, 표시 정책은 15줄이다.
+  기존 공개 `VisualizationDetailPanel({ graphNode, missingNodeId })` 계약은 변경하지 않았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 308 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Visualization chunk는 208.59KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 네 resource kind 선택과 missing node 상태 E2E는 이번 View 이동에서 재실행하지
+  않았다. 다음 후보는 307줄 `CommunicationGraph.jsx`의 drag/viewport와 edge routing 정책 분리다.
+
+## 2026-08-10 - Visualization Graph interaction 정책 분리
+
+- 작업: `CommunicationGraph.jsx`의 수동 위치 병합/prune, shift 동일-kind group drag state와 좌표 이동,
+  viewport signature, node 중심 기준 nearest edge handle routing, minimap color를 순수
+  `graphInteraction.js`로 이동했다.
+- 이유와 기준: 좌표·edge 계산은 React lifecycle이나 React Flow hook 없이 입력 배열/Map을 변환하는 정책이다.
+  컴포넌트에는 displayed state, requestAnimationFrame 정리, fit/reset effect와 drag event orchestration을
+  유지했다.
+- 정책 보존: node 기본 크기 286x156, 수평/수직 거리 기준 네 handle 방향, layout key 변경 시 수동 위치 reset,
+  사라진 node 위치 prune, shift group drag, 단일 drag 위치 저장, kind별 minimap 색과 fit 옵션을 유지했다.
+- 결과: `CommunicationGraph.jsx`는 307줄에서 200줄로 감소했고 순수 interaction 모듈은 99줄이다.
+  기존 `CommunicationGraph` props와 React Flow DOM 구성을 변경하지 않았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 309 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Visualization chunk는 208.59KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser node 단일/shift group drag, layout reset, 자동 fit과 edge reroute E2E는 이번 이동에서
+  재실행하지 않았다. 다음 후보는 274줄 `useVisualizationGraph.js` 또는 273줄 `TopicTable.jsx`의 책임 비교다.
+
+## 2026-08-10 - Visualization 선택 정책과 Stable Graph 분리
+
+- 작업: `useVisualizationGraph.js`의 Node picker primary/active/hidden/search 필터 및 정렬과 선택 Graph resource의
+  Topic/Service/Action participant 보강을 `features/visualization/graphSelection.js`, graph signature와 이전 객체
+  재사용을 `useStableGraph.js`로 이동했다.
+- 이유와 기준: selectable Node 계산과 participant lookup은 React state 없이 입력 snapshot을 변환하는 정책이고,
+  stable graph는 polling마다 의미가 같은 graph 객체로 인한 불필요한 downstream 갱신을 막는 독립 hook이다.
+  polling과 filter state, graph transform 조립은 상위 dashboard hook에 유지했다.
+- 정책 보존: primary/active/all filter 의미, 내부/hidden 제외, full_name/name/namespace 검색, active 우선 및 연결 수
+  정렬, 종류별 빈 participant shape, node/edge signature 구성과 `useVisualizationGraph` 공개 반환 key를 유지했다.
+- 결과: `useVisualizationGraph.js`는 274줄에서 179줄로 감소했고 선택 정책은 44줄, stable graph hook은 28줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 311 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Visualization chunk는 208.77KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser에서 Node filter/search 정렬과 polling 중 graph 위치 안정성 E2E는 이번 이동에서
+  재실행하지 않았다. 다음 후보는 273줄 `TopicTable.jsx`의 row/presentation/modal 책임 분리다.
+
+## 2026-08-10 - Topic Table Row와 표시 정책 분리
+
+- 작업: `TopicTable.jsx`의 개별 row 렌더링을 `features/topics/TopicTableRow.jsx`, 정렬 column 정의와
+  Dashboard 통신 badge 항목, Hz state/label, missing 및 last checked 계산을 `topicTablePresentation.js`로
+  이동했다.
+- 이유와 기준: Table은 sort와 preview modal 상태, header/body 조립을 담당하고 row는 단일 Topic 표시·선택,
+  presentation 모듈은 DOM과 무관한 상태 변환 및 정렬 값을 담당하도록 분리했다.
+- 정책 보존: 열 순서와 기본 name asc, count/Hz/통신/관찰/마지막 확인 desc 정렬, Dashboard 제외 Node count,
+  deep monitoring missing class, 모든 Hz 상태·문구, 세 Dashboard 통신 badge, 별표와 JSON preview를 유지했다.
+- 결과: `TopicTable.jsx`는 273줄에서 70줄로 감소했고 row는 50줄, 표시·정렬 정책은 60줄이다.
+  기존 `TopicTable` 공개 props와 empty state/modal 계약은 변경하지 않았다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 313 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.67KB), Topics chunk는 17.00KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser column별 정렬, row 선택/별표, preview modal과 missing 강조 E2E는 이번 구조 이동에서
+  재실행하지 않았다. 다음 후보는 270줄 `useTopicExecutionController.js` 또는 265~333줄 Monitor runtime의
+  남은 책임을 비교한다.
+
+## 2026-08-10 - Interface Lab 지속 Topic Publish Controller 분리
+
+- 작업: `useTopicExecutionController.js`의 지속 Publish Hz/active 목록, 활성 항목 polling과 start/stop 명령을
+  `useContinuousTopicExecution.js`로 이동하고 반환값을 기존 Topic controller API에 병합했다.
+- 이유와 기준: 단일 Publish는 요청 후 history를 갱신하고, 지속 Publish는 별도 backend runtime 상태와 1초
+  polling 및 start/stop lifecycle을 가진다. Message 선택·Graph 후보·publish 이름과 단일 history는 상위에
+  유지했다.
+- 정책 보존: active key의 topic_name/full_type exact match, 1초 polling과 silent transport error, payload numeric
+  normalization, Hz 전달, start/stop busy/result와 state changed callback, 외부 snapshot `replace` setter 및 기존
+  반환 key를 유지했다.
+- 트러블슈팅: 최초 lint에서 상위 `replace` callback의 새 `setContinuousPublishes` dependency warning을 확인했고
+  dependency 배열에 명시한 뒤 lint/build를 재실행했다.
+- 결과: `useTopicExecutionController.js`는 270줄에서 205줄로 감소했고 지속 Publish hook은 95줄이다.
+- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는 314 modules를
+  변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 127.70KB로 500KB 경고가 없다.
+- 남은 문제: 실제 Browser 지속 Publish start/상태 갱신/stop E2E는 이번 hook 이동에서 재실행하지 않았다.
+  다음에는 Frontend 300줄 기준 후보가 줄어든 상태를 재집계하고 Monitor runtime의 남은 책임을 검토한다.
+
+## 2026-08-10 - Monitor Interface Lab 단일 Topic Publish Executor 분리
+
+- 작업: `interface_lab/execution/topic_runtime.py`의 단일 Publish 입력 검증, Graph conflict/Action 내부 Topic 거부,
+  generated Message 생성·Publisher 실행과 결과 payload 조립을 `topic_publish_executor.py`의
+  `TopicPublishExecutor`로 이동했다.
+- 이유와 기준: 단일 Publish 실행은 Registry/Graph/Publisher pool/history를 사용하는 독립 요청 lifecycle이며,
+  runtime은 Message Registry, Graph Inspector, Publisher/Continuous/Receive runtime을 조립하고 기존 공개
+  facade를 유지하는 역할에 집중해야 한다.
+- 정책 보존: node 실행 확인, `/` name 검증, 등록 type 확인, conflict type 문구, validation details,
+  신규 Publisher 0.5초 대기 후 Graph 재조회, subscriber count/QoS/message JSON, 실패 history 기록 후
+  `InterfaceReceiveError` 변환과 모든 response key를 유지했다.
+- 테스트 호환: 기존 테스트가 `topic_runtime.get_message`를 monkeypatch하는 seam은 executor에 lambda를 주입해
+  유지했고 Router가 import하는 `InterfaceReceiveError`도 기존 모듈에서 계속 재노출된다.
+- 결과: `topic_runtime.py`는 338줄에서 247줄로 감소했고 executor는 138줄이다.
+- 검증: 두 Monitor source tree `compileall`, targeted `test_interface_receive_runtime.py` 10 tests,
+  Monitor 전체 pytest 172 tests와 `git diff --check`가 모두 통과했다.
+- 남은 문제: 실제 ROS2 Topic에 대한 신규 Publisher discovery 대기와 QoS 발행 E2E는 이번 구조 이동에서
+  재실행하지 않았다. 다음 후보는 333줄 `action_goal_runtime.py`의 Goal request/result lifecycle 분리다.
+
+## 2026-08-10 - Monitor Action Goal Tracker와 Result Builder 분리
+
+- 작업: `action_goal_runtime.py`의 활성 Goal handle thread-safe 저장/remove 및 cancel wait/acceptance 처리를
+  `action_goal_tracker.py`, Goal 실행 공통 결과 payload 생성을 순수 `action_result.py`로 이동했다.
+- 이유와 기준: Goal handle은 send executor와 cancel endpoint가 공유하는 독립 lifecycle state이며, 결과 builder는
+  실행 단계와 무관하게 성공/실패/timeout payload key를 조립한다. Runtime에는 discovery, client pool, history와
+  goal executor 조정을 유지했다.
+- 정책 보존: name/type exact handle key, cancel future callback/Event wait와 timeout 문구, goals_canceling 기반 승인,
+  cancel QoS, elapsed/sent time과 optional status/error/error_type/details key를 유지했다.
+- 호환: `execute_action_goal`에 전달되는 `_store_goal_handle`, `_remove_goal_handle`, `_result` private callback은
+  runtime wrapper로 유지해 기존 테스트·호출 seam을 보존했다.
+- 결과: `action_goal_runtime.py`는 333줄에서 311줄로 감소했고 tracker 48줄과 result builder 47줄이 독립됐다.
+  줄 수 감소보다 mutable handle 소유권과 순수 결과 정책 분리를 우선했다.
+- 검증: Monitor source `compileall`, Monitor 전체 pytest 172 tests, `git diff --check`가 모두 통과했다.
+- 남은 문제: 실제 Action server에 대한 Goal send/feedback/result/cancel E2E는 이번 구조 이동에서 재실행하지
+  않았다. Runtime에는 discovery adapter wrapper가 남아 있으므로 다음에는 receive reset/history 상태 또는
+  discovery facade 분리의 실익을 검토한다.
+
+## 2026-08-10 - Monitor Action Receive History 상태 분리
+
+- 작업: `action_goal_runtime.py`의 전체/Action exact key별 Receive reset timestamp와 Goal history 기반
+  feedback/result 관찰 snapshot 생성을 `action_receive_history.py`의 `ActionReceiveHistory`로 이동했다.
+- 이유와 기준: Receive history reset은 Goal 실행 원본을 삭제하지 않고 UI 관찰 경계만 갱신하는 독립 상태다.
+  Goal send/cancel/client discovery와 lifecycle이 다르므로 history loader를 주입받는 객체로 분리했다.
+- 정책 보존: `build_receive_history` 이벤트 변환, global 및 `(action_name, action_type)` exact reset 경계,
+  reset 전 visible event 수를 반환하는 `cleared`, 원본 Goal history 보존과 runtime 공개 메서드를 유지했다.
+- 결과: `action_goal_runtime.py`는 직전 311줄에서 297줄로 줄어 300줄 아래가 됐고 Receive history state는
+  38줄이다. Runtime clear에서 Goal tracker와 Receive reset state를 각각 초기화한다.
+- 검증: Monitor source `compileall`, Action history/runtime summary 관련 11 tests, Monitor 전체 pytest
+  172 tests와 `git diff --check`가 모두 통과했다.
+- 남은 문제: 실제 Action feedback/result 수신과 reset UI E2E는 이번 상태 이동에서 재실행하지 않았다.
+  다음 후보는 324줄 `ros2_action/subscriptions.py` 또는 304줄 `ros2_topic/alerts.py`의 책임을 검토한다.
+
+## 2026-08-10 - Monitor Action Message Type Loader 분리
+
+- 작업: `ros2_action/subscriptions.py`의 Action full type→feedback topic type 변환, GoalStatusArray class import,
+  generated Action feedback Message class import/fallback을 `action_type_loader.py`로 이동했다.
+- 이유와 기준: type 문법과 Python generated class import는 subscription entry/status runtime 갱신과 무관한
+  discovery/import 정책이다. `subscriptions.py`에는 entry와 관찰 상태 변환을 유지했다.
+- 정책 보존: `package/action/Name` 3-part 검증, `<Name>_FeedbackMessage`, package action module 우선 lookup,
+  `get_action().Impl.FeedbackMessage` fallback과 import/lookup 실패 시 `None`, GoalStatusArray 상수를 유지했다.
+- 호환: `subscription_facade.py`와 `subscription_lifecycle.py`가 사용하는 기존
+  `ros2_action.subscriptions` loader import 경로는 해당 모듈 re-export로 보존했다.
+- 결과: `subscriptions.py`는 324줄에서 271줄로 감소했고 Action type loader는 51줄이다.
+- 검증: Monitor source `compileall`, Monitor 전체 pytest 172 tests, `git diff --check`가 모두 통과했다.
+- 남은 문제: 실제 custom Action feedback generated class import E2E는 이번 이동에서 재실행하지 않았다.
+  다음 후보는 304줄 `ros2_topic/alerts.py`의 연결/missing/stale 정책 책임을 검토한다.
+
+## 2026-08-10 - Monitor Alert Retention과 Meta 분리
+
+- 작업: `ros2_topic/alerts.py`의 상태 Alert active/resolved retention, 해결 history 기록/상한과 severity meta 집계를
+  `ros2_topic/alert_retention.py`로 이동했다.
+- 이유와 기준: Topic connection/missing/stale 및 MonitorStatus 판정은 새 Alert 후보 생성 책임이고, retention은
+  Topic·Service·Action Alert에 공통으로 적용되는 시간 기반 lifecycle이다. 감지와 해결 상태 전이를 분리했다.
+- 정책 보존: retained code만 lifecycle 적용, passthrough Alert, first/last/resolved timestamp, 해결 시 history 1회
+  삽입과 `origin_id`, 기본 60초 보존 및 경계 이상 시 제거, active/resolved와 네 severity count를 유지했다.
+- 호환: 기존 테스트와 다른 resource alert 모듈이 사용하는 `ros2_topic.alerts.retain_alerts`,
+  `build_alert_meta`, `ALERT_RESOLVED_RETENTION_SEC` import 경로를 re-export로 보존했다.
+- 결과: `ros2_topic/alerts.py`는 304줄에서 204줄로 감소했고 retention/meta 모듈은 87줄이다.
+- 검증: Monitor source `compileall`, Alert 관련 36 tests, Monitor 전체 pytest 172 tests와
+  `git diff --check`가 모두 통과했다.
+- 남은 문제: MariaDB 영속 Alert history는 별도 확정 기능으로 아직 이 메모리 retention 분리 범위가 아니다.
+  다음에는 남은 Monitor 대형 파일을 재집계해 실제 복수 책임 후보만 계속 정리한다.
+
+## 2026-08-10 - Monitor Service Active Check Codec 분리
+
+- 작업: `ros2_service/active_check.py`의 generated Service class import, request 객체 생성, response JSON preview와
+  nested `success_field` lookup/boolean 판정을 `active_check_codec.py`로 이동했다.
+- 이유와 기준: ROS interface 객체 변환은 allowlist 지원 여부와 pending/success/timeout 상태 payload 정책과
+  독립적이다. 실제 client/future lifecycle은 기존 `active_check_runtime.py`에 계속 유지했다.
+- 정책 보존: `get_service` import, `service_class.Request`와 `label='request'`, ROS message JSON 변환,
+  success field 미설정 성공, bool 직접 판정, 기타 값 truthiness 및 누락된 dotted path KeyError 문구를 유지했다.
+- 호환: `active_check_runtime.py`가 사용하는 `active_check.load_service_class`, `build_request`,
+  `response_state` import 경로는 codec symbol re-export로 유지했다.
+- 결과: `active_check.py`는 269줄에서 229줄로 감소했고 codec은 40줄이다.
+- 검증: Monitor source `compileall`, Monitor 전체 pytest 172 tests가 통과했다. 첫 `git diff --check`에서 파일 끝
+  추가 공백 줄을 확인해 제거했고 재검사도 통과했다.
+- 남은 문제: 실제 allowlist Service active check request/timeout/success_field E2E는 이번 구조 이동에서
+  재실행하지 않았다. 다음에는 남은 250~300줄 coordinator 중 분리 가치가 있는 후보를 재평가한다.
+
+## 2026-08-10 - Interface Registry 경로와 Multipart Decoder 분리
+
+- 작업: `management/registry.py`의 Registry/generated package env 경로와 표시 경로 정책을
+  `registry_paths.py`, multipart/form-data file payload 해석을 `multipart_upload.py`로 이동했다.
+- 이유와 기준: 배포 경로 해석과 HTTP body decoding은 Registry lock/CRUD 및 interface 설치/apply 상태와
+  독립적이다. Registry coordinator에는 single upload 설치, YAML 변경과 apply/import 조정을 유지했다.
+- 정책 보존: `INTERFACE_REGISTRY_PATH`, `INTERFACE_PACKAGE_NAME/PATH`의 기본값과 상대/절대 처리, workspace 밖
+  표시 경로 fallback, content type/비정상 multipart/파일 없음 오류 문구, 첫 filename part와 decoded bytes를
+  유지했다.
+- 호환: Router와 테스트가 사용하는 `registry.default_registry_path`, `default_interface_package`,
+  `extract_multipart_file`, `_display_path` 경로는 import/re-export로 유지했다.
+- 결과: `registry.py`는 285줄에서 238줄로 감소했고 경로 모듈은 34줄, multipart decoder는 24줄이다.
+- 검증: Monitor source `compileall`, Registry/Manual 관련 18 tests, Monitor 전체 pytest 172 tests가 통과했다.
+  첫 `git diff --check`에서 파일 끝 추가 공백 줄을 확인해 제거했고 재검사도 통과했다.
+- 남은 문제: 실제 HTTP multipart upload와 env override를 사용한 실행 E2E는 이번 이동에서 재실행하지 않았다.
+  다음에는 남은 coordinator들의 복수 책임 여부를 계속 비교한다.
+
+## 2026-08-10 - Monitor Action Result Client Pool 분리
+
+- 작업: `ros2_action/result_runtime.py`의 Action type별 GetResult Service class/policy/reason cache와 Action 이름별
+  ROS Service client 생성·재사용/cleanup을 `result_client_pool.py`의 `ActionResultClientPool`로 이동했다.
+- 이유와 기준: generated Result Service class 해석 및 client cache는 terminal Goal 탐색, future pending/completion,
+  subscription entry result 상태 반영과 독립적인 resource lifecycle이다.
+- 정책 보존: 빈 action type cache key, loader의 service class/policy/reason tuple, `<name>/_action/get_result` 경로,
+  services default QoS, node 없음 오류, 이름별 client 재사용과 stale Action cleanup을 유지했다.
+- 호환: `result_runtime.py`의 `_action_result_client`, `_result_service_class` private seam은 pool delegate wrapper로
+  유지했고 `support`, `update`, bind/clear 공개 계약을 변경하지 않았다.
+- 결과: `result_runtime.py`는 265줄에서 233줄로 감소했고 Result Client Pool은 54줄이다.
+- 검증: Monitor source `compileall`, Monitor 전체 pytest 172 tests와 `git diff --check`가 모두 통과했다.
+- 남은 문제: 실제 외부 Action의 terminal status 후 GetResult Service request E2E는 이번 이동에서 재실행하지
+  않았다. 다음에는 남은 250줄대 runtime/coordinator를 계속 책임 기준으로 검토한다.
+
+## 2026-08-10 - Monitor Action Message Preview 분리
+
+- 작업: `ros2_action/subscriptions.py`의 ROS Action feedback/result Message 깊이 제한 JSON-safe 변환을
+  `message_preview.py`로 이동하고 `result.py`는 새 모듈을 직접 import하도록 변경했다.
+- 이유와 기준: ROS Message 직렬화는 status/Goal/result 관찰 상태 전이와 독립적인 표시 데이터 변환이다.
+  subscriptions에는 entry 생성과 Goal별 상태 timestamp/result 동기화를 유지했다.
+- 정책 보존: primitive 직접 반환, 기본 최대 깊이 3, list/tuple 최대 10개, `__slots__` 순회와 `_` prefix 제거,
+  깊이 초과 및 미지원 객체 문자열 fallback을 유지했다.
+- 호환: 기존 `ros2_action.subscriptions.message_to_preview` import는 re-export로 유지했고 실제 Result decoder는
+  순환 가능성을 줄이기 위해 새 모듈을 직접 사용한다.
+- 결과: `subscriptions.py`는 직전 271줄에서 235줄로 감소했고 preview 모듈은 37줄이다.
+- 검증: Monitor source `compileall`, Monitor 전체 pytest 172 tests가 통과했다. 첫 `git diff --check`에서 파일 끝
+  공백 한 줄을 확인해 제거했고 재검사도 통과했다.
+- 남은 문제: 큰 custom feedback Message의 실제 preview 깊이/배열 제한 E2E는 이번 이동에서 재실행하지 않았다.
+  다음에는 Frontend와 Monitor의 남은 coordinator 중 실제 복수 책임 후보를 계속 검토한다.
+
+## 2026-08-10 - Interface Upload View Props Adapter 분리
+
+- 작업: 구 `model/interfaceUploadViewProps.js`의 Topic/Service/Action 실행 adapter를
+  `executionViewProps.js`, Receive adapter를 `receiveViewProps.js`, 관리 adapter를
+  `managementViewProps.js`로 이동하고 구 파일을 제거했다.
+- 이유와 기준: 실행, Receive, Registry/Package/Manual/Toolbar 관리는 서로 다른 controller와 View가 함께
+  변경되는 독립 adapter다. `InterfaceUploadControl`은 controller/lifecycle/panel coordinator 조립 역할이므로
+  유지했다.
+- 정책 보존: 모든 View prop key와 field updater callback, expanded/open/showExpand, Topic 지속 Publish,
+  Service Call/Action Goal, Receive start/stop/reset/refresh, 관리 toolbar/manual/package/registry/build failure
+  mapping을 유지했다.
+- 중복 정리: 구조가 같은 Service/Action Receive mapping은 `resourceProps(state, kind)`로 통합했으며 kind별
+  state/callback 선택만 다르게 유지했다.
+- 결과: 구 215줄 adapter 묶음을 제거하고 실행 79줄, 관리 72줄, Receive 53줄로 분리했다.
+- 검증: 구 파일 참조 0건, Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다. Vite는
+  316 modules를 변환했고 초기 bundle은 210.21KB(gzip 66.66KB), Interface Lab chunk는 127.63KB다.
+- 남은 문제: 실제 Browser에서 모든 Interface Upload panel 전환과 Receive/Execution action E2E는 이번 adapter
+  이동에서 재실행하지 않았다. 다음에는 전체 구조 후보를 재집계해 리팩토링 종료 조건을 판단한다.
+
+## 2026-08-10 - 구조 리팩토링 종료 판단과 전체 회귀 검증
+
+- 작업: Frontend/Backend/Monitor source 전체 줄 수와 현재 diff를 재집계하고, 300줄 이상 파일이 없으며 남은
+  250~300줄 파일은 coordinator/runtime/page 등 책임 경계가 명확함을 확인했다. 추가적인 줄 수 중심 분리를
+  중단하고 전체 회귀 검증을 수행했다.
+- 판단 기준: `AGENTS.md`의 React 300+, Python 500+, 800+ 우선 조사 기준과 “의미 있는 짧은 파일을 줄 수만
+  보고 합치거나 쪼개지 않는다”는 정책을 적용했다. 남은 Action Goal runtime, RosMonitor, manual interface,
+  Interface Upload controller 등은 이미 하위 executor/state/pool/adapter가 분리된 조정 계층이다.
+- Frontend 검증: `npm run lint`, `npm run build` 통과. Vite 316 modules, 초기 bundle 210.21KB(gzip 66.66KB),
+  Interface Lab 127.63KB, Visualization 208.77KB이며 500KB 경고가 없다.
+- Backend/Monitor 검증: Backend pytest 6 tests, Monitor pytest 172 tests와 Backend/Monitor source `compileall`,
+  `git diff --check`가 통과했다.
+- ROS workspace 검증: `colcon list`에서 5 packages를 확인했고 `colcon build --symlink-install`, `colcon test`,
+  `colcon test-result --verbose`가 통과했다. 최종 결과는 177 tests, 0 errors, 0 failures, 0 skipped다.
+- 완료 상태: 구조 리팩토링은 현재 기준 완료다. 이후에는 실제 기능 구현, 발견된 복수 책임, 성능/버그 근거가
+  있을 때만 추가 분리한다.
+- 남은 문제: 전체 실제 Browser E2E, 실제 ROS2 장비 QoS, Gazebo/Action/Interface Lab 통신 E2E는 이번 최종
+  정적·자동 회귀 검증에 포함하지 않았다. 모든 변경은 기존 사용자 변경과 함께 미커밋 상태이며 commit/push를
+  수행하지 않았다.
+
+## 2026-08-10 - Stack 실행 E2E 시도와 Sandbox 네트워크 제한 확인
+
+- 작업: 구조 리팩토링 완료 후 `scripts/run_dashboard_stack.sh`로 Monitor→Backend→Frontend health E2E를
+  시도하고, 실패 원인을 `.runtime/monitor.log`와 프로세스 상태로 진단했다. 이어 동일 shell에서 health timeout을
+  50초로 늘린 임시 실행으로 재시도했다.
+- 결과: ROS workspace 5 package build는 성공했다. Monitor process는 Fast DDS 초기화 중 UDP socket과
+  `getifaddrs`에서 반복적으로 `Operation not permitted`를 기록해 약 20초 이상 지연된 뒤 Uvicorn
+  `127.0.0.1:8765` application startup까지 완료했다.
+- 차단 원인: Codex sandbox가 network namespace/socket을 제한해 같은 실행 shell의 loopback curl도 Monitor
+  health에 연결되지 않았다. 기본 stack script는 20초 health timeout 후 Monitor를 정상 종료했고, 연장 재시도도
+  Monitor health 단계에서 종료되어 Backend/Frontend와 공개 REST endpoint까지 진행하지 못했다.
+- 안전 정리: stack stop script와 임시 실행 trap이 생성한 Monitor process를 종료했으며 Backend/Frontend 신규
+  process는 시작되지 않았다. 기존 외부 프로세스나 사용자 데이터는 변경하지 않았다.
+- 판단: 자동 test/build 결과는 모두 통과하므로 이번 현상은 코드 회귀 증거가 아니라 sandbox 환경 제약이다.
+  실제 Browser/API/ROS Graph E2E는 network/DDS가 허용된 일반 터미널에서 `scripts/run_dashboard_stack.sh`로
+  재실행해야 한다.
+
+## 2026-08-10 - Sandbox 외 Stack Health와 공개 API E2E 통과
+
+- 작업: 승인된 sandbox 외 실행에서 Monitor, Backend, Frontend를 동일 shell에서 순차 시작하고 health 대기 후
+  공개 resource API와 Frontend HTML을 확인했다. 검증 종료 시 trap으로 세 프로세스를 모두 종료했다.
+- 결과: Monitor `127.0.0.1:8765/health`는 running, Backend `127.0.0.1:8000/health`는 running 및
+  `monitor_connected: true`를 반환했다. Frontend `127.0.0.1:5173`은 631-byte HTML과 `#root`를 반환했다.
+- 공개 API: `/ros/topics` 9개, `/ros/services` 2개, `/ros/actions` 1개, `/ros/nodes` 5개를 정상 JSON으로
+  반환했다. 이는 별도 demo node를 시작하지 않은 당시 ROS Graph 기준이다.
+- 판단: 이전 stack timeout은 sandbox network/DDS 제한에 의한 것이며, 일반 network namespace에서는 이번
+  리팩토링 이후 Monitor→Backend polling과 Frontend serving 기본 경로가 정상 동작한다.
+- 남은 범위: 실제 Browser UI interaction/WebSocket 재연결, demo communication, Interface Lab 명시 실행과
+  실제 장비/Gazebo QoS E2E는 별도 기능 시나리오로 남아 있다.
+
+## 2026-08-10 - Backend WebSocket Monitor 단절 상태 표시 수정
+
+- 작업: 충돌 없는 임시 포트(8875/8012)에서 Monitor 중단·재시작 E2E를 수행하고,
+  `backend/app/routers/monitor_websocket.py`가 Monitor 단절 후에도 마지막 정상 payload만 보내 연결 상태를
+  노출하지 않는 문제를 수정했다.
+- 원인과 기준: `MonitorCache.mark_error()`는 마지막 정상 snapshot을 의도적으로 보존하지만 WebSocket router가
+  cache의 `connected/error`보다 보존된 `data.websocket`을 우선했다. Backend가 마지막 정상 snapshot과 현재
+  연결 상태를 함께 제공해야 한다는 책임 경계를 적용했다.
+- 주요 변경: `build_monitor_websocket_payload()`를 추가해 기존 `type/data/timestamp`를 유지하면서 모든
+  payload에 `connected`와 `reason`을 덧붙였다. 단절 시에도 마지막 `data`는 유지한다.
+- 검증: Backend pytest 7 tests, Backend compileall, `git diff --check`가 통과했다. 격리 E2E에서 WebSocket은
+  Monitor 연결 시 `connected: true`, 중단 시 `connected: false`와 오류 사유 및 마지막 data, 재시작 시 다시
+  `connected: true`를 반환했다. 기존 8765/8000/5173 Stack 프로세스는 식별만 하고 변경하지 않았다.
+- 남은 문제: HTTPS reverse proxy와 실제 인증서를 사용한 WSS 운영 배포 검증, Browser 화면에서의 연결 상태
+  표현 확인은 별도 배포/UI 시나리오로 남아 있다.

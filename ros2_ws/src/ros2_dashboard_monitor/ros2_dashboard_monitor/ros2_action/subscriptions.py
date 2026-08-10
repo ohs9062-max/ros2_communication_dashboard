@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 from typing import Any
 
 from ros2_dashboard_monitor.ros2_action.models import (
@@ -14,64 +13,13 @@ from ros2_dashboard_monitor.ros2_action.models import (
     goal_status_label,
 )
 
-from rosidl_runtime_py.utilities import get_action
-
-
-STATUS_TOPIC_TYPE = 'action_msgs/msg/GoalStatusArray'
-
-
-def action_feedback_topic_type(action_type: str | None) -> str | None:
-    """Action 전체 타입을 대응하는 feedback Message 전체 타입으로 바꿉니다."""
-    if action_type is None:
-        return None
-
-    parts = action_type.split('/')
-    if len(parts) != 3 or parts[1] != 'action':
-        return None
-
-    return f'{parts[0]}/action/{parts[2]}_FeedbackMessage'
-
-
-def load_status_message_class() -> type | None:
-    """GoalStatusArray Message class를 불러오며 실패하면 None을 반환합니다."""
-    try:
-        module = import_module('action_msgs.msg')
-    except ImportError:
-        return None
-
-    return getattr(module, 'GoalStatusArray', None)
-
-
-def load_feedback_message_class(action_type: str | None) -> type | None:
-    """Action 타입에 대응하는 feedback Message class를 불러옵니다."""
-    if action_type is None:
-        return None
-
-    parts = action_type.split('/')
-    if len(parts) != 3 or parts[1] != 'action':
-        return None
-
-    class_name = f'{parts[2]}_FeedbackMessage'
-    try:
-        module = import_module(f'{parts[0]}.action')
-    except ImportError:
-        module = None
-
-    if module is not None:
-        message_class = getattr(module, class_name, None)
-        if message_class is not None:
-            return message_class
-
-    try:
-        action_class = get_action(action_type)
-    except (AttributeError, ImportError, LookupError, ValueError):
-        return None
-
-    return getattr(
-        getattr(action_class, 'Impl', None),
-        'FeedbackMessage',
-        None,
-    )
+from ros2_dashboard_monitor.ros2_action.action_type_loader import (
+    STATUS_TOPIC_TYPE,
+    action_feedback_topic_type,
+    load_feedback_message_class,
+    load_status_message_class,
+)
+from ros2_dashboard_monitor.ros2_action.message_preview import message_to_preview
 
 
 def build_action_subscription_entry(
@@ -216,11 +164,6 @@ def update_goal_result(
     _sync_runtime_result(entry, goal)
 
 
-def message_to_preview(message: Any, *, max_depth: int = 3) -> Any:
-    """ROS message를 깊이 제한이 있는 JSON-safe preview로 변환합니다."""
-    return _to_json_safe(message, depth=0, max_depth=max_depth)
-
-
 def _goal_state(
     entry: dict[str, Any],
     goal_id: str,
@@ -290,35 +233,3 @@ def _sync_runtime_result(
     entry['runtime']['result_status'] = goal.get('result_status')
     entry['runtime']['result_preview'] = goal.get('result_preview')
     entry['runtime']['result_error'] = goal.get('result_error')
-
-
-def _to_json_safe(value: Any, *, depth: int, max_depth: int) -> Any:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
-
-    if depth >= max_depth:
-        return str(value)
-
-    if isinstance(value, (list, tuple)):
-        return [
-            _to_json_safe(item, depth=depth + 1, max_depth=max_depth)
-            for item in value[:10]
-        ]
-
-    slots = getattr(value, '__slots__', None)
-    if slots:
-        return {
-            _public_slot_name(slot): _to_json_safe(
-                getattr(value, slot),
-                depth=depth + 1,
-                max_depth=max_depth,
-            )
-            for slot in slots
-            if hasattr(value, slot)
-        }
-
-    return str(value)
-
-
-def _public_slot_name(slot: str) -> str:
-    return slot[1:] if slot.startswith('_') else slot

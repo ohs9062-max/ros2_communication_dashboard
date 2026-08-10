@@ -6,11 +6,11 @@ import { useInterfaceExecutionSuite } from '../features/interface-lab/hooks/useI
 import { useInterfacePanelCoordinator } from '../features/interface-lab/hooks/useInterfacePanelCoordinator.js'
 import {
   actionExecutionViewProps,
-  managementViewProps,
-  receiveWorkspaceViewProps,
   serviceExecutionViewProps,
   topicExecutionViewProps,
-} from '../features/interface-lab/model/interfaceUploadViewProps.js'
+} from '../features/interface-lab/model/executionViewProps.js'
+import { managementViewProps } from '../features/interface-lab/model/managementViewProps.js'
+import { receiveWorkspaceViewProps } from '../features/interface-lab/model/receiveViewProps.js'
 
 export function InterfaceUploadControl({
   onStateChanged,

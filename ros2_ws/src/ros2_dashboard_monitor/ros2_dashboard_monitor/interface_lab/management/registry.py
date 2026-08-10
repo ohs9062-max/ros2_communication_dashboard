@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
-from email.parser import BytesParser
-from email.policy import default
 from pathlib import Path
 from typing import Any
 
-from ros2_dashboard_monitor.interface_lab.paths import persistent_monitor_config_dir, ros_workspace_root
+from ros2_dashboard_monitor.interface_lab.paths import ros_workspace_root
 from ros2_dashboard_monitor.interface_lab.management.errors import InterfaceUploadError
 from ros2_dashboard_monitor.interface_lab.management.interface_upload import (
     ALLOWED_KINDS,
@@ -39,6 +36,12 @@ from ros2_dashboard_monitor.interface_lab.management.registry_apply_status impor
     missing_registry_summary,
     refresh_import_status,
 )
+from ros2_dashboard_monitor.interface_lab.management.multipart_upload import extract_multipart_file
+from ros2_dashboard_monitor.interface_lab.management.registry_paths import (
+    default_interface_package,
+    default_registry_path,
+    display_path as _display_path,
+)
 
 
 KIND_COLLECTIONS = {
@@ -46,47 +49,6 @@ KIND_COLLECTIONS = {
     'srv': 'services',
     'action': 'actions',
 }
-def default_registry_path() -> Path:
-    """단일 Interface Registry YAML의 기본 경로를 반환합니다."""
-    backend_root = ros_workspace_root()
-    configured_value = os.getenv('INTERFACE_REGISTRY_PATH')
-    if not configured_value:
-        return persistent_monitor_config_dir() / 'interface_registry.yaml'
-    configured = Path(configured_value)
-    return configured if configured.is_absolute() else backend_root / configured
-
-
-def default_interface_package() -> tuple[str, Path]:
-    """단일 업로드 파일을 저장할 기본 ROS package 이름과 경로를 반환합니다."""
-    backend_root = ros_workspace_root()
-    package_name = os.getenv(
-        'INTERFACE_PACKAGE_NAME', 'uploaded_interfaces',
-    ).strip()
-    configured = Path(os.getenv('INTERFACE_PACKAGE_PATH', 'src/uploaded_interfaces/generated_interfaces'))
-    package_path = configured if configured.is_absolute() else backend_root / configured
-    return package_name, package_path.resolve()
-
-
-def extract_multipart_file(content_type: str, body: bytes) -> tuple[str, bytes]:
-    """multipart 요청 본문에서 업로드 파일 이름과 내용을 추출합니다."""
-    if not content_type.lower().startswith('multipart/form-data'):
-        raise InterfaceUploadError('multipart/form-data 요청이 필요합니다.')
-
-    message = BytesParser(policy=default).parsebytes(
-        b'Content-Type: ' + content_type.encode('ascii', errors='ignore')
-        + b'\r\nMIME-Version: 1.0\r\n\r\n' + body,
-    )
-    if not message.is_multipart():
-        raise InterfaceUploadError('multipart 요청 형식을 읽을 수 없습니다.')
-
-    for part in message.iter_parts():
-        file_name = part.get_filename()
-        if file_name:
-            payload = part.get_payload(decode=True) or b''
-            return file_name, payload
-    raise InterfaceUploadError('업로드할 파일이 없습니다.')
-
-
 def register_interface(
     file_name: str,
     content: bytes,
@@ -274,12 +236,3 @@ def _missing_registry_summary(path: Path) -> dict[str, Any]:
         default_package=default_interface_package(),
         display_path=_display_path,
     )
-
-
-def _display_path(path: Path) -> str:
-    resolved = path.resolve()
-    root = ros_workspace_root().parent
-    try:
-        return resolved.relative_to(root).as_posix()
-    except ValueError:
-        return str(resolved)
