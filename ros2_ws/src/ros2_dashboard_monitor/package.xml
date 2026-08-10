@@ -14,6 +14,7 @@
   <depend>rosidl_runtime_py</depend>
   <depend>ros2_dashboard_interfaces</depend>
   <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>ros2_dashboard_dds_observer</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>python3-dotenv</exec_depend>
   <exec_depend>python3-fastapi</exec_depend>

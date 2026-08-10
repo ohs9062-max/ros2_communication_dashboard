@@ -36,6 +36,14 @@ class ServiceActiveCheckConfig:
 
 
 @dataclass(frozen=True)
+class FastDdsObserverConfig:
+    enabled: bool = True
+    port: int = 8766
+    poll_interval_sec: float = 0.5
+    request_timeout_sec: float = 0.2
+
+
+@dataclass(frozen=True)
 class MonitorConfig:
     poll_interval_sec: float = 1.0
     stale_timeout_sec: float = 3.0
@@ -69,6 +77,9 @@ class MonitorConfig:
     actions_auto_monitor_status: bool = True
     actions_auto_monitor_feedback: bool = True
     actions_auto_fetch_result_for_observed_goals: bool = True
+    fastdds_observer: FastDdsObserverConfig = field(
+        default_factory=FastDdsObserverConfig,
+    )
 
 
 def build_monitor_config(
@@ -81,6 +92,7 @@ def build_monitor_config(
     services = mapping(data.get('services'))
     nodes = mapping(data.get('nodes'))
     actions = mapping(data.get('actions'))
+    fastdds_observer = mapping(data.get('fastdds_observer'))
 
     return MonitorConfig(
         poll_interval_sec=positive_float(monitor.get('poll_interval_sec'), default=1.0),
@@ -130,6 +142,19 @@ def build_monitor_config(
         actions_auto_fetch_result_for_observed_goals=boolean(
             actions.get('auto_fetch_result_for_observed_goals'), default=True,
         ),
+        fastdds_observer=FastDdsObserverConfig(
+            enabled=boolean(fastdds_observer.get('enabled'), default=True),
+            port=bounded_integer(
+                fastdds_observer.get('port'), default=8766,
+                minimum=1, maximum=65535,
+            ),
+            poll_interval_sec=positive_float(
+                fastdds_observer.get('poll_interval_sec'), default=0.5,
+            ),
+            request_timeout_sec=positive_float(
+                fastdds_observer.get('request_timeout_sec'), default=0.2,
+            ),
+        ),
     )
 
 
@@ -143,6 +168,16 @@ def positive_float(value: Any, *, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return parsed if parsed > 0 else default
+
+
+def bounded_integer(
+    value: Any, *, default: int, minimum: int, maximum: int,
+) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if minimum <= parsed <= maximum else default
 
 
 def boolean(value: Any, *, default: bool) -> bool:

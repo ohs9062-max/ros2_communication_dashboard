@@ -12,16 +12,25 @@ Interface Lab 안전 정책은 계속 유효하다.
 
 ### 0.0 AI 작업 인수인계 기록
 
-모든 AI 작업자는 작업을 시작하기 전에 이 문서와 함께 다음 두 파일의 최신 기록을 확인한다.
+모든 AI 작업자는 작업을 시작할 때 기본 인수인계 자료로 다음 두 파일만 먼저 확인한다.
 
 ```text
 .codex/CURRENT_STATUS.md
 .codex/WORK_LOG.md
 ```
 
-모든 작업이 끝나면 별도 사용자 요청이 없어도 `.codex/WORK_LOG.md`에 날짜와 함께 작업 기록을
-누적한다. 작업 결과로 프로젝트의 구현 상태, 구조, 정책, 검증 상태 또는 다음 작업 지점이
-바뀌었으면 `.codex/CURRENT_STATUS.md`도 함께 갱신한다.
+`.codex/archive/`의 과거 WORK_LOG는 현재 작업의 배경, 과거 판단 근거, 이전 검증값이 실제로 필요할 때만
+검색하거나 해당 범위를 읽는다. 일반 작업 시작 시 archive 전체를 미리 읽지 않는다.
+
+모든 작업이 끝나면 크기와 관계없이 별도 사용자 요청이 없어도 `.codex/WORK_LOG.md`에 날짜와 함께
+작업 기록을 누적한다. 작업 결과로 프로젝트의 구현 상태, 구조, 정책, 검증 상태 또는 다음 작업 지점이
+바뀌었으면 `.codex/CURRENT_STATUS.md`도 함께 갱신한다. CURRENT_STATUS에는 현재 상태, 핵심 구조,
+최근 완료 작업, 현재 문제/제한, 다음 우선 작업만 유지하고 과거 작업의 상세 이력을 누적하지 않는다.
+
+WORK_LOG는 최근 작업 약 20~30개를 빠르게 읽을 수 있는 크기로 유지한다. 다시 30개를 크게 넘거나
+읽기 어려울 정도로 길어지면 가장 최근 20~30개만 남기고 오래된 항목을 `.codex/archive/` 아래 날짜 또는
+월 범위 파일로 이동한다. archive 이동 시 기존 기록의 본문, 의미, 완료/미완료 상태를 바꾸거나 삭제하지
+않으며, 과거 기록은 필요할 때 `rg`로 검색한다.
 
 작은 작업은 한두 줄로 짧게 기록할 수 있다. 큰 기능 구현, 리팩토링, 구조 변경, 정책 변경,
 트러블슈팅은 반드시 다음 내용을 남긴다.
@@ -84,6 +93,7 @@ ros2_dashboard/
 │     │  │  ├─ ros2_node/
 │     │  │  └─ interface_lab/
 │     │  └─ test/
+│     ├─ ros2_dashboard_dds_observer/
 │     ├─ ros2_dashboard_interfaces/
 │     ├─ ros2_dashboard_demo_nodes/
 │     └─ uploaded_interfaces/
@@ -102,6 +112,7 @@ Git에 포함하지 않는다. stale 생성물을 정리할 때도 정확한 pac
 
 ```text
 ROS2 Graph
+→ ros2_dashboard_dds_observer (Fast DDS EDP, optional localhost helper)
 → ros2_dashboard_monitor (rclpy, ROS2 상태 계산, Interface Lab 실제 통신)
 → localhost HTTP transport : 127.0.0.1:8765
 → FastAPI Backend Runtime Cache : 127.0.0.1:8000
@@ -120,6 +131,15 @@ Topology와 ROS2 사실 기반 Alert 생성
 QoS와 Publisher / Subscription / Client 실행
 Interface 등록·package upload·build/import/apply
 사용자 명시 Topic Publish/Receive, Service Call, Action Goal/Cancel
+```
+
+`ros2_dashboard_dds_observer` 책임:
+
+```text
+rmw_fastrtps_cpp 환경의 원격 rq/rr DataWriter·DataReader Discovery 관찰
+Service와 Action Goal/Result/Cancel의 광고된 endpoint QoS를 127.0.0.1:8766 snapshot으로 제공
+Service/Action Client나 사용자 데이터 endpoint 생성 금지
+History/Depth처럼 Discovery에 없는 값을 default로 추정하지 않음
 ```
 
 `backend` 책임:
@@ -205,7 +225,7 @@ Monitor process environment
   MONITOR_CONFIG_PATH, INTERFACE_*_PATH
 
 monitor.yaml
-= ROS2 발견·필터·상태·QoS 관련 운영 정책
+= ROS2 발견·필터·상태·QoS와 Fast DDS observer 관련 운영 정책
 
 backend/config/user_preferences.yaml
 = 사용자 별표

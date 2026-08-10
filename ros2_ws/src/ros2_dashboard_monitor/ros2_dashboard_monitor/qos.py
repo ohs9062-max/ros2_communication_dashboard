@@ -36,13 +36,67 @@ def endpoint_qos(node: Any, topic_name: str, endpoint_kind: Literal['publishers'
         endpoints = reader(topic_name)
     except Exception:
         return []
+    own_name = _node_identity(node, 'get_name')
+    own_namespace = _node_identity(node, 'get_namespace', fallback='/')
     return [{
         'node_name': str(getattr(endpoint, 'node_name', '')),
         'node_namespace': str(getattr(endpoint, 'node_namespace', '') or '/'),
         'topic_type': str(getattr(endpoint, 'topic_type', '')),
+        'endpoint_kind': endpoint_kind,
+        'dashboard_owned': (
+            own_name is not None
+            and str(getattr(endpoint, 'node_name', '')) == own_name
+            and str(getattr(endpoint, 'node_namespace', '') or '/')
+            == own_namespace
+        ),
         'qos': qos_profile_dict(getattr(endpoint, 'qos_profile', None)),
         '_profile': getattr(endpoint, 'qos_profile', None),
     } for endpoint in endpoints if getattr(endpoint, 'qos_profile', None) is not None]
+
+
+def observe_topic_qos(node: Any, topic_name: str) -> dict[str, Any]:
+    """Graph endpoint만 읽어 Topic 양방향 QoS와 확정 가능한 불일치를 반환합니다."""
+    publishers = endpoint_qos(node, topic_name, 'publishers')
+    subscriptions = endpoint_qos(node, topic_name, 'subscriptions')
+    public_publishers = _public_endpoints(publishers)
+    public_subscriptions = _public_endpoints(subscriptions)
+    reasons = []
+    for publisher in publishers:
+        for subscription in subscriptions:
+            result, reason = qos_check_compatible(
+                publisher['_profile'], subscription['_profile'],
+            )
+            if result == QoSCompatibility.ERROR and reason:
+                reasons.append(reason)
+
+    if reasons:
+        status = 'incompatible'
+        reason = '; '.join(dict.fromkeys(reasons))
+    elif publishers and subscriptions:
+        status = 'compatible'
+        reason = None
+    elif publishers or subscriptions:
+        status = 'observed'
+        reason = '한쪽 방향의 Topic endpoint QoS만 Graph에서 확인되었습니다.'
+    else:
+        status = 'unknown'
+        reason = 'Topic endpoint QoS를 Graph에서 확인할 수 없습니다.'
+
+    return qos_state(
+        status=status,
+        source='graph_endpoint_info' if status != 'unknown' else 'graph_unavailable',
+        local=None,
+        remote=[*public_publishers, *public_subscriptions],
+        mismatch_policies=_mismatch_policies(reasons),
+        reason=reason,
+        publisher_qos=public_publishers,
+        subscriber_qos=public_subscriptions,
+        graph_qos_status=status,
+        graph_qos_detection_source=(
+            'graph_endpoint_info' if status != 'unknown' else 'graph_unavailable'
+        ),
+        graph_mismatch_reason=reason if reasons else None,
+    )
 
 
 def choose_topic_qos(
@@ -53,14 +107,18 @@ def choose_topic_qos(
     default_profile: QoSProfile,
 ) -> tuple[QoSProfile, dict[str, Any]]:
     remote_kind = 'subscriptions' if local_role == 'publisher' else 'publishers'
-    endpoints = endpoint_qos(node, topic_name, remote_kind)
+    endpoints = [
+        endpoint for endpoint in endpoint_qos(node, topic_name, remote_kind)
+        if endpoint.get('dashboard_owned') is not True
+    ]
     profiles = [item['_profile'] for item in endpoints]
-    public_endpoints = [{key: value for key, value in item.items() if key != '_profile'} for item in endpoints]
+    public_endpoints = _public_endpoints(endpoints)
     if not profiles:
         return clone_qos_profile(default_profile), qos_state(
             status='unknown', source='default_profile', local=default_profile,
             remote=public_endpoints, auto_applied=False,
             reason='상대 Topic endpoint QoS를 Graph에서 확인할 수 없어 기본 프로필을 사용합니다.',
+            qos_fallback_policies=['profile'],
         )
 
     candidates = _unique_profiles([
@@ -85,6 +143,11 @@ def choose_topic_qos(
     total = len(profiles)
     status = 'compatible' if compatible_count == total else ('partial' if compatible_count else 'incompatible')
     mismatch_policies = _mismatch_policies(reasons)
+    fallback_policies = _selected_fallback_policies(
+        selected,
+        profiles=profiles,
+        fallback=default_profile,
+    )
     return clone_qos_profile(selected), qos_state(
         status=status,
         source='graph_profile_comparison',
@@ -93,6 +156,7 @@ def choose_topic_qos(
         mismatch_policies=mismatch_policies,
         reason='; '.join(dict.fromkeys(reason for reason in reasons if reason)) or None,
         auto_applied=True,
+        qos_fallback_policies=fallback_policies,
         compatible_endpoint_count=compatible_count,
         remote_endpoint_count=total,
         qos_error_type='topic_qos_incompatible' if status == 'incompatible' else None,
@@ -189,9 +253,67 @@ def _unique_profiles(profiles: Iterable[QoSProfile]) -> list[QoSProfile]:
 
 def _mismatch_policies(reasons: Iterable[str]) -> list[str]:
     text = ' '.join(reasons).lower()
-    return [name for name in ('reliability', 'durability', 'deadline', 'liveliness') if name in text]
+    policy_terms = {
+        'reliability': ('reliability', 'reliable', 'best effort'),
+        'durability': ('durability', 'transient local', 'volatile'),
+        'deadline': ('deadline',),
+        'liveliness': ('liveliness',),
+    }
+    return [
+        policy
+        for policy, terms in policy_terms.items()
+        if any(term in text for term in terms)
+    ]
 
 
 def _duration_ns(value: Any) -> int | None:
     nanoseconds = getattr(value, 'nanoseconds', None)
     return int(nanoseconds) if nanoseconds is not None else None
+
+
+def _selected_fallback_policies(
+    selected: QoSProfile,
+    *,
+    profiles: Iterable[QoSProfile],
+    fallback: QoSProfile,
+) -> list[str]:
+    selected_dict = qos_profile_dict(selected)
+    for profile in profiles:
+        if qos_profile_dict(normalize_qos_profile(profile, fallback)) == selected_dict:
+            return _unknown_creation_policies(profile)
+    return ['profile']
+
+
+def _unknown_creation_policies(profile: QoSProfile) -> list[str]:
+    policies = []
+    for name in ('history', 'reliability', 'durability', 'liveliness'):
+        value = getattr(profile, name)
+        if str(getattr(value, 'name', value)).upper() in {
+            'UNKNOWN', 'SYSTEM_DEFAULT',
+        }:
+            policies.append(name)
+    if int(getattr(profile, 'depth', 0)) <= 0:
+        policies.append('depth')
+    return policies
+
+
+def _public_endpoints(endpoints: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {key: value for key, value in item.items() if key != '_profile'}
+        for item in endpoints
+    ]
+
+
+def _node_identity(
+    node: Any,
+    method_name: str,
+    *,
+    fallback: str | None = None,
+) -> str | None:
+    reader = getattr(node, method_name, None)
+    if reader is None:
+        return fallback
+    try:
+        return str(reader() or fallback)
+    except Exception:
+        return fallback

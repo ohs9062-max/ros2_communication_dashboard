@@ -7,6 +7,7 @@ from time import time
 from typing import Any
 
 from rclpy.node import Node
+from rclpy.utilities import get_rmw_implementation_identifier
 
 from ros2_dashboard_monitor.alert_assembler import (
     alert_response,
@@ -42,6 +43,7 @@ from ros2_dashboard_monitor.snapshot_summary import (
     websocket_topic_meta,
 )
 from ros2_dashboard_monitor.action_snapshot import assemble_action_snapshot
+from ros2_dashboard_monitor.dds_observer import FastDdsQosObserver
 from ros2_dashboard_monitor.node_snapshot import assemble_node_snapshot
 from ros2_dashboard_monitor.service_snapshot import assemble_service_snapshot
 from ros2_dashboard_monitor.snapshot_assembler import enrich_topic_snapshot
@@ -72,10 +74,14 @@ class RosMonitor(InterfaceLabFacade):
         self._alert_history: list[dict[str, Any]] = []
         self._dismissed_alert_ids: set[str] = set()
         self._visible_alert_ids: set[str] = set()
+        self._dds_qos_observer = FastDdsQosObserver(
+            self._config.fastdds_observer,
+        )
         self._action_runtime = ActionRuntime(
             config=self._config,
             lock=self._lock,
             node_getter=lambda: self._node,
+            dds_qos_getter=self._dds_qos_observer.service_qos,
         )
         self._action_goal_runtime = ActionGoalRuntime(
             lock=self._lock,
@@ -102,6 +108,7 @@ class RosMonitor(InterfaceLabFacade):
             config=self._config,
             lock=self._lock,
             node_getter=lambda: self._node,
+            dds_qos_getter=self._dds_qos_observer.service_qos,
         )
         self._service_call_runtime = ServiceCallRuntime(
             lock=self._lock,
@@ -121,6 +128,10 @@ class RosMonitor(InterfaceLabFacade):
             poll_interval_sec=self._config.poll_interval_sec,
             update_callback=self._update_graph,
         )
+        self._dds_qos_observer.start(
+            get_rmw_implementation_identifier(),
+            self._node.context.get_domain_id(),
+        )
         self._update_graph()
         self._thread = start_spin_thread(self._spin)
 
@@ -128,6 +139,7 @@ class RosMonitor(InterfaceLabFacade):
         """timer와 실행 Runtime을 정리하고 rclpy Node를 종료합니다."""
         node = self._node
         self._receive_runtime.stop_all_continuous_publishes()
+        self._dds_qos_observer.stop()
 
         shutdown_monitor_node(node, self._thread)
 

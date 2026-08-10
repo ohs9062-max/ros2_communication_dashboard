@@ -6,8 +6,6 @@ import logging
 from time import time
 from typing import Any, Callable
 
-from rclpy.qos import qos_profile_services_default
-
 from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.qos import qos_state
 from ros2_dashboard_monitor.resource_state import (
@@ -37,11 +35,13 @@ class ServiceRuntime:
         config: MonitorConfig,
         lock: Any,
         node_getter: Callable[[], Any],
+        dds_qos_getter: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         """Service Graph 조회와 상태 Cache에 필요한 설정과 의존성을 저장합니다."""
         self._config = config
         self._lock = lock
         self._node_getter = node_getter
+        self._dds_qos_getter = dds_qos_getter
         self._services: list[dict[str, Any]] = []
         self._last_updated = 0.0
         self._active_checks = ServiceActiveCheckRuntime(
@@ -129,11 +129,7 @@ class ServiceRuntime:
                 active_check_cache=active_check_cache,
             )
             mark_graph_present(service, observed_at=updated_at)
-            service.update(qos_state(
-                status='unknown', source='default_profile',
-                local=qos_profile_services_default,
-                reason='Service Graph API에서 상대 QoS를 확인할 수 없습니다.',
-            ))
+            service.update(self._service_qos(name))
             services.append(service)
 
         current_keys = {
@@ -158,6 +154,15 @@ class ServiceRuntime:
             self._last_updated = updated_at
 
         return services
+
+    def _service_qos(self, name: str) -> dict[str, Any]:
+        if self._dds_qos_getter is not None:
+            return self._dds_qos_getter(name)
+        return qos_state(
+            status='unknown', source='graph_unavailable', local=None,
+            reason='Service endpoint QoS는 Graph에서 확인할 수 없습니다.',
+            qos_visibility='graph_unavailable',
+        )
 
     def update_active_checks(
         self,

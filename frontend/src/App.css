@@ -3078,6 +3078,21 @@ h3 {
   font-size: 12px;
 }
 
+.detail-line.qos-reason {
+  display: block;
+}
+
+.qos-reason span,
+.qos-reason strong {
+  display: block;
+  text-align: left;
+  word-break: keep-all;
+}
+
+.qos-reason strong {
+  margin-top: 8px;
+}
+
 .detail-value-good {
   color: var(--green);
 }

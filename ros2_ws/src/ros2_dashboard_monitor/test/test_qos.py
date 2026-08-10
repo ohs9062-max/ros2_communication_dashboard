@@ -14,7 +14,15 @@ import ros2_dashboard_monitor.qos as qos_module
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime import ActionGoalRuntime
 from ros2_dashboard_monitor.interface_lab.execution.service_call_runtime import ServiceCallRuntime
 from ros2_dashboard_monitor.interface_lab.execution.service_call_executor import execute_service_call
-from ros2_dashboard_monitor.qos import choose_topic_qos, qos_profile_dict
+from ros2_dashboard_monitor.qos import (
+    choose_topic_qos,
+    observe_topic_qos,
+    qos_profile_dict,
+)
+from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import (
+    merge_action_topic_local_qos,
+    observe_action_qos,
+)
 
 
 def endpoint(profile):
@@ -33,6 +41,14 @@ class TopicNode:
 
     def get_subscriptions_info_by_topic(self, _name):
         return self.subscriptions
+
+    @staticmethod
+    def get_name():
+        return 'dashboard_monitor'
+
+    @staticmethod
+    def get_namespace():
+        return '/'
 
 
 def test_best_effort_publisher_is_incompatible_with_reliable_subscription():
@@ -56,11 +72,90 @@ def test_topic_subscription_auto_applies_best_effort_publisher_qos():
 
 def test_graph_unknown_history_is_normalized_before_entity_creation():
     offered = QoSProfile(depth=5, history=HistoryPolicy.UNKNOWN)
-    selected, _ = choose_topic_qos(
+    selected, state = choose_topic_qos(
         TopicNode(publishers=[endpoint(offered)]), '/value',
         local_role='subscription', default_profile=QoSProfile(depth=10),
     )
     assert selected.history == HistoryPolicy.KEEP_LAST
+    assert state['qos_fallback_policies'] == ['history', 'liveliness']
+
+
+def test_topic_graph_exposes_publisher_and_subscriber_qos():
+    publisher = QoSProfile(
+        depth=5,
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+    )
+    subscriber = QoSProfile(
+        depth=7,
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+    )
+
+    state = observe_topic_qos(
+        TopicNode(
+            publishers=[endpoint(publisher)],
+            subscriptions=[endpoint(subscriber)],
+        ),
+        '/value',
+    )
+
+    assert state['qos_status'] == 'compatible'
+    assert state['publisher_qos'][0]['qos']['reliability'] == 'best_effort'
+    assert state['publisher_qos'][0]['qos']['history'] == 'keep_last'
+    assert state['publisher_qos'][0]['qos']['depth'] == 5
+    assert state['subscriber_qos'][0]['qos']['depth'] == 7
+
+
+def test_topic_graph_reports_confirmed_endpoint_mismatch():
+    state = observe_topic_qos(
+        TopicNode(
+            publishers=[endpoint(QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+            ))],
+            subscriptions=[endpoint(QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+            ))],
+        ),
+        '/value',
+    )
+
+    assert state['qos_status'] == 'incompatible'
+    assert 'reliability' in state['mismatch_policies']
+
+
+def test_action_qos_keeps_services_unknown_and_observes_internal_topics():
+    node = TopicNode(publishers=[endpoint(QoSProfile(depth=3))])
+
+    state = observe_action_qos(node, '/work')
+
+    assert state['goal']['local_qos'] is None
+    assert state['goal']['qos_visibility'] == 'graph_unavailable'
+    reason = 'Action service endpoint QoS는 Graph에서 확인할 수 없습니다.'
+    assert state['result']['mismatch_reason'] == reason
+    assert state['cancel']['mismatch_reason'] == reason
+    assert state['feedback']['publisher_qos'][0]['qos']['depth'] == 3
+    assert state['status']['publisher_qos'][0]['qos']['depth'] == 3
+
+
+def test_action_qos_merges_only_existing_topic_subscription_profiles():
+    observed = observe_action_qos(TopicNode(), '/work')
+    applied = {
+        'feedback': {
+            'local_qos': {'reliability': 'best_effort'},
+            'qos_auto_applied': True,
+            'qos_fallback_policies': ['history', 'depth'],
+        },
+        'goal': {'local_qos': {'reliability': 'reliable'}},
+    }
+
+    merged = merge_action_topic_local_qos(observed, applied)
+
+    assert merged['feedback']['local_qos']['reliability'] == 'best_effort'
+    assert merged['feedback']['qos_auto_applied'] is True
+    assert merged['goal']['local_qos'] is None
 
 
 def test_service_client_uses_services_default_qos():

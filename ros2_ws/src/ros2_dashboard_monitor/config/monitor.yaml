@@ -3,6 +3,13 @@ monitor:
   stale_timeout_sec: 3.0
   hz_window_sec: 5.0
 
+fastdds_observer:
+  # Fast DDS Discovery 전용 Participant만 생성하며 Service/Action Client는 만들지 않습니다.
+  enabled: true
+  port: 8766
+  poll_interval_sec: 0.5
+  request_timeout_sec: 0.2
+
 topics:
   auto_discover: true
   auto_subscribe_supported_types: true

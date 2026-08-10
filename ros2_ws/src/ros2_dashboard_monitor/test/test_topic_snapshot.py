@@ -92,3 +92,40 @@ def test_snapshot_uses_unknown_qos_only_when_runtime_has_no_profile() -> None:
     assert topic['remote_qos'] == []
     assert topic['primary'] is False
     assert topic['hz_monitoring_status'] == 'not_configured'
+
+
+def test_snapshot_keeps_graph_endpoint_qos_with_auto_applied_local_qos() -> None:
+    snapshot = build_topic_snapshot(
+        topics=[{
+            'name': '/camera',
+            'supported_type': True,
+            'registered_interface_type': False,
+            'deep_monitoring': True,
+            'graph_present': True,
+            'publisher_qos': [{'qos': {'depth': 4}}],
+            'subscriber_qos': [{'qos': {'depth': 8}}],
+            'graph_qos_status': 'compatible',
+        }],
+        subscriptions={'/camera': {
+            'qos': {
+                'qos_status': 'compatible',
+                'qos_detection_source': 'graph_profile_comparison',
+                'local_qos': {'depth': 4},
+                'remote_qos': [],
+                'mismatch_policies': [],
+                'mismatch_reason': None,
+                'qos_auto_applied': True,
+            },
+        }},
+        subscription_errors={},
+        last_updated=2.0,
+        required_stream_names=(),
+        command_names=(),
+    )
+
+    topic = snapshot['topics'][0]
+    assert topic['publisher_qos'][0]['qos']['depth'] == 4
+    assert topic['subscriber_qos'][0]['qos']['depth'] == 8
+    assert topic['graph_qos_status'] == 'compatible'
+    assert topic['local_qos']['depth'] == 4
+    assert topic['qos_auto_applied'] is True

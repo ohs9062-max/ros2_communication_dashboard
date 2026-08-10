@@ -83,6 +83,8 @@ def assemble_service_snapshot(monitor, *, include_hidden: bool = False) -> dict[
         service['success_count'] = summary.get('success_count', 0) if summary else 0
         service['failure_count'] = summary.get('failure_count', 0) if summary else 0
         client_created = dashboard_states.get(key, {}).get('interface_client_created') is True
+        if client_created:
+            service['local_qos'] = dashboard_states[key].get('local_qos')
         service['dashboard_communication'] = {
             'interface_client_created': client_created,
             'has_call_history': summary is not None,

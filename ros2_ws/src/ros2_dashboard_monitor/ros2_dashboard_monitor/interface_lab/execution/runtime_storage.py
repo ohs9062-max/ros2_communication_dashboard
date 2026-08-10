@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from threading import Lock
 from typing import Any, Callable, Generic, Hashable, TypeVar
 
 
@@ -20,11 +21,13 @@ class RuntimeClientPool(Generic[KeyT, ClientT]):
 
     def __init__(self, lock: Any) -> None:
         self._lock = lock
+        self._creation_lock = Lock()
         self._clients: dict[KeyT, ClientT] = {}
 
     def clear(self) -> None:
-        with _locked(self._lock):
-            self._clients.clear()
+        with self._creation_lock:
+            with _locked(self._lock):
+                self._clients.clear()
 
     def keys(self) -> list[KeyT]:
         with _locked(self._lock):
@@ -35,10 +38,14 @@ class RuntimeClientPool(Generic[KeyT, ClientT]):
         key: KeyT,
         factory: Callable[[], ClientT],
     ) -> ClientT:
-        with _locked(self._lock):
-            client = self._clients.get(key)
-            if client is None:
-                client = factory()
+        with self._creation_lock:
+            with _locked(self._lock):
+                client = self._clients.get(key)
+            if client is not None:
+                return client
+
+            client = factory()
+            with _locked(self._lock):
                 self._clients[key] = client
             return client
 

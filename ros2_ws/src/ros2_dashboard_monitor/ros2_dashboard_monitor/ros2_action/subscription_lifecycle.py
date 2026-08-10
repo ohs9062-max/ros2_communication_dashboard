@@ -8,11 +8,11 @@ from typing import Any, Callable
 from rclpy.qos import (
     QoSProfile,
     qos_profile_action_status_default,
-    qos_profile_services_default,
 )
 
 from ros2_dashboard_monitor.qos import (
     choose_topic_qos,
+    observe_topic_qos,
     qos_state,
     subscription_events,
 )
@@ -52,9 +52,10 @@ def default_action_qos() -> dict[str, Any]:
     """Action 내부 service 3개와 topic 2개의 초기 QoS 상태를 만듭니다."""
     service = qos_state(
         status='unknown',
-        source='default_profile',
-        local=qos_profile_services_default,
+        source='graph_unavailable',
+        local=None,
         reason='Action service endpoint QoS는 Graph에서 확인할 수 없습니다.',
+        qos_visibility='graph_unavailable',
     )
     return {
         'goal': service,
@@ -67,6 +68,41 @@ def default_action_qos() -> dict[str, Any]:
             status='unknown', source='unavailable', local=None,
         ),
     }
+
+
+def observe_action_qos(
+    node: Any,
+    name: str,
+    service_qos_getter: Callable[[str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Action을 3개 Service와 2개 Topic으로 나눠 Graph 관찰 결과를 반환합니다."""
+    qos = default_action_qos()
+    if service_qos_getter is not None:
+        qos['goal'] = service_qos_getter(f'{name}/_action/send_goal')
+        qos['result'] = service_qos_getter(f'{name}/_action/get_result')
+        qos['cancel'] = service_qos_getter(f'{name}/_action/cancel_goal')
+    qos['feedback'] = observe_topic_qos(node, f'{name}/_action/feedback')
+    qos['status'] = observe_topic_qos(node, f'{name}/_action/status')
+    return qos
+
+
+def merge_action_topic_local_qos(
+    observed: dict[str, Any],
+    applied: dict[str, Any],
+) -> dict[str, Any]:
+    """실제로 생성된 Feedback/Status subscription QoS만 관찰 결과에 합칩니다."""
+    for part in ('feedback', 'status'):
+        target = observed.get(part)
+        source = applied.get(part)
+        if not isinstance(target, dict) or not isinstance(source, dict):
+            continue
+        if source.get('local_qos') is not None:
+            target['local_qos'] = source['local_qos']
+            target['qos_auto_applied'] = bool(source.get('qos_auto_applied'))
+            target['qos_fallback_policies'] = source.get(
+                'qos_fallback_policies', [],
+            )
+    return observed
 
 
 def create_status_subscription(

@@ -19,6 +19,10 @@ from ros2_dashboard_monitor.ros2_action.result_runtime import ActionResultRuntim
 from ros2_dashboard_monitor.ros2_action.subscription_facade import (
     ActionSubscriptionFacade,
 )
+from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import (
+    merge_action_topic_local_qos,
+    observe_action_qos,
+)
 from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.resource_state import (
     disconnected_resource,
@@ -34,11 +38,13 @@ class ActionRuntime(ActionSubscriptionFacade):
         config: MonitorConfig,
         lock: Any,
         node_getter: Callable[[], Any],
+        dds_qos_getter: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         """Action Graph 조회와 status·feedback 관찰에 필요한 의존성을 저장합니다."""
         self._config = config
         self._lock = lock
         self._node_getter = node_getter
+        self._dds_qos_getter = dds_qos_getter
         self._actions: list[dict[str, Any]] = []
         self._last_updated = 0.0
         self._subscriptions: dict[str, dict[str, Any]] = {}
@@ -120,7 +126,10 @@ class ActionRuntime(ActionSubscriptionFacade):
                 runtime=runtime,
             )
             mark_graph_present(action, observed_at=updated_at)
-            action['qos'] = capabilities['qos']
+            action['qos'] = merge_action_topic_local_qos(
+                observe_action_qos(node, name, self._dds_qos_getter),
+                capabilities.get('qos') or {},
+            )
             actions.append(action)
 
         current_keys = {

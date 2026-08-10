@@ -10,6 +10,7 @@ from ros2_dashboard_monitor.resource_state import (
 )
 from ros2_dashboard_monitor.ros2_topic.discovery import build_topic_item
 from ros2_dashboard_monitor.ros2_topic.filters import is_topic_type_excluded
+from ros2_dashboard_monitor.qos import observe_topic_qos
 
 
 TOPIC_COUNT_FIELDS = (
@@ -70,6 +71,7 @@ def collect_topic_graph(
             registered_interface_type=is_registered(topic_type),
             deep_monitoring=deep_monitoring,
         )
+        topic.update(observe_topic_qos(node, name))
         if externally_present:
             mark_graph_present(topic, observed_at=updated_at)
         elif name in previous_topics:

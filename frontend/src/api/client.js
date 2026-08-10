@@ -1,12 +1,15 @@
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+
+function apiDisplayUrl() {
+  return API_BASE_URL || window.location.origin
+}
 
 async function fetchWithConnectionError(input, init) {
   try {
     return await globalThis.fetch(input, init)
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error(`백엔드 서버에 연결할 수 없습니다. 서버 실행 상태와 API 주소(${API_BASE_URL})를 확인한 뒤 다시 시도하세요.`)
+      throw new Error(`백엔드 서버에 연결할 수 없습니다. 서버 실행 상태와 API 주소(${apiDisplayUrl()})를 확인한 뒤 다시 시도하세요.`)
     }
     throw error
   }
@@ -30,8 +33,11 @@ export function requestWithJsonBody(path, method, payload) {
 }
 
 export function monitorWebSocketUrl() {
-  const url = new URL(API_BASE_URL, window.location.origin)
-  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  const url = new URL(API_BASE_URL || window.location.origin, window.location.origin)
+  url.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (!API_BASE_URL) {
+    url.host = window.location.host
+  }
   url.pathname = '/ws/monitor'
   url.search = ''
   url.hash = ''

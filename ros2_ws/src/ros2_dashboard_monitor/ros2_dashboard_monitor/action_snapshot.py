@@ -89,6 +89,12 @@ def assemble_action_snapshot(monitor) -> dict[str, Any]:
             action, kind='actions', name=str(action.get('name') or ''),
         )
         client_created = dashboard_states.get(key, {}).get('interface_client_created') is True
+        if client_created:
+            applied_qos = dashboard_states[key].get('qos') or {}
+            for part, state in (action.get('qos') or {}).items():
+                local_state = applied_qos.get(part) or {}
+                if isinstance(state, dict):
+                    state['local_qos'] = local_state.get('local_qos')
         action['dashboard_communication'] = {
             'monitoring_active': (
                 action.get('status_supported') is True

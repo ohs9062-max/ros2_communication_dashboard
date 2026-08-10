@@ -1,5 +1,9 @@
 """Topic Graph collector의 필터·endpoint·연결 종료 회귀 테스트입니다."""
 
+from types import SimpleNamespace
+
+from rclpy.qos import QoSProfile, ReliabilityPolicy
+
 from ros2_dashboard_monitor.ros2_topic.graph_collector import (
     collect_topic_graph,
 )
@@ -15,6 +19,38 @@ class _GraphNode:
 
     def count_subscribers(self, name: str) -> int:
         return self.subscribers.get(name, 0)
+
+    @staticmethod
+    def get_publishers_info_by_topic(_name: str):
+        return [SimpleNamespace(
+            node_name='publisher',
+            node_namespace='/',
+            topic_type='std_msgs/msg/String',
+            qos_profile=QoSProfile(
+                depth=4,
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+            ),
+        )]
+
+    @staticmethod
+    def get_subscriptions_info_by_topic(_name: str):
+        return [SimpleNamespace(
+            node_name='subscriber',
+            node_namespace='/',
+            topic_type='std_msgs/msg/String',
+            qos_profile=QoSProfile(
+                depth=8,
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+            ),
+        )]
+
+    @staticmethod
+    def get_name() -> str:
+        return 'dashboard_monitor'
+
+    @staticmethod
+    def get_namespace() -> str:
+        return '/'
 
 
 def _collect(
@@ -48,6 +84,9 @@ def test_collector_filters_names_and_types_and_counts_external_endpoints() -> No
     assert topics[0]['raw_subscriber_count'] == 3
     assert topics[0]['monitor_subscriber_count'] == 1
     assert topics[0]['external_subscriber_count'] == 2
+    assert topics[0]['publisher_qos'][0]['qos']['depth'] == 4
+    assert topics[0]['subscriber_qos'][0]['qos']['depth'] == 8
+    assert topics[0]['graph_qos_status'] == 'compatible'
     assert topics[0]['graph_present'] is True
     assert externally_present == {'/active'}
 
