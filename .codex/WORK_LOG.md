@@ -446,3 +446,43 @@
   행 클릭 이동, 검색·50건 페이지·삭제 경로는 기존 구현을 그대로 확인했다.
 - 실제 MariaDB에 고유 resolved 테스트 행 55개를 임시 저장해 name 부분 검색, 50/5 페이지, 최신 해결순,
   warning/error/critical과 timestamp 응답을 검증한 뒤 테스트 행만 모두 정리했다.
+
+## 2026-08-11 - Alert DB 저장 시간대 점검
+
+- MariaDB global/session timezone과 `NOW(6)`가 KST(`UTC+9`)임을 확인했다. 다만 Alert Repository가 epoch를
+  UTC naive `DATETIME`으로 변환해 저장하므로 실제 DB 행은 KST 기준보다 9시간 이르게 보인다.
+- 조회 시 같은 값을 UTC로 다시 해석해 API/UI 시각은 정상이나 DB 직접 조회 기준과 불일치한다. 기존 행 변환이
+  필요한 사안이라 코드와 DB 데이터는 이번 점검에서 변경하지 않았다.
+
+## 2026-08-11 - Alert DB KST 저장 전환
+
+- Alert Repository의 epoch/`DATETIME(6)` 변환을 고정 KST(`UTC+09:00`) 기준으로 대칭 처리해 DB 직접 조회와
+  API/UI가 같은 실제 시각을 나타내도록 수정했다. API의 epoch 계약과 8컬럼 스키마는 유지했다.
+- 기존 UTC naive Alert 18행은 advisory lock 아래에서 `detected_at`과 `resolved_at`에 9시간을 더해 일회성
+  변환했다. 최근 행 `16:23:13.964518`의 DB 저장값과 Backend KST 복원값이 일치함을 확인했다.
+- Backend 전체 pytest 15 passed, 2 skipped, compileall과 `git diff --check`가 통과했다.
+
+## 2026-08-11 - nextstep 구현률 코드 대조
+
+- `nextstep.md`의 7개 핵심 기능을 실제 코드·설정·테스트·현재 배포 제한과 대조했다. 동일 가중치의 엄격한
+  원문 기준 완료율은 약 66%로 평가했다.
+- WSS 85%, Workspace 구조 92%, Alert 정책 문서 92%, MariaDB Alert 78%, 실제 기기 QoS 78%, Camera Topic
+  시각화 0%, TurtleBot Interface Lab 제어 35%다. 이후 확정 정책에는 부합해도 원문의 ACK/발생 횟수/다중
+  필터처럼 의도적으로 제외된 범위는 완료로 계산하지 않았다.
+
+## 2026-08-11 - Alert 신규 저장 시각 ZoneInfo KST 적용
+
+- Alert Repository의 공통 `detected_at` INSERT / `resolved_at` UPDATE 변환을 고정 offset이 아닌
+  `ZoneInfo('Asia/Seoul')` 기반으로 변경했다. DB 스키마, Alert lifecycle, Frontend와 기존 과거 행은 변경하지 않았다.
+- 실제 검증 Alert 한 건을 Repository로 발생·해결해 MariaDB `NOW(6) 16:43:53.881930` 기준 detected
+  `16:43:53.621782`, resolved `16:43:53.845707` 저장을 확인한 뒤 검증 행만 삭제했다. 기존 active 1건은 유지했다.
+- 관련 Backend pytest 12 passed, compileall과 `git diff --check`가 통과했다.
+
+## 2026-08-11 - 실행 Backend stale 코드 진단과 KST 실경로 검증
+
+- 실제 Dashboard는 Nginx → Vite 5173 → Backend 8000을 사용했지만, 8000 PID 316960과 별도 8012 PID 313573
+  모두 Repository 수정 전 시작돼 메모리에 UTC 변환 코드를 유지하고 있었다. 두 Backend를 종료하고 현재
+  `/home/hs/rang/ros2_dashboard/backend/app/database/alert_repository.py`를 import하는 PID 361269을 8000에만 시작했다.
+- 고유 MonitorStatus warning/info를 실제 ROS2 → Monitor → Backend → MariaDB 경로로 발생·해제했다. 새 row
+  id 48은 `detected_at 17:10:31.705794`, `resolved_at 17:11:00.439408`로 DB KST와 일치했다. 기존 DB row와
+  schema, Alert lifecycle, Frontend 코드는 변경하지 않았다.

@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime
 from time import time
 from typing import Any, Protocol
+from zoneinfo import ZoneInfo
 
 from .connection import ConnectionFactory
 from .models import AlertPage, StoredAlert
 
 
 ALERT_SYNC_LOCK_NAME = 'ros2_dashboard.alert.sync'
+ALERT_DB_TIMEZONE = ZoneInfo('Asia/Seoul')
 
 
 class AlertRepository(Protocol):
@@ -180,12 +182,12 @@ def _timestamp_value(value: Any, *, fallback: float) -> float:
 
 
 def _to_db_datetime(timestamp: float) -> datetime:
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(tzinfo=None)
+    return datetime.fromtimestamp(timestamp, tz=ALERT_DB_TIMEZONE).replace(tzinfo=None)
 
 
 def _to_timestamp(value: Any) -> float:
     if isinstance(value, datetime):
-        aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        aware = value if value.tzinfo else value.replace(tzinfo=ALERT_DB_TIMEZONE)
         return aware.timestamp()
     if isinstance(value, (int, float)):
         return float(value)

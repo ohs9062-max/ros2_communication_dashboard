@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from app.alerts.service import AlertHistoryService
-from app.database.alert_repository import MariaDbAlertRepository
+from app.database.alert_repository import (
+    ALERT_DB_TIMEZONE,
+    MariaDbAlertRepository,
+    _to_db_datetime,
+    _to_timestamp,
+)
 from app.database.models import AlertPage, StoredAlert
 
 
@@ -320,11 +326,21 @@ def test_mariadb_repository_selects_insert_and_update_without_schema_changes() -
     insert = next((params for sql, params in statements if sql.startswith('INSERT INTO alert')), None)
     assert connection.committed is True
     assert update is not None
-    assert update[0] == datetime.fromtimestamp(150.0, tz=timezone.utc).replace(tzinfo=None)
+    assert update[0] == datetime.fromtimestamp(150.0, tz=ALERT_DB_TIMEZONE).replace(tzinfo=None)
     assert update[1] == existing_key
     assert insert is not None
     assert insert[0] == 'topic:/new:topic_stale'
     assert len(insert) == 7
+
+
+def test_mariadb_repository_stores_and_reads_kst_wall_clock() -> None:
+    stored = datetime(2026, 8, 11, 16, 30, 45, 123456)
+    timestamp = stored.replace(tzinfo=ALERT_DB_TIMEZONE).timestamp()
+
+    assert isinstance(ALERT_DB_TIMEZONE, ZoneInfo)
+    assert ALERT_DB_TIMEZONE.key == 'Asia/Seoul'
+    assert _to_db_datetime(timestamp) == stored
+    assert _to_timestamp(stored) == timestamp
 
 
 def test_mariadb_repository_does_not_insert_existing_active_key() -> None:

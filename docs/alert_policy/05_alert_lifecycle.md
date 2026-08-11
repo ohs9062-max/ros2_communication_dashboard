@@ -68,6 +68,10 @@ CREATE TABLE alert (
 Lifecycle 상태를 저장하는 별도 `status` 컬럼은 두지 않습니다. `resolved_at IS NULL`이면 발생 중,
 `resolved_at IS NOT NULL`이면 해결됨으로 파생합니다. level은 lifecycle 상태로 덮어쓰지 않습니다.
 
+`detected_at`과 `resolved_at`은 MariaDB의 `DATETIME(6)`에 KST(`UTC+09:00`) 벽시계 값으로 저장합니다.
+Backend는 Monitor의 epoch timestamp를 저장할 때 KST로 변환하고, DB 값을 API epoch timestamp로 바꿀 때도
+timezone 없는 `DATETIME`을 KST로 해석합니다. 따라서 DB 직접 조회와 한국 시간 기준 UI가 같은 시각을 나타냅니다.
+
 ## 저장, 해결, 재발
 
 ### 최초 발생

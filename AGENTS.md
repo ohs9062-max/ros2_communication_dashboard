@@ -462,6 +462,8 @@ migration, repository를 사용하며 Router에서 직접 SQL을 실행하지 �
 Monitor 수집을 중단시키면 안 되고, 저장 실패 원인을 Backend 로그에서 확인할 수 있어야 한다.
 현재 구현은 `backend/app/alerts/service.py` 한 곳에서 Monitor Alert snapshot을 받아
 `backend/app/database/alert_repository.py`로 동기화한다. Monitor는 DB에 직접 INSERT하지 않는다.
+Alert의 `detected_at`과 `resolved_at`은 MariaDB `DATETIME(6)`에 KST(`UTC+09:00`) 값으로 저장하며,
+API에서는 기존과 같이 epoch timestamp를 사용한다.
 
 #### 실제 기기 QoS 검증
 
