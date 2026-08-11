@@ -27,6 +27,7 @@ from ros2_dashboard_monitor.interface_lab.execution.action_goal_executor import 
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_tracker import ActionGoalTracker
 from ros2_dashboard_monitor.interface_lab.execution.action_result import build_action_goal_result
 from ros2_dashboard_monitor.interface_lab.execution.action_client_pool import ActionClientPool
+from ros2_dashboard_monitor.interface_lab.execution.qos_profiles import ExecutionQosError
 from ros2_dashboard_monitor.interface_lab.execution.action_history import (
     summarize_action_history,
 )
@@ -52,6 +53,7 @@ class ActionGoalRuntime:
         *,
         lock: Any,
         node_getter: Callable[[], Any],
+        dds_qos_getter: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         self._lock = lock
         self._node_getter = node_getter
@@ -59,6 +61,7 @@ class ActionGoalRuntime:
             lock=lock,
             node_getter=node_getter,
             client_factory=lambda *args, **kwargs: ActionClient(*args, **kwargs),
+            dds_qos_getter=dds_qos_getter,
         )
         self._history = BoundedExecutionHistory(lock, MAX_HISTORY_ITEMS)
         self._goal_tracker = ActionGoalTracker(lock=lock, qos_state=self._action_qos)
@@ -85,6 +88,7 @@ class ActionGoalRuntime:
         action_type: str,
         goal_data: dict[str, Any],
         timeout_sec: float | None = None,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Goal을 보내고 feedback·result를 기다린 뒤 실행 이력을 기록합니다."""
         timeout = _normalized_timeout(timeout_sec)
@@ -99,17 +103,22 @@ class ActionGoalRuntime:
         if node is None:
             raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
 
-        result = execute_action_goal(
-            action_name=action_name,
-            action_type=action_type,
-            goal_data=goal_data,
-            timeout=timeout,
-            client_getter=self._client,
-            result_builder=self._result,
-            record_history=self._record_history_with_qos,
-            goal_handle_store=self._store_goal_handle,
-            goal_handle_remove=self._remove_goal_handle,
-        )
+        try:
+            result = execute_action_goal(
+                action_name=action_name,
+                action_type=action_type,
+                goal_data=goal_data,
+                timeout=timeout,
+                client_getter=lambda name, type_name, action_class: self._client(
+                    name, type_name, action_class, qos_selection,
+                ),
+                result_builder=self._result,
+                record_history=self._record_history_with_qos,
+                goal_handle_store=self._store_goal_handle,
+                goal_handle_remove=self._remove_goal_handle,
+            )
+        except ExecutionQosError as exc:
+            raise ActionGoalError(str(exc)) from exc
         result['qos'] = self._action_qos(action_name)
         return result
 
@@ -229,8 +238,13 @@ class ActionGoalRuntime:
             namespace,
         )
 
-    def _client(self, name: str, action_type: str, action_class: type):
-        return self._client_pool.get_or_create(name, action_type, action_class)
+    def _client(
+        self, name: str, action_type: str, action_class: type,
+        qos_selection: dict[str, Any] | None = None,
+    ):
+        return self._client_pool.get_or_create(
+            name, action_type, action_class, qos_selection,
+        )
 
     def _action_state(
         self,

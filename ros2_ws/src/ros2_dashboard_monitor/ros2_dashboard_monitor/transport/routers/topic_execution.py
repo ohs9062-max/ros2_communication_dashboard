@@ -66,6 +66,7 @@ async def publish_registered_topic(request: Request) -> dict[str, Any]:
             topic_name=topic_name,
             topic_type=topic_type,
             payload=message_data,
+            qos_selection=payload.get('qos'),
         )
     except InterfaceReceiveError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -118,6 +119,7 @@ async def start_continuous_topic_publish(request: Request) -> dict[str, Any]:
             topic_type=topic_type,
             payload=message_data,
             hz=payload.get('hz', 10.0),
+            qos_selection=payload.get('qos'),
         )
     except InterfaceReceiveError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

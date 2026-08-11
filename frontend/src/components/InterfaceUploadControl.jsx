@@ -4,6 +4,7 @@ import { useInterfaceManagementController } from '../features/interface-lab/hook
 import { useInterfaceControlLifecycle } from '../features/interface-lab/hooks/useInterfaceControlLifecycle.js'
 import { useInterfaceExecutionSuite } from '../features/interface-lab/hooks/useInterfaceExecutionSuite.js'
 import { useInterfacePanelCoordinator } from '../features/interface-lab/hooks/useInterfacePanelCoordinator.js'
+import { useLinkedQosModes } from '../features/interface-lab/hooks/useLinkedQosModes.js'
 import {
   actionExecutionViewProps,
   serviceExecutionViewProps,
@@ -51,6 +52,7 @@ export function InterfaceUploadControl({
     actions: callableActions, busy: actionGoalBusy, execute: executeActionGoal,
     goalValues, history: actionGoalHistory, importableOnly: actionImportableOnly,
     load: loadActionExecution, result: actionGoalResult, select: setSelectedActionKey,
+    qosControls: actionQosControls,
     selected: selectedAction, selectedKey: selectedActionKey, setGoalValues,
     setImportableOnly: setActionImportableOnly, setTimeoutSec: setGoalTimeoutSec,
     timeoutSec: goalTimeoutSec, visibleActions: visibleCallableActions,
@@ -60,7 +62,13 @@ export function InterfaceUploadControl({
     importableOnly: serviceImportableOnly, load: loadServiceExecution, requestValues,
     result: serviceCallResult, select: setSelectedServiceKey, selected: selectedService,
     selectedKey: selectedServiceKey, services: callableServices,
+    requestQosMode: serviceRequestQosMode, requestQosProfile: serviceRequestQosProfile,
+    responseQosMode: serviceResponseQosMode, responseQosProfile: serviceResponseQosProfile,
     setImportableOnly: setServiceImportableOnly, setRequestValues, setTimeoutSec,
+    setRequestQosMode: setServiceRequestQosMode,
+    setRequestQosProfile: setServiceRequestQosProfile,
+    setResponseQosMode: setServiceResponseQosMode,
+    setResponseQosProfile: setServiceResponseQosProfile,
     timeoutSec, visibleServices: visibleCallableServices,
   } = service
   const {
@@ -70,8 +78,10 @@ export function InterfaceUploadControl({
     messages: callableMessages, publish: publishSelectedTopicMessage,
     publishGraphTopics, publishHz: topicPublishHz, publishName: topicPublishName,
     publishWarning: topicPublishWarning, resetHistory: resetSelectedTopicPublishHistory,
+    qosMode: topicQosMode, qosProfile: topicQosProfile,
     result: topicPublishResult, select: setSelectedMessageKey, selected: selectedMessage,
     selectedKey: selectedMessageKey, setImportableOnly: setTopicImportableOnly,
+    setQosMode: setTopicQosMode, setQosProfile: setTopicQosProfile,
     setMessageValues: setTopicMessageValues, setPublishHz: setTopicPublishHz,
     startContinuous: startSelectedContinuousTopicPublish,
     stopContinuous: stopSelectedContinuousTopicPublish,
@@ -79,6 +89,7 @@ export function InterfaceUploadControl({
   } = topic
   const {
     actionSearch: receiveActionSearch, activeActionKey: activeReceiveActionKey,
+    actionQosControls: receiveActionQosControls,
     activeServiceKey: activeReceiveServiceKey, changeTopic: setSelectedReceiveTopic,
     filteredActions: filteredReceiveActions, filteredServices: filteredReceiveServices,
     filteredTopics: filteredReceiveTopics, load: loadReceiveState, mode: receiveMode,
@@ -90,6 +101,8 @@ export function InterfaceUploadControl({
     setActionSearch: setReceiveActionSearch, setMode: setReceiveMode,
     setOpen: setShowReceivePanel, setServiceSearch: setReceiveServiceSearch,
     setTopicSearch: setReceiveTopicSearch, startAction: startSelectedActionReceive,
+    qosMode: receiveTopicQosMode, qosProfile: receiveTopicQosProfile,
+    setQosMode: setReceiveTopicQosMode, setQosProfile: setReceiveTopicQosProfile,
     startService: startSelectedServiceReceive, startTopic: startSelectedTopicReceive,
     stopAction: stopSelectedActionReceive, stopService: stopSelectedServiceReceive,
     stopTopic: stopSelectedTopicReceive, topicSearch: receiveTopicSearch,
@@ -97,6 +110,55 @@ export function InterfaceUploadControl({
     visibleServiceHistory: visibleReceiveServiceHistory,
     visibleTopicHistory: visibleReceiveTopicHistory,
   } = receive
+
+  const topicQosLink = useLinkedQosModes({
+    executionMode: topicQosMode,
+    executionProfiles: { topic: topicQosProfile },
+    receiveMode: receiveTopicQosMode,
+    receiveProfiles: { topic: receiveTopicQosProfile },
+    setExecutionMode: setTopicQosMode,
+    setExecutionProfile: (_key, profile) => setTopicQosProfile(profile),
+    setReceiveMode: setReceiveTopicQosMode,
+    setReceiveProfile: (_key, profile) => setReceiveTopicQosProfile(profile),
+  })
+  const serviceQosLink = useLinkedQosModes({
+    executionMode: serviceRequestQosMode,
+    executionProfiles: { service: serviceRequestQosProfile },
+    receiveMode: serviceResponseQosMode,
+    receiveProfiles: { service: serviceResponseQosProfile },
+    setExecutionMode: setServiceRequestQosMode,
+    setExecutionProfile: (_key, profile) => setServiceRequestQosProfile(profile),
+    setReceiveMode: setServiceResponseQosMode,
+    setReceiveProfile: (_key, profile) => setServiceResponseQosProfile(profile),
+  })
+  const actionQosLink = useLinkedQosModes({
+    executionMode: actionQosControls[0].mode,
+    executionProfiles: Object.fromEntries(
+      actionQosControls.map((control) => [control.key, control.profile]),
+    ),
+    receiveMode: receiveActionQosControls[0].mode,
+    receiveProfiles: Object.fromEntries(
+      receiveActionQosControls.map((control) => [control.key, control.profile]),
+    ),
+    setExecutionMode: actionQosControls[0].onModeChange,
+    setExecutionProfile: (key, profile) => {
+      actionQosControls.find((control) => control.key === key)?.onProfileChange(profile)
+    },
+    setReceiveMode: receiveActionQosControls[0].onModeChange,
+    setReceiveProfile: (key, profile) => {
+      receiveActionQosControls.find((control) => control.key === key)?.onProfileChange(profile)
+    },
+  })
+  const linkedActionExecutionQosControls = actionQosControls.map((control) => ({
+    ...control,
+    onModeChange: actionQosLink.changeExecutionMode,
+    onProfileChange: (profile) => actionQosLink.changeExecutionProfile(control.key, profile),
+  }))
+  const linkedActionReceiveQosControls = receiveActionQosControls.map((control) => ({
+    ...control,
+    onModeChange: actionQosLink.changeReceiveMode,
+    onProfileChange: (profile) => actionQosLink.changeReceiveProfile(control.key, profile),
+  }))
 
   const {
     expandedActive: topicExpandedActive,
@@ -202,8 +264,11 @@ export function InterfaceUploadControl({
         actionGoalBusy, actionGoalHistory, actionGoalResult, actionImportableOnly,
         callableActions, executeActionGoal, expanded: topicExpandedActive,
         goalTimeoutSec, goalValues, onToggleExpanded: toggleWorkspaceExpanded,
+        actionQosControls: linkedActionExecutionQosControls,
+        actionQosModeLinked: actionQosLink.linked,
         open: showCallableActions, selectedAction, selectedActionKey,
         setActionImportableOnly, setGoalTimeoutSec, setGoalValues, setSelectedActionKey,
+        setActionQosModeLinked: actionQosLink.linkFromExecution,
         showExpand: showReceivePanel && receiveMode === 'action', visibleCallableActions,
       })}
       expanded={topicExpandedActive}
@@ -219,6 +284,20 @@ export function InterfaceUploadControl({
         selectedReceiveActionKey, selectedReceiveServiceKey, selectedReceiveTopic,
         selectedTopicReceiving, setReceiveActionSearch, setReceiveServiceSearch,
         setReceiveTopicSearch, setSelectedActionKey, setSelectedMessageKey,
+        setTopicQosMode: topicQosLink.changeReceiveMode,
+        setTopicQosProfile: (profile) => topicQosLink.changeReceiveProfile('topic', profile),
+        topicQosMode: receiveTopicQosMode,
+        topicQosModeLinked: topicQosLink.linked,
+        topicQosProfile: receiveTopicQosProfile,
+        actionQosControls: linkedActionReceiveQosControls,
+        actionQosModeLinked: actionQosLink.linked,
+        serviceQosModeLinked: serviceQosLink.linked,
+        setActionQosModeLinked: actionQosLink.linkFromReceive,
+        setServiceQosModeLinked: serviceQosLink.linkFromReceive,
+        setTopicQosModeLinked: topicQosLink.linkFromReceive,
+        serviceResponseQosMode, serviceResponseQosProfile,
+        setServiceResponseQosMode: serviceQosLink.changeReceiveMode,
+        setServiceResponseQosProfile: (profile) => serviceQosLink.changeReceiveProfile('service', profile),
         setSelectedReceiveTopic, setSelectedServiceKey, startSelectedActionReceive,
         startSelectedServiceReceive, startSelectedTopicReceive, stopSelectedActionReceive,
         stopSelectedServiceReceive, stopSelectedTopicReceive, topicImportableOnly,
@@ -229,8 +308,13 @@ export function InterfaceUploadControl({
         callableServices, executeServiceCall, expanded: topicExpandedActive,
         onToggleExpanded: toggleWorkspaceExpanded, open: showCallableServices,
         requestValues, selectedService, selectedServiceKey, serviceCallBusy,
+        serviceRequestQosMode, serviceRequestQosProfile,
+        serviceQosModeLinked: serviceQosLink.linked,
         serviceCallHistory, serviceCallResult, serviceImportableOnly,
         setRequestValues, setSelectedServiceKey, setServiceImportableOnly,
+        setServiceQosModeLinked: serviceQosLink.linkFromExecution,
+        setServiceRequestQosMode: serviceQosLink.changeExecutionMode,
+        setServiceRequestQosProfile: (profile) => serviceQosLink.changeExecutionProfile('service', profile),
         setTimeoutSec, showExpand: showReceivePanel && receiveMode === 'service',
         timeoutSec, visibleCallableServices,
       })}
@@ -244,6 +328,11 @@ export function InterfaceUploadControl({
         startSelectedContinuousTopicPublish, stopSelectedContinuousTopicPublish,
         topicImportableOnly, topicMessageValues, topicPublishBusy, topicPublishHz,
         topicPublishName, topicPublishResult, topicPublishWarning,
+        topicQosMode, topicQosProfile,
+        topicQosModeLinked: topicQosLink.linked,
+        setTopicQosMode: topicQosLink.changeExecutionMode,
+        setTopicQosModeLinked: topicQosLink.linkFromExecution,
+        setTopicQosProfile: (profile) => topicQosLink.changeExecutionProfile('topic', profile),
         visibleCallableMessages, visiblePublishHistory,
       })}
     />

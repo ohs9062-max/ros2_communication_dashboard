@@ -10,6 +10,7 @@ import {
   defaultRequestValues,
   normalizeNumericValues,
 } from '../model/interfaceUploadModel.js'
+import { useActionExecutionQos } from './useExecutionQos.js'
 
 export function useActionExecutionController({
   onSelectionChange,
@@ -23,6 +24,7 @@ export function useActionExecutionController({
   const [result, setResult] = useState(null)
   const [history, setHistory] = useState([])
   const [importableOnly, setImportableOnly] = useState(false)
+  const qos = useActionExecutionQos()
 
   const visibleActions = useMemo(
     () => importableOnly
@@ -81,6 +83,7 @@ export function useActionExecutionController({
         full_type: selected.full_type ?? selected.selected_import_type ?? selected.action_type,
         goal: normalizeNumericValues(goalValues, selected.goal_schema),
         timeout_sec: timeoutSec,
+        qos: qos.qosSelection,
       })
       setResult(payload)
       const historyPayload = await fetchActionGoalHistory()
@@ -91,10 +94,11 @@ export function useActionExecutionController({
     } finally {
       setBusy(false)
     }
-  }, [goalValues, onStateChanged, selected, timeoutSec])
+  }, [goalValues, onStateChanged, qos.qosSelection, selected, timeoutSec])
 
   return {
     actions,
+    ...qos,
     busy,
     execute,
     goalValues,

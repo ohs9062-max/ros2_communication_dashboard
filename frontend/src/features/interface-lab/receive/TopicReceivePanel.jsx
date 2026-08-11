@@ -4,15 +4,20 @@ import {
   topicGraphStatusLabel,
   topicStatusLabel,
 } from '../model/interfaceUploadModel.js'
+import { QosModeControl } from '../execution/QosModeControl.jsx'
 
 export function TopicReceivePanel({
   allMessages,
   allTopics,
   filteredTopics,
   importableOnly,
+  modeLinked,
   onImportableOnlyChange,
   onMessageSelect,
+  onModeLinkChange,
   onRefresh,
+  onQosModeChange,
+  onQosProfileChange,
   onResetAll,
   onResetSelected,
   onSearchChange,
@@ -22,6 +27,8 @@ export function TopicReceivePanel({
   receiveHistory,
   receiving,
   receivingTopics,
+  qosMode,
+  qosProfile,
   search,
   selectedMessage,
   selectedMessageKey,
@@ -73,6 +80,13 @@ export function TopicReceivePanel({
           {selectedMessage.import_error ? ` · ${selectedMessage.import_error}` : ''}
         </div>
       )}
+      <QosModeControl
+        groups={[{ key: 'topic', label: 'Topic QoS', profile: qosProfile, onChange: onQosProfileChange }]}
+        mode={qosMode}
+        modeLinked={modeLinked}
+        onModeChange={onQosModeChange}
+        onModeLinkChange={onModeLinkChange}
+      />
       <p className="interface-package-help">
         Topic 수신은 선택한 Message full_type과 Subscribe Topic name 조합으로 시작합니다.
         Publish payload 입력과 Publish 버튼은 왼쪽 Topic 실행 창에서 처리합니다.

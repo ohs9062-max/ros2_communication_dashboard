@@ -3,6 +3,7 @@ import { WorkspaceDetailPanel } from './WorkspaceDetailPanel.jsx'
 
 export function InlineWorkspace({
   activeContinuousPublish,
+  actionQosControls,
   cancelingGoal,
   executing,
   goalTimeoutSec,
@@ -17,16 +18,28 @@ export function InlineWorkspace({
   onRelatedSelect,
   onRequestChange,
   onServiceExecute,
+  onServiceRequestQosModeChange,
+  onServiceRequestQosProfileChange,
+  onServiceResponseQosModeChange,
+  onServiceResponseQosProfileChange,
   onTopicPublish,
   onTopicContinuousStart,
   onTopicContinuousStop,
   onTopicReset,
   onTopicSubscribeStart,
   onTopicSubscribeStop,
+  onTopicPublishQosModeChange,
+  onTopicPublishQosProfileChange,
+  onTopicSubscribeQosModeChange,
+  onTopicSubscribeQosProfileChange,
   relatedItems,
   messageValues,
   requestValues,
   selectedHistoryItem,
+  serviceRequestQosMode,
+  serviceRequestQosProfile,
+  serviceResponseQosMode,
+  serviceResponseQosProfile,
   selectPublishGraphTopic,
   setGoalTimeoutSec,
   setTopicPublishName,
@@ -37,6 +50,10 @@ export function InlineWorkspace({
   topicPublishHz,
   publishGraphTopics,
   topicPublishWarning,
+  topicPublishQosMode,
+  topicPublishQosProfile,
+  topicSubscribeQosMode,
+  topicSubscribeQosProfile,
   topicSubscribeName,
   timeoutSec,
 }) {
@@ -49,6 +66,7 @@ export function InlineWorkspace({
       {showDetail && (
         <WorkspaceDetailPanel
           cancelingGoal={cancelingGoal}
+          actionQosControls={actionQosControls}
           activeContinuousPublish={activeContinuousPublish}
           executing={executing}
           goalTimeoutSec={goalTimeoutSec}
@@ -62,15 +80,27 @@ export function InlineWorkspace({
           onMessageChange={onMessageChange}
           onRequestChange={onRequestChange}
           onServiceExecute={onServiceExecute}
+          onServiceRequestQosModeChange={onServiceRequestQosModeChange}
+          onServiceRequestQosProfileChange={onServiceRequestQosProfileChange}
+          onServiceResponseQosModeChange={onServiceResponseQosModeChange}
+          onServiceResponseQosProfileChange={onServiceResponseQosProfileChange}
           onTopicPublish={onTopicPublish}
           onTopicContinuousStart={onTopicContinuousStart}
           onTopicContinuousStop={onTopicContinuousStop}
           onTopicReset={onTopicReset}
           onTopicSubscribeStart={onTopicSubscribeStart}
           onTopicSubscribeStop={onTopicSubscribeStop}
+          onTopicPublishQosModeChange={onTopicPublishQosModeChange}
+          onTopicPublishQosProfileChange={onTopicPublishQosProfileChange}
+          onTopicSubscribeQosModeChange={onTopicSubscribeQosModeChange}
+          onTopicSubscribeQosProfileChange={onTopicSubscribeQosProfileChange}
           messageValues={messageValues}
           requestValues={requestValues}
           selectedHistoryItem={selectedHistoryItem}
+          serviceRequestQosMode={serviceRequestQosMode}
+          serviceRequestQosProfile={serviceRequestQosProfile}
+          serviceResponseQosMode={serviceResponseQosMode}
+          serviceResponseQosProfile={serviceResponseQosProfile}
           selectPublishGraphTopic={selectPublishGraphTopic}
           setGoalTimeoutSec={setGoalTimeoutSec}
           setTopicPublishName={setTopicPublishName}
@@ -81,6 +111,10 @@ export function InlineWorkspace({
           topicPublishHz={topicPublishHz}
           publishGraphTopics={publishGraphTopics}
           topicPublishWarning={topicPublishWarning}
+          topicPublishQosMode={topicPublishQosMode}
+          topicPublishQosProfile={topicPublishQosProfile}
+          topicSubscribeQosMode={topicSubscribeQosMode}
+          topicSubscribeQosProfile={topicSubscribeQosProfile}
           topicSubscribeName={topicSubscribeName}
           timeoutSec={timeoutSec}
         />

@@ -15,6 +15,7 @@ import {
   topicNameTypeWarning,
 } from '../../../utils/interfaceTopics.js'
 import { defaultValues, normalizeNumericValues } from '../model/schemaValues.js'
+import { useExecutionQos } from './useExecutionQos.js'
 
 export function useInlineTopicController({
   continuousTopicPublishes,
@@ -30,6 +31,8 @@ export function useInlineTopicController({
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState(null)
   const publishNameSourceRef = useRef('empty')
+  const publishQos = useExecutionQos()
+  const subscribeQos = useExecutionQos()
 
   const publishGraphTopics = useMemo(
     () => graphPublishTopicCandidates(topics, selectedDetail?.fullType),
@@ -122,6 +125,7 @@ export function useInlineTopicController({
         topic_type: selectedDetail.fullType,
         full_type: selectedDetail.fullType,
         message: normalizeNumericValues(messageValues, selectedDetail.schema),
+        qos: publishQos.qosSelection,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -146,6 +150,7 @@ export function useInlineTopicController({
         full_type: selectedDetail.fullType,
         message: normalizeNumericValues(messageValues, selectedDetail.schema),
         hz: Number(publishHz),
+        qos: publishQos.qosSelection,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -184,6 +189,7 @@ export function useInlineTopicController({
         topic_type: selectedDetail.fullType,
         full_type: selectedDetail.fullType,
         history_limit: 500,
+        qos: subscribeQos.qosSelection,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -234,6 +240,14 @@ export function useInlineTopicController({
 
   return {
     activeContinuousPublish,
+    publishQosMode: publishQos.qosMode,
+    publishQosProfile: publishQos.qosProfile,
+    setPublishQosMode: publishQos.setQosMode,
+    setPublishQosProfile: publishQos.setQosProfile,
+    setSubscribeQosMode: subscribeQos.setQosMode,
+    setSubscribeQosProfile: subscribeQos.setQosProfile,
+    subscribeQosMode: subscribeQos.qosMode,
+    subscribeQosProfile: subscribeQos.qosProfile,
     executing,
     messageValues,
     publish,

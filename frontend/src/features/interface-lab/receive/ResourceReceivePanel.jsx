@@ -1,4 +1,6 @@
 import { ReceiveHistory } from '../InterfaceExecutionShared.jsx'
+import { ActionQosControl } from '../execution/ActionQosControl.jsx'
+import { QosModeControl } from '../execution/QosModeControl.jsx'
 import { actionKey, serviceKey } from '../model/interfaceUploadModel.js'
 
 const CONFIG = {
@@ -25,7 +27,10 @@ export function ResourceReceivePanel({
   history,
   items,
   kind,
+  modeLinked,
+  qosControls = [],
   onRefresh,
+  onModeLinkChange,
   onResetAll,
   onResetSelected,
   onSearchChange,
@@ -55,6 +60,19 @@ export function ResourceReceivePanel({
         </select>
         {!visibleItems.length && <small>검색 결과가 없습니다.</small>}
       </label>
+      {kind === 'action' && (
+        <ActionQosControl controls={qosControls} modeLinked={modeLinked} onModeLinkChange={onModeLinkChange} />
+      )}
+      {kind !== 'action' && qosControls.map((control) => (
+        <QosModeControl
+          groups={[{ key: control.key, label: control.label, onChange: control.onProfileChange, profile: control.profile }]}
+          key={control.key}
+          mode={control.mode}
+          modeLinked={modeLinked}
+          onModeChange={control.onModeChange}
+          onModeLinkChange={onModeLinkChange}
+        />
+      ))}
       <ReceiveActions
         onRefresh={onRefresh}
         onResetAll={onResetAll}

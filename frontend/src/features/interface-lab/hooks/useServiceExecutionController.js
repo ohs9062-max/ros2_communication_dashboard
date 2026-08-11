@@ -10,6 +10,7 @@ import {
   normalizeNumericValues,
   serviceKey,
 } from '../model/interfaceUploadModel.js'
+import { useServiceExecutionQos } from './useExecutionQos.js'
 
 export function useServiceExecutionController({
   onSelectionChange,
@@ -23,6 +24,7 @@ export function useServiceExecutionController({
   const [result, setResult] = useState(null)
   const [history, setHistory] = useState([])
   const [importableOnly, setImportableOnly] = useState(false)
+  const qos = useServiceExecutionQos()
 
   const visibleServices = useMemo(
     () => importableOnly
@@ -80,6 +82,7 @@ export function useServiceExecutionController({
         service_type: selected.service_type,
         request: normalizeNumericValues(requestValues, selected.request_schema),
         timeout_sec: timeoutSec,
+        qos: qos.qosSelection,
       })
       setResult(payload)
       const historyPayload = await fetchServiceCallHistory()
@@ -90,10 +93,11 @@ export function useServiceExecutionController({
     } finally {
       setBusy(false)
     }
-  }, [onStateChanged, requestValues, selected, timeoutSec])
+  }, [onStateChanged, qos.qosSelection, requestValues, selected, timeoutSec])
 
   return {
     busy,
+    ...qos,
     execute,
     history,
     importableOnly,

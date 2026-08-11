@@ -6,7 +6,10 @@ from typing import Any, Callable
 
 from ros2_dashboard_monitor.interface_lab.execution.topic_support import (
     InterfaceReceiveError,
-    topic_qos,
+)
+from ros2_dashboard_monitor.interface_lab.execution.qos_profiles import (
+    profile_fingerprint,
+    resolve_topic_execution_qos,
 )
 from ros2_dashboard_monitor.qos import publisher_events
 
@@ -29,23 +32,33 @@ class TopicPublisherPool:
         topic_name: str,
         topic_type: str,
         message_class: type,
+        qos_selection: dict[str, Any] | None = None,
     ) -> tuple[Any, bool]:
         key = (topic_name, topic_type)
+        node = self._node_getter()
+        if node is None:
+            raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
+        qos_profile, qos = resolve_topic_execution_qos(
+            node, topic_name, local_role='publisher', selection=qos_selection,
+        )
+        fingerprint = profile_fingerprint(qos_profile)
         with self._lock:
             entry = self._publishers.get(key)
-            if entry is not None:
+            if entry is not None and entry.get('fingerprint') == fingerprint:
                 return entry['publisher'], False
-            node = self._node_getter()
-            if node is None:
-                raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
-            qos_profile, qos = topic_qos(node, topic_name, local_role='publisher')
+            if entry is not None:
+                node.destroy_publisher(entry['publisher'])
             publisher = node.create_publisher(
                 message_class,
                 topic_name,
                 qos_profile,
                 event_callbacks=publisher_events(qos, 'topic_qos_incompatible'),
             )
-            self._publishers[key] = {'publisher': publisher, 'qos': qos}
+            self._publishers[key] = {
+                'publisher': publisher,
+                'qos': qos,
+                'fingerprint': fingerprint,
+            }
             return publisher, True
 
     def qos_state(self, *, topic_name: str, topic_type: str) -> dict[str, Any]:
@@ -56,7 +69,9 @@ class TopicPublisherPool:
         node = self._node_getter()
         if node is None:
             return {}
-        return topic_qos(node, topic_name, local_role='publisher')[1]
+        return resolve_topic_execution_qos(
+            node, topic_name, local_role='publisher', selection=None,
+        )[1]
 
     def clear(self) -> None:
         with self._lock:

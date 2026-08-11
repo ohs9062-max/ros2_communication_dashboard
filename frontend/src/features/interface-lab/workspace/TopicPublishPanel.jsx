@@ -1,6 +1,7 @@
 import { schemaFields } from '../model/schemaValues.js'
 import { firstType } from '../model/workspacePresentation.js'
 import { RequestField, SectionTitle } from './WorkspaceShared.jsx'
+import { QosModeControl } from '../execution/QosModeControl.jsx'
 
 export function TopicPublishPanel({
   activeContinuousPublish,
@@ -11,6 +12,8 @@ export function TopicPublishPanel({
   onContinuousStop,
   onMessageChange,
   onPublish,
+  onPublishQosModeChange,
+  onPublishQosProfileChange,
   publishGraphTopics,
   selectPublishGraphTopic,
   setTopicPublishHz,
@@ -18,6 +21,8 @@ export function TopicPublishPanel({
   topicPublishHz,
   topicPublishName,
   topicPublishWarning,
+  publishQosMode,
+  publishQosProfile,
 }) {
   return (
     <>
@@ -49,6 +54,11 @@ export function TopicPublishPanel({
         />
       </label>
       {topicPublishWarning && <div className="interface-service-state warning">{topicPublishWarning}</div>}
+      <QosModeControl
+        groups={[{ key: 'topic', label: 'Topic Publish QoS', profile: publishQosProfile, onChange: onPublishQosProfileChange }]}
+        mode={publishQosMode}
+        onModeChange={onPublishQosModeChange}
+      />
       <p className="muted">
         full_type {item.fullType} · QoS {item.qos?.mode === 'adaptive' ? '상대 endpoint 자동 적용' : '실행 결과에서 확인'}
       </p>

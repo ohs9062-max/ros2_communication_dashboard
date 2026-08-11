@@ -9,6 +9,7 @@ import {
   topicStatusLabel,
 } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
+import { QosModeControl } from './QosModeControl.jsx'
 
 export function TopicExecutionPanel({
   activeContinuousPublish,
@@ -18,12 +19,16 @@ export function TopicExecutionPanel({
   importableOnly,
   messageValues,
   messages,
+  modeLinked,
   onContinuousStart,
   onContinuousStop,
   onFieldChange,
   onHzChange,
   onImportableOnlyChange,
+  onModeLinkChange,
   onPublish,
+  onQosModeChange,
+  onQosProfileChange,
   onResetHistory,
   onSelect,
   onTopicNameChange,
@@ -32,6 +37,8 @@ export function TopicExecutionPanel({
   publishName,
   publishResult,
   publishWarning,
+  qosMode,
+  qosProfile,
   publishHz,
   selected,
   selectedKey,
@@ -78,6 +85,13 @@ export function TopicExecutionPanel({
           </label>
           {selected && <div className="interface-package-help">선택 Message {selected.message_type}의 schema {selected.message_schema?.length ?? 0}개 필드로 payload 폼을 생성합니다. 사용자가 명시적으로 실행할 때만 전송합니다.</div>}
           {publishWarning && <div className="interface-service-state warning">{publishWarning}</div>}
+          <QosModeControl
+            groups={[{ key: 'topic', label: 'Topic QoS', profile: qosProfile, onChange: onQosProfileChange }]}
+            mode={qosMode}
+            modeLinked={modeLinked}
+            onModeChange={onQosModeChange}
+            onModeLinkChange={onModeLinkChange}
+          />
           {selected?.message_schema?.map((field) => (
             <RequestField disabled={!selected?.import_available} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={messageValues[field.name]} />
           ))}

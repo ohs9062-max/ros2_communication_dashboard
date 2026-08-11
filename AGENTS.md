@@ -486,6 +486,14 @@ Graph와 Publisher 존재
 가능성을 단순 미수신과 구분해 상세 화면에 실제 Publisher QoS와 감시 QoS를 표시하는 방향을
 사용한다. 특정 실제 장비 QoS를 보편 기본값으로 하드코딩하지 않는다.
 
+Interface Lab Auto QoS는 발견 가능한 정책보다 기본값을 우선하지 않는다. Topic과 Action Topic 채널은
+Graph endpoint profile을 역할별로 비교한다. Service와 Action Goal/Result/Cancel은 Fast DDS의 원격 Request
+Reader와 Response Writer를 Dashboard Client 관점에서 동시에 만족하는 Reliability, Durability, Deadline,
+Liveliness, Lease Duration을 선택하고 관찰된 Response Writer Lifespan도 profile에 전달한다. 한 방향만
+발견되어도 확인된 정책은 유지한다. Discovery에서 알 수 없는 History/Depth만 local Service 기본값을 사용하며,
+endpoint 전체 미발견 또는 단일 Client profile로 호환 불가능할 때만 Service 기본 profile 전체 fallback과
+그 사유를 표시한다. Remote QoS와 Dashboard 실행 QoS를 같은 값으로 합쳐 표시하지 않는다.
+
 #### Camera Topic 이미지 시각화
 
 첫 구현 대상은 사용자 확정에 따라 카메라 이미지다.

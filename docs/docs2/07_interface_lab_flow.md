@@ -140,3 +140,22 @@ Action Goal
 ```
 
 Interface Lab 화면을 열거나 Registry에 등록했다는 이유만으로 Service를 자동 호출하거나 Action Goal을 자동 전송하지 않는다.
+
+## 실행 QoS 선택
+
+Topic, Service, Action의 실행과 수신에는 독립된 `Auto / Manual` QoS 설정이 있다. `실행/수신 연동`을
+선택하면 Mode뿐 아니라 Manual의 기본·고급 profile 전체가 함께 변경된다.
+
+- Topic Auto는 상대 Graph endpoint의 전체 QoS profile을 비교해 로컬 Publisher 또는 Subscription과 가장
+  호환되는 값을 고른다.
+- Service Auto는 Fast DDS에서 발견한 Request Reader와 Response Writer를 Client 관점에서 함께 만족하도록
+  Reliability, Durability, Deadline, Liveliness, Lease Duration을 계산하고 Response Writer Lifespan을 반영한다.
+- Service History와 Depth는 Discovery에서 알 수 없으므로 local Service 기본값을 사용한다.
+- Action은 Goal/Result/Cancel Service와 Feedback/Status Topic의 5개 profile을 각각 선택해 `ActionClient`에
+  전달한다.
+- Manual은 Reliability, Durability, History, Depth와 접힌 고급 설정의 Deadline, Lifespan, Liveliness,
+  Lease Duration을 실제 `rclpy.QoSProfile`에 반영한다.
+- 실제 적용값이 바뀌면 QoS fingerprint도 바뀌므로 이전 QoS로 만든 entity를 재사용하지 않는다.
+
+Remote QoS, Dashboard 실행 QoS, Auto fallback은 실행 결과에서 서로 구분한다. 세부 정책은
+[`DDS / QoS 정책`](../qos/dds_qos.md)을 따른다.

@@ -614,8 +614,8 @@ python3 -m py_compile backend/demo_nodes/*.py
 ros2 topic info /topic_name --verbose
 ```
 
-Interface Lab Receive는 현재 `RELIABLE + VOLATILE + depth 10`이다. 기기 Publisher가
-`BEST_EFFORT`이면 QoS 비호환으로 수신하지 못할 수 있다.
+Interface Lab Receive의 Auto는 Graph Publisher QoS와 호환되는 profile을 선택한다. Manual에서
+`RELIABLE`을 선택한 상태로 기기 Publisher가 `BEST_EFFORT`이면 QoS 비호환으로 수신하지 못할 수 있다.
 
 ### Service 또는 Action이 Timeout
 

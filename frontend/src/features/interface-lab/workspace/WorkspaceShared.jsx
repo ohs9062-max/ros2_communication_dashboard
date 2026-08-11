@@ -8,6 +8,7 @@ import {
   historyKey,
   historyLabel,
 } from '../model/executionHistory.js'
+import { ExecutionQosSummary } from '../InterfaceExecutionShared.jsx'
 
 export function SectionTitle({ title }) {
   return <h4 className="interface-detail-section-title">{title}</h4>
@@ -27,7 +28,12 @@ export function ConnectionList({ empty, items = [], render }) {
 export function LastResultBlock({ fallback, result, title }) {
   const value = result ?? fallback
   if (!value) return <CollapsibleJson title={title} value={{ status: '아직 결과 없음' }} />
-  return <CollapsibleJson title={title} value={value} />
+  return (
+    <>
+      {value.qos && <ExecutionQosSummary qos={value.qos} />}
+      <CollapsibleJson title={title} value={value} />
+    </>
+  )
 }
 
 export function HistoryList({ empty, items = [], onSelect, selected, type }) {

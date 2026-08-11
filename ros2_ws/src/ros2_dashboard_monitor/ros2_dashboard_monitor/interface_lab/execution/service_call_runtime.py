@@ -30,6 +30,10 @@ from ros2_dashboard_monitor.interface_lab.execution.service_discovery import (
     registered_services_from_registry,
 )
 from ros2_dashboard_monitor.interface_lab.execution.service_call_executor import execute_service_call
+from ros2_dashboard_monitor.interface_lab.execution.qos_profiles import (
+    ExecutionQosError,
+    resolve_split_service_execution_qos,
+)
 from ros2_dashboard_monitor.ros2_service.active_check import (
     load_service_class,
 )
@@ -50,9 +54,11 @@ class ServiceCallRuntime:
         *,
         lock: Any,
         node_getter: Callable[[], Any],
+        dds_qos_getter: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         self._lock = lock
         self._node_getter = node_getter
+        self._dds_qos_getter = dds_qos_getter
         self._client_pool = ServiceClientPool(
             lock=lock,
             node_getter=node_getter,
@@ -81,6 +87,7 @@ class ServiceCallRuntime:
         service_type: str,
         request_data: dict[str, Any],
         timeout_sec: float | None = None,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """요청값을 ROS request로 변환해 Service를 호출하고 결과를 기록합니다."""
         timeout = _normalized_timeout(timeout_sec)
@@ -94,6 +101,14 @@ class ServiceCallRuntime:
         node = self._node_getter()
         if node is None:
             raise ServiceCallError('ROS2 monitor node가 실행 중이 아닙니다.')
+        try:
+            qos_profile, execution_qos = resolve_split_service_execution_qos(
+                service_name,
+                selection=qos_selection,
+                remote_qos_getter=self._dds_qos_getter,
+            )
+        except ExecutionQosError as exc:
+            raise ServiceCallError(str(exc)) from exc
 
         result = execute_service_call(
             service_name=service_name,
@@ -101,14 +116,16 @@ class ServiceCallRuntime:
             request_data=request_data,
             timeout=timeout,
             service_class_loader=load_service_class,
-            client_getter=self._client,
+            client_getter=lambda name, type_name, service_class: self._client(
+                name, type_name, service_class, qos_profile, execution_qos,
+            ),
             validation_result_builder=self._validation_result,
-            record_history=self._record_history_with_qos,
+            record_history=lambda item: self._record_history_with_qos(item, execution_qos),
             error_class=ServiceCallError,
             message_builder=build_ros_message,
             response_serializer=ros_message_to_json,
         )
-        result.update(self._service_qos())
+        result['qos'] = execution_qos
         return result
 
     def history(self) -> dict[str, Any]:
@@ -164,8 +181,17 @@ class ServiceCallRuntime:
     def _service_graph(self) -> list[dict[str, Any]]:
         return discover_service_graph(self._node_getter, self._client_count)
 
-    def _client(self, name: str, service_type: str, service_class: type):
-        return self._client_pool.get_or_create(name, service_type, service_class)
+    def _client(
+        self, name: str, service_type: str, service_class: type,
+        qos_profile: Any = None, execution_qos: dict[str, Any] | None = None,
+    ):
+        if qos_profile is None or execution_qos is None:
+            qos_profile, execution_qos = resolve_split_service_execution_qos(
+                name, selection=None, remote_qos_getter=self._dds_qos_getter,
+            )
+        return self._client_pool.get_or_create(
+            name, service_type, service_class, qos_profile, execution_qos,
+        )
 
     def _client_count(self, name: str) -> int:
         return count_service_clients(self._node_getter, name)
@@ -181,8 +207,10 @@ class ServiceCallRuntime:
     def _service_qos() -> dict[str, Any]:
         return service_qos_state()
 
-    def _record_history_with_qos(self, item: dict[str, Any]) -> None:
-        item.update(self._service_qos())
+    def _record_history_with_qos(
+        self, item: dict[str, Any], execution_qos: dict[str, Any] | None = None,
+    ) -> None:
+        item['qos'] = execution_qos or self._service_qos()
         self._record_history(item)
 
     def _record_history(self, item: dict[str, Any]) -> None:

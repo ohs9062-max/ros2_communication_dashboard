@@ -15,6 +15,7 @@ import {
 } from '../../../api/interfaceExecution.js'
 import { fetchTopics } from '../../../api/monitoring.js'
 import { actionKey, serviceKey } from '../model/interfaceUploadModel.js'
+import { useActionExecutionQos } from './useExecutionQos.js'
 import { useResourceReceiveObserver } from './useResourceReceiveObserver.js'
 import { useTopicReceiveController } from './useTopicReceiveController.js'
 
@@ -40,6 +41,7 @@ export function useInterfaceReceiveController({
   const [topicHistory, setTopicHistory] = useState([])
   const [serviceHistory, setServiceHistory] = useState([])
   const [actionHistory, setActionHistory] = useState([])
+  const actionQos = useActionExecutionQos()
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setBusy(true)
@@ -190,6 +192,7 @@ export function useInterfaceReceiveController({
 
   return {
     actionSearch,
+    actionQosControls: actionQos.qosControls,
     activeActionKey,
     activeServiceKey,
     filteredActions,

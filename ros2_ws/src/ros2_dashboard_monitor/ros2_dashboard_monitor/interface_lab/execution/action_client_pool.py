@@ -8,7 +8,13 @@ from rclpy.qos import QoSProfile, qos_profile_action_status_default, qos_profile
 
 from ros2_dashboard_monitor.interface_lab.execution.action_support import ActionGoalError
 from ros2_dashboard_monitor.interface_lab.execution.runtime_storage import RuntimeClientPool
-from ros2_dashboard_monitor.qos import choose_topic_qos, qos_state
+from ros2_dashboard_monitor.qos import qos_state
+from ros2_dashboard_monitor.interface_lab.execution.qos_profiles import (
+    action_profile_fingerprint,
+    action_channel_selection,
+    resolve_service_execution_qos,
+    resolve_topic_execution_qos,
+)
 
 
 class ActionClientPool:
@@ -20,28 +26,36 @@ class ActionClientPool:
         lock: Any,
         node_getter: Callable[[], Any],
         client_factory: Callable[..., Any],
+        dds_qos_getter: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         self._lock = lock
         self._node_getter = node_getter
         self._client_factory = client_factory
-        self._clients: RuntimeClientPool[tuple[str, str], Any] = RuntimeClientPool(lock)
-        self._qos_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+        self._dds_qos_getter = dds_qos_getter
+        self._clients: RuntimeClientPool[tuple[str, str, tuple[Any, ...]], Any] = RuntimeClientPool(lock)
+        self._qos_by_key: dict[tuple[str, str, tuple[Any, ...]], dict[str, Any]] = {}
+        self._last_key_by_resource: dict[tuple[str, str], tuple[str, str, tuple[Any, ...]]] = {}
 
     def clear(self) -> None:
         with self._lock:
             self._qos_by_key = {}
+            self._last_key_by_resource = {}
         self._clients.clear()
 
-    def get_or_create(self, name: str, action_type: str, action_class: type) -> Any:
-        key = (name, action_type)
+    def get_or_create(
+        self, name: str, action_type: str, action_class: type,
+        qos_selection: dict[str, Any] | None = None,
+    ) -> Any:
+        node = self._node_getter()
+        if node is None:
+            raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
+        profiles = self.qos_profiles(node, name, qos_selection)
+        key = (name, action_type, action_profile_fingerprint(profiles))
 
         def create_client() -> Any:
-            node = self._node_getter()
-            if node is None:
-                raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
-            profiles = self.qos_profiles(node, name)
             with self._lock:
                 self._qos_by_key[key] = profiles['state']
+                self._last_key_by_resource[(name, action_type)] = key
             return self._client_factory(
                 node,
                 action_class,
@@ -53,43 +67,56 @@ class ActionClientPool:
                 status_sub_qos_profile=profiles['status'],
             )
 
-        return self._clients.get_or_create(key, create_client)
+        client = self._clients.get_or_create(key, create_client)
+        with self._lock:
+            self._qos_by_key[key] = profiles['state']
+            self._last_key_by_resource[(name, action_type)] = key
+        return client
 
     def dashboard_state(self) -> dict[tuple[str, str], dict[str, Any]]:
         return {
-            key: {
+            (key[0], key[1]): {
                 'interface_client_created': True,
                 'qos': self._qos_by_key.get(key, self.qos_state(key[0])),
             }
             for key in self._clients.keys()
         }
 
-    def qos_profiles(self, node: Any, name: str) -> dict[str, Any]:
-        feedback, feedback_state = choose_topic_qos(
+    def qos_profiles(
+        self, node: Any, name: str,
+        qos_selection: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        feedback_selection = action_channel_selection(qos_selection, 'feedback', 'topic')
+        status_selection = action_channel_selection(qos_selection, 'status', 'topic')
+        feedback, feedback_state = resolve_topic_execution_qos(
             node, f'{name}/_action/feedback', local_role='subscription',
-            default_profile=QoSProfile(depth=10),
+            default_profile=QoSProfile(depth=10), selection=feedback_selection,
         )
-        status, status_state = choose_topic_qos(
+        status, status_state = resolve_topic_execution_qos(
             node, f'{name}/_action/status', local_role='subscription',
-            default_profile=qos_profile_action_status_default,
+            default_profile=qos_profile_action_status_default, selection=status_selection,
         )
-        service_state = qos_state(
-            status='unknown', source='default_profile', local=qos_profile_services_default,
-            reason='Action service endpoint QoS는 Graph에서 확인할 수 없어 기본 Service QoS를 사용합니다.',
-        )
+        services = {}
+        service_states = {}
+        for part, suffix in (
+            ('goal', 'send_goal'), ('result', 'get_result'), ('cancel', 'cancel_goal'),
+        ):
+            profile, state = resolve_service_execution_qos(
+                f'{name}/_action/{suffix}',
+                selection=action_channel_selection(qos_selection, part, 'service'),
+                remote_qos_getter=self._dds_qos_getter,
+            )
+            services[part] = profile
+            service_states[part] = state
         for part, state in (('feedback', feedback_state), ('status', status_state)):
             if state.get('qos_status') == 'incompatible':
                 state['qos_error_type'] = f'action_{part}_qos_incompatible'
         return {
-            'goal': qos_profile_services_default,
-            'result': qos_profile_services_default,
-            'cancel': qos_profile_services_default,
+            **services,
             'feedback': feedback,
             'status': status,
             'state': {
-                'goal': service_state,
-                'result': service_state,
-                'cancel': service_state,
+                **service_states,
                 'feedback': feedback_state,
                 'status': status_state,
             },
@@ -97,7 +124,10 @@ class ActionClientPool:
 
     def qos_state(self, name: str) -> dict[str, Any]:
         with self._lock:
-            key = next((key for key in self._qos_by_key if key[0] == name), None)
+            resource_key = next(
+                (key for key in self._last_key_by_resource if key[0] == name), None,
+            )
+            key = self._last_key_by_resource.get(resource_key) if resource_key else None
             if key is not None:
                 return self._qos_by_key[key]
         node = self._node_getter()

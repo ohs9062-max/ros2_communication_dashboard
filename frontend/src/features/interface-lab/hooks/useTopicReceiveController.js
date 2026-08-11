@@ -6,6 +6,7 @@ import {
   stopReceiveTopic,
 } from '../../../api/interfaceExecution.js'
 import { topicHasType } from '../../../utils/interfaceTopics.js'
+import { useExecutionQos } from './useExecutionQos.js'
 
 export function useTopicReceiveController({
   availableTopics,
@@ -20,6 +21,7 @@ export function useTopicReceiveController({
   const [selectedTopic, setSelectedTopic] = useState('')
   const selectedTopicSourceRef = useRef('empty')
   const [topicSearch, setTopicSearch] = useState('')
+  const qos = useExecutionQos()
 
   const filteredTopics = useMemo(() => {
     const keyword = topicSearch.trim().toLowerCase()
@@ -69,7 +71,12 @@ export function useTopicReceiveController({
       return
     }
     try {
-      await startReceiveTopic({ topic_name: selectedTopic.trim(), topic_type: topicType, history_limit: 500 })
+      await startReceiveTopic({
+        topic_name: selectedTopic.trim(),
+        topic_type: topicType,
+        history_limit: 500,
+        qos: qos.qosSelection,
+      })
       await load()
       setFeedback({ tone: 'success', text: `${selectedTopic.trim()} · ${topicType} 수신을 시작했습니다.` })
     } catch (error) {
@@ -126,6 +133,7 @@ export function useTopicReceiveController({
   return {
     changeTopic,
     filteredTopics,
+    ...qos,
     resetAllTopics,
     resetSelectedTopic,
     selectedTopic,

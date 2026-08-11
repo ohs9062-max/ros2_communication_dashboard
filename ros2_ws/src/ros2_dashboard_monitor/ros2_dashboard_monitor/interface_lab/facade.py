@@ -14,13 +14,17 @@ class InterfaceLabFacade:
     def call_service(
         self, *, service_name: str, service_type: str,
         request_data: dict[str, Any], timeout_sec: float | None = None,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return self._service_call_runtime.call_service(
+        kwargs = dict(
             service_name=service_name,
             service_type=service_type,
             request_data=request_data,
             timeout_sec=timeout_sec,
         )
+        if qos_selection is not None:
+            kwargs['qos_selection'] = qos_selection
+        return self._service_call_runtime.call_service(**kwargs)
 
     def service_call_history(self) -> dict[str, Any]:
         return self._service_call_runtime.history()
@@ -42,13 +46,17 @@ class InterfaceLabFacade:
     def send_action_goal(
         self, *, action_name: str, action_type: str,
         goal_data: dict[str, Any], timeout_sec: float | None = None,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return self._action_goal_runtime.send_goal(
+        kwargs = dict(
             action_name=action_name,
             action_type=action_type,
             goal_data=goal_data,
             timeout_sec=timeout_sec,
         )
+        if qos_selection is not None:
+            kwargs['qos_selection'] = qos_selection
+        return self._action_goal_runtime.send_goal(**kwargs)
 
     def cancel_action_goal(
         self, *, action_name: str, action_type: str,
@@ -76,11 +84,13 @@ class InterfaceLabFacade:
 
     def start_receive_topic(
         self, *, topic_name: str, topic_type: str, history_limit: int = 100,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self._receive_runtime.start_topic(
             topic_name=topic_name,
             topic_type=topic_type,
             history_limit=history_limit,
+            qos_selection=qos_selection,
         )
 
     def stop_receive_topic(
@@ -120,22 +130,26 @@ class InterfaceLabFacade:
 
     def publish_topic(
         self, *, topic_name: str, topic_type: str, payload: dict[str, Any],
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self._receive_runtime.publish_topic(
             topic_name=topic_name,
             topic_type=topic_type,
             payload=payload,
+            qos_selection=qos_selection,
         )
 
     def start_continuous_topic_publish(
         self, *, topic_name: str, topic_type: str,
         payload: dict[str, Any], hz: float,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self._receive_runtime.start_continuous_publish(
             topic_name=topic_name,
             topic_type=topic_type,
             payload=payload,
             hz=hz,
+            qos_selection=qos_selection,
         )
 
     def stop_continuous_topic_publish(

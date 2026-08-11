@@ -11,6 +11,7 @@ export function useContinuousTopicExecution({
   messageValues,
   onStateChanged,
   publishName,
+  qosSelection,
   selected,
   setBusy,
   setResult,
@@ -52,6 +53,7 @@ export function useContinuousTopicExecution({
         full_type: selected.message_type,
         message: normalizeNumericValues(messageValues, selected.message_schema),
         hz: Number(publishHz),
+        qos: qosSelection,
       })
       setResult(payload)
       const state = await fetchContinuousTopicPublishes()
@@ -62,7 +64,7 @@ export function useContinuousTopicExecution({
     } finally {
       setBusy(false)
     }
-  }, [messageValues, onStateChanged, publishHz, publishName, selected, setBusy, setResult])
+  }, [messageValues, onStateChanged, publishHz, publishName, qosSelection, selected, setBusy, setResult])
 
   const stopContinuous = useCallback(async () => {
     if (!publishName.trim() || !selected?.message_type) return

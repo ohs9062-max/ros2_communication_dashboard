@@ -30,10 +30,43 @@ export function CallResultBlock({ result, successPayload }) {
       {validationError && (
         <div className="interface-validation-warning">입력값이 선택한 ROS2 타입과 맞지 않아 전송하지 않았습니다.</div>
       )}
+      {result.qos && <ExecutionQosSummary qos={result.qos} />}
       <pre className={`interface-service-result ${result.success ? 'success' : 'error'}`}>
         {JSON.stringify(result.success ? successPayload : result, null, 2)}
       </pre>
     </>
+  )
+}
+
+function QosChannel({ label, state }) {
+  if (!state) return null
+  const remote = state.remote_qos ?? {
+    qos_detection_source: state.qos_detection_source,
+    publisher_qos: state.publisher_qos,
+    subscriber_qos: state.subscriber_qos,
+  }
+  const dashboard = state.dashboard_qos ?? state.local_qos
+  return (
+    <div className="interface-qos-result-channel">
+      <strong>{label}</strong>
+      <span>QoS Mode: {state.qos_mode === 'manual' ? 'Manual' : 'Auto'}</span>
+      {state.fallback_reason && <div className="interface-service-state warning">{state.fallback_reason}</div>}
+      <details><summary>Remote QoS</summary><pre>{JSON.stringify(remote, null, 2)}</pre></details>
+      <details><summary>Dashboard 실행 QoS</summary><pre>{JSON.stringify(dashboard, null, 2)}</pre></details>
+    </div>
+  )
+}
+
+export function ExecutionQosSummary({ qos }) {
+  const channels = ['request', 'response', 'goal', 'result', 'cancel', 'feedback', 'status']
+    .filter((key) => qos?.[key])
+  return (
+    <div className="interface-qos-result">
+      <h4>실제 사용 QoS</h4>
+      {channels.length
+        ? channels.map((key) => <QosChannel key={key} label={key[0].toUpperCase() + key.slice(1)} state={qos[key]} />)
+        : <QosChannel label="실행 채널" state={qos} />}
+    </div>
   )
 }
 

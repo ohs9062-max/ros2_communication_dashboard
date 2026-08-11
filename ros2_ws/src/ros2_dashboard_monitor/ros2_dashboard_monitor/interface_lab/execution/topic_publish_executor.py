@@ -19,7 +19,7 @@ class TopicPublishExecutor:
         is_action_internal: Callable[[str], bool],
         message_loader: Callable[[str], type],
         message_to_json: Callable[[Any], Any],
-        publisher: Callable[[str, str, type], tuple[Any, bool]],
+        publisher: Callable[..., tuple[Any, bool]],
         qos_state: Callable[[str, str], dict[str, Any]],
         record_history: Callable[[dict[str, Any]], None],
         node_getter: Callable[[], Any],
@@ -35,7 +35,10 @@ class TopicPublishExecutor:
         self._record_history = record_history
         self._node_getter = node_getter
 
-    def publish(self, *, topic_name: str, topic_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def publish(
+        self, *, topic_name: str, topic_type: str, payload: dict[str, Any],
+        qos_selection: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if self._node_getter() is None:
             raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
         topic_name = topic_name.strip()
@@ -89,7 +92,9 @@ class TopicPublishExecutor:
                     error=str(exc),
                     details=exc.details,
                 )
-            publisher, created = self._publisher(topic_name, topic_type, message_class)
+            publisher, created = self._publisher(
+                topic_name, topic_type, message_class, qos_selection,
+            )
             if created:
                 sleep(0.5)
                 graph_state = self._graph_state(topic_name=topic_name, topic_type=topic_type)

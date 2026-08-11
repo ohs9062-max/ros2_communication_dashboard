@@ -60,6 +60,7 @@ async def send_registered_action_goal(request: Request) -> dict[str, Any]:
             action_type=selected_type,
             goal_data=goal_data,
             timeout_sec=payload.get('timeout_sec'),
+            qos_selection=payload.get('qos'),
         )
     except ActionGoalError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

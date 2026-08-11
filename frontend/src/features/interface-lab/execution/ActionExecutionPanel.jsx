@@ -5,6 +5,7 @@ import {
 } from '../InterfaceExecutionShared.jsx'
 import { actionKey, actionStatusLabel } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
+import { ActionQosControl } from './ActionQosControl.jsx'
 
 export function ActionExecutionPanel({
   actions,
@@ -13,12 +14,15 @@ export function ActionExecutionPanel({
   goals,
   goalValues,
   importableOnly,
+  modeLinked,
   onExecute,
   onFieldChange,
   onImportableOnlyChange,
+  onModeLinkChange,
   onSelect,
   onTimeoutChange,
   onToggleExpanded,
+  qosControls = [],
   result,
   selected,
   selectedKey,
@@ -48,6 +52,7 @@ export function ActionExecutionPanel({
           </label>
           {selected && <div className={`interface-service-state ${selected.callable ? 'success' : 'warning'}`}>{actionStatusLabel(selected)}{selected.reason ? ` · ${selected.reason}` : ''}</div>}
           {selected && <div className="interface-package-help">선택 타입 {selected.action_type}의 Goal schema {selected.goal_schema?.length ?? 0}개 필드로 폼을 생성합니다.</div>}
+          <ActionQosControl controls={qosControls} modeLinked={modeLinked} onModeLinkChange={onModeLinkChange} />
           {selected?.goal_schema?.map((field) => (
             <RequestField disabled={!selected?.callable} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={goalValues[field.name]} />
           ))}

@@ -106,11 +106,13 @@ class InterfaceReceiveRuntime:
         topic_name: str,
         topic_type: str,
         history_limit: int = DEFAULT_TOPIC_HISTORY_LIMIT,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self._receive_runtime.start(
             topic_name=topic_name,
             topic_type=topic_type,
             history_limit=history_limit,
+            qos_selection=qos_selection,
         )
 
     def stop_topic(self, *, topic_name: str, topic_type: str | None = None) -> dict[str, Any]:
@@ -157,12 +159,14 @@ class InterfaceReceiveRuntime:
         topic_name: str,
         topic_type: str,
         payload: dict[str, Any],
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Interface Lab에서 Topic 메시지를 발행하는 함수입니다."""
         return self._publish_executor.publish(
             topic_name=topic_name,
             topic_type=topic_type,
             payload=payload,
+            qos_selection=qos_selection,
         )
 
     def publish_history(self, *, limit: int | None = None) -> dict[str, Any]:
@@ -178,6 +182,7 @@ class InterfaceReceiveRuntime:
         topic_type: str,
         payload: dict[str, Any],
         hz: float = DEFAULT_CONTINUOUS_PUBLISH_HZ,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """사용자가 명시적으로 시작한 Topic 주기 발행을 시작합니다."""
         return self._continuous_publish_runtime.start(
@@ -185,6 +190,7 @@ class InterfaceReceiveRuntime:
             topic_type=topic_type,
             payload=payload,
             hz=hz,
+            qos_selection=qos_selection,
         )
 
     def stop_continuous_publish(self, *, topic_name: str, topic_type: str) -> dict[str, Any]:
@@ -222,11 +228,15 @@ class InterfaceReceiveRuntime:
     def _ensure_registered_message(self, message_type: str) -> None:
         self._message_registry.ensure_available(message_type)
 
-    def _publisher(self, topic_name: str, topic_type: str, message_class: type):
+    def _publisher(
+        self, topic_name: str, topic_type: str, message_class: type,
+        qos_selection: dict[str, Any] | None = None,
+    ):
         return self._publisher_pool.get_or_create(
             topic_name=topic_name,
             topic_type=topic_type,
             message_class=message_class,
+            qos_selection=qos_selection,
         )
 
     def _publish_qos_state(self, topic_name: str, topic_type: str) -> dict[str, Any]:

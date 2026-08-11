@@ -33,6 +33,7 @@ class ContinuousTopicPublishRuntime:
         topic_type: str,
         payload: dict[str, Any],
         hz: float = DEFAULT_CONTINUOUS_PUBLISH_HZ,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         topic_name = topic_name.strip()
         topic_type = topic_type.strip()
@@ -47,6 +48,7 @@ class ContinuousTopicPublishRuntime:
             topic_name=topic_name,
             topic_type=topic_type,
             payload=payload,
+            qos_selection=qos_selection,
         )
         if first_result.get('success') is not True:
             return {
@@ -60,6 +62,7 @@ class ContinuousTopicPublishRuntime:
             'topic_name': topic_name,
             'topic_type': topic_type,
             'payload': payload,
+            'qos_selection': qos_selection,
             'hz': normalized_hz,
             'active': True,
             'continuous': True,
@@ -146,6 +149,7 @@ class ContinuousTopicPublishRuntime:
                     topic_name=state['topic_name'],
                     topic_type=state['topic_type'],
                     payload=state['payload'],
+                    qos_selection=state.get('qos_selection'),
                 )
                 with self._lock:
                     state['message_count'] += 1 if result.get('success') is True else 0

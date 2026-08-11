@@ -7,6 +7,7 @@ import {
   RequestField,
   SectionTitle,
 } from './WorkspaceShared.jsx'
+import { ActionQosControl } from '../execution/ActionQosControl.jsx'
 
 export function ActionWorkspaceDetail({
   cancelingGoal,
@@ -19,6 +20,7 @@ export function ActionWorkspaceDetail({
   onCancel,
   onGoalChange,
   onHistorySelect,
+  qosControls = [],
   selectedHistoryItem,
   setGoalTimeoutSec,
 }) {
@@ -43,6 +45,7 @@ export function ActionWorkspaceDetail({
       <SectionTitle title="Goal 입력 폼" />
       {callableTarget ? (
         <>
+          <ActionQosControl controls={qosControls} />
           {schemaFields(item.schema).map((field) => (
             <RequestField
               field={field}

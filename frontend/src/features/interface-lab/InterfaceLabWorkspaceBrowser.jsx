@@ -58,6 +58,7 @@ export function InterfaceLabWorkspaceBrowser({
               {selectedDetail?.id === item.id && (
                 <InlineWorkspace
                   activeContinuousPublish={controller.activeContinuousPublish}
+                  actionQosControls={controller.actionQosControls}
                   cancelingGoal={controller.cancelingGoal}
                   executing={controller.executing}
                   goalTimeoutSec={controller.goalTimeoutSec}
@@ -73,16 +74,28 @@ export function InterfaceLabWorkspaceBrowser({
                   onRelatedSelect={onRelatedSelect}
                   onRequestChange={controller.setRequestValues}
                   onServiceExecute={controller.executeService}
+                  onServiceRequestQosModeChange={controller.setServiceRequestQosMode}
+                  onServiceRequestQosProfileChange={controller.setServiceRequestQosProfile}
+                  onServiceResponseQosModeChange={controller.setServiceResponseQosMode}
+                  onServiceResponseQosProfileChange={controller.setServiceResponseQosProfile}
                   onTopicContinuousStart={controller.startContinuousTopic}
                   onTopicContinuousStop={controller.stopContinuousTopic}
                   onTopicPublish={controller.publishTopic}
                   onTopicReset={controller.resetTopicHistories}
                   onTopicSubscribeStart={controller.startTopicSubscribe}
                   onTopicSubscribeStop={controller.stopTopicSubscribe}
+                  onTopicPublishQosModeChange={controller.setTopicPublishQosMode}
+                  onTopicPublishQosProfileChange={controller.setTopicPublishQosProfile}
+                  onTopicSubscribeQosModeChange={controller.setTopicSubscribeQosMode}
+                  onTopicSubscribeQosProfileChange={controller.setTopicSubscribeQosProfile}
                   publishGraphTopics={controller.publishGraphTopics}
                   relatedItems={relatedItems}
                   requestValues={controller.requestValues}
                   selectedHistoryItem={selectedHistoryItem}
+                  serviceRequestQosMode={controller.serviceRequestQosMode}
+                  serviceRequestQosProfile={controller.serviceRequestQosProfile}
+                  serviceResponseQosMode={controller.serviceResponseQosMode}
+                  serviceResponseQosProfile={controller.serviceResponseQosProfile}
                   selectPublishGraphTopic={controller.selectPublishGraphTopic}
                   setGoalTimeoutSec={controller.setGoalTimeoutSec}
                   setTimeoutSec={controller.setTimeoutSec}
@@ -93,6 +106,10 @@ export function InterfaceLabWorkspaceBrowser({
                   topicPublishHz={controller.topicPublishHz}
                   topicPublishName={controller.topicPublishName}
                   topicPublishWarning={controller.topicPublishWarning}
+                  topicPublishQosMode={controller.topicPublishQosMode}
+                  topicPublishQosProfile={controller.topicPublishQosProfile}
+                  topicSubscribeQosMode={controller.topicSubscribeQosMode}
+                  topicSubscribeQosProfile={controller.topicSubscribeQosProfile}
                   topicSubscribeName={controller.topicSubscribeName}
                 />
               )}

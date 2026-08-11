@@ -16,6 +16,7 @@ import {
   topicNameTypeWarning,
 } from '../../../utils/interfaceTopics.js'
 import { useContinuousTopicExecution } from './useContinuousTopicExecution.js'
+import { useExecutionQos } from './useExecutionQos.js'
 
 export function useTopicExecutionController({
   availableTopics,
@@ -31,6 +32,7 @@ export function useTopicExecutionController({
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [history, setHistory] = useState([])
+  const qos = useExecutionQos()
 
   const visibleMessages = useMemo(
     () => importableOnly
@@ -106,6 +108,7 @@ export function useTopicExecutionController({
     selected,
     setBusy,
     setResult,
+    qosSelection: qos.qosSelection,
   })
   const { setContinuousPublishes } = continuous
 
@@ -147,6 +150,7 @@ export function useTopicExecutionController({
         topic_type: selected.message_type,
         full_type: selected.message_type,
         message: normalizeNumericValues(messageValues, selected.message_schema),
+        qos: qos.qosSelection,
       })
       setResult(payload)
       const historyPayload = await fetchTopicPublishHistory({ limit: 100 })
@@ -157,7 +161,7 @@ export function useTopicExecutionController({
     } finally {
       setBusy(false)
     }
-  }, [messageValues, onStateChanged, publishName, selected])
+  }, [messageValues, onStateChanged, publishName, qos.qosSelection, selected])
 
   const resetHistory = useCallback(async () => {
     try {
@@ -178,6 +182,7 @@ export function useTopicExecutionController({
 
   return {
     ...continuous,
+    ...qos,
     busy,
     changePublishName,
     history,

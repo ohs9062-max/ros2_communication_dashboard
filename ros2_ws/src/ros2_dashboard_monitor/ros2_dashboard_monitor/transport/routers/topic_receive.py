@@ -25,6 +25,7 @@ async def start_receive_topic(request: Request) -> dict[str, Any]:
             topic_name=str(payload.get('topic_name') or ''),
             topic_type=str(payload.get('topic_type') or payload.get('full_type') or ''),
             history_limit=int(payload.get('history_limit') or 100),
+            qos_selection=payload.get('qos'),
         )
     except (InterfaceReceiveError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

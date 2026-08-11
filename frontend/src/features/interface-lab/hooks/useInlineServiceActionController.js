@@ -6,6 +6,7 @@ import {
   sendActionGoal,
 } from '../../../api/interfaceExecution.js'
 import { defaultValues, normalizeNumericValues } from '../model/schemaValues.js'
+import { useActionExecutionQos, useServiceExecutionQos } from './useExecutionQos.js'
 
 export function useInlineServiceActionController({ refresh, selectedDetail }) {
   const [requestValues, setRequestValues] = useState({})
@@ -15,6 +16,8 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
   const [cancelingGoal, setCancelingGoal] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState(null)
+  const serviceQos = useServiceExecutionQos()
+  const actionQos = useActionExecutionQos()
 
   useEffect(() => {
     setResult(null)
@@ -40,6 +43,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
         service_type: target.service_type,
         request: normalizeNumericValues(requestValues, selectedDetail.schema),
         timeout_sec: timeoutSec,
+        qos: serviceQos.qosSelection,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -66,6 +70,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
         full_type: target.full_type ?? target.selected_import_type ?? target.action_type,
         goal: normalizeNumericValues(goalValues, selectedDetail.schema),
         timeout_sec: goalTimeoutSec,
+        qos: actionQos.qosSelection,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -106,6 +111,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
 
   return {
     cancelAction,
+    actionQosControls: actionQos.qosControls,
     cancelingGoal,
     executeAction,
     executeService,
@@ -118,7 +124,15 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     setGoalTimeoutSec,
     setGoalValues,
     setRequestValues,
+    setServiceRequestQosMode: serviceQos.setRequestQosMode,
+    setServiceRequestQosProfile: serviceQos.setRequestQosProfile,
+    setServiceResponseQosMode: serviceQos.setResponseQosMode,
+    setServiceResponseQosProfile: serviceQos.setResponseQosProfile,
     setTimeoutSec,
     timeoutSec,
+    serviceRequestQosMode: serviceQos.requestQosMode,
+    serviceRequestQosProfile: serviceQos.requestQosProfile,
+    serviceResponseQosMode: serviceQos.responseQosMode,
+    serviceResponseQosProfile: serviceQos.responseQosProfile,
   }
 }

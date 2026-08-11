@@ -5,19 +5,26 @@ import {
 } from '../InterfaceExecutionShared.jsx'
 import { serviceKey, serviceStatusLabel } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
+import { QosModeControl } from './QosModeControl.jsx'
 
 export function ServiceExecutionPanel({
   busy,
   calls,
   importableOnly,
+  modeLinked,
   onExecute,
   onFieldChange,
   onImportableOnlyChange,
+  onModeLinkChange,
+  onRequestQosModeChange,
+  onRequestQosProfileChange,
   onSelect,
   onTimeoutChange,
   onToggleExpanded,
   requestValues,
   result,
+  requestQosMode,
+  requestQosProfile,
   selected,
   selectedKey,
   services,
@@ -48,6 +55,13 @@ export function ServiceExecutionPanel({
           </label>
           {selected && <div className={`interface-service-state ${selected.callable ? 'success' : 'warning'}`}>{serviceStatusLabel(selected)}{selected.reason ? ` · ${selected.reason}` : ''}</div>}
           {selected && <div className="interface-package-help">선택 타입 {selected.service_type}의 Request schema {selected.request_schema?.length ?? 0}개 필드로 폼을 생성합니다.</div>}
+          <QosModeControl
+            groups={[{ key: 'request', label: 'Service 실행 QoS · Request', profile: requestQosProfile, onChange: onRequestQosProfileChange }]}
+            mode={requestQosMode}
+            modeLinked={modeLinked}
+            onModeChange={onRequestQosModeChange}
+            onModeLinkChange={onModeLinkChange}
+          />
           {selected?.request_schema?.map((field) => (
             <RequestField disabled={!selected?.callable} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={requestValues[field.name]} />
           ))}

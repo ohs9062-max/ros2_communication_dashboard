@@ -86,6 +86,7 @@ class RosMonitor(InterfaceLabFacade):
         self._action_goal_runtime = ActionGoalRuntime(
             lock=self._lock,
             node_getter=lambda: self._node,
+            dds_qos_getter=self._dds_qos_observer.service_qos,
         )
         self._topic_runtime = TopicRuntime(
             action_monitor_subscriber_count=(
@@ -113,6 +114,7 @@ class RosMonitor(InterfaceLabFacade):
         self._service_call_runtime = ServiceCallRuntime(
             lock=self._lock,
             node_getter=lambda: self._node,
+            dds_qos_getter=self._dds_qos_observer.service_qos,
         )
         self._receive_runtime = InterfaceReceiveRuntime(
             lock=self._lock,

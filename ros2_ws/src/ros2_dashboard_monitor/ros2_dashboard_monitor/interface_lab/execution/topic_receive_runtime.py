@@ -9,7 +9,11 @@ from ros2_dashboard_monitor.interface_lab.execution.topic_support import (
     DEFAULT_TOPIC_HISTORY_LIMIT,
     InterfaceReceiveError,
     normalize_limit,
-    topic_qos,
+)
+from ros2_dashboard_monitor.interface_lab.execution.qos_profiles import (
+    ExecutionQosError,
+    profile_fingerprint,
+    resolve_topic_execution_qos,
 )
 from ros2_dashboard_monitor.interface_lab.execution.topic_receive_history import (
     TopicReceiveHistory,
@@ -48,6 +52,7 @@ class TopicReceiveRuntime:
         topic_name: str,
         topic_type: str,
         history_limit: int = DEFAULT_TOPIC_HISTORY_LIMIT,
+        qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         node = self._node_getter()
         if node is None:
@@ -63,15 +68,28 @@ class TopicReceiveRuntime:
             raise InterfaceReceiveError(f'topic type import 실패: {exc}') from exc
         limit = normalize_limit(history_limit)
         graph_state = self._graph_state(topic_name=topic_name, topic_type=topic_type)
+        try:
+            qos_profile, qos = resolve_topic_execution_qos(
+                node, topic_name, local_role='subscription', selection=qos_selection,
+            )
+        except ExecutionQosError as exc:
+            raise InterfaceReceiveError(str(exc)) from exc
+        fingerprint = profile_fingerprint(qos_profile)
         key = (topic_name, topic_type)
         with self._lock:
             existing = self._topics.get(key)
-            if existing is not None and existing.get('subscription') is not None:
+            if (
+                existing is not None
+                and existing.get('subscription') is not None
+                and existing.get('qos_fingerprint') == fingerprint
+            ):
                 existing['history_limit'] = limit
                 existing['graph_state'] = graph_state
                 existing['receiving'] = True
                 return self._public_state(key, existing)
-        qos_profile, qos = topic_qos(node, topic_name, local_role='subscription')
+            previous_subscription = existing.get('subscription') if existing else None
+        if previous_subscription is not None:
+            node.destroy_subscription(previous_subscription)
         subscription = node.create_subscription(
             message_class,
             topic_name,
@@ -88,6 +106,7 @@ class TopicReceiveRuntime:
                 'subscription': subscription,
                 'receiving': True,
                 'qos': qos,
+                'qos_fingerprint': fingerprint,
                 'graph_state': graph_state,
                 'history': previous.get('history', []),
                 'message_count': previous.get('message_count', 0),

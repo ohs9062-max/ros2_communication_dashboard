@@ -6,6 +6,7 @@ import { CollapsibleJson, CollapsibleText } from './WorkspaceShared.jsx'
 
 export function WorkspaceDetailPanel({
   activeContinuousPublish,
+  actionQosControls,
   cancelingGoal,
   executing,
   goalTimeoutSec,
@@ -19,15 +20,27 @@ export function WorkspaceDetailPanel({
   onMessageChange,
   onRequestChange,
   onServiceExecute,
+  onServiceRequestQosModeChange,
+  onServiceRequestQosProfileChange,
+  onServiceResponseQosModeChange,
+  onServiceResponseQosProfileChange,
   onTopicPublish,
   onTopicContinuousStart,
   onTopicContinuousStop,
   onTopicReset,
   onTopicSubscribeStart,
   onTopicSubscribeStop,
+  onTopicPublishQosModeChange,
+  onTopicPublishQosProfileChange,
+  onTopicSubscribeQosModeChange,
+  onTopicSubscribeQosProfileChange,
   messageValues,
   requestValues,
   selectedHistoryItem,
+  serviceRequestQosMode,
+  serviceRequestQosProfile,
+  serviceResponseQosMode,
+  serviceResponseQosProfile,
   selectPublishGraphTopic,
   setGoalTimeoutSec,
   setTopicPublishName,
@@ -38,6 +51,10 @@ export function WorkspaceDetailPanel({
   topicPublishHz,
   publishGraphTopics,
   topicPublishWarning,
+  topicPublishQosMode,
+  topicPublishQosProfile,
+  topicSubscribeQosMode,
+  topicSubscribeQosProfile,
   topicSubscribeName,
   timeoutSec,
 }) {
@@ -82,6 +99,10 @@ export function WorkspaceDetailPanel({
           onHistorySelect={onHistorySelect}
           onMessageChange={onMessageChange}
           onPublish={onTopicPublish}
+          onPublishQosModeChange={onTopicPublishQosModeChange}
+          onPublishQosProfileChange={onTopicPublishQosProfileChange}
+          onSubscribeQosModeChange={onTopicSubscribeQosModeChange}
+          onSubscribeQosProfileChange={onTopicSubscribeQosProfileChange}
           onContinuousStart={onTopicContinuousStart}
           onContinuousStop={onTopicContinuousStop}
           onReset={onTopicReset}
@@ -96,6 +117,10 @@ export function WorkspaceDetailPanel({
           topicPublishHz={topicPublishHz}
           publishGraphTopics={publishGraphTopics}
           topicPublishWarning={topicPublishWarning}
+          publishQosMode={topicPublishQosMode}
+          publishQosProfile={topicPublishQosProfile}
+          subscribeQosMode={topicSubscribeQosMode}
+          subscribeQosProfile={topicSubscribeQosProfile}
           topicSubscribeName={topicSubscribeName}
         />
       )}
@@ -107,6 +132,14 @@ export function WorkspaceDetailPanel({
           onExecute={onServiceExecute}
           onHistorySelect={onHistorySelect}
           onRequestChange={onRequestChange}
+          onRequestQosModeChange={onServiceRequestQosModeChange}
+          onRequestQosProfileChange={onServiceRequestQosProfileChange}
+          onResponseQosModeChange={onServiceResponseQosModeChange}
+          onResponseQosProfileChange={onServiceResponseQosProfileChange}
+          requestQosMode={serviceRequestQosMode}
+          requestQosProfile={serviceRequestQosProfile}
+          responseQosMode={serviceResponseQosMode}
+          responseQosProfile={serviceResponseQosProfile}
           requestValues={requestValues}
           selectedHistoryItem={selectedHistoryItem}
           setTimeoutSec={setTimeoutSec}
@@ -124,6 +157,7 @@ export function WorkspaceDetailPanel({
           onExecute={onActionExecute}
           onCancel={onActionCancel}
           onGoalChange={onGoalChange}
+          qosControls={actionQosControls}
           onHistorySelect={onHistorySelect}
           selectedHistoryItem={selectedHistoryItem}
           setGoalTimeoutSec={setGoalTimeoutSec}

@@ -1,11 +1,16 @@
 import { CollapsibleJson, SectionTitle } from './WorkspaceShared.jsx'
+import { QosModeControl } from '../execution/QosModeControl.jsx'
 
 export function TopicSubscribePanel({
   item,
   onReset,
+  onSubscribeQosModeChange,
+  onSubscribeQosProfileChange,
   onSubscribeStart,
   onSubscribeStop,
   setTopicSubscribeName,
+  subscribeQosMode,
+  subscribeQosProfile,
   topicSubscribeName,
 }) {
   const activeSubscription = (item.topicStates ?? []).find(
@@ -23,6 +28,11 @@ export function TopicSubscribePanel({
           value={topicSubscribeName}
         />
       </label>
+      <QosModeControl
+        groups={[{ key: 'topic', label: 'Topic Subscribe QoS', profile: subscribeQosProfile, onChange: onSubscribeQosProfileChange }]}
+        mode={subscribeQosMode}
+        onModeChange={onSubscribeQosModeChange}
+      />
       <p className="muted">
         Subscription key는 topic_name + full_type입니다. 같은 이름이라도 package/type이 다르면 별도 구독입니다.
       </p>

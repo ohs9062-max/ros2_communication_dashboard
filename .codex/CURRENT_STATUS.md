@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-10
+마지막 갱신: 2026-08-11
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -16,6 +16,10 @@
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Service와 Action 내부 Service QoS는 Fast DDS passive observer가 제공한다. QoS 확인을 위해 Service Call,
   Action Goal 또는 사용자 데이터 endpoint를 만들지 않는다.
+- Interface Lab의 Topic/Service/Action 실행은 Auto/Manual QoS를 지원한다. Topic Auto는 Graph endpoint의
+  전체 profile, Service Auto는 Fast DDS Request Reader/Response Writer에서 발견한 Reliability, Durability,
+  Deadline, Lifespan, Liveliness, Lease Duration을 Client 관점에서 적용한다. History/Depth만 local Service
+  기본값을 사용하며, Action은 이 Service Auto와 Topic Auto로 5개 내부 채널 QoS를 각각 전달한다.
 - 현재 작업 트리는 기존 사용자 변경과 최근 기능 변경이 함께 있는 dirty 상태이며 commit/push되지 않았다.
 
 ## 현재 핵심 구조
@@ -59,6 +63,18 @@ docs/                            설계·운영 문서
   `/RobotControl`·`/CanControl`의 DDS QoS가 Monitor와 Backend API까지 연결됨을 확인했다.
 - Interface Lab의 1초 background polling을 Receive 상태 4개 API로 축소하고, DDS Service endpoint 인덱스와
   transport snapshot 재사용으로 대규모 Graph의 API 응답 지연을 줄였다.
+- Interface Lab Topic Publish/Subscribe와 Service Request/Response는 실행/수신 UI에서 서로 독립된 Auto/Manual
+  QoS 상태를 사용한다. Action은 Goal/Result/Cancel Service와 Feedback/Status Topic의 5개 QoS를 각각 독립
+  선택하며 실행 화면과 수신 화면은 서로 독립된 QoS UI state를 가진다. 각 Action UI는 QoS Mode 하나만 제공하고
+  Manual일 때 Service/Topic 그룹 아래 5개 채널 설정을 개별 accordion으로 연다. 현재 Action 수신 화면은 이력
+  관찰 UI이며 별도 ActionClient를 생성하지 않는다. Topic/Service/Action 실행·수신 QoS는 리소스별
+  `실행/수신 연동` 체크로 Mode와 대응 Manual 세부값을 선택적 동기화할 수 있고, 해제하면 다시 독립 동작한다.
+  Manual QoS는 기존 Reliability/Durability/History/Depth와 접힌 고급 설정의 Deadline/Lifespan/Liveliness/
+  Lease Duration을 지원하며 비어 있는 고급 duration은 Jazzy QoSProfile 기본값을 유지한다. Auto는 발견값을
+  기본값보다 우선하며 Service 한 방향만 발견된 경우에도 확인된 정책을 버리지 않는다.
+  rclpy ServiceClient는
+  Request/Response에 단일 profile만 받으므로 두 선택으로
+  계산된 profile이 다르면 호출 전 오류로 안내하며, 같을 때만 QoS fingerprint 기준 Client를 재사용한다.
 - `ros2_dashboard_demo_nodes`에 TurtleBot3 Gazebo World, 별도 keyboard teleop 터미널, Nav2를 순서대로 시작하는
   통합 launch 파일을 추가했다.
 - AI 작업 로그를 최근 기록과 `.codex/archive/`의 과거 기록으로 분리했다.
@@ -68,13 +84,17 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 185 passed
+Monitor pytest: 200 passed
 Backend pytest: 7 passed
 선택 package colcon test-result: 201 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Python compileall: 통과
 git diff --check: 통과
 ```
+
+Interface Lab demo E2E에서 Topic Auto/Manual Publish·Subscribe, `/RobotControl` Service Auto와 Manual
+RELIABLE(depth 7→8), `/CanControl` Action Auto와 채널 그룹별 Manual Goal이 모두 성공했다. Service/Action
+Service 채널은 Fast DDS, Topic과 Action Feedback/Status는 Graph 관찰값을 사용한 실제 실행 QoS를 확인했다.
 
 Fast DDS passive E2E에서는 Call/Goal/Client 생성 없이 Service request Reader/response Writer와 Action
 Goal/Result/Cancel의 각 request Reader/response Writer를 발견했다. History/Depth는 `unknown`/`null`,
@@ -85,7 +105,9 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 - 작업 트리가 dirty 상태다. 기존 변경을 reset하거나 덮어쓰지 말고 작업별 diff를 구분해야 한다.
 - Fast DDS observer는 `rmw_fastrtps_cpp`와 Fast DDS 이름 규칙에 종속된다. 다른 RMW, DDS Security 또는
   Discovery 범위 밖에서는 Service/Action Service QoS가 `graph_unavailable`이 된다.
-- DDS Discovery가 제공하지 않는 History/Depth와 DataReader Lifespan은 추정하지 않는다.
+- DDS Discovery가 제공하지 않는 History/Depth와 DataReader Lifespan은 추정하지 않는다. Service Auto의
+  Lifespan은 관찰 가능한 원격 Response Writer 값을 단일 Client profile에 전달하며 Request Reader 요구값으로
+  해석하지 않는다.
 - fallback으로 만든 Topic entity는 이후 Graph QoS 변화에 따라 자동 재생성되지 않는다.
 - QoS mismatch의 MariaDB Alert 영속 이력 연결은 아직 구현되지 않았다.
 - Camera Topic 이미지 시각화와 Gazebo TurtleBot 명령 preset은 아직 구현되지 않았다.

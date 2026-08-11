@@ -6,6 +6,7 @@ import {
   RequestField,
   SectionTitle,
 } from './WorkspaceShared.jsx'
+import { QosModeControl } from '../execution/QosModeControl.jsx'
 
 export function ServiceWorkspaceDetail({
   executing,
@@ -14,8 +15,16 @@ export function ServiceWorkspaceDetail({
   onExecute,
   onHistorySelect,
   onRequestChange,
+  onRequestQosModeChange,
+  onRequestQosProfileChange,
+  onResponseQosModeChange,
+  onResponseQosProfileChange,
+  requestQosMode,
+  requestQosProfile,
   requestValues,
   selectedHistoryItem,
+  responseQosMode,
+  responseQosProfile,
   setTimeoutSec,
   timeoutSec,
 }) {
@@ -32,6 +41,11 @@ export function ServiceWorkspaceDetail({
       <SectionTitle title="실행 폼" />
       {callableTarget ? (
         <>
+          <QosModeControl
+            groups={[{ key: 'request', label: 'Service 실행 QoS · Request', profile: requestQosProfile, onChange: onRequestQosProfileChange }]}
+            mode={requestQosMode}
+            onModeChange={onRequestQosModeChange}
+          />
           {schemaFields(item.schema).map((field) => (
             <RequestField
               field={field}
@@ -65,6 +79,12 @@ export function ServiceWorkspaceDetail({
       ) : (
         <p className="muted">import됐고 서버가 있는 Service가 있을 때 실행 폼이 활성화됩니다.</p>
       )}
+      <SectionTitle title="Response 수신 설정" />
+      <QosModeControl
+        groups={[{ key: 'response', label: 'Service 수신 QoS · Response', profile: responseQosProfile, onChange: onResponseQosProfileChange }]}
+        mode={responseQosMode}
+        onModeChange={onResponseQosModeChange}
+      />
       <LastResultBlock fallback={item.lastRun} result={inlineResult} title="마지막 호출 결과" />
       <HistoryList
         empty="최근 호출 이력이 없습니다."
