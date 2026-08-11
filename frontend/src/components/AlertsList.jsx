@@ -5,6 +5,7 @@ import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
 const ALERT_SORT_COLUMNS = {
+  status: { value: (alert) => alert.alert_state },
   level: { value: (alert) => alert.level },
   source: { value: (alert) => alert.source },
   name: { value: (alert) => alert.name },
@@ -12,17 +13,31 @@ const ALERT_SORT_COLUMNS = {
   code: { value: (alert) => alert.code },
   detected_at: {
     defaultDirection: 'desc',
-    value: (alert) => alert.resolved_at ?? alert.detected_at,
+    value: detectedAt,
   },
+  resolved_at: {
+    defaultDirection: 'desc',
+    value: (alert) => alert.resolved_at,
+  },
+}
+
+const LEVEL_LABELS = {
+  warning: '경고',
+  error: '오류',
+  critical: '치명적',
 }
 
 export function AlertsList({
   alerts,
   emptyMessage = '현재 Alert가 없습니다',
   onAlertClick,
-  timeLabel = '시간',
+  variant = 'current',
 }) {
-  const [sort, setSort] = useState({ key: 'detected_at', direction: 'desc' })
+  const previous = variant === 'previous'
+  const [sort, setSort] = useState({
+    key: previous ? 'resolved_at' : 'detected_at',
+    direction: 'desc',
+  })
   const sortedAlerts = useMemo(
     () => sortRows(alerts, sort, ALERT_SORT_COLUMNS),
     [alerts, sort],
@@ -40,38 +55,50 @@ export function AlertsList({
       <table className="topic-table">
         <thead>
           <tr>
+            <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="level" label="레벨" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="source" label="출처" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="message" label="메시지" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="code" label="코드" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="detected_at" label={timeLabel} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="detected_at" label="감지 시각" onSort={onSort} sort={sort} />
+            {previous && (
+              <SortableHeader columnKey="resolved_at" label="해결 시각" onSort={onSort} sort={sort} />
+            )}
           </tr>
         </thead>
         <tbody>
           {sortedAlerts.map((alert) => (
             <tr
-              key={alert.id}
+              key={previous ? `${alert.id}:${alert.resolved_at}` : alert.id}
               onClick={() => onAlertClick?.(alert)}
             >
               <td>
                 <StatusBadge
-                  value={
-                    alert.alert_state === 'resolved'
-                      ? 'resolved'
-                      : alert.level
-                  }
+                  label={previous ? '해결됨' : '발생 중'}
+                  value={previous ? 'resolved' : 'active'}
+                />
+              </td>
+              <td>
+                <StatusBadge
+                  label={LEVEL_LABELS[String(alert.level || '').toLowerCase()] ?? alert.level}
+                  value={alert.level}
                 />
               </td>
               <td>{alert.source}</td>
               <td className="topic-name">{alert.name}</td>
               <td>{alert.message}</td>
               <td>{alert.code}</td>
-              <td>{formatTime(alert.resolved_at ?? alert.detected_at)}</td>
+              <td>{formatTime(detectedAt(alert))}</td>
+              {previous && <td>{formatTime(alert.resolved_at)}</td>}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   )
+}
+
+function detectedAt(alert) {
+  return alert.first_detected_at ?? alert.detected_at
 }

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.app_state import alert_history
 
@@ -11,8 +11,22 @@ router = APIRouter()
 
 
 @router.get('/ros/alerts')
-def alerts() -> dict[str, Any]:
-    return alert_history.snapshot()
+def alerts(
+    history_name: str = Query(default='', max_length=512),
+    history_page: int = Query(default=1, ge=1),
+) -> dict[str, Any]:
+    return alert_history.snapshot(
+        history_name=history_name.strip(),
+        history_page=history_page,
+    )
+
+
+@router.get('/ros/alerts/history')
+def alert_history_page(
+    name: str = Query(default='', max_length=512),
+    page: int = Query(default=1, ge=1),
+) -> dict[str, Any]:
+    return alert_history.resolved_snapshot(name=name.strip(), page=page)
 
 
 @router.post('/ros/alerts/history/reset')

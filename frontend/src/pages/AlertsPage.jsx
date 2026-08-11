@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { resetAlertHistory, resetCurrentAlerts } from '../api/rosApi.js'
+import {
+  fetchAlertHistory,
+  resetAlertHistory,
+  resetCurrentAlerts,
+} from '../api/rosApi.js'
 import { AlertsList } from '../components/AlertsList.jsx'
 
 export function AlertsPage({
@@ -14,12 +18,45 @@ export function AlertsPage({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const [deletePending, setDeletePending] = useState(false)
+  const [historySearchInput, setHistorySearchInput] = useState('')
+  const [historyName, setHistoryName] = useState('')
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyResponse, setHistoryResponse] = useState(null)
+  const [historyPending, setHistoryPending] = useState(false)
+  const [historyError, setHistoryError] = useState(null)
   const response = dashboard.alerts.data
   const currentAlerts = (response?.data ?? []).filter(
     (alert) => alert.alert_state !== 'resolved',
   )
-  const previousAlerts = response?.history ?? []
+  const previousAlerts = historyResponse?.data ?? response?.history ?? []
+  const historyPagination = historyResponse?.pagination ?? response?.history_pagination ?? {
+    page: 1,
+    page_size: 50,
+    total: previousAlerts.length,
+    total_pages: 1,
+    has_previous: false,
+    has_next: false,
+  }
   const alerts = activeTab === 'previous' ? previousAlerts : currentAlerts
+
+  const loadHistory = useCallback(async ({ name, page }) => {
+    setHistoryPending(true)
+    setHistoryError(null)
+    try {
+      const result = await fetchAlertHistory({ name, page })
+      setHistoryResponse(result)
+    } catch (error) {
+      setHistoryError(
+        error instanceof Error ? error.message : '이전 Alert를 불러오지 못했습니다.',
+      )
+    } finally {
+      setHistoryPending(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'previous') loadHistory({ name: historyName, page: historyPage })
+  }, [activeTab, historyName, historyPage, loadHistory])
 
   const deleteAlerts = async () => {
     if (deletePending) return
@@ -28,10 +65,12 @@ export function AlertsPage({
     try {
       if (activeTab === 'previous') {
         await resetAlertHistory()
+        setHistoryPage(1)
+        await loadHistory({ name: historyName, page: 1 })
       } else {
         await resetCurrentAlerts()
+        await dashboard.alerts.refresh()
       }
-      await dashboard.alerts.refresh()
       setDeleteConfirmOpen(false)
     } catch (error) {
       setDeleteError(
@@ -118,11 +157,13 @@ export function AlertsPage({
             type="button"
           >
             이전 Alert
-            <span>{previousAlerts.length}</span>
+            <span>{historyPagination.total}</span>
           </button>
           <button
             className="alert-history-delete-button"
-            disabled={deletePending || alerts.length === 0}
+            disabled={deletePending || (activeTab === 'previous'
+              ? historyPagination.total === 0
+              : alerts.length === 0)}
             onClick={() => {
               setDeleteError(null)
               setDeleteConfirmOpen(true)
@@ -132,6 +173,26 @@ export function AlertsPage({
             {activeTab === 'previous' ? '이력 삭제' : '현재 Alert 삭제'}
           </button>
         </div>
+        {activeTab === 'previous' && (
+          <form
+            className="alert-history-toolbar"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const nextName = historySearchInput.trim()
+              setHistoryName(nextName)
+              setHistoryPage(1)
+            }}
+          >
+            <input
+              aria-label="이전 Alert 이름 검색"
+              onChange={(event) => setHistorySearchInput(event.target.value)}
+              placeholder="이름 검색"
+              type="search"
+              value={historySearchInput}
+            />
+            <button disabled={historyPending} type="submit">검색</button>
+          </form>
+        )}
         {deleteConfirmOpen && (
           <div className="alert-history-delete-confirm" role="alert">
             <span>
@@ -163,6 +224,9 @@ export function AlertsPage({
           </div>
         )}
         {deleteError && <p className="error-text alert-history-delete-error">{deleteError}</p>}
+        {historyError && activeTab === 'previous' && (
+          <p className="error-text alert-history-delete-error">{historyError}</p>
+        )}
         <AlertsList
           alerts={alerts}
           emptyMessage={
@@ -170,9 +234,31 @@ export function AlertsPage({
               ? '해결된 이전 Alert가 없습니다'
               : '현재 active Alert가 없습니다'
           }
+          key={activeTab}
           onAlertClick={openAlert}
-          timeLabel={activeTab === 'previous' ? '해결 시각' : '감지 시각'}
+          variant={activeTab}
         />
+        {activeTab === 'previous' && (
+          <div className="alert-history-pagination">
+            <button
+              disabled={historyPending || !historyPagination.has_previous}
+              onClick={() => setHistoryPage((current) => Math.max(1, current - 1))}
+              type="button"
+            >
+              이전
+            </button>
+            <span>
+              {historyPagination.page} / {historyPagination.total_pages}
+            </span>
+            <button
+              disabled={historyPending || !historyPagination.has_next}
+              onClick={() => setHistoryPage((current) => current + 1)}
+              type="button"
+            >
+              다음
+            </button>
+          </div>
+        )}
       </section>
     </main>
   )

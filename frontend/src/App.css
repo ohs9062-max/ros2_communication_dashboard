@@ -2144,6 +2144,56 @@ h3 {
   margin: 10px 16px 0;
 }
 
+.alert-history-toolbar {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+.alert-history-toolbar input {
+  background: #0b1119;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  flex: 1;
+  min-width: min(260px, 100%);
+  padding: 8px 10px;
+}
+
+.alert-history-toolbar button,
+.alert-history-pagination button {
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+.alert-history-toolbar button:disabled,
+.alert-history-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.alert-history-pagination {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+}
+
+.alert-history-pagination span {
+  color: var(--muted);
+  min-width: 72px;
+  text-align: center;
+}
+
 .alert-tabs button {
   align-items: center;
   background: transparent;

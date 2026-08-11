@@ -3,6 +3,8 @@
 import json
 
 from app.alerts.service import AlertHistoryService
+from app.database.alert_repository import MariaDbAlertRepository
+from app.database.connection import MariaDbConnectionFactory
 from app.monitor_client.cache import MonitorCache
 from app.monitor_client.client import MonitorClient, MonitorUnavailable
 from app.monitor_client.event_consumer import MonitorEventConsumer
@@ -13,7 +15,21 @@ from app.websocket_manager import WebSocketManager
 
 monitor_client = MonitorClient(settings.monitor_base_url, settings.monitor_timeout_sec)
 monitor_cache = MonitorCache()
-alert_history = AlertHistoryService()
+alert_repository = None
+if settings.alert_db_enabled:
+    alert_repository = MariaDbAlertRepository(MariaDbConnectionFactory(
+        host=settings.mariadb_host,
+        port=settings.mariadb_port,
+        database=settings.mariadb_database,
+        user=settings.mariadb_user,
+        password=settings.mariadb_password,
+        connect_timeout_sec=settings.mariadb_connect_timeout_sec,
+        unix_socket=settings.mariadb_unix_socket,
+    ))
+alert_history = AlertHistoryService(
+    alert_repository,
+    database_retry_interval_sec=settings.mariadb_retry_interval_sec,
+)
 monitor_consumer = MonitorEventConsumer(
     monitor_client,
     monitor_cache,

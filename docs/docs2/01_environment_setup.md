@@ -475,14 +475,16 @@ Alert API:
 
 ```text
 GET  /ros/alerts
+GET  /ros/alerts/history?name=...&page=1
 POST /ros/alerts/current/reset
 POST /ros/alerts/history/reset
 ```
 
 - 현재 Alert 삭제는 같은 장애 발생 건을 확인 처리하고 원인이 유지되는 동안 숨긴다.
 - 원인이 해소된 후 다시 발생하면 새 Alert로 표시한다.
-- 이전 Alert 이력 삭제는 해결된 메모리 이력만 지운다.
-- Alert 상태와 이력은 Backend 메모리 기반이므로 Backend 재시작 시 초기화된다.
+- 이전 Alert는 MariaDB의 해결 이력을 `name` 부분 검색과 50건 페이지로 조회한다.
+- 이전 Alert 이력 삭제는 MariaDB의 `resolved_at IS NOT NULL` 행을 지운다.
+- DB 연결 실패 시 메모리 최대 50건으로 fallback하며 Monitoring은 계속 동작한다.
 
 Frontend에서는 현재 Alert와 이전 Alert 탭에서 삭제 버튼을 누르면 경고와 `확인/취소`가
 표시된다.

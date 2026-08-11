@@ -396,3 +396,45 @@
 - 검증: Interface QoS 단위 테스트 15개와 Monitor 전체 pytest 200개, Python compileall, Frontend oxlint/build,
   `git diff --check`가 통과했다. Monitor를 재시작해 Backend의 snapshot polling과 priority 재동기화가 다시
   200 응답을 받는 것을 확인했다. 실제 장비 명령은 실행하지 않았다.
+
+## 2026-08-11 - Alert 현재/이전 목록 컬럼 분리
+
+- Alert 목록에 lifecycle `상태`와 원래 `레벨`을 별도 컬럼으로 표시했다. 현재 Alert는 `발생 중`, 이전 Alert는
+  `해결됨`으로 표시하면서 warning/error/critical은 각각 경고/오류/치명적 badge와 기존 색상을 유지한다.
+- 감지 시각은 `first_detected_at ?? detected_at`, 해결 시각은 이전 Alert에서만 `resolved_at`을 사용한다. 현재는
+  감지 시각, 이전은 해결 시각 내림차순을 기본값으로 하며 기존 정렬·행 이동·삭제 동작은 변경하지 않았다.
+- Frontend oxlint/build와 `git diff --check`가 통과했다. Backend/API/Alert lifecycle 및 DB 코드는 수정하지 않았다.
+
+## 2026-08-11 - Alert MariaDB/화면 정책 문서 확정
+
+- 실제 Topic, Monitor Status, Service, Action, Node Alert builder를 다시 대조해 생성 가능한 code가 18종임을
+  확인했다. QoS incompatible, waiting server와 Service Active Check 내부 상태는 실제 Alert 목록에서 제외했다.
+- `AGENTS.md`와 기존 Alert 문서에 단일 MariaDB `alert` 테이블, active 중복 INSERT 방지, 해결 UPDATE, 해결 후
+  재발 INSERT, DB 전체 이력 보존, `resolved_at` 기반 현재/이전 구분을 확정 정책으로 기록했다.
+- 이전 Alert의 `name` 전체 검색, 해결 최신순 50건 페이지 조회, lifecycle 상태와 level 분리 원칙을 문서화했다.
+  현재 메모리 최대 50건/재시작 초기화 구현과 향후 DB 정책을 구분했으며 Backend, Frontend, DB 코드는 수정하지 않았다.
+
+## 2026-08-11 - MariaDB Alert 영속 저장과 DB 이력 UI 연결
+
+- Backend `AlertHistoryService.consume()`를 단일 저장 지점으로 두고 exact 8컬럼 `alert` 테이블 Repository를
+  연결했다. 기존 Alert `id`를 `alert_key`로 저장하며 advisory lock, transaction, active row 비교로 지속 중
+  중복 INSERT를 막고 실제 resolved 시각 UPDATE와 해결 후 재발 INSERT를 처리한다.
+- `/ros/alerts`의 현재 목록을 DB active row로 유지하고 `/ros/alerts/history`에 `name` 부분 검색,
+  `resolved_at DESC`, 고정 50건 LIMIT/OFFSET을 추가했다. Frontend 이전 탭은 검색과 이전/다음 페이지를 사용하며
+  기존 상태/레벨 분리, 행 이동, 삭제 UI를 유지한다.
+- 환경변수 기반 PyMySQL 연결과 DB 장애 메모리 fallback/재시도를 추가했다. 격리 MariaDB exact schema E2E에서
+  18종 최초/지속/해결/재발 및 55건 50/5 페이지를 확인했다. Backend 14 passed, 1 skipped, Monitor 200 passed,
+  Frontend lint/build와 compileall, `git diff --check`가 통과했다.
+
+## 2026-08-11 - Backend 실행 환경 파일 구성
+
+- DB 준비 메모의 실제 접속 정보를 Git에서 제외되는 `backend/.env`로 옮기고 Backend/Monitor URL, CORS,
+  MariaDB timeout/retry를 빠짐없이 채웠다. `.env.example` 하단에 중복 노출돼 있던 실제 credential은 제거하고
+  비밀 없는 placeholder만 유지했다.
+- 새 환경으로 MariaDB `ros2_dashboard.alert` 접근, Backend 재시작, Monitor 연결과 DB 기반 현재/이전 Alert API
+  200 응답을 확인했다. 실제 비밀번호는 문서와 로그에 기록하지 않았다.
+
+## 2026-08-11 - Monitor 8765 중복 실행 종료 확인
+
+- 새 launch가 종료된 원인은 기존 Monitor PID 238970이 127.0.0.1:8765를 이미 정상 listen 중인 포트 충돌이었다.
+  기존 Monitor health와 Backend `monitor_connected: true`를 확인했으며 ROS discovery 경고는 종료 원인이 아니다.

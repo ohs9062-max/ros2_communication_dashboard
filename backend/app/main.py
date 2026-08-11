@@ -6,13 +6,14 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.app_state import monitor_cache, monitor_consumer
+from app.app_state import alert_history, monitor_cache, monitor_consumer
 from app.routers import alerts, monitor_proxy, monitor_websocket, monitoring, user_preferences
 from app.settings import settings
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    alert_history.start()
     monitor_consumer.start()
     try:
         yield

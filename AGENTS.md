@@ -435,28 +435,33 @@ Action server만 있고 goal client 없음
 #### MariaDB Alert 이력
 
 MariaDB는 제안 사항이 아니라 필수 영속 저장소다. ROS2 실시간 Monitor transport로는
-사용하지 않고 Backend의 Alert 이력·조회·사용자 확인 책임에만 사용한다.
-
-저장 모델은 최소한 다음을 표현해야 한다.
+사용하지 않고 Backend의 Alert 과거 이력 영속 저장과 조회에만 사용한다. 단일 `alert` 테이블의
+확정 스키마와 전체 정책은 `docs/alert_policy/05_alert_lifecycle.md`를 따른다.
 
 ```text
-alert_id / code / level
-resource_kind / resource_name
-status: ACTIVE / RESOLVED / ACKNOWLEDGED
-message / details
-first_detected_at / last_detected_at / resolved_at
-duration / occurrence_count
-acknowledged 여부와 사용자 정보
+동일 active Alert
+→ 같은 alert_key이며 resolved_at IS NULL인 행이 있으면 중복 INSERT 금지
+
+정상 복귀
+→ 기존 active 행의 resolved_at에 해결 시각 기록
+
+해결 후 동일 Alert 재발
+→ 새 발생 건으로 새 row INSERT
+
+현재 Alert / 이전 Alert
+→ resolved_at IS NULL / resolved_at IS NOT NULL 기준으로 구분
 ```
 
-동일한 `resource + alert code`가 polling마다 새 행으로 누적되지 않게 한다. 유지 중에는
-`last_detected_at`과 occurrence count를 갱신하고, 정상 복귀 시 RESOLVED와 resolved time,
-duration을 기록한다. Backend 재시작 후에도 이력이 유지되어야 한다. Frontend는 현재 Alert와
-과거 이력을 구분하고 기간·대상·level·status 검색을 제공하는 방향으로 구현한다.
+DB에는 50건 제한 없이 전체 Alert 이력을 보존한다. UI의 이전 Alert만 `resolved_at` 최신순으로
+한 페이지당 50개씩 조회하며, 검색은 Topic·Service·Action·Node를 모두 포함하는 `name` 기준이다.
+Alert의 lifecycle 상태(`발생 중`/`해결됨`)와 level(`warning`/`error`/`critical`)은 별도 개념이며
+서로 덮어쓰지 않는다.
 
 DB 연결 문자열과 credential은 `.env`로 관리하고 실제 값을 Git에 넣지 않는다. schema,
 migration, repository를 사용하며 Router에서 직접 SQL을 실행하지 않는다. DB 장애가 ROS2
 Monitor 수집을 중단시키면 안 되고, 저장 실패 원인을 Backend 로그에서 확인할 수 있어야 한다.
+현재 구현은 `backend/app/alerts/service.py` 한 곳에서 Monitor Alert snapshot을 받아
+`backend/app/database/alert_repository.py`로 동기화한다. Monitor는 DB에 직접 INSERT하지 않는다.
 
 #### 실제 기기 QoS 검증
 
@@ -1724,14 +1729,12 @@ node_stale
 이전 Alert 정책:
 
 ```text
-상태형 Alert가 active에서 resolved로 전환될 때 한 번만 메모리 history에 기록한다.
-최신순 최대 50개를 유지한다.
-같은 resolved 상태의 반복 polling은 중복 기록하지 않는다.
-동일 장애가 재발 후 다시 해결되면 새로운 해결 이력으로 기록한다.
-이전 Alert는 alert_state=resolved, active=false, 초록색 해결됨 배지로 표시한다.
-MariaDB 영속 이력이 구현되기 전까지는 Backend 메모리 fallback이며 재시작 시 초기화된다.
-MariaDB 구현 후에도 동일 polling Alert를 매번 새 행으로 추가하지 않고 active/resolved 전이를 보존한다.
-이전 Alert history는 상태 유지 적용 code만 대상으로 하며 모든 일회성 Alert의 영구 이력이 아니다.
+현재 구현:
+현재 코드에서 생성되는 모든 Alert 발생 건을 MariaDB alert 테이블에 영구 보존한다.
+동일 alert_key의 미해결 row가 있으면 polling마다 중복 INSERT하지 않는다.
+정상 복귀 시 resolved_at을 기록하고, 그 뒤 같은 alert_key가 재발하면 새 row를 만든다.
+DB 전체 이력 보존과 UI 50건 페이지 조회를 혼동하지 않는다.
+DB 연결 실패 시 Monitor 수집을 유지하기 위해 메모리 최대 50건 fallback을 사용하고 재연결을 시도한다.
 ```
 
 ## 16. FastAPI + rclpy 실행 구조 (리팩토링 전 기록)
@@ -1909,9 +1912,11 @@ Overview 최근 Alert는 기본 접힘 상태에서 3개를 표시한다.
 Overview 최근 Alert의 작은 font/badge 규칙은 다른 목록과 상세 화면에 전파하지 않는다.
 
 Alerts 화면은 현재 Alert / 이전 Alert 탭으로 구분한다.
-현재 Alert 탭은 alert_state가 resolved가 아닌 active 항목만 표시한다.
-이전 Alert 탭은 Backend history의 해결 이력을 최신순 최대 50개 표시한다.
-이전 Alert의 상태는 원래 level 색이 아니라 초록색 해결됨 배지로 표시한다.
+현재 Alert는 `resolved_at IS NULL`, 이전 Alert는 `resolved_at IS NOT NULL`로 MariaDB에서 조회한다.
+현재 Alert는 상태·레벨·출처·이름·메시지·코드·감지 시각 순으로 표시한다.
+이전 Alert는 같은 컬럼 뒤에 해결 시각을 추가하고, `resolved_at` 최신순으로 50개씩 페이지 조회한다.
+이전 Alert 검색은 리소스 종류에 한정하지 않고 `name` 컬럼 전체를 대상으로 한다.
+발생 중/해결됨 상태 배지와 원래 warning/error/critical level 배지를 별도로 표시한다.
 현재 Alert와 이전 Alert의 개수를 각 탭에 표시한다.
 ```
 

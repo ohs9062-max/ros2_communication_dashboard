@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 try:
@@ -22,6 +22,13 @@ def _backend_path(env_name: str, default: Path) -> Path:
     return (configured if configured.is_absolute() else BACKEND_ROOT / configured).resolve()
 
 
+def _env_bool(env_name: str, default: bool) -> bool:
+    value = os.getenv(env_name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 @dataclass(frozen=True)
 class Settings:
     monitor_base_url: str = os.getenv('MONITOR_BASE_URL', 'http://127.0.0.1:8765').rstrip('/')
@@ -36,6 +43,22 @@ class Settings:
     user_preferences_path: Path = _backend_path(
         'USER_PREFERENCES_PATH',
         BACKEND_ROOT / 'config' / 'user_preferences.yaml',
+    )
+    alert_db_enabled: bool = _env_bool('ALERT_DB_ENABLED', True)
+    mariadb_host: str = os.getenv('MARIADB_HOST', '127.0.0.1')
+    mariadb_port: int = int(os.getenv('MARIADB_PORT', '3306'))
+    mariadb_unix_socket: str | None = os.getenv('MARIADB_UNIX_SOCKET') or None
+    mariadb_database: str = os.getenv('MARIADB_DATABASE', 'ros2_dashboard')
+    mariadb_user: str = os.getenv('MARIADB_USER', 'ros2_dashboard')
+    mariadb_password: str = field(
+        default_factory=lambda: os.getenv('MARIADB_PASSWORD', ''),
+        repr=False,
+    )
+    mariadb_connect_timeout_sec: float = float(
+        os.getenv('MARIADB_CONNECT_TIMEOUT_SEC', '2'),
+    )
+    mariadb_retry_interval_sec: float = float(
+        os.getenv('MARIADB_RETRY_INTERVAL_SEC', '5'),
     )
 
 

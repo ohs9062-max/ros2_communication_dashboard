@@ -43,7 +43,7 @@ Topic/Service/Action/Node 상태
 | 2 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L674 | `ros_monitor.py` L641-L663 | active/resolved lifecycle 적용 |
 | 3 | `ros_monitor.py` `alerts()` | `ros_monitor.py` L606-L674 | `ros_monitor.py` L664-L674 | history와 meta를 API 형식으로 반환 |
 | 4 | `topic/alerts.py` `retain_alerts()` | `topic/alerts.py` L60-L127 | `topic/alerts.py` L82-L96 | 현재 장애를 active로 갱신 |
-| 5 | `topic/alerts.py` `retain_alerts()` | `topic/alerts.py` L60-L127 | `topic/alerts.py` L98-L125 | 해결 처리, 60초 보관, history 최대 50개 |
+| 5 | `topic/alerts.py` `retain_alerts()` | `topic/alerts.py` L60-L127 | `topic/alerts.py` L98-L125 | 해결 처리, 60초 보관, 현재 메모리 history 최대 50개 |
 | 6 | `monitoring.py` `get_ros_alerts()` | `monitoring.py` L86-L89 | `monitoring.py` L89 | `/ros/alerts` 반환 |
 | 7 | `rosApi.js` → 각 Dashboard Hook | `rosApi.js` L57-L59 | 각 `use*Dashboard.js`의 `usePolling(fetchAlerts, ...)` | Frontend가 Alert API를 polling하고 화면별 source에 맞는 Alert만 고른다. |
 | 8 | `AlertsPage.jsx` `AlertsPage()` | `AlertsPage.jsx` L5-L102 | `AlertsPage.jsx` L12-L18, `AlertsPage.jsx` L67-L98 | 현재 active Alert와 해결 history를 분리하고 `현재 Alert`·`이전 Alert` 탭으로 표시한다. |
@@ -90,3 +90,19 @@ Topic/Service/Action/Node 상태
 | Node | `node/alerts.py` `build_node_alerts()` L13-L43 | `node/alerts.py` L18-L42 | 이전 발견 Node가 현재 Graph에서 사라짐 |
 
 Graph 정보만으로 정상 종료와 비정상 종료를 구분할 수 없으므로 Node Alert는 “비정상 종료”가 아니라 “연결 종료 감지”를 의미한다.
+
+## MariaDB 이력 흐름
+
+현재 메모리 50건 이력과 달리 MariaDB는 실제 18종 Alert의 모든 발생 이력을 보존한다.
+
+```text
+같은 alert_key의 resolved_at IS NULL row 없음 → 최초 발생 INSERT
+같은 alert_key의 resolved_at IS NULL row 있음 → 지속 중, INSERT 없음
+정상 복귀 → 해당 row의 resolved_at UPDATE
+해결 뒤 재발 → 새 row INSERT
+```
+
+화면은 `resolved_at IS NULL`을 현재 Alert, `resolved_at IS NOT NULL`을 이전 Alert로 구분한다.
+이전 Alert는 `name` 검색을 적용한 결과를 `resolved_at DESC`로 정렬해 50개씩 페이지 조회하며, DB의 보존
+건수 자체를 50개로 제한하지 않는다. 정확한 단일 테이블 스키마와 UI 컬럼은
+[`docs/alert_policy/05_alert_lifecycle.md`](../alert_policy/05_alert_lifecycle.md)를 따른다.

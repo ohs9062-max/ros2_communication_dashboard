@@ -87,12 +87,15 @@ Alert 대상이 되려면 아래 조건 중 하나를 만족해야 합니다:
 
 ---
 
-### 5. `monitor_status_<level>` (MonitorStatus 메시지 기반)
+### 5. MonitorStatus 3종 (MonitorStatus 메시지 기반)
+
+실제 code는 level에 따라 `monitor_status_warning`, `monitor_status_error`,
+`monitor_status_critical` 중 하나입니다. 따라서 전체 18종을 셀 때 3개 code로 계산합니다.
 
 | 항목 | 내용 |
 |---|---|
 | **Alert ID** | `monitor_status:<topic_name>:<device_name>:<level>[:<status>]` |
-| **Level** | ⚠️ `warning` / 🔴 `error` / 🔥 `critical` (메시지 내용에 따라 동적) |
+| **Level / code** | `warning` / `monitor_status_warning`<br>`error` / `monitor_status_error`<br>`critical` / `monitor_status_critical` |
 | **대상 Kind** | Topic (타입이 `ros2_dashboard_interfaces/msg/MonitorStatus`인 Topic) |
 | **발생 조건** | • Topic 타입이 `ros2_dashboard_interfaces/msg/MonitorStatus`<br>• 수신한 메시지의 `level` 필드가 `warning`, `error`, `critical` 중 하나<br>• `info` 수준은 Alert 생성하지 않음 |
 | **판정 데이터** | `message_preview.level`, `message_preview.device_name`, `message_preview.status`, `message_preview.message`, `message_preview.values` |

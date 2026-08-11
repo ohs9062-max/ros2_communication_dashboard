@@ -1,197 +1,176 @@
-# Alert 생명주기 (Lifecycle)
+# Alert 생명주기와 MariaDB 정책
 
-## 개요
+## 목적과 적용 상태
 
-이 문서는 Alert가 생성되고 해제되며, 이력으로 남고, 사용자에 의해 숨겨지는 전체 생명주기를 설명합니다.
+Alert는 Monitor가 계산하는 현재 ROS2 상태와 사용자 실행 결과에서 생성됩니다. MariaDB의 목적은 이 현재
+상태를 계산하는 것이 아니라, 발생하고 해결된 모든 Alert 이력을 Backend 재시작 뒤에도 영구 보존하는 것입니다.
 
----
+2026-08-11 현재 Backend는 `AlertHistoryService`를 단일 저장 진입점으로 사용해 MariaDB와 동기화합니다.
+DB 연결 실패 시 ROS2 Monitoring을 중단하지 않고 메모리 최대 50건 fallback을 사용하며 주기적으로 재연결합니다.
 
-## Alert 상태 전이 다이어그램
-
-```text
-[조건 감지] ──→ [Active] ◄──── 매 폴링 주기마다 조건 재확인
-                  │
-                  ├─ 조건 해제 ──→ [Resolved]
-                  │                   │
-                  │                   ├─ resolved_retention_sec (60초) 이내
-                  │                   │  → 화면에 resolved 상태로 표시
-                  │                   │
-                  │                   └─ resolved_retention_sec 초과
-                  │                      → 메모리에서 제거 (History에는 남음)
-                  │
-                  └─ 사용자 Dismiss ──→ [Dismissed]
-                                         │
-                                         ├─ 동일 조건 지속 중 → 화면에서 숨김
-                                         │
-                                         └─ 조건 해제 후 다시 발생 시
-                                            → 새로운 Active Alert로 복귀
-```
-
----
-
-## 1단계: Alert 생성 (Detection)
-
-매 Graph 폴링 주기(`poll_interval_sec`, 기본 `1.0초`)마다 Monitor는 모든 Runtime의 현재 상태를 조사하여 Alert를 생성합니다.
-
-### Alert 생성 순서 (ros_monitor.py)
+## 현재 구현 생명주기
 
 ```text
-1. Topic alerts     ← build_alerts()
-2. Service alerts   ← build_service_alerts()
-3. Action alerts    ← build_action_alerts()
-4. Node alerts      ← build_node_alerts()
-5. Dismiss 필터링   ← dismissed_alert_ids에서 제외
-6. Retain 처리      ← retain_alerts()로 active/resolved 갱신
+source별 Alert builder
+→ Monitor가 현재 후보 조립
+→ retained active/resolved 상태 갱신
+→ Backend AlertHistoryService가 active/resolved 분리
+→ MariaDbAlertRepository transaction 동기화
+→ GET /ros/alerts, GET /ros/alerts/history
 ```
 
-### Alert 생성 함수 원천
+- 같은 active Alert는 안정적인 `id`를 유지하며 polling마다 별도 history 항목을 만들지 않습니다.
+- 상태형 Alert가 사라지면 resolved로 전환하고 `resolved_at`을 기록합니다.
+- DB 연결 시 현재/이전 Alert는 MariaDB에서 조회하고 이전 이력은 전체 보존합니다.
+- DB 장애 시 사용하는 Monitor/Backend 메모리 history 제한은 50건입니다.
+- 현재 Alert dismiss 상태는 기존 동작을 유지하기 위해 Backend 메모리에 보관합니다.
+- 현재 Alert 객체의 실제 필드와 source별 조건은 [README.md](./README.md)와 각 source 문서를 참고합니다.
 
-| 통신 | 함수 | 파일 |
+## 확정 MariaDB 스키마
+
+MariaDB에는 아래 단일 `alert` 테이블을 사용합니다. Backend는 시작 시 테이블 존재 여부를 확인하지만 자동 생성하거나
+스키마를 변경하지 않습니다.
+
+```sql
+CREATE TABLE alert (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+    alert_key VARCHAR(768) NOT NULL,
+
+    source VARCHAR(64) NOT NULL,
+
+    name VARCHAR(512) NOT NULL,
+
+    code VARCHAR(64) NOT NULL,
+
+    level VARCHAR(16) NOT NULL,
+
+    message TEXT NOT NULL,
+
+    detected_at DATETIME(6) NOT NULL,
+
+    resolved_at DATETIME(6) NULL
+);
+```
+
+| 컬럼 | 의미 | 예시 |
 |---|---|---|
-| Topic | `build_alerts()` | `ros2_topic/alerts.py` |
-| Service | `build_service_alerts()` | `ros2_service/alerts.py` |
-| Action | `build_action_alerts()` | `ros2_action/alerts.py` |
-| Node | `build_node_alerts()` | `ros2_node/alerts.py` |
+| `id` | DB 내부 식별 번호 | `1042` |
+| `alert_key` | 동일 Alert 종류와 대상을 구분하는 안정적인 키 | `topic:/scan:topic_stale` |
+| `source` | Alert 출처 | `topic`, `service`, `action`, `node`, `monitor_status` |
+| `name` | Alert 대상 이름 | `/scan`, `/navigate_to_pose` |
+| `code` | 실제 Alert code | `topic_stale`, `action_goal_aborted` |
+| `level` | 원래 심각도 | `warning`, `error`, `critical` |
+| `message` | 사용자에게 보여줄 설명 | `Topic message is stale.` |
+| `detected_at` | 이번 발생 건의 최초 감지 시각 | `2026-08-11 09:30:00.123456` |
+| `resolved_at` | 정상 복귀 시각. `NULL`이면 현재 발생 중 | `2026-08-11 09:31:05.000000` |
 
----
+Lifecycle 상태를 저장하는 별도 `status` 컬럼은 두지 않습니다. `resolved_at IS NULL`이면 발생 중,
+`resolved_at IS NOT NULL`이면 해결됨으로 파생합니다. level은 lifecycle 상태로 덮어쓰지 않습니다.
 
-## 2단계: 상태 보존 (Retention)
+## 저장, 해결, 재발
 
-### Retained Alert 코드
+### 최초 발생
 
-아래 코드의 Alert는 **상태 보존(retain)** 대상입니다.
-resolved 되어도 `ALERT_RESOLVED_RETENTION_SEC` (`60.0초`) 동안 화면에 유지됩니다:
+1. Backend가 Monitor에서 Alert 후보를 받습니다.
+2. 같은 `alert_key`이며 `resolved_at IS NULL`인 행이 있는지 확인합니다.
+3. 없으면 `detected_at`을 최초 감지 시각으로 하여 새 row를 INSERT합니다.
+
+### 장애 지속
+
+같은 `alert_key`의 미해결 row가 있으면 현재 진행 중인 동일 장애입니다. Polling마다 새 row를 INSERT하지
+않으며 `detected_at`도 변경하지 않습니다.
+
+### 정상 복귀
+
+현재 snapshot에서 active 조건이 사라지면 해당 미해결 row의 `resolved_at`을 해결 시각으로 UPDATE합니다.
+
+### 해결 후 재발
+
+같은 `alert_key`의 과거 row가 모두 해결된 뒤 장애가 다시 발생하면 별개의 발생 건입니다. 새 `detected_at`과
+`resolved_at NULL`로 새 row를 INSERT합니다.
 
 ```text
-Topic:   topic_message_missing, topic_stale, topic_disconnected
-Service: service_disconnected, service_call_failed, service_call_timeout
-Action:  action_disconnected, action_goal_aborted, action_goal_canceled,
-         action_goal_rejected, action_goal_send_failed,
-         action_result_timeout, action_result_unavailable
-Node:    node_stale
+첫 발생 → INSERT(row 1, resolved_at NULL)
+지속    → INSERT 없음
+해결    → UPDATE(row 1, resolved_at = 해결 시각)
+재발    → INSERT(row 2, resolved_at NULL)
 ```
 
-### Retain 로직
+주어진 스키마에는 “같은 `alert_key`당 미해결 row 1개”를 직접 강제하는 unique constraint가 없습니다.
+Repository는 MariaDB advisory lock과 transaction의 `SELECT ... FOR UPDATE`를 함께 사용해 여러 polling이나
+Backend worker에서도 확인과 INSERT를 직렬화합니다. 스키마에 명시되지 않은 컬럼은 추가하지 않습니다.
+
+## 저장 범위
+
+- 현재 코드에서 실제 생성되는 18종 Alert의 모든 발생 건을 저장합니다.
+- DB에는 50건 제한을 두지 않고 전체 이력을 보존합니다.
+- DB 장애가 Monitor의 ROS2 상태 계산과 수집을 중단시키면 안 됩니다.
+- credential과 연결 문자열은 Backend `.env`, DB 처리는 migration과 Repository 계층에서 관리합니다.
+- Router에서 직접 SQL을 실행하지 않습니다.
+
+## Alert 화면 정책
+
+### 현재 Alert
+
+조회 조건은 `resolved_at IS NULL`입니다.
+
+| 순서 | 컬럼 | 표시 |
+|---:|---|---|
+| 1 | 상태 | `발생 중` |
+| 2 | 레벨 | 원래 level을 `경고`/`오류`/`치명적`으로 표시 |
+| 3 | 출처 | `source` |
+| 4 | 이름 | `name` |
+| 5 | 메시지 | `message` |
+| 6 | 코드 | `code` |
+| 7 | 감지 시각 | `detected_at` |
+
+현재 Alert에는 해결 시각 컬럼을 표시하지 않습니다.
+
+### 이전 Alert
+
+조회 조건은 `resolved_at IS NOT NULL`이며 `resolved_at DESC`로 정렬합니다.
+
+| 순서 | 컬럼 | 표시 |
+|---:|---|---|
+| 1 | 상태 | `해결됨` |
+| 2 | 레벨 | 발생 당시 원래 level 유지 |
+| 3 | 출처 | `source` |
+| 4 | 이름 | `name` |
+| 5 | 메시지 | `message` |
+| 6 | 코드 | `code` |
+| 7 | 감지 시각 | `detected_at` |
+| 8 | 해결 시각 | `resolved_at` |
+
+`해결됨 | 오류 | action`처럼 lifecycle 상태와 심각도를 별도 컬럼과 배지로 표시합니다.
+
+## 검색과 페이지 조회
+
+- 검색 대상은 `name` 컬럼입니다. “노드 검색”으로 한정하지 않습니다.
+- `/scan`, `/navigate_to_pose`, `/RobotControl`, `/demo_can_control_server`처럼 Topic, Service, Action,
+  Node 이름을 같은 규칙으로 검색합니다.
+- 검색 조건이 있으면 먼저 `name` 조건을 적용한 결과에 페이지 처리를 적용합니다.
+- 이전 Alert는 최신 해결 순이며 페이지당 50개입니다.
+- UI의 50개 제한은 조회 단위일 뿐 DB 보존 한도가 아닙니다.
+
+## 현재 Backend 연결 흐름
 
 ```text
-current_alerts에 있고 retained_codes에 포함 → Active 유지
-  → first_detected_at 보존 (최초 감지 시각)
-  → last_detected_at 갱신 (매 폴링 시각)
-  → resolved_at = null
-
-retained에 있지만 current_alerts에 없음 → Resolved로 전환
-  → alert_state = 'resolved'
-  → resolved_at 기록
-  → 60초 이내이면 화면에 resolved 상태로 표시
-  → 60초 초과 시 메모리에서 제거
-  → History에 해결 기록 추가 (최초 resolved 시에만)
+Monitor 현재 Alert snapshot
+→ Backend lifecycle service가 alert_key 기준 active set 비교
+→ Repository transaction에서 기존 미해결 row 확인
+→ 최초 발생 INSERT / 정상 복귀 UPDATE / 지속 중 INSERT 없음
+→ 현재 API: resolved_at IS NULL 조회
+→ 이전 API: name 검색 + resolved_at DESC + 50개 페이지 조회
+→ Frontend 현재 Alert / 이전 Alert 표시
 ```
 
----
+기존 `/ros/alerts` 응답 key와 삭제 동작을 유지하며 schema·Repository, Backend service, API,
+Frontend 페이지 조회를 각 책임 경계에 맞게 관리합니다.
 
-## 3단계: Alert History (이력)
+## 연결 설정
 
-### Monitor 측 이력
-
-- Alert가 **처음 resolved될 때** History에 1건 추가
-- History 최대 보관: `50건` (코드 상수 `history_limit`)
-- `reset_alert_history()` API로 이력 삭제 가능
-
-### Backend 측 이력
-
-- Backend의 `AlertHistoryService`가 Monitor snapshot에서 전달받은 Alert를 독립 관리
-- `consume()` 메서드에서 이전 Active → 현재 미존재 시 자동 Resolved 기록
-- Backend History 최대 보관: `50건` (`HISTORY_LIMIT`)
-- 향후 MariaDB 영속 저장소로 이관 예정
-
-### History 응답 데이터
-
-```json
-{
-  "id": "topic:/scan:topic_stale:resolved:1722930000.0",
-  "origin_id": "topic:/scan:topic_stale",
-  "alert_state": "resolved",
-  "first_detected_at": 1722929990.0,
-  "last_detected_at": 1722929999.0,
-  "resolved_at": 1722930000.0,
-  "level": "warning",
-  "source": "topic",
-  "name": "/scan",
-  "code": "topic_stale"
-}
-```
-
----
-
-## 4단계: 사용자 조치 (Dismiss / Reset)
-
-### Dismiss (현재 Alert 확인 처리)
-
-| API | 동작 |
-|---|---|
-| `POST /ros/alerts/reset-current` (Monitor) | 현재 visible한 모든 active Alert를 `dismissed_alert_ids`에 추가하고 retained에서 제거. 해당 조건이 해제된 후 다시 발생하면 새 Alert로 복귀 |
-| `POST /alerts/dismiss` (Backend) | Backend 측 active Alert를 dismissed 처리. Monitor와 독립적 |
-
-### History Reset
-
-| API | 동작 |
-|---|---|
-| `POST /ros/alerts/reset-history` (Monitor) | Monitor의 메모리 이력 전체 삭제 |
-| `POST /alerts/history/reset` (Backend) | Backend의 이력 전체 삭제 |
-
----
-
-## Alert Meta (요약 통계)
-
-매 Alert 조회 시 아래 요약 통계가 함께 반환됩니다:
-
-```json
-{
-  "count": 5,
-  "active_count": 3,
-  "resolved_count": 2,
-  "info_count": 0,
-  "warning_count": 2,
-  "error_count": 1,
-  "critical_count": 0
-}
-```
-
-- `count`: active + resolved 전체 Alert 수
-- `active_count`: 현재 활성 상태인 Alert 수
-- `resolved_count`: 해결되었지만 retention 기간 내인 Alert 수
-- `info_count` ~ `critical_count`: active Alert의 level별 건수
-
----
-
-## 전체 Alert 코드 종합 표
-
-| 코드 | Source | Level | Retained | 발생 조건 요약 |
-|---|---|---|---|---|
-| `waiting_publisher` | topic | warning | ❌ | Publisher 없이 감시 대상 Topic 존재 |
-| `topic_message_missing` | topic | warning | ✅ | Publisher 있으나 메시지 한 번도 미수신 (stale_timeout 초과) |
-| `topic_stale` | topic | warning | ✅ | 마지막 수신 후 stale_timeout 초과 |
-| `topic_disconnected` | topic | error | ✅ | 이전 발견된 Topic이 Graph에서 사라짐 |
-| `monitor_status_<level>` | monitor_status | warning~critical | ❌ | MonitorStatus 메시지의 level 필드 |
-| `service_disconnected` | service | error | ✅ | 등록된 Service가 Graph에서 사라짐 |
-| `service_call_timeout` | service | warning | ✅ | 사용자 Service Call 타임아웃 |
-| `service_call_failed` | service | error | ✅ | 사용자 Service Call 실패 |
-| `action_disconnected` | action | error | ✅ | 등록된 Action이 Graph에서 사라짐 |
-| `action_goal_aborted` | action | error | ✅ | Goal이 서버에 의해 중단 |
-| `action_goal_canceled` | action | warning | ✅ | Goal이 취소됨 |
-| `action_goal_rejected` | action | warning | ✅ | Goal이 서버에 의해 거부 |
-| `action_goal_send_failed` | action | error | ✅ | Goal 전송 또는 Accept 타임아웃 |
-| `action_result_timeout` | action | warning | ✅ | Result 응답 대기 타임아웃 |
-| `action_result_unavailable` | action | error | ✅ | Result 수신 또는 lookup 실패 |
-| `node_stale` | node | error | ✅ | 이전 발견된 Node가 Graph에서 사라짐 |
-
----
-
-## 관련 상수 및 설정
-
-| 상수/설정 | 값 | 위치 | 역할 |
-|---|---|---|---|
-| `ALERT_RESOLVED_RETENTION_SEC` | `60.0초` | `ros2_topic/alerts.py:24` | Resolved Alert 화면 유지 시간 |
-| `history_limit` (retain_alerts) | `50건` | `ros_monitor.py:876` | Monitor 이력 최대 보관 수 |
-| `HISTORY_LIMIT` (Backend) | `50건` | `backend/app/alerts/policy.py:3` | Backend 이력 최대 보관 수 |
-| `poll_interval_sec` | `1.0초` | `monitor.yaml` | Alert 재판정 주기 |
+Backend `.env`에서 `ALERT_DB_ENABLED`, `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_DATABASE`,
+`MARIADB_USER`, `MARIADB_PASSWORD`를 설정합니다. 로컬 Unix socket은 `MARIADB_UNIX_SOCKET`으로 선택할 수
+있고, timeout/retry는 `MARIADB_CONNECT_TIMEOUT_SEC`, `MARIADB_RETRY_INTERVAL_SEC`로 관리합니다.
+비밀번호는 코드, 문서, 로그에 기록하지 않습니다.

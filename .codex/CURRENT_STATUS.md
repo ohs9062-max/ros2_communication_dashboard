@@ -20,6 +20,13 @@
   전체 profile, Service Auto는 Fast DDS Request Reader/Response Writer에서 발견한 Reliability, Durability,
   Deadline, Lifespan, Liveliness, Lease Duration을 Client 관점에서 적용한다. History/Depth만 local Service
   기본값을 사용하며, Action은 이 Service Auto와 Topic Auto로 5개 내부 채널 QoS를 각각 전달한다.
+- Alert DB 정책은 단일 MariaDB `alert` 테이블의 8개 컬럼으로 확정됐다. 동일 `alert_key`의 미해결 row는
+  중복 INSERT하지 않고, 정상 복귀 시 `resolved_at`을 기록하며, 해결 뒤 재발하면 새 row를 만든다. DB는 전체
+  이력을 보존하고 이전 Alert UI는 `name` 검색과 해결 최신순 50개 페이지 조회를 사용한다.
+- Backend `AlertHistoryService`와 MariaDB Repository가 위 정책을 실제 연결한다. 현재/이전 Alert는 DB에서
+  조회하고, DB 장애 시 Monitoring을 중단하지 않고 메모리 fallback과 재연결을 사용한다.
+- 로컬 Backend의 `backend/.env`에 Monitor와 MariaDB 실행 설정이 구성됐고 실제 `ros2_dashboard.alert` 접근과
+  DB 기반 Alert API를 확인했다. 실제 credential은 Git에서 제외되며 `.env.example`에는 placeholder만 둔다.
 - 현재 작업 트리는 기존 사용자 변경과 최근 기능 변경이 함께 있는 dirty 상태이며 commit/push되지 않았다.
 
 ## 현재 핵심 구조
@@ -85,7 +92,8 @@ docs/                            설계·운영 문서
 
 ```text
 Monitor pytest: 200 passed
-Backend pytest: 7 passed
+Backend pytest: 14 passed, 1 skipped
+격리 MariaDB exact-schema E2E: 1 passed
 선택 package colcon test-result: 201 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Python compileall: 통과
@@ -109,7 +117,8 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
   Lifespan은 관찰 가능한 원격 Response Writer 값을 단일 Client profile에 전달하며 Request Reader 요구값으로
   해석하지 않는다.
 - fallback으로 만든 Topic entity는 이후 Graph QoS 변화에 따라 자동 재생성되지 않는다.
-- QoS mismatch의 MariaDB Alert 영속 이력 연결은 아직 구현되지 않았다.
+- 다른 배포 환경에서는 각 환경의 MariaDB 접속 정보와 확정 `alert` 테이블을 별도로 준비해야 한다. Backend는
+  테이블을 자동 생성하거나 변경하지 않으며, DB 연결 실패 중 생성된 메모리 fallback 이력은 재시작 시 사라질 수 있다.
 - Camera Topic 이미지 시각화와 Gazebo TurtleBot 명령 preset은 아직 구현되지 않았다.
 - 실제 기기/Gazebo 전체 통합 E2E는 남아 있다. 기존 demo_nodes는 Backend 공개 API까지 확인했지만 Browser
   화면 자체의 자동화된 시각 검증은 수행하지 않았다.
@@ -131,8 +140,8 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 ## 다음 우선 작업
 
 1. 변경된 Vite proxy 설정을 실제 시스템 Nginx에 설치하고 HTTPS/WSS/HMR 회귀 검증
-2. MariaDB Alert 이력 schema/migration/repository 및 장애 격리 구현
-3. Alert 정책 문서와 실제 code/message/lifecycle 동기화 확인
+2. 운영 MariaDB credential/table 준비 후 실제 배포 Backend의 영속 이력 확인
+3. Alert DB 장기 보존량 기준 index/운영 성능 측정. 확정 스키마 변경은 별도 승인 필요
 4. Camera Topic (`sensor_msgs/msg/Image`, `CompressedImage`) 시각화
 5. Gazebo TurtleBot 명령 preset과 실제 장비/Gazebo·Browser 통합 검증
 

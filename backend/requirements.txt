@@ -3,3 +3,4 @@ httpx
 uvicorn[standard]
 python-dotenv
 PyYAML
+PyMySQL>=1.1,<2
