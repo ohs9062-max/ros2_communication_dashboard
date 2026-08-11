@@ -22,23 +22,14 @@ export DASHBOARD_HTTPS_PORT="${DASHBOARD_HTTPS_PORT:-443}"
 export DASHBOARD_SERVER_NAME="${DASHBOARD_SERVER_NAME:-localhost $LOCAL_IP}"
 export DASHBOARD_TLS_CERTIFICATE="${DASHBOARD_TLS_CERTIFICATE:-/etc/nginx/ssl/ros2-dashboard.crt}"
 export DASHBOARD_TLS_PRIVATE_KEY="${DASHBOARD_TLS_PRIVATE_KEY:-/etc/nginx/ssl/ros2-dashboard.key}"
-export DASHBOARD_FRONTEND_ROOT="${DASHBOARD_FRONTEND_ROOT:-/var/www/ros2-dashboard}"
+export DASHBOARD_FRONTEND_UPSTREAM="${DASHBOARD_FRONTEND_UPSTREAM:-http://127.0.0.1:5173}"
 export DASHBOARD_BACKEND_UPSTREAM="${DASHBOARD_BACKEND_UPSTREAM:-http://127.0.0.1:8000}"
 
 [[ -n "$LOCAL_IP" ]] || {
   echo "[ros2_dashboard] local IPv4 address was not detected; set DASHBOARD_LOCAL_IP" >&2
   exit 1
 }
-[[ -f "$PROJECT_DIR/frontend/dist/index.html" ]] || {
-  echo "[ros2_dashboard] frontend/dist is missing; run: cd frontend && npm run build" >&2
-  exit 1
-}
-[[ "$DASHBOARD_FRONTEND_ROOT" == /* && "$DASHBOARD_FRONTEND_ROOT" != / ]] || {
-  echo "[ros2_dashboard] DASHBOARD_FRONTEND_ROOT must be an absolute non-root path" >&2
-  exit 1
-}
-
-install -d -m 0755 "$(dirname -- "$DASHBOARD_TLS_CERTIFICATE")" "$DASHBOARD_FRONTEND_ROOT"
+install -d -m 0755 "$(dirname -- "$DASHBOARD_TLS_CERTIFICATE")"
 if [[ ! -f "$DASHBOARD_TLS_CERTIFICATE" || ! -f "$DASHBOARD_TLS_PRIVATE_KEY" ]]; then
   openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 825 \
     -subj "/CN=localhost" \
@@ -48,10 +39,6 @@ if [[ ! -f "$DASHBOARD_TLS_CERTIFICATE" || ! -f "$DASHBOARD_TLS_PRIVATE_KEY" ]];
 fi
 chmod 0600 "$DASHBOARD_TLS_PRIVATE_KEY"
 chmod 0644 "$DASHBOARD_TLS_CERTIFICATE"
-
-find "$DASHBOARD_FRONTEND_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
-cp -a "$PROJECT_DIR/frontend/dist/." "$DASHBOARD_FRONTEND_ROOT/"
-chown -R root:root "$DASHBOARD_FRONTEND_ROOT"
 
 rendered="$(mktemp)"
 trap 'rm -f -- "$rendered"' EXIT
@@ -64,3 +51,4 @@ systemctl enable nginx >/dev/null
 
 echo "[ros2_dashboard] local HTTPS: https://localhost:$DASHBOARD_HTTPS_PORT/"
 echo "[ros2_dashboard] LAN HTTPS:   https://$LOCAL_IP:$DASHBOARD_HTTPS_PORT/"
+echo "[ros2_dashboard] frontend:    $DASHBOARD_FRONTEND_UPSTREAM (Vite must be running)"

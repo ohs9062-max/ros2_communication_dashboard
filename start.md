@@ -24,6 +24,8 @@ ros2 launch ros2_dashboard_monitor dashboard_monitor.launch.py
 ```
 
 # Nginx 실행
+cd ~/rang/ros2_dashboard
+sudo ./scripts/install_local_https.sh
 sudo systemctl start nginx
 sudo systemctl is-enabled nginx
 sudo systemctl status nginx
@@ -49,11 +51,7 @@ npm run dev
 # 전체 Stack 실행
 
 ```bash
-cd ~/rang/ros2_dashboard/frontend
-npm run build
-
 cd ~/rang/ros2_dashboard
-sudo ./scripts/install_local_https.sh
 ./scripts/run_dashboard_stack.sh
 
 curl -k https://localhost/health
@@ -91,6 +89,11 @@ ros2 run ros2_dashboard_demo_nodes can_control_outcome_client
 # Gazebo 실행
 
 ```bash
+cd ~/rang/ros2_dashboard/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch ros2_dashboard_demo_nodes turtlebot3_sim_nav.launch.py
+
 export TURTLEBOT3_MODEL=burger
 ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
 ```

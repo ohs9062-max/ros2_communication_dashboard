@@ -144,6 +144,23 @@ export function useInterfaceReceiveController({
     setFeedback,
     typeField: 'action_type',
   })
+
+  const pollReceiveState = useCallback(async () => {
+    try {
+      const [receivingPayload, topicPayload, servicePayload, actionPayload] = await Promise.all([
+        fetchReceiveTopics(),
+        fetchReceiveTopicHistory('', { limit: 500 }),
+        fetchReceiveServiceHistory(),
+        fetchReceiveActionHistory(),
+      ])
+      setTopics(receivingPayload.data ?? [])
+      setTopicHistory(topicPayload.data ?? [])
+      setServiceHistory(servicePayload.data ?? [])
+      setActionHistory(actionPayload.data ?? [])
+    } catch {
+      // Background polling keeps the last successful state; explicit loads report errors.
+    }
+  }, [])
   const {
     activeKey: activeServiceKey,
     filteredItems: filteredServices,
@@ -167,9 +184,9 @@ export function useInterfaceReceiveController({
 
   useEffect(() => {
     if (!open || mode === 'mock') return undefined
-    const timer = window.setInterval(() => load({ silent: true }), 1000)
+    const timer = window.setInterval(pollReceiveState, 1000)
     return () => window.clearInterval(timer)
-  }, [activeActionKey, activeServiceKey, load, mode, open])
+  }, [mode, open, pollReceiveState])
 
   return {
     actionSearch,

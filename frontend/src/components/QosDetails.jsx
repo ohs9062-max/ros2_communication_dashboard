@@ -1,5 +1,22 @@
 import { DetailSection } from './DetailSection.jsx'
 
+const ACTION_QOS_GROUPS = [
+  {
+    key: 'service',
+    label: 'Service 통신',
+    caption: 'Goal · Result · Cancel',
+    parts: ['goal', 'result', 'cancel'],
+  },
+  {
+    key: 'topic',
+    label: 'Topic 통신',
+    caption: 'Feedback · Status',
+    parts: ['feedback', 'status'],
+  },
+]
+
+const RMW_INFINITE_DURATION_NS = Number('9223372036854775807')
+
 export function QosDetails({ qos, title = 'QoS' }) {
   if (!qos) return null
   const isActionQos = ['goal', 'result', 'cancel'].some(
@@ -8,49 +25,113 @@ export function QosDetails({ qos, title = 'QoS' }) {
   if (isActionQos) {
     return (
       <DetailSection collapsible title={title}>
-        {['goal', 'result', 'cancel', 'feedback', 'status'].map((part) => (
-          <QosState key={part} label={partLabel(part)} qos={qos[part]} />
-        ))}
+        <div className="qos-channel-groups">
+          {ACTION_QOS_GROUPS.map((group) => (
+            <ActionQosGroup group={group} key={group.key} qos={qos} />
+          ))}
+        </div>
       </DetailSection>
     )
   }
-  return <DetailSection collapsible title={title}><QosState qos={qos} /></DetailSection>
+  return (
+    <DetailSection collapsible title={title}>
+      <QosState collapseEndpointGroups qos={qos} />
+    </DetailSection>
+  )
 }
 
-function QosState({ label, qos }) {
+function ActionQosGroup({ group, qos }) {
+  const states = group.parts.map((part) => qos[part]).filter(Boolean)
+  const groupTone = aggregateStatusTone(states)
+  return (
+    <details className="qos-channel-group">
+      <summary className="qos-channel-summary">
+        <span className="qos-channel-heading">
+          <strong className="qos-item-title">{group.label}</strong>
+          <small className="qos-channel-caption">{group.caption}</small>
+        </span>
+        <StatusPill label={aggregateStatusLabel(states)} tone={groupTone} />
+      </summary>
+      <div className="qos-channel-body">
+        {group.parts.map((part) => (
+          <details className="qos-channel-item" key={part}>
+            <summary className="qos-part-summary">
+              <strong className="qos-item-title">{partLabel(part)}</strong>
+              <StatusPill label={statusLabel(qos[part] ?? {})} tone={statusTone(qos[part])} />
+            </summary>
+            <div className="qos-channel-item-body">
+              <QosState qos={qos[part]} />
+            </div>
+          </details>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+function QosState({ collapseEndpointGroups = false, qos }) {
   if (!qos) return null
   const local = qos.local_qos
   const publishers = qos.publisher_qos ?? []
   const subscribers = qos.subscriber_qos ?? []
+  const stateTone = statusTone(qos)
   return (
     <div className="qos-state">
-      {label && <h4>{label}</h4>}
-      <Line label="호환 상태" value={statusLabel(qos)} />
+      <Line label="호환 상태" tone={stateTone} value={statusLabel(qos)} />
       {qos.graph_qos_status && qos.graph_qos_status !== qos.qos_status && (
-        <Line label="Graph endpoint 호환" value={statusLabel({ qos_status: qos.graph_qos_status })} />
+        <Line
+          label="Graph endpoint 호환"
+          tone={statusTone({ qos_status: qos.graph_qos_status })}
+          value={statusLabel({ qos_status: qos.graph_qos_status })}
+        />
       )}
-      <Line label="판정 근거" value={sourceLabel(qos.qos_detection_source)} />
-      <Line label="자동 적용" value={qos.qos_auto_applied ? '예' : '아니오'} />
-      <Line label="Fallback 적용 항목" value={qos.qos_fallback_policies?.join(', ') || '-'} />
-      {local && <QosProfile label="Dashboard 적용 QoS" profile={local} />}
-      <Line label="불일치 정책" value={qos.mismatch_policies?.join(', ') || '-'} />
-      <ReasonLine value={qos.mismatch_reason ?? '-'} />
-      {publishers.map((endpoint, index) => (
-        <QosProfile
-          endpoint={endpoint}
-          key={`publisher-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
-          label={endpointLabel(endpoint, 'Publisher', index)}
-          profile={endpoint.qos}
-        />
-      ))}
-      {subscribers.map((endpoint, index) => (
-        <QosProfile
-          endpoint={endpoint}
-          key={`subscriber-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
-          label={endpointLabel(endpoint, 'Subscriber', index)}
-          profile={endpoint.qos}
-        />
-      ))}
+      <Line
+        label="판정 근거"
+        tone={stateTone}
+        value={sourceLabel(qos.qos_detection_source)}
+      />
+      <Line
+        label="자동 적용"
+        tone={qos.qos_auto_applied ? 'good' : 'muted'}
+        value={qos.qos_auto_applied ? '예' : '아니오'}
+      />
+      <Line
+        label="Fallback 적용 항목"
+        tone={qos.qos_fallback_policies?.length ? 'warn' : 'muted'}
+        value={qos.qos_fallback_policies?.join(', ') || '-'}
+      />
+      {local && !collapseEndpointGroups && <QosProfile label="Dashboard 적용 QoS" profile={local} />}
+      <Line
+        label="불일치 정책"
+        tone={qos.qos_status === 'incompatible' ? 'bad' : qos.mismatch_policies?.length ? 'warn' : 'muted'}
+        value={qos.mismatch_policies?.join(', ') || '-'}
+      />
+      <ReasonLine
+        tone={stateTone}
+        value={qos.mismatch_reason ?? '-'}
+      />
+      {collapseEndpointGroups ? (
+        <QosEndpointGroups local={local} publishers={publishers} subscribers={subscribers} />
+      ) : (
+        <>
+          {publishers.map((endpoint, index) => (
+            <QosProfile
+              endpoint={endpoint}
+              key={`publisher-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
+              label={endpointLabel(endpoint, 'Publisher', index)}
+              profile={endpoint.qos}
+            />
+          ))}
+          {subscribers.map((endpoint, index) => (
+            <QosProfile
+              endpoint={endpoint}
+              key={`subscriber-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
+              label={endpointLabel(endpoint, 'Subscriber', index)}
+              profile={endpoint.qos}
+            />
+          ))}
+        </>
+      )}
       {!publishers.length && !subscribers.length && (qos.remote_qos ?? []).length > 0 && (
         <details>
           <summary>상대 Endpoint QoS</summary>
@@ -58,6 +139,59 @@ function QosState({ label, qos }) {
         </details>
       )}
     </div>
+  )
+}
+
+function QosEndpointGroups({ local, publishers, subscribers }) {
+  const isService = [...publishers, ...subscribers].some((endpoint) => endpoint.service_channel)
+  return (
+    <div className="qos-channel-groups">
+      {local && (
+        <QosProfileGroup caption="Dashboard에서 실제 사용하는 profile" label="Dashboard 적용 QoS">
+          <QosProfile label="적용 Profile" profile={local} />
+        </QosProfileGroup>
+      )}
+      <EndpointGroup
+        endpoints={publishers}
+        fallback="Publisher"
+        label={isService ? 'Response 통신' : 'Publisher'}
+      />
+      <EndpointGroup
+        endpoints={subscribers}
+        fallback="Subscriber"
+        label={isService ? 'Request 통신' : 'Subscriber'}
+      />
+    </div>
+  )
+}
+
+function EndpointGroup({ endpoints, fallback, label }) {
+  if (!endpoints.length) return null
+  return (
+    <QosProfileGroup caption={`${endpoints.length}개 endpoint`} label={label}>
+      {endpoints.map((endpoint, index) => (
+        <QosProfile
+          endpoint={endpoint}
+          key={`${fallback}-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
+          label={endpointLabel(endpoint, fallback, index)}
+          profile={endpoint.qos}
+        />
+      ))}
+    </QosProfileGroup>
+  )
+}
+
+function QosProfileGroup({ caption, children, label }) {
+  return (
+    <details className="qos-channel-group">
+      <summary className="qos-channel-summary">
+        <span className="qos-channel-heading">
+          <strong className="qos-item-title">{label}</strong>
+          <small className="qos-channel-caption">{caption}</small>
+        </span>
+      </summary>
+      <div className="qos-channel-body">{children}</div>
+    </details>
   )
 }
 
@@ -71,31 +205,92 @@ function QosProfile({ endpoint, label, profile }) {
     <div className="qos-profile">
       <h5>{label}</h5>
       {nodeLabel && <Line label="Node" value={nodeLabel} />}
-      {endpoint?.dds_topic && <Line label="DDS Topic" value={endpoint.dds_topic} />}
-      {endpoint?.dds_type && <Line label="DDS Type" value={endpoint.dds_type} />}
-      <Line label="Reliability" value={knownValue(profile.reliability)} />
-      <Line label="Durability" value={knownValue(profile.durability)} />
-      <Line label="History" value={knownValue(profile.history)} />
-      <Line label="Depth" value={knownValue(profile.depth)} />
-      <Line label="Deadline (ns)" value={durationValue(profile, 'deadline')} />
-      <Line label="Lifespan (ns)" value={durationValue(profile, 'lifespan')} />
-      <Line label="Liveliness" value={knownValue(profile.liveliness)} />
-      <Line label="Lease duration (ns)" value={durationValue(profile, 'liveliness_lease_duration')} />
+      {endpoint?.dds_topic && <Line label="DDS Topic" tone="meta" value={endpoint.dds_topic} />}
+      {endpoint?.dds_type && <Line label="DDS Type" tone="meta" value={endpoint.dds_type} />}
+      <ProfileLine label="Reliability" rawValue={profile.reliability} />
+      <ProfileLine label="Durability" rawValue={profile.durability} />
+      <ProfileLine label="History" rawValue={profile.history} />
+      <ProfileLine label="Depth" rawValue={profile.depth} />
+      <DurationProfileLine field="deadline" label="Deadline (ns)" profile={profile} />
+      <DurationProfileLine field="lifespan" label="Lifespan (ns)" profile={profile} />
+      <ProfileLine label="Liveliness" rawValue={profile.liveliness} />
+      <DurationProfileLine
+        field="liveliness_lease_duration"
+        label="Lease duration (ns)"
+        profile={profile}
+      />
     </div>
   )
 }
 
-function Line({ label, value }) {
-  return <div className="detail-line"><span>{label}</span><strong>{value}</strong></div>
+function ProfileLine({ label, rawValue }) {
+  const value = knownValue(rawValue)
+  return <Line label={label} tone={value === '확인할 수 없음' ? 'muted' : 'info'} value={value} />
 }
 
-function ReasonLine({ value }) {
+function DurationProfileLine({ field, label, profile }) {
+  const value = durationValue(profile, field)
+  const tone = isUnlimitedDuration(profile, field)
+    ? 'unlimited'
+    : value === '확인할 수 없음' ? 'muted' : 'info'
+  return <Line label={label} tone={tone} value={value} />
+}
+
+function Line({ label, tone, value }) {
   return (
-    <div className="detail-line qos-reason">
-      <span>사유</span>
-      <strong>{value}</strong>
+    <div className="detail-line">
+      <span>{label}</span>
+      <strong className={tone ? `detail-value-${tone}` : undefined}>{value}</strong>
     </div>
   )
+}
+
+function ReasonLine({ tone, value }) {
+  return (
+    <div className="qos-reason">
+      <span className="qos-reason-label">사유</span>
+      <strong className={`qos-reason-description detail-value-${tone}`}>
+        {value}
+      </strong>
+    </div>
+  )
+}
+
+function StatusPill({ label, tone }) {
+  return <span className={`qos-status-pill ${tone}`}>{label}</span>
+}
+
+function statusTone(qos) {
+  if (!qos) return 'muted'
+  if (qos.qos_status === 'incompatible') return 'bad'
+  if (qos.qos_status === 'partial') return 'warn'
+  if (qos.qos_status === 'compatible') return 'good'
+  if (qos.qos_detection_source === 'fastdds_discovery' && qos.qos_status === 'observed') {
+    return 'good'
+  }
+  if (qos.qos_visibility === 'graph_unavailable') return 'warn'
+  if (qos.qos_status === 'unknown') return 'warn'
+  if (qos.qos_status === 'observed') return 'warn'
+  return 'muted'
+}
+
+function aggregateStatusTone(states) {
+  const tones = states.map(statusTone)
+  if (tones.includes('bad')) return 'bad'
+  if (tones.includes('warn') || tones.includes('muted')) return 'warn'
+  if (tones.length && tones.every((tone) => tone === 'good')) return 'good'
+  if (tones.length && tones.every((tone) => tone === 'info')) return 'info'
+  return tones.includes('good') && tones.includes('info') ? 'info' : 'muted'
+}
+
+function aggregateStatusLabel(states) {
+  return ({
+    good: '정상',
+    info: '정상',
+    warn: '일부 확인',
+    bad: '불일치',
+    muted: '확인 불가',
+  })[aggregateStatusTone(states)]
 }
 
 function statusLabel(qos) {
@@ -149,7 +344,19 @@ function knownValue(value) {
 
 function durationValue(profile, field) {
   const value = profile[`${field}_ns`]
+  if (isUnlimitedDuration(profile, field)) {
+    return ({
+      deadline: '기한 제한 없음',
+      lifespan: '만료되지 않음',
+      liveliness_lease_duration: '임대 만료 없음',
+    })[field] ?? '시간 제한 없음'
+  }
   if (value !== null && value !== undefined) return value
-  if (profile[`${field}_status`] === 'infinite') return '무한'
   return '확인할 수 없음'
+}
+
+function isUnlimitedDuration(profile, field) {
+  if (profile[`${field}_status`] === 'infinite') return true
+  const value = profile[`${field}_ns`]
+  return typeof value === 'number' && value >= RMW_INFINITE_DURATION_NS
 }

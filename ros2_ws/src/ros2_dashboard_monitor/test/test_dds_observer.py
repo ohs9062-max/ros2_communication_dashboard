@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import ros2_dashboard_monitor.dds_observer as dds_observer
 from ros2_dashboard_monitor.dds_observer import FastDdsQosObserver
 from ros2_dashboard_monitor.monitor_config import FastDdsObserverConfig
 from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import observe_action_qos
@@ -40,11 +41,11 @@ def observer_with(endpoints):
     observer = FastDdsQosObserver(
         FastDdsObserverConfig(), executable_resolver=lambda: Path('/unused'),
     )
-    observer._snapshot = {
+    observer._replace_snapshot({
         'available': True,
         'source': 'fastdds_discovery',
         'endpoints': endpoints,
-    }
+    })
     return observer
 
 
@@ -61,6 +62,25 @@ def test_service_qos_exposes_discovered_values_without_inventing_history_depth()
     assert state['publisher_qos'][0]['service_channel'] == 'response'
     assert state['remote_qos'][0]['qos']['history'] == 'unknown'
     assert state['remote_qos'][0]['qos']['depth'] is None
+
+
+def test_service_qos_does_not_copy_unrelated_service_endpoints():
+    class Uncopyable:
+        def __deepcopy__(self, memo):
+            raise AssertionError('unrelated endpoint was copied')
+
+    unrelated = endpoint('/other', 'request', 'reader')
+    unrelated['qos'] = Uncopyable()
+    observer = observer_with([
+        endpoint('/add', 'request', 'reader'),
+        endpoint('/add', 'response', 'writer'),
+        unrelated,
+    ])
+
+    state = observer.service_qos('/add')
+
+    assert state['qos_detection_source'] == 'fastdds_discovery'
+    assert len(state['remote_qos']) == 2
 
 
 def test_action_uses_dds_services_and_keeps_topic_graph_observation():
@@ -104,3 +124,23 @@ def test_non_fastdds_rmw_does_not_start_vendor_helper():
 
     assert resolved == []
     assert observer.snapshot()['reason'] == 'unsupported_rmw'
+
+
+def test_observer_executable_falls_back_to_sibling_install(monkeypatch, tmp_path):
+    install_root = tmp_path / 'install'
+    monitor_prefix = install_root / 'ros2_dashboard_monitor'
+    executable = (
+        install_root / 'ros2_dashboard_dds_observer' / 'lib'
+        / 'ros2_dashboard_dds_observer' / 'fastdds_qos_observer'
+    )
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+
+    def package_prefix(package_name):
+        if package_name == 'ros2_dashboard_dds_observer':
+            raise LookupError('observer missing from stale ament environment')
+        return str(monitor_prefix)
+
+    monkeypatch.setattr(dds_observer, 'get_package_prefix', package_prefix)
+
+    assert dds_observer.observer_executable() == executable

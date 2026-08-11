@@ -217,14 +217,25 @@ class RosMonitor(InterfaceLabFacade):
         except Exception:
             return '/ros2_dashboard_topic_monitor'
 
-    def websocket_snapshot(self) -> dict[str, Any]:
+    def websocket_snapshot(
+        self,
+        *,
+        topic_snapshot: dict[str, Any] | None = None,
+        service_snapshot: dict[str, Any] | None = None,
+        action_snapshot: dict[str, Any] | None = None,
+        node_snapshot: dict[str, Any] | None = None,
+        alerts: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """현재 Cache에서 WebSocket 전송용 경량 요약을 만듭니다."""
         timestamp = time()
-        topic_snapshot = self.snapshot()
-        service_snapshot = self.service_snapshot()
-        action_snapshot = self.action_snapshot()
-        node_snapshot = self.node_snapshot()
-        alerts = self.alerts()
+        topic_snapshot = topic_snapshot or self.snapshot()
+        service_snapshot = service_snapshot or self.service_snapshot()
+        action_snapshot = action_snapshot or self.action_snapshot()
+        node_snapshot = node_snapshot or self.node_snapshot()
+        alerts = alerts or self.alerts(
+            action_snapshot=action_snapshot,
+            node_snapshot=node_snapshot,
+        )
 
         return assemble_websocket_snapshot(
             timestamp=timestamp,
@@ -243,13 +254,18 @@ class RosMonitor(InterfaceLabFacade):
         """지정한 Topic의 현재 수신 Hz를 TopicRuntime에서 가져옵니다."""
         return self._topic_runtime.topic_hz(name)
 
-    def alerts(self) -> dict[str, Any]:
+    def alerts(
+        self,
+        *,
+        action_snapshot: dict[str, Any] | None = None,
+        node_snapshot: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """모든 Runtime의 Alert를 합치고 active·resolved 이력을 갱신합니다."""
         detected_at = time()
         services = self.service_snapshot(include_hidden=True)['services']
-        actions = self.action_snapshot()['actions']
+        actions = (action_snapshot or self.action_snapshot())['actions']
         topics, subscriptions = self._topic_runtime.alert_snapshot()
-        node_snapshot = self._node_runtime.snapshot()
+        node_snapshot = node_snapshot or self._node_runtime.snapshot()
         nodes = node_snapshot['nodes']
 
         alerts = collect_runtime_alerts(

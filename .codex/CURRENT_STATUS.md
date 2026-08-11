@@ -10,8 +10,8 @@
 - ROS2 직접 접근은 `ros2_dashboard_monitor`, 공개 REST/Browser WebSocket과 cache는 순수 FastAPI
   `backend`, 화면은 React `frontend`가 담당하는 분리 구조다.
 - 구조 리팩토링은 완료됐다. 이후 분리는 줄 수가 아니라 실제 복수 책임이나 기능 변경이 생길 때만 진행한다.
-- 로컬 HTTPS/WSS는 Nginx TLS 종료 방식으로 시스템에 적용됐다. Browser 외부 구간은 HTTPS/WSS,
-  Nginx→FastAPI는 localhost HTTP/WS이며 인증서/private key는 Git에 포함하지 않는다.
+- 로컬/LAN HTTPS/WSS는 Nginx TLS 종료 방식이다. Browser 구간은 HTTPS/WSS이고 Nginx는 localhost의
+  Vite와 FastAPI에 HTTP/WS로 전달하며 인증서/private key는 Git에 포함하지 않는다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Service와 Action 내부 Service QoS는 Fast DDS passive observer가 제공한다. QoS 확인을 위해 Service Call,
@@ -25,9 +25,9 @@ ROS2 Graph / Fast DDS Discovery
 ├─ ros2_dashboard_dds_observer (C++, optional, 127.0.0.1:8766)
 └─ ros2_dashboard_monitor (rclpy, 127.0.0.1:8765)
    → FastAPI Backend Runtime Cache (127.0.0.1:8000)
-   → REST / Browser WebSocket
-   → React Frontend
-   → Nginx HTTPS/WSS (local PC)
+Browser → Nginx HTTPS/WSS (local PC)
+        ├─ `/` → Vite/React (127.0.0.1:5173 HTTP/HMR WS)
+        └─ REST·`/ws/monitor` → FastAPI (127.0.0.1:8000 HTTP/WS)
 ```
 
 ```text
@@ -55,6 +55,12 @@ docs/                            설계·운영 문서
 - Interface Lab 첫 ActionClient 생성 시 발생하던 non-reentrant Lock deadlock을 수정하고 실제 Goal 실행을 검증했다.
 - Topic endpoint QoS 표시, Graph 기반 자동 Subscription profile 선택, 확인 가능한 mismatch 구분을 연결했다.
 - Fast DDS `rq`/`rr` endpoint를 관찰하는 C++ passive observer와 Service/Action 채널별 QoS 화면을 추가했다.
+- stale ament 환경에서도 설치된 sibling Fast DDS observer helper를 찾도록 resolver를 보강하고, 기존 demo
+  `/RobotControl`·`/CanControl`의 DDS QoS가 Monitor와 Backend API까지 연결됨을 확인했다.
+- Interface Lab의 1초 background polling을 Receive 상태 4개 API로 축소하고, DDS Service endpoint 인덱스와
+  transport snapshot 재사용으로 대규모 Graph의 API 응답 지연을 줄였다.
+- `ros2_dashboard_demo_nodes`에 TurtleBot3 Gazebo World, 별도 keyboard teleop 터미널, Nav2를 순서대로 시작하는
+  통합 launch 파일을 추가했다.
 - AI 작업 로그를 최근 기록과 `.codex/archive/`의 과거 기록으로 분리했다.
 
 ## 현재 검증 기준
@@ -62,9 +68,9 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 183 passed
+Monitor pytest: 185 passed
 Backend pytest: 7 passed
-선택 package colcon test-result: 200 tests, 0 failures, 1 skipped
+선택 package colcon test-result: 201 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Python compileall: 통과
 git diff --check: 통과
@@ -83,15 +89,29 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 - fallback으로 만든 Topic entity는 이후 Graph QoS 변화에 따라 자동 재생성되지 않는다.
 - QoS mismatch의 MariaDB Alert 영속 이력 연결은 아직 구현되지 않았다.
 - Camera Topic 이미지 시각화와 Gazebo TurtleBot 명령 preset은 아직 구현되지 않았다.
-- passive QoS 화면의 실제 Browser 수동 확인과 실제 기기/Gazebo 전체 통합 E2E는 남아 있다.
+- 실제 기기/Gazebo 전체 통합 E2E는 남아 있다. 기존 demo_nodes는 Backend 공개 API까지 확인했지만 Browser
+  화면 자체의 자동화된 시각 검증은 수행하지 않았다.
+- TurtleBot3 통합 launch는 build, launch argument 로드와 package test까지 확인했으며, 이미 실행 중인
+  Gazebo/Nav2와 충돌하지 않도록 이번 작업에서 두 번째 GUI stack을 실제로 동시에 띄우지는 않았다.
+- QoS 사유 배치는 source와 `frontend/dist`에서 전용 라벨/설명 2행 구조로 수정됐다.
+- Action QoS UI는 기본 상태에서 Service(Goal/Result/Cancel)와 Topic(Feedback/Status) 두 요약만 표시하고,
+  그룹과 개별 채널을 단계적으로 펼치는 구조다. 상태 badge와 세부 QoS 값은 정상/일부/불일치/확인 불가
+  색상을 사용하며 항목명 typography를 통일했다.
+- 저장소의 로컬 Nginx 설정은 정적 `/var/www` 복사 대신 Vite 5173을 proxy하도록 변경됐다. 실제 시스템
+  Nginx에는 아직 재설치하지 못했으므로 현재 HTTPS 화면은 이전 정적 설정이며,
+  `sudo ./scripts/install_local_https.sh`를 한 번 실행한 뒤 문법·listener·Browser WSS를 다시 확인해야 한다.
+- 현재 self-signed Nginx 구성의 지원 범위는 localhost와 같은 LAN의 로컬 IP 접속이다. 인터넷 공개용 인증,
+  방화벽/라우터 포트 개방, 접근 제어와 운영 정적 배포 구성은 포함하지 않는다.
 - demo outcome server 종료 시 중복 shutdown traceback이 발생할 수 있다.
+- 현재 Gazebo/Nav2 Graph(137 Topics, 385 Services, 18 Actions)에서는 API 지연 개선 후에도 Monitor main spin CPU가
+  약 80~88%다. 다음 성능 진단은 1초 Graph update의 runtime별 계측이 필요하다.
 
 ## 다음 우선 작업
 
-1. MariaDB Alert 이력 schema/migration/repository 및 장애 격리 구현
-2. Alert 정책 문서와 실제 code/message/lifecycle 동기화 확인
-3. Camera Topic (`sensor_msgs/msg/Image`, `CompressedImage`) 시각화
-4. Gazebo TurtleBot 명령 preset을 Interface Lab 명시 실행 경로로 구현
-5. 실제 장비/Gazebo와 Browser 기준 QoS/WSS/Interface Lab 회귀 검증
+1. 변경된 Vite proxy 설정을 실제 시스템 Nginx에 설치하고 HTTPS/WSS/HMR 회귀 검증
+2. MariaDB Alert 이력 schema/migration/repository 및 장애 격리 구현
+3. Alert 정책 문서와 실제 code/message/lifecycle 동기화 확인
+4. Camera Topic (`sensor_msgs/msg/Image`, `CompressedImage`) 시각화
+5. Gazebo TurtleBot 명령 preset과 실제 장비/Gazebo·Browser 통합 검증
 
 신규 작업은 `AGENTS.md`의 현재 책임 경계와 안전 정책을 따르며, 미구현 항목을 완료된 기능으로 보고하지 않는다.

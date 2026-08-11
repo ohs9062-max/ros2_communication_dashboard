@@ -63,15 +63,26 @@ def health() -> dict[str, Any]:
 @app.get('/transport/snapshot')
 def transport_snapshot() -> dict[str, Any]:
     """Return one coherent payload for the backend runtime cache."""
+    topics = ros_monitor.snapshot()
+    services = ros_monitor.service_snapshot(include_hidden=False)
+    actions = ros_monitor.action_snapshot()
+    nodes = ros_monitor.node_snapshot()
+    alerts = ros_monitor.alerts(action_snapshot=actions, node_snapshot=nodes)
     return {
         'success': True,
         'data': {
-            'topics': ros_monitor.snapshot(),
-            'services': ros_monitor.service_snapshot(include_hidden=False),
-            'actions': ros_monitor.action_snapshot(),
-            'nodes': ros_monitor.node_snapshot(),
-            'alerts': ros_monitor.alerts(),
-            'websocket': ros_monitor.websocket_snapshot(),
+            'topics': topics,
+            'services': services,
+            'actions': actions,
+            'nodes': nodes,
+            'alerts': alerts,
+            'websocket': ros_monitor.websocket_snapshot(
+                topic_snapshot=topics,
+                service_snapshot=services,
+                action_snapshot=actions,
+                node_snapshot=nodes,
+                alerts=alerts,
+            ),
             'interface_apply': apply_status(),
         },
     }

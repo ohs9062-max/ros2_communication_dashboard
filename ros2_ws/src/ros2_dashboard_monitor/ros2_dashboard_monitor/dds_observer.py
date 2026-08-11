@@ -21,6 +21,7 @@ from ros2_dashboard_monitor.qos import qos_state
 LOGGER = logging.getLogger(__name__)
 OBSERVER_PACKAGE = 'ros2_dashboard_dds_observer'
 OBSERVER_EXECUTABLE = 'fastdds_qos_observer'
+MONITOR_PACKAGE = 'ros2_dashboard_monitor'
 
 
 class FastDdsQosObserver:
@@ -42,6 +43,7 @@ class FastDdsQosObserver:
         self._process: subprocess.Popen | None = None
         self._domain_id: int | None = None
         self._snapshot = unavailable_snapshot('observer_not_started')
+        self._server_endpoints_by_service: dict[str, list[dict[str, Any]]] = {}
 
     def start(self, rmw_identifier: str, domain_id: int) -> None:
         if self._thread and self._thread.is_alive():
@@ -97,14 +99,14 @@ class FastDdsQosObserver:
             return deepcopy(self._snapshot)
 
     def service_qos(self, service_name: str) -> dict[str, Any]:
-        snapshot = self.snapshot()
-        if snapshot.get('available') is not True:
-            return unavailable_service_qos(snapshot.get('reason'))
-        endpoints = [
-            endpoint for endpoint in snapshot.get('endpoints', [])
-            if endpoint.get('service_name') == service_name
-            and endpoint.get('service_role') == 'server'
-        ]
+        with self._lock:
+            available = self._snapshot.get('available') is True
+            reason = self._snapshot.get('reason')
+            endpoints = deepcopy(
+                self._server_endpoints_by_service.get(service_name, []),
+            )
+        if not available:
+            return unavailable_service_qos(reason)
         if not endpoints:
             return unavailable_service_qos('service_endpoints_not_discovered')
         public = [public_endpoint(endpoint) for endpoint in endpoints]
@@ -135,8 +137,7 @@ class FastDdsQosObserver:
                     raise ValueError('observer returned unexpected source')
                 if snapshot.get('domain_id') != self._domain_id:
                     raise ValueError('observer domain does not match Monitor domain')
-                with self._lock:
-                    self._snapshot = snapshot
+                self._replace_snapshot(snapshot)
             except Exception:
                 process = self._process
                 reason = (
@@ -148,17 +149,39 @@ class FastDdsQosObserver:
             self._stop_event.wait(self._config.poll_interval_sec)
 
     def _set_unavailable(self, reason: str | None) -> None:
+        self._replace_snapshot(unavailable_snapshot(reason))
+
+    def _replace_snapshot(self, snapshot: dict[str, Any]) -> None:
+        endpoints_by_service: dict[str, list[dict[str, Any]]] = {}
+        for endpoint in snapshot.get('endpoints', []):
+            service_name = endpoint.get('service_name')
+            if not service_name or endpoint.get('service_role') != 'server':
+                continue
+            endpoints_by_service.setdefault(str(service_name), []).append(endpoint)
         with self._lock:
-            self._snapshot = unavailable_snapshot(reason)
+            self._snapshot = snapshot
+            self._server_endpoints_by_service = endpoints_by_service
 
 
 def observer_executable() -> Path | None:
+    prefixes: list[Path] = []
     try:
-        prefix = Path(get_package_prefix(OBSERVER_PACKAGE))
+        prefixes.append(Path(get_package_prefix(OBSERVER_PACKAGE)))
     except Exception:
-        return None
-    executable = prefix / 'lib' / OBSERVER_PACKAGE / OBSERVER_EXECUTABLE
-    return executable if executable.is_file() else None
+        try:
+            monitor_prefix = Path(get_package_prefix(MONITOR_PACKAGE))
+        except Exception:
+            return None
+        # A shell sourced before the optional helper was first built can still
+        # locate the Monitor while its AMENT_PREFIX_PATH lacks the new sibling
+        # package. Support both isolated and merged colcon install layouts.
+        prefixes.extend((monitor_prefix.parent / OBSERVER_PACKAGE, monitor_prefix))
+
+    for prefix in prefixes:
+        executable = prefix / 'lib' / OBSERVER_PACKAGE / OBSERVER_EXECUTABLE
+        if executable.is_file():
+            return executable
+    return None
 
 
 def fetch_json(url: str, timeout: float) -> dict[str, Any]:
