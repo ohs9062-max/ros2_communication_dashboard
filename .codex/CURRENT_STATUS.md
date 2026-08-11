@@ -92,8 +92,9 @@ docs/                            설계·운영 문서
 
 ```text
 Monitor pytest: 200 passed
-Backend pytest: 14 passed, 1 skipped
+Backend pytest: 14 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
+실제 MariaDB Alert UI 조회 E2E: 1 passed
 선택 package colcon test-result: 201 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Python compileall: 통과

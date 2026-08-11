@@ -438,3 +438,11 @@
 
 - 새 launch가 종료된 원인은 기존 Monitor PID 238970이 127.0.0.1:8765를 이미 정상 listen 중인 포트 충돌이었다.
   기존 Monitor health와 Backend `monitor_connected: true`를 확인했으며 ROS discovery 경고는 종료 원인이 아니다.
+
+## 2026-08-11 - Alert DB 조회 UI 최종 양식 연결
+
+- 기존 `/ros/alerts`와 `/ros/alerts/history?name=&page=` DB 조회를 유지하고 현재 `발생 중` 상태 배지만 level에
+  맞춰 warning은 노랑, error/critical은 빨강으로 표시했다. 이전 `해결됨`과 원래 level 분리, 공통 시간 formatter,
+  행 클릭 이동, 검색·50건 페이지·삭제 경로는 기존 구현을 그대로 확인했다.
+- 실제 MariaDB에 고유 resolved 테스트 행 55개를 임시 저장해 name 부분 검색, 50/5 페이지, 최신 해결순,
+  warning/error/critical과 timestamp 응답을 검증한 뒤 테스트 행만 모두 정리했다.

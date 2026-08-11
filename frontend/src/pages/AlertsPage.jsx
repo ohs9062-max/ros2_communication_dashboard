@@ -231,7 +231,7 @@ export function AlertsPage({
           alerts={alerts}
           emptyMessage={
             activeTab === 'previous'
-              ? '해결된 이전 Alert가 없습니다'
+              ? '이전 Alert가 없습니다'
               : '현재 active Alert가 없습니다'
           }
           key={activeTab}

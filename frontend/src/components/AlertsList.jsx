@@ -76,7 +76,7 @@ export function AlertsList({
               <td>
                 <StatusBadge
                   label={previous ? '해결됨' : '발생 중'}
-                  value={previous ? 'resolved' : 'active'}
+                  value={previous ? 'resolved' : activeAlertTone(alert.level)}
                 />
               </td>
               <td>
@@ -101,4 +101,8 @@ export function AlertsList({
 
 function detectedAt(alert) {
   return alert.first_detected_at ?? alert.detected_at
+}
+
+function activeAlertTone(level) {
+  return String(level || '').toLowerCase() === 'warning' ? 'warning' : 'error'
 }
