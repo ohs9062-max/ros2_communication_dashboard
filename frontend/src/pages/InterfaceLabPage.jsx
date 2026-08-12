@@ -30,6 +30,7 @@ export function InterfaceLabPage({ websocket }) {
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [workbenchResetKey, setWorkbenchResetKey] = useState(0)
   const [topicWorkbenchExpanded, setTopicWorkbenchExpanded] = useState(false)
+  const [executionRequest, setExecutionRequest] = useState(null)
 
   const refresh = useCallback(async ({ notifyWorkbench = true } = {}) => {
     setError(await refreshSnapshot())
@@ -104,6 +105,7 @@ export function InterfaceLabPage({ websocket }) {
       <InterfaceLabManagementOverview
         applyStatus={applyStatus}
         error={error}
+        executionRequest={executionRequest}
         lastRefreshedAt={lastRefreshedAt}
         onRefresh={() => refresh()}
         onReset={resetInterfaceLab}
@@ -125,6 +127,7 @@ export function InterfaceLabPage({ websocket }) {
           setSelected(null)
         }}
         onHistorySelect={setSelectedHistoryItem}
+        onExecute={(item) => setExecutionRequest({ id: Date.now(), kind: item.kind })}
         onRelatedSelect={(nextItem) => {
           setSelected(nextItem)
           setSelectedHistoryItem(null)

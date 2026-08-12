@@ -12,7 +12,7 @@ export function QosStatusBadge({ qos }) {
     compatible: ['QoS 호환', 'good'],
     incompatible: ['QoS 불일치', 'bad'],
     partial: ['QoS 일부 호환', 'warn'],
-    observed: ['QoS 발견됨', 'observed'],
+    observed: ['QoS 발견', 'muted'],
     unknown: ['QoS 확인 불가', 'muted'],
   })[status]
   return <span className={`qos-list-badge ${display[1]}`}>{display[0]}</span>
@@ -23,7 +23,7 @@ export function QosSummaryNotice({ kind, qos }) {
     ? ACTION_CHANNELS.map(([key, label]) => ({ key, label, qos: qos[key] ?? {} }))
     : null
   const status = qosDisplayStatus(qos)
-  if (status === 'compatible') return null
+  if (status === 'compatible' || status === 'observed') return null
 
   const tone = status === 'incompatible'
     ? 'bad'

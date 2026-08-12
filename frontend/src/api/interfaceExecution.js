@@ -7,6 +7,8 @@ export const fetchMessageSchema = (fullType) =>
   requestJson(`/ros/interfaces/message-schema?full_type=${encodeURIComponent(fullType)}`)
 export const fetchServiceCallHistory = () => requestJson('/ros/interfaces/service-call/history')
 export const fetchActionGoalHistory = () => requestJson('/ros/interfaces/action-goal/history')
+export const resetServiceCallHistory = (payload = {}) => requestWithJsonBody('/ros/interfaces/service-call/history/reset', 'POST', payload)
+export const resetActionGoalHistory = (payload = {}) => requestWithJsonBody('/ros/interfaces/action-goal/history/reset', 'POST', payload)
 export const callRegisteredService = (payload) =>
   requestWithJsonBody('/ros/interfaces/service-call', 'POST', payload)
 export const sendActionGoal = (payload) =>

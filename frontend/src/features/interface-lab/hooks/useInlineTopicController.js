@@ -213,19 +213,13 @@ export function useInlineTopicController({
     }
   }
 
-  const resetHistories = async () => {
-    const payload = selectedDetail?.fullType && subscribeName
-      ? { topicName: subscribeName, topicType: selectedDetail.fullType }
-      : {}
+  const resetHistories = async (scope = 'all') => {
+    const topicType = scope === 'selected' ? selectedDetail?.fullType : ''
     await Promise.all([
-      resetReceiveTopicHistory(payload.topicName, payload.topicType),
-      resetTopicPublishHistory(
-        payload.topicName
-          ? { topic_name: payload.topicName, topic_type: payload.topicType }
-          : {},
-      ),
+      resetReceiveTopicHistory('', topicType),
+      resetTopicPublishHistory(topicType ? { topic_type: topicType } : {}),
     ])
-    setResult({ success: true, message: 'Topic 수신 항목과 Publish/Subscribe 이력을 초기화했습니다.' })
+    setResult({ success: true, message: topicType ? '선택 Topic 타입 이력을 초기화했습니다.' : 'Topic 전체 Publish/Subscribe 이력을 초기화했습니다.' })
     await refresh({ notifyWorkbench: false })
   }
 

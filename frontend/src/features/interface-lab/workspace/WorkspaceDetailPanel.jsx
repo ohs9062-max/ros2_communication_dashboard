@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 import { sourceLabel } from '../model/workspacePresentation.js'
 import { ActionWorkspaceDetail } from './ActionWorkspaceDetail.jsx'
 import { ServiceWorkspaceDetail } from './ServiceWorkspaceDetail.jsx'
@@ -17,6 +19,7 @@ export function WorkspaceDetailPanel({
   onActionCancel,
   onGoalChange,
   onHistorySelect,
+  onOpenExecution,
   onMessageChange,
   onRequestChange,
   onServiceExecute,
@@ -28,6 +31,7 @@ export function WorkspaceDetailPanel({
   onTopicContinuousStart,
   onTopicContinuousStop,
   onTopicReset,
+  onServiceActionReset,
   onTopicSubscribeStart,
   onTopicSubscribeStop,
   onTopicPublishQosModeChange,
@@ -58,6 +62,9 @@ export function WorkspaceDetailPanel({
   topicSubscribeName,
   timeoutSec,
 }) {
+  const [activeView, setActiveView] = useState(() => item?.kind === 'package' ? 'advanced' : 'details')
+  useEffect(() => setActiveView(item?.kind === 'package' ? 'advanced' : 'details'), [item?.id, item?.kind])
+
   if (!item) {
     return (
       <aside className="interface-detail-panel">
@@ -68,33 +75,52 @@ export function WorkspaceDetailPanel({
   }
   return (
     <aside className="interface-detail-panel">
-      <h3>{item.title}</h3>
-      <dl>
-        <dt>source</dt>
-        <dd>{(item.sources?.length ? item.sources : [item.source]).filter(Boolean).map(sourceLabel).join(', ')}</dd>
-        <dt>full type</dt>
-        <dd>{item.fullType ?? '-'}</dd>
-        <dt>package</dt>
-        <dd>{item.packageName ?? '-'}</dd>
-        <dt>import</dt>
-        <dd>{item.importAvailable === null ? '-' : item.importAvailable ? 'import됨' : 'import 안됨'}</dd>
-        <dt>build</dt>
-        <dd>{item.rebuildRequired ? 'build 필요' : '빌드 반영/대기'}</dd>
-        <dt>server</dt>
-        <dd>{item.serverAvailable === null ? '-' : item.serverAvailable ? '서버 있음' : '서버 없음'}</dd>
-        <dt>callable</dt>
-        <dd>{item.callable === null ? '-' : item.callable ? '실행 가능' : item.reason ?? '실행 불가'}</dd>
-        {item.error && <><dt>error</dt><dd>{item.error}</dd></>}
-      </dl>
-      <CollapsibleJson title="상태 상세" value={item.status ?? {}} />
-      <CollapsibleJson title="parsed / schema" value={item.parsed ?? item.schema ?? {}} />
-      <CollapsibleText title="raw_text" value={item.raw_text ?? ''} />
+      <div className="interface-basic-status">
+        <span>{item.callable ? '실행 가능' : item.rebuildRequired ? 'build 필요' : item.error ? '오류' : '등록됨'}</span>
+        <p>{item.reason ?? item.error ?? 'Interface를 선택했습니다.'}</p>
+      </div>
+      <div className="interface-detail-tabs" role="tablist" aria-label="상세 기능">
+        {detailTabs(item.kind).map((tab) => (
+          <button className={activeView === tab.id ? 'active' : ''} key={tab.id} onClick={() => tab.id === 'open-execution' ? onOpenExecution() : setActiveView(tab.id)} role="tab" type="button">{tab.label}</button>
+        ))}
+      </div>
+      {activeView === 'details' && (
+        <section className="interface-communication-details">
+          <h4>통신 및 QoS 상세</h4>
+          <dl>
+            <dt>타입</dt><dd>{item.fullType ?? '-'}</dd>
+            <dt>Graph 연결</dt><dd>{connectionCount(item)}개</dd>
+            <dt>서버 상태</dt><dd>{item.serverAvailable === null ? '해당 없음' : item.serverAvailable ? '서버 있음' : '서버 없음'}</dd>
+            <dt>실행 상태</dt><dd>{item.callable === null ? '확인 필요' : item.callable ? '실행 가능' : item.reason ?? '실행 불가'}</dd>
+          </dl>
+          <details className="interface-detail-block" open>
+            <summary>Endpoint QoS</summary>
+            <pre>{JSON.stringify(communicationSnapshot(item), null, 2)}</pre>
+          </details>
+        </section>
+      )}
+      {activeView === 'advanced' && (
+        <div className="interface-advanced-info">
+          <h4>진단 정보</h4>
+          <dl>
+            <dt>source</dt><dd>{(item.sources?.length ? item.sources : [item.source]).filter(Boolean).map(sourceLabel).join(', ') || '-'}</dd>
+            <dt>package</dt><dd>{item.packageName ?? '-'}</dd>
+            <dt>import</dt><dd>{item.importAvailable === null ? '-' : item.importAvailable ? 'import됨' : 'import 안됨'}</dd>
+            <dt>build</dt><dd>{item.rebuildRequired ? 'build 필요' : '빌드 반영/대기'}</dd>
+            <dt>server</dt><dd>{item.serverAvailable === null ? '-' : item.serverAvailable ? '서버 있음' : '서버 없음'}</dd>
+          </dl>
+          <CollapsibleJson title="상태·Graph 상세" value={item.status ?? {}} />
+          <CollapsibleJson title="Interface schema" value={item.parsed ?? item.schema ?? {}} />
+          <CollapsibleText title="Interface raw text" value={item.raw_text ?? ''} />
+        </div>
+      )}
       {item.kind === 'message' && (
         <TopicWorkspaceDetail
           activeContinuousPublish={activeContinuousPublish}
           executing={executing}
           inlineResult={inlineResult}
           item={item}
+          view={activeView}
           messageValues={messageValues}
           onHistorySelect={onHistorySelect}
           onMessageChange={onMessageChange}
@@ -129,8 +155,10 @@ export function WorkspaceDetailPanel({
           executing={executing}
           inlineResult={inlineResult}
           item={item}
+          view={activeView}
           onExecute={onServiceExecute}
           onHistorySelect={onHistorySelect}
+          onReset={onServiceActionReset}
           onRequestChange={onRequestChange}
           onRequestQosModeChange={onServiceRequestQosModeChange}
           onRequestQosProfileChange={onServiceRequestQosProfileChange}
@@ -154,15 +182,53 @@ export function WorkspaceDetailPanel({
           goalValues={goalValues}
           inlineResult={inlineResult}
           item={item}
+          view={activeView}
           onExecute={onActionExecute}
           onCancel={onActionCancel}
           onGoalChange={onGoalChange}
           qosControls={actionQosControls}
           onHistorySelect={onHistorySelect}
+          onReset={onServiceActionReset}
           selectedHistoryItem={selectedHistoryItem}
           setGoalTimeoutSec={setGoalTimeoutSec}
         />
       )}
     </aside>
   )
+}
+
+function detailTabs(kind) {
+  if (kind === 'message') return [
+    { id: 'details', label: '통신 상세' },
+    { id: 'history', label: 'History' },
+    { id: 'advanced', label: '고급 정보' },
+    { id: 'open-execution', label: '실행' },
+  ]
+  if (kind === 'package') return [{ id: 'advanced', label: 'Package 정보' }]
+  return [
+    { id: 'details', label: '통신 상세' },
+    { id: 'history', label: 'History' },
+    { id: 'advanced', label: '고급 정보' },
+    { id: 'open-execution', label: '실행' },
+  ]
+}
+
+function connectionCount(item) {
+  return (item.connectedTopics?.length ?? 0) + (item.connectedServices?.length ?? 0) + (item.connectedActions?.length ?? 0)
+}
+
+function communicationSnapshot(item) {
+  return {
+    qos_mode: item.qos?.mode ?? 'auto',
+    topics: (item.connectedTopics ?? []).map(compactEndpoint),
+    services: (item.connectedServices ?? []).map(compactEndpoint),
+    actions: (item.connectedActions ?? []).map(compactEndpoint),
+    subscriptions: (item.topicStates ?? []).map(compactEndpoint),
+  }
+}
+
+function compactEndpoint(endpoint) {
+  return Object.fromEntries(Object.entries(endpoint ?? {}).filter(([key]) => (
+    /name|type|qos|endpoint|publisher|subscriber|server|client|available|reason|channel/i.test(key)
+  )))
 }

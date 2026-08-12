@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { fetchAlerts, fetchNodes } from '../api/rosApi.js'
 import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { usePolling } from './usePolling.js'
@@ -45,14 +45,6 @@ export function useNodeDashboard({ enabled = true } = {}) {
       nodes.find((node) => node.full_name === selectedNodeName) ?? null,
     [nodes, selectedNodeName],
   )
-
-  useEffect(() => {
-    if (selectedNodeName && selectedNode) {
-      return
-    }
-
-    setSelectedNodeName(nodes[0]?.full_name ?? '')
-  }, [nodes, selectedNode, selectedNodeName])
 
   return {
     alerts: alertsState,

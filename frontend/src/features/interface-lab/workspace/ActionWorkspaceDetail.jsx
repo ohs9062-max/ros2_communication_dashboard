@@ -20,16 +20,17 @@ export function ActionWorkspaceDetail({
   onCancel,
   onGoalChange,
   onHistorySelect,
+  onReset,
   qosControls = [],
   selectedHistoryItem,
   setGoalTimeoutSec,
+  view,
 }) {
   const callableTarget = item.connectedActions?.find((action) => action.callable)
     ?? (item.kind === 'callable_action' ? item.status : null)
   return (
     <>
-      <SectionTitle title="연결된 Graph Action" />
-      <ConnectionList
+      {(view === 'details' || view === 'advanced') && <><SectionTitle title="Graph 연결" /><ConnectionList
         empty="이 타입으로 열린 Action이 없습니다."
         items={item.connectedActions}
         render={(action) => [
@@ -41,11 +42,10 @@ export function ActionWorkspaceDetail({
             ? 'exact-type 실행 가능'
             : action.reason ?? 'exact-type 실행 불가',
         ].join(' · ')}
-      />
-      <SectionTitle title="Goal 입력 폼" />
+      /></>}
+      {view === 'execute' && <><SectionTitle title={callableTarget?.action_name ?? 'Action Goal'} />
       {callableTarget ? (
         <>
-          <ActionQosControl controls={qosControls} />
           {schemaFields(item.schema).map((field) => (
             <RequestField
               field={field}
@@ -57,7 +57,8 @@ export function ActionWorkspaceDetail({
               value={goalValues[field.name]}
             />
           ))}
-          <label className="interface-service-field">
+          <ActionQosControl controls={qosControls} />
+          <details className="interface-advanced-section"><summary>고급 설정</summary><label className="interface-service-field">
             <span>timeout_sec</span>
             <input
               min="0.1"
@@ -66,7 +67,7 @@ export function ActionWorkspaceDetail({
               type="number"
               value={goalTimeoutSec}
             />
-          </label>
+          </label></details>
           <button
             className="interface-service-call-button"
             disabled={executing || !callableTarget.callable}
@@ -75,32 +76,26 @@ export function ActionWorkspaceDetail({
           >
             {executing ? '요청 전송 중…' : `${callableTarget.action_name} Goal 실행`}
           </button>
-          <button
-            className="interface-service-call-button"
-            disabled={!executing || cancelingGoal}
-            onClick={onCancel}
-            type="button"
-          >
-            {cancelingGoal ? '취소 요청 중…' : '활성 Goal 취소'}
-          </button>
+          {executing && <button className="interface-action-cancel-button" disabled={cancelingGoal} onClick={onCancel} type="button">{cancelingGoal ? '취소 요청 중…' : '활성 Goal 취소'}</button>}
         </>
       ) : (
         <p className="muted">import됐고 서버가 있는 Action이 있을 때 Goal 폼이 활성화됩니다.</p>
       )}
       <LastResultBlock fallback={item.lastRun} result={inlineResult} title="마지막 실행 결과" />
-      <SectionTitle title="Action 관련 Topic" />
-      <ConnectionList
+      </>}
+      {(view === 'details' || view === 'advanced') && <><SectionTitle title="Action 통신 채널" /><ConnectionList
         empty="관련 action topic이 아직 snapshot에 없습니다."
         items={item.connectedTopics}
         render={(topic) => `${topic.name} · ${topic.type ?? topic.types?.[0] ?? '-'} · ${topic.last_received_at ? `last ${formatTime(topic.last_received_at)}` : '아직 수신 없음'} · count ${topic.message_count ?? topic.received_count ?? 0}`}
-      />
-      <HistoryList
+      /></>}
+      {view === 'history' && <HistoryList
         empty="최근 Goal 이력이 없습니다."
         items={item.history}
         onSelect={onHistorySelect}
+        onReset={onReset}
         selected={selectedHistoryItem}
         type="action"
-      />
+      />}
     </>
   )
 }

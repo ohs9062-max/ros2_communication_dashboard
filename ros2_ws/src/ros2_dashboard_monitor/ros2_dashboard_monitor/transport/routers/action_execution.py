@@ -87,6 +87,16 @@ def get_action_goal_history() -> dict[str, Any]:
     }
 
 
+@router.post('/ros/interfaces/action-goal/history/reset')
+async def reset_action_goal_history(request: Request) -> dict[str, Any]:
+    try:
+        payload = await request.json()
+    except ValueError:
+        payload = {}
+    snapshot = ros_monitor.reset_action_goal_history(action_name=payload.get('action_name'), action_type=payload.get('action_type'))
+    return {'success': True, 'data': snapshot, 'message': 'Action Goal 전체 이력을 초기화했습니다.'}
+
+
 @router.post('/ros/interfaces/action-goal/cancel')
 async def cancel_registered_action_goal(request: Request) -> dict[str, Any]:
     body = await request.json()

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { fetchActions, fetchAlerts, fetchNodes } from '../api/rosApi.js'
 import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
@@ -61,14 +61,6 @@ export function useActionDashboard({ enabled = true } = {}) {
       null,
     [selectedActionName, actions],
   )
-
-  useEffect(() => {
-    if (selectedActionName && selectedAction) {
-      return
-    }
-
-    setSelectedActionName(actions[0]?.name ?? '')
-  }, [actions, selectedAction, selectedActionName])
 
   return {
     actionAlerts,

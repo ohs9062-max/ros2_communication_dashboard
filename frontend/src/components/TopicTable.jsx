@@ -31,13 +31,10 @@ export function TopicTable({
         <thead>
           <tr>
             <th className="priority-column">주요</th>
-            <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="status" headerClassName="resource-status-column" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="publisher_count" headerClassName="communication-count-column" label={['Publisher Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="subscriber_count" headerClassName="communication-count-column" label={['Subscriber Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="hz" headerClassName="metric-column" label="Hz" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="dashboard_communication" headerClassName="dashboard-communication-column" label={['Dashboard', '통신']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="observed" label="마지막 값" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_updated" label="마지막 확인" onSort={onSort} sort={sort} />
           </tr>

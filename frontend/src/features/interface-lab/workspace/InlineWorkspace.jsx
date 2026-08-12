@@ -14,6 +14,7 @@ export function InlineWorkspace({
   onActionCancel,
   onGoalChange,
   onHistorySelect,
+  onOpenExecution,
   onMessageChange,
   onRelatedSelect,
   onRequestChange,
@@ -26,6 +27,7 @@ export function InlineWorkspace({
   onTopicContinuousStart,
   onTopicContinuousStop,
   onTopicReset,
+  onServiceActionReset,
   onTopicSubscribeStart,
   onTopicSubscribeStop,
   onTopicPublishQosModeChange,
@@ -77,6 +79,7 @@ export function InlineWorkspace({
           onActionCancel={onActionCancel}
           onGoalChange={onGoalChange}
           onHistorySelect={onHistorySelect}
+          onOpenExecution={onOpenExecution}
           onMessageChange={onMessageChange}
           onRequestChange={onRequestChange}
           onServiceExecute={onServiceExecute}
@@ -88,6 +91,7 @@ export function InlineWorkspace({
           onTopicContinuousStart={onTopicContinuousStart}
           onTopicContinuousStop={onTopicContinuousStop}
           onTopicReset={onTopicReset}
+          onServiceActionReset={onServiceActionReset}
           onTopicSubscribeStart={onTopicSubscribeStart}
           onTopicSubscribeStop={onTopicSubscribeStop}
           onTopicPublishQosModeChange={onTopicPublishQosModeChange}

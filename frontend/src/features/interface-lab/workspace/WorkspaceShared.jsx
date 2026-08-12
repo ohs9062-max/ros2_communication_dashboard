@@ -36,12 +36,12 @@ export function LastResultBlock({ fallback, result, title }) {
   )
 }
 
-export function HistoryList({ empty, items = [], onSelect, selected, type }) {
-  if (!items.length) return <p className="muted">{empty}</p>
+export function HistoryList({ empty, items = [], onReset, onSelect, selected, type }) {
   return (
     <div className="interface-history-list">
       <SectionTitle title={type === 'service' ? '최근 호출 이력' : '최근 실행 이력'} />
-      {items.slice(0, 20).map((item) => (
+      {!items.length && <p className="muted interface-history-empty">{empty}</p>}
+      {items.slice(0, 3).map((item) => (
         <button
           className={selected === item ? 'selected' : ''}
           key={historyKey(item, type)}
@@ -52,8 +52,13 @@ export function HistoryList({ empty, items = [], onSelect, selected, type }) {
         </button>
       ))}
       {selected && <CollapsibleJson title="선택한 이력 전체 JSON" value={selected} />}
+      {onReset && <HistoryManagement onReset={onReset} />}
     </div>
   )
+}
+
+function HistoryManagement({ onReset }) {
+  return <details className="interface-history-management"><summary>History 관리</summary><div className="interface-history-management-actions"><button className="interface-history-reset-badge selected" onClick={() => window.confirm('현재 선택한 Interface의 이력을 초기화할까요?') && onReset('selected')} type="button">선택 이력 초기화</button><button className="interface-history-reset-badge all" onClick={() => window.confirm('이 Interface 종류의 전체 실행 이력을 초기화할까요?') && onReset('all')} type="button">전체 이력 초기화</button></div></details>
 }
 
 export function Badge({ label, tone = 'neutral' }) {

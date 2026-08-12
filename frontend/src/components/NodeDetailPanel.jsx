@@ -1,9 +1,10 @@
 import { formatRelativeTime, formatTime } from '../utils/format.js'
+import { displayText } from '../utils/displayText.js'
 import { CollapsibleList } from './CollapsibleList.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { NodeStatusBadge } from './NodeTable.jsx'
 
-export function NodeDetailPanel({ node }) {
+export function NodeDetailPanel({ node, onClose }) {
   if (!node) {
     return (
       <aside className="detail-panel node-detail-panel">
@@ -18,7 +19,10 @@ export function NodeDetailPanel({ node }) {
     <aside className="detail-panel node-detail-panel">
       <div className="panel-heading">
         <span>Node 상세</span>
-        <NodeStatusBadge status={node.status} />
+        <div className="detail-panel-heading-actions">
+          <NodeStatusBadge status={node.status} />
+          <button className="detail-panel-close" onClick={onClose} type="button">닫기 ×</button>
+        </div>
       </div>
       <h2>{node.full_name}</h2>
       <p className="muted">{node.namespace ?? '/'}</p>
@@ -41,9 +45,9 @@ export function NodeDetailPanel({ node }) {
         <DetailLine
           label="상태"
           tone={statusTone(node.status)}
-          value={node.status ?? '-'}
+          value={displayText(node.status)}
         />
-        <DetailLine label="상태 이유" value={node.reason ?? '-'} />
+        <DetailLine label="상태 이유" value={displayText(node.reason)} />
         <DetailLine
           label="마지막 확인"
           value={formatRelativeTime(node.last_seen_at)}

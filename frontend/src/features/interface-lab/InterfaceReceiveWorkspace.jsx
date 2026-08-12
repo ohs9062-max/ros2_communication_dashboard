@@ -7,6 +7,7 @@ export function InterfaceReceiveWorkspace({
   expanded,
   mode,
   onModeChange,
+  onClose,
   onToggleExpanded,
   open,
   service,
@@ -18,6 +19,7 @@ export function InterfaceReceiveWorkspace({
     <InterfaceReceiveWorkbench
       expanded={expanded}
       mode={mode}
+      onClose={onClose}
       onModeChange={onModeChange}
       onToggleExpanded={onToggleExpanded}
     >

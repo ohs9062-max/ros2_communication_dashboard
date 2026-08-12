@@ -1,4 +1,3 @@
-import { sourceLabel } from '../model/workspacePresentation.js'
 import { Badge } from './WorkspaceShared.jsx'
 
 export function SummaryCard({ label, tone = 'neutral', value }) {
@@ -11,42 +10,30 @@ export function SummaryCard({ label, tone = 'neutral', value }) {
 }
 
 export function InterfaceCard({ item, onClick, selected }) {
+  const status = primaryStatus(item)
   return (
     <button className={selected ? 'interface-card selected' : 'interface-card'} onClick={onClick} type="button">
       <span className="interface-card-line">
-        <strong>{item.title}</strong>
-        <span>/</span>
-        <span>{item.subtitle}</span>
-        {item.counts && (
-          <span className="interface-count-badges">
-            <CountBadge label="msg" tone="msg" value={item.counts.message} />
-            <CountBadge label="srv" tone="srv" value={item.counts.service} />
-            <CountBadge label="action" tone="action" value={item.counts.action} />
-          </span>
-        )}
+        <strong title={item.title}>{item.title}</strong>
+        <span title={item.fullType ?? item.subtitle}>{item.fullType ?? item.subtitle ?? '-'}</span>
       </span>
       <div className="interface-badge-row">
         <KindBadge kind={item.kind} />
-        {(item.sources?.length ? item.sources : [item.source]).filter(Boolean).map((source) => (
-          <Badge key={source} label={sourceLabel(source)} tone="blue" />
-        ))}
-        {item.graphOnly && <Badge label="미등록" tone="yellow" />}
-        {item.packageName && <Badge label={item.packageName} tone="neutral" />}
-        {item.importAvailable !== null && (
-          <Badge label={item.importAvailable ? 'import됨' : 'import 안됨'} tone={item.importAvailable ? 'green' : 'yellow'} />
-        )}
-        {item.graphOnly && item.importAvailable === null && <Badge label="import 확인 필요" tone="yellow" />}
-        {item.rebuildRequired && <Badge label="build 필요" tone="yellow" />}
-        {item.serverAvailable !== null && (
-          <Badge label={item.serverAvailable ? '서버 있음' : '서버 없음'} tone={item.serverAvailable ? 'green' : 'yellow'} />
-        )}
-        {item.callable !== null && (
-          <Badge label={item.callable ? '실행 가능' : item.reason ?? '실행 불가'} tone={item.callable ? 'green' : 'yellow'} />
-        )}
-        {item.error && <Badge label="오류" tone="red" />}
+        <Badge label={status.label} tone={status.tone} />
+        <span className="interface-card-action">상세 보기</span>
       </div>
     </button>
   )
+}
+
+function primaryStatus(item) {
+  if (item.error) return { label: '오류', tone: 'red' }
+  if (item.rebuildRequired) return { label: 'build 필요', tone: 'yellow' }
+  if (item.callable === true) return { label: '실행 가능', tone: 'green' }
+  if (item.kind === 'message' && item.importAvailable) return { label: '실행 가능', tone: 'green' }
+  if (item.importAvailable === false) return { label: 'import 필요', tone: 'yellow' }
+  if (item.serverAvailable === false) return { label: '서버 없음', tone: 'yellow' }
+  return { label: '등록됨', tone: 'blue' }
 }
 
 function KindBadge({ kind }) {
@@ -58,8 +45,4 @@ function KindBadge({ kind }) {
   if (normalized === 'action') return <Badge label="action" tone="action" />
   if (normalized === 'package') return <Badge label="pkg" tone="package" />
   return null
-}
-
-function CountBadge({ label, tone, value }) {
-  return <span className={`interface-count-badge ${tone}`}>{label} {value}</span>
 }

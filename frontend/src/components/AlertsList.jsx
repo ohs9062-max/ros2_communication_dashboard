@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { formatTime } from '../utils/format.js'
+import { displayText } from '../utils/displayText.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
@@ -85,9 +86,9 @@ export function AlertsList({
                   value={alert.level}
                 />
               </td>
-              <td>{alert.source}</td>
+              <td>{displayText(alert.source)}</td>
               <td className="topic-name">{alert.name}</td>
-              <td>{alert.message}</td>
+              <td>{displayText(alert.message)}</td>
               <td>{alert.code}</td>
               <td>{formatTime(detectedAt(alert))}</td>
               {previous && <td>{formatTime(alert.resolved_at)}</td>}

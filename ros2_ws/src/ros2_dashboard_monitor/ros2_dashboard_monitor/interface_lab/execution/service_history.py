@@ -33,6 +33,12 @@ class ServiceCallHistory:
         calls = self.snapshot()
         return {'calls': calls, 'meta': {'count': len(calls)}}
 
+    def reset(self, *, service_name: str | None = None, service_type: str | None = None) -> int:
+        return self._calls.remove(lambda item: (
+            (not service_name or item.get('service_name') == service_name)
+            and (not service_type or item.get('service_type') == service_type)
+        ))
+
     def receive_response(self) -> dict[str, Any]:
         events = []
         for index, call in enumerate(self.snapshot()):

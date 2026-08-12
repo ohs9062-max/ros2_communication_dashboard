@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AlertsPreview } from '../components/AlertsPreview.jsx'
 import { FilterToolbar } from '../components/FilterToolbar.jsx'
 import { SummaryCard } from '../components/SummaryCard.jsx'
@@ -89,17 +89,6 @@ export function TopicsPage({ dashboard }) {
     })
   }, [activeTopics, includeAllTopics, search, statusFilter, topicHzByName, topicItems])
 
-  useEffect(() => {
-    if (filteredTopics.some((topic) => topic.name === selectedTopicName)) {
-      return
-    }
-
-    const nextTopicName = filteredTopics[0]?.name ?? ''
-    if (nextTopicName !== selectedTopicName) {
-      setSelectedTopicName(nextTopicName)
-    }
-  }, [filteredTopics, selectedTopicName, setSelectedTopicName])
-
   const detailTopic = filteredTopics.some(
     (topic) => topic.name === selectedTopicName,
   )
@@ -117,13 +106,12 @@ export function TopicsPage({ dashboard }) {
   }
 
   return (
-    <main className="topics-page">
+    <main className={`topics-page${detailTopic ? ' detail-open' : ''}`}>
       <section className="main-panel">
         <div className="summary-grid">
           <SummaryCard label="전체 Topic" value={summary.total} />
-          <SummaryCard label="활동 Topic" value={activeTopics.length} tone="good" />
-          <SummaryCard label="정상" value={summary.active} tone="good" />
-          <SummaryCard label="상세 감시" value={summary.deep} />
+          <SummaryCard label="주요 Topic" value={activeTopics.length} tone="good" />
+          <SummaryCard label="감시 중 Topic" value={summary.deep} />
           <SummaryCard
             label="주의/오류"
             value={warningCount + errorCount}
@@ -147,7 +135,7 @@ export function TopicsPage({ dashboard }) {
         <section className="topic-section">
           <div className="section-heading">
             <div>
-              <h2>Topic 상세</h2>
+              <h2>Topic 목록</h2>
               <p className="muted">
                 기본 화면은 현재 활동 중이거나 최근 상태 변화가 관찰된 Topic만
                 표시합니다.
@@ -166,12 +154,6 @@ export function TopicsPage({ dashboard }) {
             search={search}
             statusFilter={statusFilter}
           />
-          <p className="topic-filter-help">
-            Publisher·Subscriber Node 수는 Dashboard 내부 통신을 제외한 값입니다.
-            따라서 Dashboard 자체 구독만 있으면 Subscriber Node 수가 0으로
-            표시됩니다. 이는 해당 Topic을 받는 다른 ROS2 Node가 없다는 뜻이며,
-            센서 출력·로그·이벤트성 Topic에서는 장애가 아닐 수 있습니다.
-          </p>
           {priorityError && <p className="error-text">{priorityError}</p>}
           <TopicTable
             emptyMessage={
@@ -189,14 +171,17 @@ export function TopicsPage({ dashboard }) {
         </section>
       </section>
 
-      <TopicDetailPanel
-        cameraPreview={cameraPreview}
-        hz={hz}
-        latest={latest}
-        participants={topicParticipants[detailTopic?.name] ?? null}
-        qosFocusRequest={qosFocusRequest}
-        topic={detailTopic}
-      />
+      {detailTopic && (
+        <TopicDetailPanel
+          cameraPreview={cameraPreview}
+          hz={hz}
+          latest={latest}
+          onClose={() => setSelectedTopicName('')}
+          participants={topicParticipants[detailTopic.name] ?? null}
+          qosFocusRequest={qosFocusRequest}
+          topic={detailTopic}
+        />
+      )}
     </main>
   )
 }

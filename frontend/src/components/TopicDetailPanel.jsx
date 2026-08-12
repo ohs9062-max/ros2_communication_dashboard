@@ -5,6 +5,7 @@ import {
   formatRelativeTime,
 } from '../utils/format.js'
 import { withExecutionNode } from '../utils/participants.js'
+import { displayText } from '../utils/displayText.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { KeyValueTable } from './KeyValueTable.jsx'
@@ -12,7 +13,7 @@ import { QosDetails } from './QosDetails.jsx'
 import { QosSummaryNotice } from './QosSummary.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
-export function TopicDetailPanel({ cameraPreview, topic, latest, hz, participants, qosFocusRequest }) {
+export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, participants, qosFocusRequest }) {
   if (!topic) {
     return (
       <aside className="detail-panel">
@@ -39,7 +40,10 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, participant
     <aside className="detail-panel">
       <div className="panel-heading">
         <span>Topic 상세</span>
-        <StatusBadge value={topic.status} />
+        <div className="detail-panel-heading-actions">
+          <StatusBadge value={topic.status} />
+          <button className="detail-panel-close" onClick={onClose} type="button">닫기 ×</button>
+        </div>
       </div>
       <h2>{topic.name}</h2>
       <p className="muted">{topic.types?.[0] ?? '-'}</p>
@@ -64,19 +68,13 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, participant
       <DetailSection title="상태 요약">
         <DetailLine label="이름" value={topic.name} />
         <DetailLine label="타입" value={topic.types?.[0] ?? '-'} />
-        <DetailLine label="상태" tone={statusTone(topic.status)} value={topic.status ?? '-'} />
-        <DetailLine label="상태 이유" value={topic.reason ?? '-'} />
+        <DetailLine label="상태" tone={statusTone(topic.status)} value={displayText(topic.status)} />
+        <DetailLine label="상태 이유" value={displayText(topic.reason)} />
         <DetailLine
           label="마지막 확인"
           value={formatRelativeTime(topic.last_updated)}
         />
       </DetailSection>
-
-      <QosDetails
-        focusRequest={qosFocusRequest?.name === topic.name ? qosFocusRequest : null}
-        qos={topic}
-        title="Topic QoS"
-      />
 
       {cameraType && (
         <CameraPreview
@@ -87,6 +85,12 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, participant
           topicType={topic.types?.[0]}
         />
       )}
+
+      <QosDetails
+        focusRequest={qosFocusRequest?.name === topic.name ? qosFocusRequest : null}
+        qos={topic}
+        title="고급 정보 · Topic QoS"
+      />
 
       <DetailSection collapsible title="연결 정보">
         <div className="detail-line">

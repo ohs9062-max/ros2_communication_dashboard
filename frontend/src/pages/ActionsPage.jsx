@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ActionDetailPanel } from '../components/ActionDetailPanel.jsx'
 import { ActionSummaryCards } from '../components/ActionSummaryCards.jsx'
 import { ActionTable } from '../components/ActionTable.jsx'
@@ -79,14 +79,6 @@ export function ActionsPage({ dashboard }) {
     })
   }, [actions, includeIdleActions, primaryActions, search, statusFilter])
 
-  useEffect(() => {
-    if (filteredActions.some((action) => action.name === selectedActionName)) {
-      return
-    }
-
-    setSelectedActionName(filteredActions[0]?.name ?? '')
-  }, [filteredActions, selectedActionName, setSelectedActionName])
-
   const detailAction = filteredActions.some(
     (action) => action.name === selectedActionName,
   )
@@ -104,7 +96,7 @@ export function ActionsPage({ dashboard }) {
   }
 
   return (
-    <main className="topics-page">
+    <main className={`topics-page${detailAction ? ' detail-open' : ''}`}>
       <section className="main-panel">
         <ActionSummaryCards actions={actions} activeActions={primaryActions} meta={meta} />
         <AlertsPreview
@@ -118,11 +110,10 @@ export function ActionsPage({ dashboard }) {
         <section className="topic-section">
           <div className="section-heading">
             <div>
-              <h2>Action 상세</h2>
+              <h2>Action 목록</h2>
               <p className="muted">
-                Action 목록은 3초마다 갱신됩니다. Goal 전송과 cancel은
-                제공하지 않습니다. Server·Client Node 수에서는 Dashboard가
-                테스트를 위해 만든 통신을 제외합니다.
+                Action 목록은 3초마다 갱신됩니다. Goal 실행 상태와 최근
+                Feedback·Result를 우선 표시합니다.
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}
@@ -182,11 +173,14 @@ export function ActionsPage({ dashboard }) {
         </section>
       </section>
 
-      <ActionDetailPanel
-        action={detailAction}
-        participants={actionParticipants[detailAction?.name] ?? null}
-        qosFocusRequest={qosFocusRequest}
-      />
+      {detailAction && (
+        <ActionDetailPanel
+          action={detailAction}
+          onClose={() => setSelectedActionName('')}
+          participants={actionParticipants[detailAction.name] ?? null}
+          qosFocusRequest={qosFocusRequest}
+        />
+      )}
     </main>
   )
 }

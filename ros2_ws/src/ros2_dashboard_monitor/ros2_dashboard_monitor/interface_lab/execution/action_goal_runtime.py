@@ -153,6 +153,15 @@ class ActionGoalRuntime:
             },
         }
 
+    def reset_history(self, *, action_name: str | None = None, action_type: str | None = None) -> dict[str, Any]:
+        """Action Goal 실행 이력 전체를 지웁니다."""
+        previous = self._history.remove(lambda item: (
+            (not action_name or item.get('action_name') == action_name)
+            and (not action_type or item.get('action_type') == action_type)
+        ))
+        self._receive_history.clear()
+        return {'cleared': previous, 'action_name': action_name, 'action_type': action_type}
+
     def receive_history(self) -> dict[str, Any]:
         """초기화 경계 이후에 받은 feedback·result 이력을 반환합니다."""
         return self._receive_history.snapshot()

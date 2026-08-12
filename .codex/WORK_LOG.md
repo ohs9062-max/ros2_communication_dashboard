@@ -340,3 +340,144 @@
 - 최우선 문제는 고정 상세 패널과 과도한 테이블 열 때문에 헤더가 겹치고 이름이 글자 단위로 줄바꿈되는 목록
   가독성이다. 그 밖에 축약된 Sidebar, 한국어/영문 상태 혼용, 의미가 불명확한 요약 count, 빈 Alert 영역의
   과도한 높이, 정상 DDS 발견 안내의 높은 시각 비중을 후속 UX 개선 대상으로 확인했다.
+
+## 2026-08-12 - 진단 목록 UI 정보 밀도 축소
+
+- 기존 Monitoring/API 기능은 유지하면서 Topic 7열, Service 7열, Action 7열, Node 6열로 기본 목록을 줄였다.
+  이름·타입은 한 줄 ellipsis/title로 바꾸고 endpoint, Dashboard 통신, Graph 관계와 기타 metadata는 기존
+  상세 영역에 유지했다.
+- 첫 항목 자동 선택을 제거해 선택 전 목록이 전체 폭을 사용하게 했고, 행 선택 시 390px 상세 패널을 열며
+  `닫기 ×`로 다시 닫도록 했다. 빈 Alert는 한 줄로 축소하고 QoS observed 안내를 작은 회색 보조 badge로 낮췄다.
+  요약 카드는 5개 수준으로 줄이고 `활동`을 실제 Backend 의미에 맞는 `주요`로 바꿨으며 Sidebar 폭과
+  대표 영문 상태/사유 표시를 정리했다. Overview 중복 상태 분포 차트는 접힌 고급 보기로 유지했다.
+- Gazebo/demo live 데이터로 1440x1000 Chrome에서 Overview/Topics/Services/Actions/Nodes를 확인했다.
+  헤더 겹침과 글자 단위 줄바꿈이 없고 Sidebar 라벨이 온전히 보였다. Topic 상세는 DOM 기준 선택 전 0개,
+  열림 1개/390px, 닫힘 0개이며 목록 폭이 1205px → 797px → 1205px로 정상 복원됐다.
+- 검증: Monitor pytest 219 passed, Backend pytest 15 passed/2 skipped, Frontend oxlint/build와
+  `git diff --check` 통과.
+
+## 2026-08-12 - 리소스 목록 상태 열·배지 정렬 통일
+
+- Topic, Service, Action 목록의 두 번째 열 이름을 모두 `상태`로 통일했다. 대표 상태와 QoS 보조 badge를 공통
+  stack으로 묶어 동일한 왼쪽 기준선, 5px 세로 간격과 최소 폭을 사용하도록 정렬했다.
+- Frontend oxlint/build와 `git diff --check`를 통과했고, 세 탭을 1440x1000 Chrome에서 렌더링해 헤더와
+  `정상`/`QoS 발견` 등 2단 badge 정렬을 확인했다.
+
+## 2026-08-12 - Node 목록 열·연결 명칭 정리
+
+- Node 기본 목록에서 네임스페이스 열을 제거하고 상세 패널의 네임스페이스 정보는 유지했다. 연결 리소스의
+  `T`/`S`/`A` 축약 표기는 `Topic`/`Service`/`Action` 전체 명칭으로 변경했다.
+- Frontend oxlint/build를 통과했고 1440x1000 Chrome에서 5열 목록과 전체 연결 명칭 표시를 확인했다.
+
+## 2026-08-12 - Interface Lab 목록 중심 UI 1차 정리
+
+- 목록 행 아래에 삽입되던 선택 상세를 데스크톱 420~460px 우측 패널로 옮기고, 선택 전에는 닫힌 상태로
+  유지했다. 초기 안내·관리 영역은 접고 요약을 등록/실행 가능/build 필요/오류 4개로 축소했다.
+- 기본 종류 필터를 Topic/Service/Action/Package로 정리하고 이름·타입 검색과 상태 필터, 상황별 빈 상태를
+  추가했다. 목록 행은 이름/타입/대표 상태/상세 동작 중심으로 줄였으며 긴 값은 한 줄 ellipsis를 사용한다.
+- Topic은 Publish/Receive/History/고급 정보, Service와 Action은 실행/History/고급 정보 탭으로 분리했다.
+  QoS·timeout·Graph·schema/raw는 기본 접힘으로 내리고, Topic 수신 시작/중지는 하나의 전환 버튼으로 합쳤다.
+  Action 취소는 활성 실행 중에만 주의색 버튼으로 표시하고 History는 최근 3건과 확인 절차가 있는 관리 영역을 쓴다.
+- 1440x1000 Chrome에서 초기 화면과 Topic/Service/Action/Package 선택을 확인했다. Topic 선택 시 목록 729px,
+  우측 패널 460px로 유지됐고 Service/Action 탭과 비활성 Action 취소 버튼 미노출을 확인했다.
+  Frontend lint/build, Backend 15 passed/2 skipped, colcon 237 tests(0 failures, 1 skipped), diff check를 통과했다.
+
+## 2026-08-12 - Interface Lab 실행·기기 수신 및 QoS 접근 복원
+
+- UI 밀도 축소 과정에서 제거했던 관리 영역의 통신 진입점을 `Topic 실행`, `Service 실행`, `Action 실행`,
+  `기기 수신`으로 복원했다. 기존 실행/수신 runtime과 API는 그대로 재사용한다.
+- 선택 상세과 전체 수신 workspace 모두 QoS `Auto / Manual` 선택을 기본 실행 화면에서 바로 볼 수 있게 하고,
+  timeout·Hz 같은 나머지 설정만 고급 영역에 유지했다. 수신 workspace의 불필요한 Mock 준비중 탭은 제거했다.
+- 1440x1000 Chrome DOM에서 통신 버튼 4개, Topic/Service/Action 수신 탭, Topic 수신 QoS의 Auto/Manual
+  option을 확인했다. Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - Overview 그래프·Interface 관리 상시 펼침
+
+- Overview 상태 분포 그래프와 Interface Lab의 Interface 관리 컨테이너를 `details`에서 일반 section으로 바꿔
+  접기 기능과 접힘 상태를 제거하고 항상 펼쳐진 상태로 고정했다.
+- 1440x1000 Chrome에서 Overview 진입 즉시 그래프가 보이고 Interface Lab 진입 즉시 등록/적용/관리/통신
+  버튼이 보이는 것을 확인했다. Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - Interface Lab 검색·통신 버튼 UI 통일
+
+- Interface 목록 검색창과 상태 select를 Topic/Service 등 다른 탭의 공통 dark filter toolbar 스타일로 통일했다.
+- Topic/Service/Action 실행 버튼을 파일 업로드와 같은 badge형 버튼으로 맞추고 관리 영역의 `기기 수신` 버튼은
+  제거했다. 선택 상세의 Topic Receive와 QoS Auto/Manual 기능은 유지했다.
+- 1440x1000 Chrome에서 검색/상태 입력, 실행 버튼 3개와 기기 수신 버튼 미노출을 확인했다.
+  Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - Interface 목록 선택 기본 화면을 통신 상세로 변경
+
+- Interface 목록 행 선택 시 Publish/Service Call/Action Goal 입력 폼을 즉시 열던 동작을 제거하고 `통신 상세`를
+  기본 탭으로 추가했다. 실제 실행은 사용자가 Publish/Receive/Service Call/Goal 실행 탭을 선택해야 열린다.
+- 통신 상세에는 full type, Graph 연결 수, 서버/실행 가능 상태, 연결 Topic/Service/Action/Subscription의
+  endpoint·QoS 관련 값을 표시한다. source/package/import/schema/raw는 기존 고급 정보 탭에 유지했다.
+- Chrome에서 Message Interface 선택 시 `통신 상세`가 기본 활성화되고 Endpoint QoS가 표시되며 실행 버튼은
+  렌더링되지 않는 것을 확인했다. Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - Interface 실행 패널 닫기 추가
+
+- 관리 영역에서 여는 Topic/Service/Action 실행 패널 제목 우측에 접근 가능한 `×` 닫기 버튼을 추가했다.
+  닫기는 현재 execution mode만 해제하므로 실행 이력, 결과와 QoS 입력값은 초기화하지 않는다.
+- Chrome에서 Topic 실행 패널을 열어 `등록 Topic 실행 닫기` 버튼 노출과 클릭 후 실행 패널 1개→0개 전환을
+  확인했다. 세 실행 패널은 동일 heading component와 close callback을 사용한다. Frontend lint/build와
+  diff check를 통과했다.
+
+## 2026-08-12 - Interface 수신 패널 닫기·닫기 버튼 강조
+
+- Topic/Service/Action 수신 workspace 제목 우측에 `닫기 ×` 버튼을 추가하고 기존 실행 패널의 작은 `×`도
+  텍스트가 있는 동일 버튼으로 변경했다.
+- 수신 패널 닫기는 표시 상태만 해제하며 이미 시작된 Subscription, 수신 이력과 QoS 설정을 중지하거나
+  초기화하지 않는다. Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - 우측 상세 실행 진입점 통일
+
+- Interface 우측 상세의 Publish/Receive/Service Call/Goal 실행 탭을 제거하고 종류와 무관한 공통 `실행`
+  버튼 하나로 통일했다. 통신 상세/History/고급 정보는 우측 패널에 유지한다.
+- 공통 실행 버튼은 선택 kind에 따라 관리 영역의 Topic/Service/Action 실행 workspace를 열며, 수신 패널을
+  함께 강제로 열지 않는다. Chrome에서 Message 선택 시 우측 탭이 통신 상세/History/고급 정보만 남고,
+  `실행` 클릭 후 `등록 Topic 실행` 패널이 열리며 수신 패널은 0개인 것을 확인했다.
+- Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - 실행 workspace 수신 패널 복구
+
+- 공통 실행 버튼과 우측 상세의 단순화는 유지하면서 Topic/Service/Action 실행 workspace를 열 때 같은 종류의
+  수신 패널도 함께 열리도록 복구했다. 실행 mode와 수신 mode를 동일 kind로 맞추고 최신 수신 상태를 로드한다.
+- 실행/수신 각각의 QoS Auto/Manual과 독립 `닫기 ×` 동작은 유지했다. Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - 우측 실행 탭·종류별 전체 History 초기화 통일
+
+- 우측 상세 탭을 `통신 상세 / History / 고급 정보 / 실행` 순서로 통일하고 실행은 선택 kind에 맞는 관리
+  workspace를 여는 navigation으로 연결했다.
+- History 관리에 Topic/Service/Action 공통 `전체 이력 초기화` 확인 버튼과 주의색 pill badge를 추가했다.
+  Topic 전체 Publish/Subscribe, Service 전체 Call, Action 전체 Goal 이력을 지우는 Monitor API를 연결했다.
+- Frontend lint/build, Python compileall, colcon build와 237 tests(0 failures, 1 skipped)를 통과했다.
+
+## 2026-08-12 - Interface 우측 상세 닫기 버튼 통일
+
+- Topic/Service/Action/Package가 공유하는 우측 상세 닫기 버튼에 전용 dark secondary 스타일을 적용해 브라우저
+  기본 흰색 버튼을 제거했다. hover/focus 시에만 파란 테두리와 밝은 글자를 사용한다.
+- Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - Interface 실행·종류 badge 색상 구분
+
+- 관리 영역 실행 버튼을 Topic 초록, Service 노랑, Action 보라로 구분했다.
+- Interface 목록의 `srv` 종류 badge를 노랑, `pkg` 종류 badge를 빨강으로 변경했고 msg 파랑/action 보라는
+  유지했다. Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - History 선택/전체 초기화·목록 상태 badge 통일
+
+- Topic/Service/Action History 관리에 `선택 이력 초기화`와 `전체 이력 초기화`를 동일하게 제공했다. 선택은
+  현재 우측 Interface의 type/name 범위, 전체는 해당 종류 전체 범위이며 각각 파랑/빨강 pill badge와 확인창을 쓴다.
+- Service Call과 Action Goal reset API가 선택 name/type payload를 받아 해당 실행 이력만 제거하도록 확장했고,
+  Topic Publish/Receive도 type-only 선택 초기화를 지원한다. 실행 Client/QoS는 유지한다.
+- Graph Service `/RobotControl`만 `호출 가능`으로 달랐던 목록 대표 badge를 다른 Interface와 같은 `실행 가능`으로
+  통일했다. Frontend lint/build, Python compileall, workspace source 후 colcon 237 tests(0 failures, 1 skipped),
+  diff check를 통과했다.
+
+## 2026-08-12 - RobotControl/ScheduleCrud History UI 통일
+
+- 이력이 있는 `/ScheduleCrud`와 이력이 없는 `/RobotControl`이 서로 다른 렌더링 분기를 사용하던 부분을 없애고,
+  둘 다 동일한 최근 호출 이력 제목·빈 상태·History 관리·선택/전체 초기화 badge 컨테이너를 사용하게 했다.
+- Action History에도 누락됐던 동일 reset callback을 연결해 Topic/Service/Action 모두 같은 구조를 사용한다.
+  Frontend lint/build와 diff check를 통과했다.

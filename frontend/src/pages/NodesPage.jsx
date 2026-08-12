@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { AlertsPreview } from '../components/AlertsPreview.jsx'
 import { NodeDetailPanel } from '../components/NodeDetailPanel.jsx'
 import { NodeSummaryCards } from '../components/NodeSummaryCards.jsx'
@@ -68,18 +68,6 @@ export function NodesPage({ actions, dashboard, services, topics }) {
     })
   }, [actions, includeInternalNodes, nodes, search, services, statusFilter, topics])
 
-  useEffect(() => {
-    if (!filteredNodes.length) {
-      return
-    }
-
-    if (filteredNodes.some((node) => node.full_name === selectedNodeName)) {
-      return
-    }
-
-    setSelectedNodeName(filteredNodes[0]?.full_name ?? '')
-  }, [filteredNodes, selectedNodeName, setSelectedNodeName])
-
   const detailNode = filteredNodes.some(
     (node) => node.full_name === selectedNodeName,
   )
@@ -97,7 +85,7 @@ export function NodesPage({ actions, dashboard, services, topics }) {
   }
 
   return (
-    <main className="topics-page node-page">
+    <main className={`topics-page node-page${detailNode ? ' detail-open' : ''}`}>
       <section className="main-panel">
         <section className="topic-section page-intro">
           <div className="section-heading">
@@ -114,7 +102,7 @@ export function NodesPage({ actions, dashboard, services, topics }) {
           </div>
         </section>
 
-        <NodeSummaryCards activeNodes={primaryNodes} meta={meta} nodes={nodes} />
+        <NodeSummaryCards meta={meta} nodes={nodes} primaryNodes={primaryNodes} />
 
         <AlertsPreview
           alerts={nodeAlerts}
@@ -174,7 +162,9 @@ export function NodesPage({ actions, dashboard, services, topics }) {
         </section>
       </section>
 
-      <NodeDetailPanel node={detailNode} />
+      {detailNode && (
+        <NodeDetailPanel node={detailNode} onClose={() => setSelectedNodeName('')} />
+      )}
     </main>
   )
 }

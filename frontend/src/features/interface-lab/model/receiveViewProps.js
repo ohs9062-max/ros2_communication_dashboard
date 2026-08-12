@@ -4,6 +4,7 @@ export function receiveWorkspaceViewProps(state) {
     expanded: state.expanded,
     mode: state.receiveMode,
     onModeChange: state.selectReceiveMode,
+    onClose: state.onClose,
     onToggleExpanded: state.onToggleExpanded,
     open: state.open,
     service: resourceProps(state, 'Service'),

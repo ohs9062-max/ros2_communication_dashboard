@@ -8,30 +8,9 @@ import { PriorityStarButton } from './PriorityStarButton.jsx'
 const NODE_SORT_COLUMNS = {
   status: { value: (node) => node.status },
   full_name: { value: (node) => node.full_name },
-  namespace: { value: (node) => node.namespace },
-  publisher_count: {
+  relationship_count: {
     defaultDirection: 'desc',
-    value: (node) => node.publisher_count,
-  },
-  subscriber_count: {
-    defaultDirection: 'desc',
-    value: (node) => node.subscriber_count,
-  },
-  service_server_count: {
-    defaultDirection: 'desc',
-    value: (node) => node.service_server_count,
-  },
-  service_client_count: {
-    defaultDirection: 'desc',
-    value: (node) => node.service_client_count,
-  },
-  action_server_count: {
-    defaultDirection: 'desc',
-    value: (node) => node.action_server_count,
-  },
-  action_client_count: {
-    defaultDirection: 'desc',
-    value: (node) => node.action_client_count,
+    value: (node) => relationshipCount(node),
   },
   last_seen_at: {
     defaultDirection: 'desc',
@@ -68,13 +47,7 @@ export function NodeTable({
             <th className="priority-column">주요</th>
             <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="full_name" label="Node" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="namespace" label="네임스페이스" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="publisher_count" label="발행 Topic 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="subscriber_count" label="구독 Topic 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="service_server_count" label="Service Server 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="service_client_count" label="Service Client 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="action_server_count" label="Action Server 수" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="action_client_count" label="Action Client 수" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="relationship_count" label="연결 리소스" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_seen_at" label="마지막 확인" onSort={onSort} sort={sort} />
           </tr>
         </thead>
@@ -99,16 +72,10 @@ export function NodeTable({
                 <td>
                   <NodeStatusBadge status={node.status} />
                 </td>
-                <td className="topic-name node-name">{node.full_name}</td>
-                <td className="topic-type node-namespace">
-                  {node.namespace ?? '-'}
+                <td className="topic-name node-name ellipsis-cell" title={node.full_name}>{node.full_name}</td>
+                <td className="node-relations-cell" title="Topic · Service · Action 연결 수">
+                  Topic {resourceCount(node.publisher_count, node.subscriber_count)} · Service {resourceCount(node.service_server_count, node.service_client_count)} · Action {resourceCount(node.action_server_count, node.action_client_count)}
                 </td>
-                <td>{node.publisher_count ?? 0}</td>
-                <td>{node.subscriber_count ?? 0}</td>
-                <td>{node.service_server_count ?? 0}</td>
-                <td>{node.service_client_count ?? 0}</td>
-                <td>{node.action_server_count ?? 0}</td>
-                <td>{node.action_client_count ?? 0}</td>
                 <td>{formatRelativeTime(node.last_seen_at)}</td>
               </tr>
             )
@@ -117,6 +84,16 @@ export function NodeTable({
       </table>
     </div>
   )
+}
+
+function resourceCount(left, right) {
+  return (left ?? 0) + (right ?? 0)
+}
+
+function relationshipCount(node) {
+  return resourceCount(node.publisher_count, node.subscriber_count) +
+    resourceCount(node.service_server_count, node.service_client_count) +
+    resourceCount(node.action_server_count, node.action_client_count)
 }
 
 export function NodeStatusBadge({ status }) {

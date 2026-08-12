@@ -1,4 +1,5 @@
 import { formatTime } from '../utils/format.js'
+import { displayText } from '../utils/displayText.js'
 import { DetailSection } from './DetailSection.jsx'
 import { QosDetails } from './QosDetails.jsx'
 import { QosSummaryNotice } from './QosSummary.jsx'
@@ -12,7 +13,7 @@ import {
 } from '../features/actions/ActionDetailSections.jsx'
 import { actionStatusTone } from '../features/actions/actionPresentation.js'
 
-export function ActionDetailPanel({ action, participants, qosFocusRequest }) {
+export function ActionDetailPanel({ action, onClose, participants, qosFocusRequest }) {
   if (!action) {
     return (
       <aside className="detail-panel">
@@ -37,7 +38,10 @@ export function ActionDetailPanel({ action, participants, qosFocusRequest }) {
     <aside className="detail-panel">
       <div className="panel-heading">
         <span>Action 상세</span>
-        <StatusBadge value={action.status} />
+        <div className="detail-panel-heading-actions">
+          <StatusBadge value={action.status} />
+          <button className="detail-panel-close" onClick={onClose} type="button">닫기 ×</button>
+        </div>
       </div>
       <h2>{action.name}</h2>
       <p className="muted">{action.type ?? '-'}</p>
@@ -100,9 +104,9 @@ export function ActionDetailPanel({ action, participants, qosFocusRequest }) {
         <DetailLine
           label="서버 상태"
           tone={actionStatusTone(action.status)}
-          value={action.status ?? '-'}
+          value={displayText(action.status)}
         />
-        <DetailLine label="상태 이유" value={action.reason ?? '-'} />
+        <DetailLine label="상태 이유" value={displayText(action.reason)} />
         <DetailLine label="마지막 갱신" value={formatTime(action.last_updated)} />
       </DetailSection>
 

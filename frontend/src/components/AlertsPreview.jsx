@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { StatusBadge } from './StatusBadge.jsx'
+import { displayText } from '../utils/displayText.js'
 
 export function AlertsPreview({
   alerts,
@@ -19,6 +20,14 @@ export function AlertsPreview({
       ? recentItems.slice(0, collapsedItems)
       : recentItems
   const tone = alertTone(recentItems)
+
+  if (!recentItems.length && !error) {
+    return (
+      <section className="alerts-preview compact-empty-alert empty">
+        <span>{emptyMessage}</span>
+      </section>
+    )
+  }
 
   return (
     <section
@@ -65,8 +74,8 @@ export function AlertsPreview({
               />
               <div>
                 <strong>{alert.name}</strong>
-                <p>{alert.message}</p>
-                <span className="muted">{alert.source}</span>
+                <p>{displayText(alert.message)}</p>
+                <span className="muted">{displayText(alert.source)}</span>
               </div>
             </button>
           ))}

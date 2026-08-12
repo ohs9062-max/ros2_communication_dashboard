@@ -16,6 +16,7 @@ export function ServiceExecutionPanel({
   onFieldChange,
   onImportableOnlyChange,
   onModeLinkChange,
+  onClose,
   onRequestQosModeChange,
   onRequestQosProfileChange,
   onSelect,
@@ -35,7 +36,7 @@ export function ServiceExecutionPanel({
 }) {
   return (
     <div className="interface-service-panel interface-execution-panel">
-      <ExecutionPanelHeading expanded={expanded} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Service 실행" />
+      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Service 실행" />
       {services.length ? (
         <>
           <label className="interface-filter-check">

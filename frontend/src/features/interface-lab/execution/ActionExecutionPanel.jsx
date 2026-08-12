@@ -19,6 +19,7 @@ export function ActionExecutionPanel({
   onFieldChange,
   onImportableOnlyChange,
   onModeLinkChange,
+  onClose,
   onSelect,
   onTimeoutChange,
   onToggleExpanded,
@@ -32,7 +33,7 @@ export function ActionExecutionPanel({
 }) {
   return (
     <div className="interface-service-panel interface-execution-panel">
-      <ExecutionPanelHeading expanded={expanded} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Action 실행" />
+      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Action 실행" />
       {actions.length ? (
         <>
           <label className="interface-filter-check">

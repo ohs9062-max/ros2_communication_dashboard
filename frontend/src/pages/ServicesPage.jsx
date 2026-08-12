@@ -47,14 +47,6 @@ export function ServicesPage({ dashboard }) {
     setIncludeHidden(statusFilter === 'internal')
   }, [setIncludeHidden, statusFilter])
 
-  useEffect(() => {
-    if (filteredServices.some((service) => service.name === selectedServiceName)) {
-      return
-    }
-
-    setSelectedServiceName(filteredServices[0]?.name ?? '')
-  }, [filteredServices, selectedServiceName, setSelectedServiceName])
-
   const detailService = filteredServices.some(
     (service) => service.name === selectedServiceName,
   )
@@ -72,7 +64,7 @@ export function ServicesPage({ dashboard }) {
   }
 
   return (
-    <main className="topics-page">
+    <main className={`topics-page${detailService ? ' detail-open' : ''}`}>
       <section className="main-panel">
         <ServiceSummaryCards
           meta={meta}
@@ -91,13 +83,11 @@ export function ServicesPage({ dashboard }) {
         <section className="topic-section">
           <div className="section-heading">
             <div>
-              <h2>Service 상세</h2>
+              <h2>Service 목록</h2>
               <p className="muted">
                 기본 화면은 등록된 주요 Service와 대기/오류 상태처럼 먼저
                 확인해야 하는 Service만 표시합니다. 실제 요청/응답 확인은
                 Interface Lab에서 사용자가 직접 호출한 기록을 사용합니다.
-                Server·Client Node 수에서는 Dashboard가 테스트를 위해 만든
-                통신을 제외합니다.
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}
@@ -127,11 +117,14 @@ export function ServicesPage({ dashboard }) {
         </section>
       </section>
 
-      <ServiceDetailPanel
-        participants={serviceParticipants[detailService?.name] ?? null}
-        qosFocusRequest={qosFocusRequest}
-        service={detailService}
-      />
+      {detailService && (
+        <ServiceDetailPanel
+          onClose={() => setSelectedServiceName('')}
+          participants={serviceParticipants[detailService.name] ?? null}
+          qosFocusRequest={qosFocusRequest}
+          service={detailService}
+        />
+      )}
     </main>
   )
 }

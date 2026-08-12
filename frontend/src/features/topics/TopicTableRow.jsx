@@ -1,4 +1,3 @@
-import { DashboardCommunicationBadges } from '../../components/DashboardCommunicationBadges.jsx'
 import { JsonPreviewButton } from '../../components/JsonPreview.jsx'
 import { PriorityStarButton } from '../../components/PriorityStarButton.jsx'
 import { StatusBadge } from '../../components/StatusBadge.jsx'
@@ -8,7 +7,6 @@ import {
   hzLabel,
   hzState,
   isMissingTopic,
-  topicDashboardCommunicationItems,
   topicLastCheckedAt,
 } from './topicTablePresentation.js'
 
@@ -32,16 +30,15 @@ export function TopicTableRow({
       <td className="priority-cell">
         <PriorityStarButton item={topic} name={topic.name} onToggle={onTogglePriority} pending={isPriorityPending(topic.name)} />
       </td>
-      <td className="metric-cell status-qos-cell">
-        <StatusBadge value={topic.status} />
-        <QosStatusBadge qos={topic} />
+      <td className="status-qos-cell">
+        <div className="resource-status-stack">
+          <StatusBadge value={topic.status} />
+          <QosStatusBadge qos={topic} />
+        </div>
       </td>
-      <td className="topic-name">{topic.name}</td>
-      <td className="topic-type">{topic.types?.[0] ?? '-'}</td>
-      <td className="communication-count-cell">{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>
-      <td className="communication-count-cell">{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</td>
-      <td className="dashboard-communication-cell"><HzBadge hzData={hzData} topic={topic} /></td>
-      <td><DashboardCommunicationBadges items={topicDashboardCommunicationItems(topic)} /></td>
+      <td className="topic-name ellipsis-cell" title={topic.name}>{topic.name}</td>
+      <td className="topic-type ellipsis-cell" title={topic.types?.[0] ?? '-'}>{topic.types?.[0] ?? '-'}</td>
+      <td className="metric-cell"><HzBadge hzData={hzData} topic={topic} /></td>
       <td><JsonPreviewButton onOpen={() => onPreview(topic)} value={topic.last_message_preview} /></td>
       <td>{formatRelativeTime(topicLastCheckedAt(topic, hzData))}</td>
     </tr>

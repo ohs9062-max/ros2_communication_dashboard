@@ -30,6 +30,7 @@ export function useInterfacePanelCoordinator({
   const showCallableActions = executionMode === 'action'
 
   const closeExecutionPanels = useCallback(() => setExecutionMode(null), [])
+  const closeReceivePanel = useCallback(() => setShowReceivePanel(false), [setShowReceivePanel])
 
   const hideManagementPanels = useCallback(() => {
     setShowRegistry(false)
@@ -88,6 +89,10 @@ export function useInterfacePanelCoordinator({
     setShowReceivePanel,
   ])
 
+  const openTopicPanel = useCallback(() => openExecutionPanel('topic'), [openExecutionPanel])
+  const openServicePanel = useCallback(() => openExecutionPanel('service'), [openExecutionPanel])
+  const openActionPanel = useCallback(() => openExecutionPanel('action'), [openExecutionPanel])
+
   const selectReceiveMode = useCallback(async (mode) => {
     setReceiveMode(mode)
     if (!EXECUTION_MODES.includes(mode)) {
@@ -131,14 +136,15 @@ export function useInterfacePanelCoordinator({
 
   return {
     closeExecutionPanels,
+    closeReceivePanel,
     expandedActive,
     loadExecutionPanel,
-    openActionPanel: () => openExecutionPanel('action'),
+    openActionPanel,
     openPackages,
     openReceivePanel,
     openRegistry,
-    openServicePanel: () => openExecutionPanel('service'),
-    openTopicPanel: () => openExecutionPanel('topic'),
+    openServicePanel,
+    openTopicPanel,
     selectReceiveMode,
     showCallableActions,
     showCallableServices,

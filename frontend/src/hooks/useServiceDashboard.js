@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { fetchAlerts, fetchNodes, fetchServices } from '../api/rosApi.js'
 import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
@@ -66,14 +66,6 @@ export function useServiceDashboard({ enabled = true } = {}) {
       null,
     [selectedServiceName, services],
   )
-
-  useEffect(() => {
-    if (selectedServiceName && selectedService) {
-      return
-    }
-
-    setSelectedServiceName(services[0]?.name ?? '')
-  }, [selectedService, selectedServiceName, services])
 
   return {
     alerts: alertsState,

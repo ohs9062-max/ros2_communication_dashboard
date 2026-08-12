@@ -3,7 +3,6 @@ import { QosModeControl } from '../execution/QosModeControl.jsx'
 
 export function TopicSubscribePanel({
   item,
-  onReset,
   onSubscribeQosModeChange,
   onSubscribeQosProfileChange,
   onSubscribeStart,
@@ -33,15 +32,13 @@ export function TopicSubscribePanel({
         mode={subscribeQosMode}
         onModeChange={onSubscribeQosModeChange}
       />
-      <p className="muted">
+      <details className="interface-advanced-section"><summary>고급 설정</summary><p className="muted">
         Subscription key는 topic_name + full_type입니다. 같은 이름이라도 package/type이 다르면 별도 구독입니다.
-      </p>
+      </p></details>
       <div className="interface-inline-actions">
-        <button disabled={!item.importAvailable} onClick={onSubscribeStart} type="button">
-          {activeSubscription ? '수신중 · 설정 갱신' : '수신 시작'}
+        <button disabled={!item.importAvailable} onClick={activeSubscription ? onSubscribeStop : onSubscribeStart} type="button">
+          {activeSubscription ? '수신 중지' : '수신 시작'}
         </button>
-        <button disabled={!activeSubscription} onClick={onSubscribeStop} type="button">수신 중지</button>
-        <button onClick={onReset} type="button">Publish/Subscribe 이력 초기화</button>
       </div>
       {activeSubscription && (
         <CollapsibleJson title={`수신 상태 · ${activeSubscription.message_count ?? 0}개`} value={activeSubscription} />

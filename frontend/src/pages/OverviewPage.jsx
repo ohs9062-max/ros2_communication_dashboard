@@ -170,12 +170,15 @@ export function OverviewPage({
         topicSummary={summary}
       />
 
-      <OverviewColumnChart
-        items={chartItems}
-        onNavigate={onNavigate}
-        onValueModeChange={setChartValueMode}
-        valueMode={chartValueMode}
-      />
+      <section className="overview-analysis-details overview-analysis-fixed">
+        <h2>상태 분포</h2>
+        <OverviewColumnChart
+          items={chartItems}
+          onNavigate={onNavigate}
+          onValueModeChange={setChartValueMode}
+          valueMode={chartValueMode}
+        />
+      </section>
     </main>
   )
 }

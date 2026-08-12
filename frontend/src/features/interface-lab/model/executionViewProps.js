@@ -20,6 +20,7 @@ export function actionExecutionViewProps(state) {
     qosControls: state.actionQosControls,
     modeLinked: state.actionQosModeLinked,
     onModeLinkChange: state.setActionQosModeLinked,
+    onClose: state.onClose,
     timeoutSec: state.goalTimeoutSec,
     visibleActions: state.visibleCallableActions,
   }
@@ -38,6 +39,7 @@ export function serviceExecutionViewProps(state) {
     onRequestQosProfileChange: state.setServiceRequestQosProfile,
     modeLinked: state.serviceQosModeLinked,
     onModeLinkChange: state.setServiceQosModeLinked,
+    onClose: state.onClose,
     onSelect: state.setSelectedServiceKey,
     onTimeoutChange: state.setTimeoutSec,
     onToggleExpanded: state.onToggleExpanded,
@@ -74,6 +76,7 @@ export function topicExecutionViewProps(state) {
     onQosProfileChange: state.setTopicQosProfile,
     modeLinked: state.topicQosModeLinked,
     onModeLinkChange: state.setTopicQosModeLinked,
+    onClose: state.onClose,
     onResetHistory: state.resetSelectedTopicPublishHistory,
     onSelect: state.setSelectedMessageKey,
     onTopicNameChange: state.setTopicPublishName,

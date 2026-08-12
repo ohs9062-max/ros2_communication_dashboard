@@ -221,6 +221,10 @@ class InterfaceReceiveRuntime:
             cleared = self._publish_history.remove(
                 lambda item: item.get('topic_name') == topic_name
             )
+        elif topic_type:
+            cleared = self._publish_history.remove(
+                lambda item: item.get('topic_type') == topic_type
+            )
         else:
             cleared = self._publish_history.remove(lambda _item: True)
         return {'cleared': cleared, 'topic_name': topic_name, 'topic_type': topic_type}

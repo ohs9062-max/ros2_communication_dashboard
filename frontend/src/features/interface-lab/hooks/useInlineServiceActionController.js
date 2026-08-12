@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import {
   callRegisteredService,
   cancelActionGoal,
+  resetActionGoalHistory,
+  resetServiceCallHistory,
   sendActionGoal,
 } from '../../../api/interfaceExecution.js'
 import { defaultValues, normalizeNumericValues } from '../model/schemaValues.js'
@@ -109,6 +111,18 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     setResult(null)
   }
 
+  const resetHistories = async (scope = 'all') => {
+    if (selectedDetail?.kind === 'service' || selectedDetail?.kind === 'callable_service') {
+      const target = selectedDetail.connectedServices?.[0]
+      await resetServiceCallHistory(scope === 'selected' ? { service_name: target?.service_name, service_type: selectedDetail.fullType } : {})
+    } else if (selectedDetail?.kind === 'action' || selectedDetail?.kind === 'callable_action') {
+      const target = selectedDetail.connectedActions?.[0]
+      await resetActionGoalHistory(scope === 'selected' ? { action_name: target?.action_name, action_type: selectedDetail.fullType } : {})
+    }
+    setResult(null)
+    await refresh({ notifyWorkbench: false })
+  }
+
   return {
     cancelAction,
     actionQosControls: actionQos.qosControls,
@@ -120,6 +134,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     goalValues,
     requestValues,
     reset,
+    resetHistories,
     result,
     setGoalTimeoutSec,
     setGoalValues,

@@ -92,12 +92,36 @@ docs/                            설계·운영 문서
   상세 preview 이미지를 누르면 데스크톱 화면의 76.8vw/89.3vh를 사용하는 다크 테마 확대 modal이 열리며 화면 맞춤,
   25~400% 확대·축소, 원본 크기와 overflow scroll을 지원한다. Esc·배경 클릭·닫기 버튼으로 닫힌다.
 - Topic·Service·Action 목록과 상세에 기존 계산 결과를 사용하는 QoS 상태 badge/안내를 추가했다.
-  Fast DDS/Graph에서 endpoint profile을 찾았지만 적용 QoS와의 호환성 판정 전인 `observed`는 파란
-  `QoS 발견됨`으로 표시해 `unknown`의 회색 `QoS 확인 불가`와 구분한다.
+  Fast DDS/Graph에서 endpoint profile을 찾았지만 적용 QoS와의 호환성 판정 전인 `observed`는 작은 회색
+  `QoS 발견` 보조 badge로 표시해 정상 안내의 시각 비중을 낮추고, `unknown`은 `QoS 확인 불가`로 구분한다.
   QoS Alert는 주요 감시 대상의 확정 `incompatible`만 기본 3회 연속 관찰 후 생성하고, Graph 일부 조합
   불일치는 warning, 실제 RMW 이벤트나 전체 상대 endpoint와 통신 불가능이 확인되면 error로 분류한다.
   Action은 Goal/Result/Cancel/Feedback/Status 채널별 Alert key와 상세 이동을 사용하며 `partial`·`unknown`은
   화면 안내만 하고 Alert로 만들지 않는다.
+- Topic·Service·Action·Node 화면은 5~7개 핵심 열의 목록을 먼저 표시하고, 선택 전에는 상세 패널을 열지 않는다.
+  행을 선택하면 390px 상세 패널이 열리며 닫기 버튼으로 목록 전체 폭을 즉시 복원한다. 이름·타입은 한 줄
+  ellipsis와 title을 사용하고, 제거한 endpoint·Graph·실행 metadata는 기존 접이식 상세에 유지한다. 빈 Alert는
+  한 줄로 축소했고 Sidebar 라벨, 주요 리소스 요약 용어와 대표 영문 상태 문구를 정리했다.
+- Interface Lab은 등록/실행 가능/build 필요/오류와 Interface 목록을 첫 화면 중심으로 표시한다. 관리와 주의사항은
+  목록 검색·종류·상태 필터를 제공한다. 관리 영역은 항상 펼쳐지고 주의사항만 기본 접힘이다. 선택 상세는 데스크톱 420~460px 우측 패널로 열리고,
+  Topic Publish/Receive/History, Service Call/History, Action Goal/History와 고급 정보 탭으로 실행 흐름을 분리한다.
+  목록 행 선택 시에는 `통신 상세`가 기본으로 열려 type, Graph 연결, 서버/실행 상태와 endpoint QoS를 먼저
+  보여준다. Publish/Receive/Service Call/Goal 실행 탭은 우측 상세에서 제거했고 공통 `실행` 버튼이 선택 kind에
+  맞는 관리 영역의 Topic/Service/Action 실행 workspace를 연다.
+  실행 workspace를 열면 같은 kind의 수신 패널도 함께 열리며 실행·수신 QoS와 닫기 동작은 각각 유지한다.
+  우측 상세 탭은 통신 상세/History/고급 정보/실행 순서이며 공통 History 관리에서 Topic 전체 Publish/Subscribe,
+  Service 전체 Call, Action 전체 Goal 이력을 확인 후 초기화할 수 있다. 모든 kind의 우측 상세 닫기는 같은 dark
+  secondary `닫기 ×` 버튼을 사용한다.
+  History 관리에는 현재 Interface 범위의 파란 `선택 이력 초기화`와 종류 전체 범위의 빨간 `전체 이력 초기화`가
+  공통 제공된다. 목록의 실행 가능 상태 문구는 Graph/등록 출처와 무관하게 `실행 가능`으로 통일한다.
+  History UI는 이력 유무와 Graph/등록 출처에 관계없이 동일한 제목·빈 상태·관리 badge 구조를 사용한다.
+  관리 실행 badge는 Topic 초록/Service 노랑/Action 보라, 목록 종류 badge는 msg 파랑/srv 노랑/action 보라/pkg 빨강이다.
+  QoS·timeout·Graph·schema/raw 정보는 기본 화면에서 접힌 고급 영역으로 이동했다.
+  관리 영역에는 Topic/Service/Action 실행 진입점이 있으며, 선택 상세의 실행·수신 QoS `Auto / Manual` 선택은
+  상대 장비 QoS에 맞출 수 있도록 각 기본 통신 화면에 노출한다. timeout·Hz·Graph·schema/raw만 고급 영역에 둔다.
+  관리 영역에서 연 Topic/Service/Action 실행 패널은 제목 우측 `×`로 닫을 수 있으며 닫아도 이력·결과·QoS 값은 유지한다.
+  실행과 수신 workspace 모두 눈에 보이는 `닫기 ×` 버튼을 사용하며 수신 패널을 닫아도 활성 Subscription은 유지한다.
+- Overview 상태 분포 그래프는 접기 UI 없이 항상 펼쳐진다.
 - AI 작업 로그를 최근 기록과 `.codex/archive/`의 과거 기록으로 분리했다.
 
 ## 현재 검증 기준
@@ -139,8 +163,9 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 - 다른 배포 환경에서는 각 환경의 MariaDB 접속 정보와 확정 `alert` 테이블을 별도로 준비해야 한다. Backend는
   테이블을 자동 생성하거나 변경하지 않으며, DB 연결 실패 중 생성된 메모리 fallback 이력은 재시작 시 사라질 수 있다.
 - Gazebo TurtleBot 명령 preset은 아직 구현되지 않았다.
-- 실제 기기/Gazebo 전체 통합 E2E는 남아 있다. 기존 demo_nodes는 Backend 공개 API까지 확인했지만 Browser
-  화면 자체의 자동화된 시각 검증은 수행하지 않았다.
+- 실제 기기 전체 통합 E2E는 남아 있다. 현재 Gazebo/demo 데이터 기반 Browser에서는 Overview, Topic,
+  Service, Action, Node를 1440x1000으로 렌더링해 목록 밀도와 헤더를 확인했고, Topic 상세 패널의
+  선택 전·열기·닫기와 목록 폭 복원을 Chrome DOM에서 검증했다.
 - TurtleBot3 통합 launch는 build, launch argument 로드와 package test까지 확인했으며, 이미 실행 중인
   Gazebo/Nav2와 충돌하지 않도록 이번 작업에서 두 번째 GUI stack을 실제로 동시에 띄우지는 않았다.
 - QoS 사유 배치는 source와 `frontend/dist`에서 전용 라벨/설명 2행 구조로 수정됐다.

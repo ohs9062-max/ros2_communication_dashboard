@@ -1,12 +1,13 @@
 import { formatMs, formatRelativeTime, formatTime } from '../utils/format.js'
 import { withExecutionNode } from '../utils/participants.js'
+import { displayText } from '../utils/displayText.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { QosDetails } from './QosDetails.jsx'
 import { QosSummaryNotice } from './QosSummary.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
-export function ServiceDetailPanel({ participants, service, qosFocusRequest }) {
+export function ServiceDetailPanel({ onClose, participants, service, qosFocusRequest }) {
   if (!service) {
     return (
       <aside className="detail-panel">
@@ -23,10 +24,13 @@ export function ServiceDetailPanel({ participants, service, qosFocusRequest }) {
     <aside className="detail-panel">
       <div className="panel-heading">
         <span>Service 상세</span>
-        <StatusBadge
-          label={effectiveStatusLabel(service)}
-          value={service.effective_status ?? service.status}
-        />
+        <div className="detail-panel-heading-actions">
+          <StatusBadge
+            label={effectiveStatusLabel(service)}
+            value={service.effective_status ?? service.status}
+          />
+          <button className="detail-panel-close" onClick={onClose} type="button">닫기 ×</button>
+        </div>
       </div>
       <h2>{service.name}</h2>
       <p className="muted">{service.type ?? '-'}</p>
@@ -46,7 +50,7 @@ export function ServiceDetailPanel({ participants, service, qosFocusRequest }) {
       <DetailSection title="상태 요약">
         <DetailLine label="이름" value={service.name} />
         <DetailLine label="타입" value={service.type ?? '-'} />
-        <DetailLine label="분류" value={service.category ?? '-'} />
+        <DetailLine label="분류" value={displayText(service.category)} />
         <DetailLine
           label="기본 숨김"
           value={service.hidden_by_default ? '예' : '아니오'}
@@ -61,7 +65,7 @@ export function ServiceDetailPanel({ participants, service, qosFocusRequest }) {
           tone={statusTone(service.effective_status)}
           value={callStatusLabel(callSummary)}
         />
-        <DetailLine label="상태 이유" value={service.reason ?? '-'} />
+        <DetailLine label="상태 이유" value={displayText(service.reason)} />
         <DetailLine label="마지막 갱신" value={formatTime(service.last_updated)} />
       </DetailSection>
 

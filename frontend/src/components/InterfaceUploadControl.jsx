@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { InterfaceUploadView } from '../features/interface-lab/InterfaceUploadView.jsx'
 import { useInterfaceManagementController } from '../features/interface-lab/hooks/useInterfaceManagementController.js'
 import { useInterfaceControlLifecycle } from '../features/interface-lab/hooks/useInterfaceControlLifecycle.js'
@@ -14,6 +14,7 @@ import { managementViewProps } from '../features/interface-lab/model/managementV
 import { receiveWorkspaceViewProps } from '../features/interface-lab/model/receiveViewProps.js'
 
 export function InterfaceUploadControl({
+  executionRequest,
   onStateChanged,
   onTopicWorkspaceExpandedChange,
   refreshSignal = 0,
@@ -161,6 +162,8 @@ export function InterfaceUploadControl({
   }))
 
   const {
+    closeExecutionPanels,
+    closeReceivePanel,
     expandedActive: topicExpandedActive,
     openActionPanel,
     openPackages,
@@ -194,6 +197,13 @@ export function InterfaceUploadControl({
     showPackages,
     showReceivePanel,
   })
+
+  useEffect(() => {
+    if (!executionRequest?.id) return
+    if (executionRequest.kind === 'message') openTopicPanel()
+    else if (executionRequest.kind === 'service' || executionRequest.kind === 'callable_service') openServicePanel()
+    else if (executionRequest.kind === 'action' || executionRequest.kind === 'callable_action') openActionPanel()
+  }, [executionRequest, openActionPanel, openServicePanel, openTopicPanel])
 
   useInterfaceControlLifecycle({
     loadActionExecution,
@@ -262,11 +272,11 @@ export function InterfaceUploadControl({
       {...managementView}
       actionExecution={actionExecutionViewProps({
         actionGoalBusy, actionGoalHistory, actionGoalResult, actionImportableOnly,
-        callableActions, executeActionGoal, expanded: topicExpandedActive,
+        callableActions, closeExecutionPanels, executeActionGoal, expanded: topicExpandedActive,
         goalTimeoutSec, goalValues, onToggleExpanded: toggleWorkspaceExpanded,
         actionQosControls: linkedActionExecutionQosControls,
         actionQosModeLinked: actionQosLink.linked,
-        open: showCallableActions, selectedAction, selectedActionKey,
+        onClose: closeExecutionPanels, open: showCallableActions, selectedAction, selectedActionKey,
         setActionImportableOnly, setGoalTimeoutSec, setGoalValues, setSelectedActionKey,
         setActionQosModeLinked: actionQosLink.linkFromExecution,
         showExpand: showReceivePanel && receiveMode === 'action', visibleCallableActions,
@@ -275,9 +285,9 @@ export function InterfaceUploadControl({
       receive={receiveWorkspaceViewProps({
         activeReceiveActionKey, activeReceiveServiceKey, availableTopics,
         callableActions, callableMessages, callableServices,
-        expanded: topicExpandedActive, filteredReceiveActions, filteredReceiveServices,
+        closeReceivePanel, expanded: topicExpandedActive, filteredReceiveActions, filteredReceiveServices,
         filteredReceiveTopics, loadReceiveState, onToggleExpanded: toggleWorkspaceExpanded,
-        open: showReceivePanel, receiveActionSearch, receiveMode, receiveServiceSearch,
+        onClose: closeReceivePanel, open: showReceivePanel, receiveActionSearch, receiveMode, receiveServiceSearch,
         receiveTopicSearch, receiveTopics, resetAllTopicReceiveHistory,
         resetReceiveActions, resetReceiveServices, resetSelectedTopicReceiveHistory,
         selectReceiveMode, selectedMessage, selectedMessageKey,
@@ -306,7 +316,7 @@ export function InterfaceUploadControl({
       })}
       serviceExecution={serviceExecutionViewProps({
         callableServices, executeServiceCall, expanded: topicExpandedActive,
-        onToggleExpanded: toggleWorkspaceExpanded, open: showCallableServices,
+        onClose: closeExecutionPanels, onToggleExpanded: toggleWorkspaceExpanded, open: showCallableServices,
         requestValues, selectedService, selectedServiceKey, serviceCallBusy,
         serviceRequestQosMode, serviceRequestQosProfile,
         serviceQosModeLinked: serviceQosLink.linked,
@@ -320,7 +330,7 @@ export function InterfaceUploadControl({
       })}
       topicExecution={topicExecutionViewProps({
         activeContinuousPublish, callableMessages, expanded: topicExpandedActive,
-        onToggleExpanded: toggleWorkspaceExpanded, open: showCallableTopics,
+        onClose: closeExecutionPanels, onToggleExpanded: toggleWorkspaceExpanded, open: showCallableTopics,
         publishGraphTopics, publishSelectedTopicMessage, resetSelectedTopicPublishHistory,
         selectedMessage, selectedMessageKey, setSelectedMessageKey,
         setTopicImportableOnly, setTopicMessageValues, setTopicPublishHz,

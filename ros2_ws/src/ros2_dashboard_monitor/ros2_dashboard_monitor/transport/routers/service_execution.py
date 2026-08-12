@@ -79,6 +79,16 @@ def get_service_call_history() -> dict[str, Any]:
     }
 
 
+@router.post('/ros/interfaces/service-call/history/reset')
+async def reset_service_call_history(request: Request) -> dict[str, Any]:
+    try:
+        payload = await request.json()
+    except ValueError:
+        payload = {}
+    snapshot = ros_monitor.reset_service_call_history(service_name=payload.get('service_name'), service_type=payload.get('service_type'))
+    return {'success': True, 'data': snapshot, 'message': 'Service Call 전체 이력을 초기화했습니다.'}
+
+
 @router.get('/ros/interfaces/receive/services/history')
 def get_receive_service_history() -> dict[str, Any]:
     """Service Call에서 받은 응답 이력을 반환합니다."""

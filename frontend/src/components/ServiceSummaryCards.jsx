@@ -39,7 +39,6 @@ export function ServiceSummaryCards({
         tone={issueCount ? 'bad' : 'default'}
         value={issueCount}
       />
-      <SummaryCard label="서버 대기" value={waitingCount} />
       <SummaryCard label="내부/관리" value={internalManagementCount} />
     </div>
   )

@@ -132,6 +132,11 @@ class ServiceCallRuntime:
         """최근 Service Call 실행 이력을 복사해 반환합니다."""
         return self._history.response()
 
+    def reset_history(self, *, service_name: str | None = None, service_type: str | None = None) -> dict[str, Any]:
+        """Service Call 실행 이력 전체를 지웁니다."""
+        cleared = self._history.reset(service_name=service_name, service_type=service_type)
+        return {'cleared': cleared, 'service_name': service_name, 'service_type': service_type}
+
     def receive_history(self) -> dict[str, Any]:
         """초기화 경계 이후의 Service 응답 이력을 반환합니다."""
         return self._history.receive_response()

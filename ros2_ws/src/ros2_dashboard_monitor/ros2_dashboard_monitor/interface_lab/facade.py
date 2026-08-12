@@ -29,6 +29,9 @@ class InterfaceLabFacade:
     def service_call_history(self) -> dict[str, Any]:
         return self._service_call_runtime.history()
 
+    def reset_service_call_history(self, *, service_name: str | None = None, service_type: str | None = None) -> dict[str, Any]:
+        return self._service_call_runtime.reset_history(service_name=service_name, service_type=service_type)
+
     def receive_service_history(self) -> dict[str, Any]:
         return self._service_call_runtime.receive_history()
 
@@ -70,6 +73,9 @@ class InterfaceLabFacade:
 
     def action_goal_history(self) -> dict[str, Any]:
         return self._action_goal_runtime.history()
+
+    def reset_action_goal_history(self, *, action_name: str | None = None, action_type: str | None = None) -> dict[str, Any]:
+        return self._action_goal_runtime.reset_history(action_name=action_name, action_type=action_type)
 
     def receive_action_history(self) -> dict[str, Any]:
         return self._action_goal_runtime.receive_history()

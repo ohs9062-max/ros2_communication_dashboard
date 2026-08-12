@@ -103,6 +103,9 @@ class TopicReceiveHistory:
             elif topic_name:
                 matching_keys = [key for key in self._topics if key[0] == topic_name]
                 removed_items = [self._topics.pop(key) for key in matching_keys]
+            elif topic_type:
+                matching_keys = [key for key in self._topics if key[1] == topic_type]
+                removed_items = [self._topics.pop(key) for key in matching_keys]
             else:
                 removed_items = list(self._topics.values())
                 self._topics.clear()

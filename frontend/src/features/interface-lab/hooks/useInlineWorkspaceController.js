@@ -39,6 +39,7 @@ export function useInlineWorkspaceController({
     requestValues: serviceAction.requestValues,
     reset,
     resetTopicHistories: topic.resetHistories,
+    resetServiceActionHistories: serviceAction.resetHistories,
     result: topicSelected ? topic.result : serviceAction.result,
     selectPublishGraphTopic: topic.selectPublishGraphTopic,
     setGoalTimeoutSec: serviceAction.setGoalTimeoutSec,

@@ -54,14 +54,6 @@ export function TopicPublishPanel({
         />
       </label>
       {topicPublishWarning && <div className="interface-service-state warning">{topicPublishWarning}</div>}
-      <QosModeControl
-        groups={[{ key: 'topic', label: 'Topic Publish QoS', profile: publishQosProfile, onChange: onPublishQosProfileChange }]}
-        mode={publishQosMode}
-        onModeChange={onPublishQosModeChange}
-      />
-      <p className="muted">
-        full_type {item.fullType} · QoS {item.qos?.mode === 'adaptive' ? '상대 endpoint 자동 적용' : '실행 결과에서 확인'}
-      </p>
       {schemaFields(item.schema).map((field) => (
         <RequestField
           field={field}
@@ -70,6 +62,9 @@ export function TopicPublishPanel({
           value={messageValues[field.name]}
         />
       ))}
+      <QosModeControl groups={[{ key: 'topic', label: 'Topic Publish QoS', profile: publishQosProfile, onChange: onPublishQosProfileChange }]} mode={publishQosMode} onModeChange={onPublishQosModeChange} />
+      <details className="interface-advanced-section"><summary>고급 설정</summary>
+      <p className="muted">full_type {item.fullType} · QoS {item.qos?.mode === 'adaptive' ? '상대 endpoint 자동 적용' : '실행 결과에서 확인'}</p>
       <label className="interface-service-field">
         <span>지속 발행 주기 (Hz)</span>
         <input
@@ -81,7 +76,7 @@ export function TopicPublishPanel({
           type="number"
           value={topicPublishHz}
         />
-      </label>
+      </label></details>
       <div className="interface-inline-actions">
         <button className="interface-service-call-button" disabled={executing || !item.importAvailable} onClick={onPublish} type="button">
           {executing ? '처리 중…' : '1회 발행'}
