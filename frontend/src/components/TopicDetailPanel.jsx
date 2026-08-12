@@ -89,7 +89,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
       <QosDetails
         focusRequest={qosFocusRequest?.name === topic.name ? qosFocusRequest : null}
         qos={topic}
-        title="고급 정보 · Topic QoS"
+        title="Topic QoS"
       />
 
       <DetailSection collapsible title="연결 정보">
