@@ -138,8 +138,29 @@ ros2 topic hz /camera/image_raw
 
 # 7. 카메라 영상 직접 확인
 ros2 run rqt_image_view rqt_image_view
-```
 
+## 카메라 연결
+# 1. 카메라 연결 확인
+ls -l /dev/video*
+
+# 2. 지원 포맷 확인
+v4l2-ctl -d /dev/video0 \
+  --list-formats-ext
+
+# 3. ROS2 카메라 드라이버 실행
+ros2 run v4l2_camera v4l2_camera_node \
+  --ros-args \
+  -p video_device:=/dev/video0
+
+# 4. ROS2 카메라 Topic 확인
+ros2 topic list -t | grep -Ei 'image|camera'
+
+# 5. 실제 영상 수신 Hz 확인
+ros2 topic hz /image_raw
+
+# 6. 영상 직접 확인
+ros2 run rqt_image_view rqt_image_view
+```
 # DB
 mariadb -u ohs -p ros2_dashboard
 

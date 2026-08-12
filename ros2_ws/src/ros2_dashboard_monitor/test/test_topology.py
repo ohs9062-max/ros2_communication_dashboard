@@ -4,6 +4,7 @@ from ros2_dashboard_monitor.topology import (
 )
 from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.ros_monitor import RosMonitor
+from ros2_dashboard_monitor.node_snapshot import is_auxiliary_node
 
 
 def _entity(name: str, full_type: str) -> dict:
@@ -128,6 +129,7 @@ def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:
     assert nodes == [
         {
             'full_name': '/ros2_dashboard_topic_monitor',
+            'is_auxiliary': False,
             'is_internal': True,
             'primary': False,
             'system_primary': False,
@@ -136,6 +138,7 @@ def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:
         },
         {
             'full_name': '/robot',
+            'is_auxiliary': False,
             'is_internal': False,
             'primary': False,
             'system_primary': False,
@@ -143,6 +146,57 @@ def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:
             'is_primary': False,
         },
     ]
+
+
+def test_auxiliary_node_names_follow_primary_filter_policy() -> None:
+    auxiliary_names = (
+        '/transform_listener_impl_1234',
+        '/launch_ros_1234',
+        '/bt_navigator_navigate_to_pose_rclcpp_node',
+        '/rviz_navigation_dialog_action_client',
+    )
+
+    assert all(
+        is_auxiliary_node({'full_name': name})
+        for name in auxiliary_names
+    )
+    assert is_auxiliary_node({'full_name': '/robot_state_publisher'}) is False
+
+
+def test_disconnected_auxiliary_nodes_are_not_automatic_primary() -> None:
+    monitor = RosMonitor.__new__(RosMonitor)
+    monitor._node = _MonitorNode()
+    monitor._node_runtime = _DisconnectedNodeRuntime()
+
+    nodes = {
+        node['full_name']: node
+        for node in monitor.node_snapshot()['nodes']
+    }
+
+    assert nodes['/transform_listener_impl_1234']['is_auxiliary'] is True
+    assert nodes['/transform_listener_impl_1234']['system_primary'] is False
+    assert nodes['/transform_listener_impl_1234']['is_primary'] is False
+    assert nodes['/former_robot_node']['is_auxiliary'] is False
+    assert nodes['/former_robot_node']['system_primary'] is True
+    assert nodes['/former_robot_node']['is_primary'] is True
+
+
+def test_user_priority_can_restore_auxiliary_node_to_primary_list() -> None:
+    monitor = RosMonitor.__new__(RosMonitor)
+    monitor._node = _MonitorNode()
+    monitor._node_runtime = _DisconnectedNodeRuntime()
+    monitor._priority_state = _PriorityState('/transform_listener_impl_1234')
+
+    nodes = {
+        node['full_name']: node
+        for node in monitor.node_snapshot()['nodes']
+    }
+
+    auxiliary = nodes['/transform_listener_impl_1234']
+    assert auxiliary['is_auxiliary'] is True
+    assert auxiliary['system_primary'] is False
+    assert auxiliary['user_primary'] is True
+    assert auxiliary['is_primary'] is True
 
 
 def test_resource_snapshots_exclude_dashboard_node_from_topology_counts() -> None:
@@ -240,6 +294,31 @@ class _RelationNodeRuntime:
             ],
             'meta': {},
         }
+
+
+class _DisconnectedNodeRuntime:
+    def snapshot(self):
+        return {
+            'nodes': [
+                {
+                    'full_name': '/transform_listener_impl_1234',
+                    'status': 'disconnected',
+                },
+                {
+                    'full_name': '/former_robot_node',
+                    'status': 'disconnected',
+                },
+            ],
+            'meta': {},
+        }
+
+
+class _PriorityState:
+    def __init__(self, name):
+        self._name = name
+
+    def contains(self, kind, name):
+        return kind == 'nodes' and name == self._name
 
 
 def _relation_node(full_name, topic, service, action):

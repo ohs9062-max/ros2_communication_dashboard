@@ -30,10 +30,17 @@ def assemble_node_snapshot(monitor) -> dict[str, Any]:
     )
     for node in snapshot['nodes']:
         node['is_internal'] = node.get('full_name') == internal_node
+        node['is_auxiliary'] = is_auxiliary_node(node)
+        configured_primary = bool(node.get('primary'))
         node['primary'] = bool(
-            node.get('primary')
-            or node.get('status') == 'disconnected'
-            or node_uses_system_primary(node, system_resources)
+            configured_primary
+            or (
+                not node['is_auxiliary']
+                and (
+                    node.get('status') == 'disconnected'
+                    or node_uses_system_primary(node, system_resources)
+                )
+            )
         )
         monitor._apply_primary_state(
             node,
@@ -41,3 +48,16 @@ def assemble_node_snapshot(monitor) -> dict[str, Any]:
             name=str(node.get('full_name') or node.get('name') or ''),
         )
     return snapshot
+
+
+def is_auxiliary_node(node: dict[str, Any]) -> bool:
+    """주요 목록에서 숨길 ROS2 구현 보조 Node를 판정합니다."""
+    name = str(node.get('name') or '')
+    full_name = str(node.get('full_name') or '')
+    leaf_name = (full_name.rsplit('/', 1)[-1] or name).lower()
+    return (
+        'transform_listener' in leaf_name
+        or leaf_name.startswith('launch_ros_')
+        or leaf_name.endswith('_rclcpp_node')
+        or leaf_name.endswith('_action_client')
+    )

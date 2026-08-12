@@ -308,3 +308,35 @@
 
 - 상세 화면의 QoS 상태 안내와 기존 접이식 QoS 영역이 함께 보이는 구조에서 중복된 `QoS 상세 보기` 버튼만
   제거했다. 기존 QoS 상세 영역과 QoS Alert 클릭 시 자동 펼침은 유지했으며 Frontend lint/build를 통과했다.
+
+## 2026-08-12 - Node 주요/전체 필터 동일 현상 진단
+
+- 실행 중인 Monitor snapshot과 Frontend 필터를 대조했다. UI는 `전체`와 `is_primary`를 구분하지만 내부 제외
+  47개가 모두 primary여서 결과가 실제로 동일했다(활성 10, disconnected 37).
+- 원인은 모든 disconnected Node를 자동 primary로 만드는 Backend 정책과, 활성 10개가 모두 등록 리소스 또는
+  지원·필수 Topic에 연결된 현재 Graph 구성이다. 진단 요청 범위라 코드는 변경하지 않았다.
+
+## 2026-08-12 - Node 필터 확정 정책 재대조
+
+- `AGENTS.md`와 `docs/docs2/05_node_flow.md`를 다시 확인해 disconnected Node의 주요 승격은 명시된 정책임을
+  확인하고, 앞선 “정책이 지나치게 넓다”는 평가를 정정했다.
+- 반면 문서가 주요 목록에서 제외하도록 정한 transform listener, launch helper, `_rclcpp_node`,
+  `_action_client` 필터는 현재 구현에 없다. 실제 snapshot에서 해당 보조 Node 13개가 모두 primary로 노출됨을
+  확인했다. 확인 요청 범위라 코드는 변경하지 않았다.
+
+## 2026-08-12 - Node 보조 항목 주요 필터 반영
+
+- 문서 정책대로 transform listener, `launch_ros_*`, `*_rclcpp_node`, `*_action_client`를 Backend snapshot에서
+  `is_auxiliary=true`로 분류하고 자동 `system_primary`에서 제외했다. 일반 disconnected Node는 주요로 유지하며,
+  `nodes.primary_names` 또는 사용자 별표로 명시한 보조 Node는 주요에 포함된다.
+- Monitor 219 tests와 colcon 237 tests(0 failures, 1 skipped), compileall, diff check를 통과했다. 실제 ROS Graph에
+  임시 보조 Node를 띄워 실행 중과 disconnected 상태 모두 `전체 11 / 주요 10`, `is_primary=false`를 확인한 뒤
+  테스트 Node와 cache를 정리하고 Monitor를 재시작했다.
+
+## 2026-08-12 - 실행 Frontend UX 점검
+
+- HTTPS로 실행 중인 Dashboard의 Overview/Topic/Service/Action/Node/Alert를 1440x1000 실제 Browser 화면으로
+  점검했다. 코드는 변경하지 않았다.
+- 최우선 문제는 고정 상세 패널과 과도한 테이블 열 때문에 헤더가 겹치고 이름이 글자 단위로 줄바꿈되는 목록
+  가독성이다. 그 밖에 축약된 Sidebar, 한국어/영문 상태 혼용, 의미가 불명확한 요약 count, 빈 Alert 영역의
+  과도한 높이, 정상 DDS 발견 안내의 높은 시각 비중을 후속 UX 개선 대상으로 확인했다.

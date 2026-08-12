@@ -105,11 +105,11 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 216 passed
+Monitor pytest: 219 passed
 Backend pytest: 15 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
-선택 package colcon test-result: 234 tests, 0 failures, 1 skipped
+선택 package colcon test-result: 237 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Python compileall: 통과
 git diff --check: 통과
@@ -156,6 +156,9 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 - 동일 PC의 격리 Graph 벤치마크에서 Monitor CPU는 최소 2 Nodes/7 Topics/14 Services에서 평균 4.83%,
   중간 14/19/114/4 Actions에서 6.57%, Gazebo/Nav2 25/120/313/17에서 78.43%였다. 큰 Graph의 80%대는
   재현됐으며 다음 성능 진단은 1초 Graph update의 runtime별 계측과 실제 기기 환경 재측정이 필요하다.
+- Node `주요 항목`은 Backend의 최종 `is_primary`를 사용한다. disconnected 일반 Node는 주요로 유지하되,
+  transform listener, launch helper, `_rclcpp_node`, `_action_client`는 `is_auxiliary=true`로 분류해 자동 주요에서
+  제외한다. 명시적 `nodes.primary_names`와 사용자 별표는 보조 Node 제외보다 우선한다.
 
 ## 다음 우선 작업
 

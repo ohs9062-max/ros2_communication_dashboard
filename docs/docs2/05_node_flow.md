@@ -96,4 +96,7 @@ Node Cache
 - 숨김 포함: 내부 Dashboard Node까지 포함한 모든 Node.
 - 주요 숨김 대상: transform listener, launch helper, `_rclcpp_node`, `_action_client`, Dashboard 내부 Node.
 
-`nodeFilters.js isPrimaryNode()` 함수 전체는 `nodeFilters.js` L11-L25, 실제 조건은 `nodeFilters.js` L17-L24, 관계 타입 비교는 `nodeFilters.js` L27-L56, 숨김 판정은 `nodeFilters.js` L59-L66이다. 화면 적용은 `NodesPage.jsx` L35-L60이다.
+보조 Node 이름 판정과 자동 주요 제외는 Backend `node_snapshot.py`의 `is_auxiliary_node()`가 담당하며,
+공개 snapshot에 `is_auxiliary`를 표시한다. 명시적인 `nodes.primary_names` 또는 사용자 별표는 이 자동 제외보다
+우선한다. Frontend `nodeFilters.js`의 `isPrimaryNode()`는 최종 `is_primary`만 사용하고, 화면 적용은
+`NodesPage.jsx`의 주요/전체/숨김 필터에서 수행한다.
