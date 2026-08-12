@@ -7,6 +7,10 @@ from time import time
 from typing import Any
 
 from ros2_dashboard_monitor.ros2_topic.filters import should_deep_monitor
+from ros2_dashboard_monitor.ros2_topic.camera_preview import (
+    encode_camera_preview,
+    is_camera_topic_type,
+)
 from ros2_dashboard_monitor.ros2_topic.preview import build_message_preview
 from ros2_dashboard_monitor.ros2_topic.query_support import (
     load_message_class,
@@ -114,6 +118,32 @@ class TopicSubscriptionFacade:
         def callback(message: Any) -> None:
             received_at = time()
             preview = build_message_preview(topic_type, message)
+            image_preview = None
+            if is_camera_topic_type(topic_type):
+                with self._lock:
+                    entry = self._subscriptions.get(name)
+                    requested_until = float(
+                        (entry or {}).get('image_preview_requested_until') or 0.0,
+                    )
+                    last_encoded_at = float(
+                        (entry or {}).get('image_preview_encoded_at') or 0.0,
+                    )
+                    if entry is not None and requested_until < received_at:
+                        entry.pop('image_preview', None)
+                        entry.pop('image_preview_frame_received_at', None)
+                if (
+                    requested_until >= received_at
+                    and received_at - last_encoded_at
+                    >= self._config.camera_preview.min_interval_sec
+                ):
+                    limits = self._config.camera_preview
+                    image_preview = encode_camera_preview(
+                        topic_type,
+                        message,
+                        max_source_bytes=limits.max_source_bytes,
+                        max_width=limits.max_width,
+                        max_height=limits.max_height,
+                    )
             with self._lock:
                 entry = self._subscriptions.get(name)
                 if entry is None:
@@ -125,6 +155,10 @@ class TopicSubscriptionFacade:
                     received_at=received_at,
                     window_sec=self._config.hz_window_sec,
                 )
+                if image_preview is not None:
+                    entry['image_preview'] = image_preview
+                    entry['image_preview_encoded_at'] = received_at
+                    entry['image_preview_frame_received_at'] = received_at
 
         return callback
 

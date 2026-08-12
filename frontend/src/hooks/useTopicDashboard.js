@@ -4,6 +4,7 @@ import {
   fetchHealth,
   fetchNodes,
   fetchTopicHz,
+  fetchTopicImagePreview,
   fetchTopicLatest,
   fetchTopics,
 } from '../api/rosApi.js'
@@ -25,6 +26,10 @@ export function useTopicDashboard({
   const [includeAllTopics, setIncludeAllTopics] = useState(false)
   const [selectedTopicName, setSelectedTopicName] = useState('')
   const [topicHzByName, setTopicHzByName] = useState({})
+  const [qosFocusRequest, setQosFocusRequest] = useState(null)
+  const focusQosDetails = useCallback((name, channel = null) => {
+    setQosFocusRequest({ channel, name, requestId: Date.now() })
+  }, [])
 
   const health = usePolling(fetchHealth, TOPIC_POLL_INTERVAL_MS, {
     enabled: healthEnabled,
@@ -79,6 +84,21 @@ export function useTopicDashboard({
   const selectedTopic = useMemo(
     () => topicItems.find((topic) => topic.name === selectedTopicName) ?? null,
     [selectedTopicName, topicItems],
+  )
+  const cameraPreviewFetcher = useCallback(
+    () => fetchTopicImagePreview(selectedTopicName),
+    [selectedTopicName],
+  )
+  const cameraPreview = usePolling(
+    cameraPreviewFetcher,
+    TOPIC_POLL_INTERVAL_MS,
+    {
+      enabled:
+        enabled &&
+        pollSelectedTopicDetails &&
+        isCameraTopicType(selectedTopic?.types?.[0]),
+      resetKey: selectedTopicName,
+    },
   )
   const hzTopicNames = useMemo(
     () =>
@@ -160,6 +180,7 @@ export function useTopicDashboard({
 
   return {
     alerts,
+    cameraPreview,
     health,
     hz,
     includeAllTopics,
@@ -167,6 +188,8 @@ export function useTopicDashboard({
     lastUpdated,
     selectedTopic,
     selectedTopicName,
+    qosFocusRequest,
+    focusQosDetails,
     setIncludeAllTopics,
     setSelectedTopicName,
     topicHzByName: displayedTopicHzByName,
@@ -177,6 +200,13 @@ export function useTopicDashboard({
     toggleUserPriority: priority.toggleUserPriority,
     isPriorityPending: priority.isPriorityPending,
   }
+}
+
+function isCameraTopicType(topicType) {
+  return [
+    'sensor_msgs/msg/Image',
+    'sensor_msgs/msg/CompressedImage',
+  ].includes(topicType)
 }
 
 function isTopicDetailCandidate(topic) {

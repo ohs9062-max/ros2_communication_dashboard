@@ -8,6 +8,8 @@ from typing import Any
 MONITOR_STATUS_TYPE = 'ros2_dashboard_interfaces/msg/MonitorStatus'
 
 SUPPORTED_PREVIEW_TYPES = (
+    'sensor_msgs/msg/Image',
+    'sensor_msgs/msg/CompressedImage',
     'sensor_msgs/msg/LaserScan',
     'nav_msgs/msg/Odometry',
     'sensor_msgs/msg/Imu',
@@ -18,6 +20,8 @@ SUPPORTED_PREVIEW_TYPES = (
 )
 
 SENSOR_PREVIEW_TYPES = {
+    'sensor_msgs/msg/Image',
+    'sensor_msgs/msg/CompressedImage',
     'sensor_msgs/msg/LaserScan',
     'sensor_msgs/msg/Imu',
     'sensor_msgs/msg/JointState',

@@ -14,6 +14,13 @@ Alert 대상이 되려면 아래 조건 중 하나를 만족해야 합니다:
 
 ## Alert 코드 목록
 
+### `topic_qos_incompatible`
+
+주요/등록/감시 Topic에서 이미 계산된 QoS가 `incompatible`로 서로 다른 Graph 갱신 3회(설정 가능)
+연속 확인될 때 생성합니다. 일부 endpoint 조합 불일치는 `warning`, RMW incompatible 이벤트 또는 Dashboard
+적용 QoS가 모든 상대 endpoint와 불가능하면 `error`입니다. `partial`, `unknown`, 미수신 추정은 제외하며
+compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:topic_qos_incompatible`입니다.
+
 ### 1. `waiting_publisher`
 
 | 항목 | 내용 |

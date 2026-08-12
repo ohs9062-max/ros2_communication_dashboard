@@ -74,6 +74,7 @@ class RosMonitor(InterfaceLabFacade):
         self._alert_history: list[dict[str, Any]] = []
         self._dismissed_alert_ids: set[str] = set()
         self._visible_alert_ids: set[str] = set()
+        self._qos_alert_confirmation_state: dict[str, dict[str, Any]] = {}
         self._dds_qos_observer = FastDdsQosObserver(
             self._config.fastdds_observer,
         )
@@ -159,6 +160,7 @@ class RosMonitor(InterfaceLabFacade):
             self._alert_history = []
             self._dismissed_alert_ids = set()
             self._visible_alert_ids = set()
+            self._qos_alert_confirmation_state = {}
 
     def snapshot(self) -> dict[str, Any]:
         """Topic Cache에 Publisher·Subscriber Node 관계 수를 합쳐 반환합니다."""
@@ -237,6 +239,8 @@ class RosMonitor(InterfaceLabFacade):
         alerts = alerts or self.alerts(
             action_snapshot=action_snapshot,
             node_snapshot=node_snapshot,
+            service_snapshot=service_snapshot,
+            topic_snapshot=topic_snapshot,
         )
 
         return assemble_websocket_snapshot(
@@ -256,32 +260,46 @@ class RosMonitor(InterfaceLabFacade):
         """지정한 Topic의 현재 수신 Hz를 TopicRuntime에서 가져옵니다."""
         return self._topic_runtime.topic_hz(name)
 
+    def image_preview(self, name: str) -> dict[str, Any]:
+        """선택한 Camera Topic의 요청형 Browser preview를 반환합니다."""
+        return self._topic_runtime.image_preview(name)
+
     def alerts(
         self,
         *,
         action_snapshot: dict[str, Any] | None = None,
         node_snapshot: dict[str, Any] | None = None,
+        service_snapshot: dict[str, Any] | None = None,
+        topic_snapshot: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """모든 Runtime의 Alert를 합치고 active·resolved 이력을 갱신합니다."""
         detected_at = time()
-        services = self.service_snapshot(include_hidden=True)['services']
+        services = (
+            service_snapshot or self.service_snapshot(include_hidden=True)
+        )['services']
         actions = (action_snapshot or self.action_snapshot())['actions']
         topics, subscriptions = self._topic_runtime.alert_snapshot()
+        qos_topics = (topic_snapshot or self.snapshot())['topics']
         node_snapshot = node_snapshot or self._node_runtime.snapshot()
         nodes = node_snapshot['nodes']
 
-        alerts = collect_runtime_alerts(
-            topics=topics,
-            subscriptions=subscriptions,
-            services=services,
-            actions=actions,
-            nodes=nodes,
-            detected_at=detected_at,
-            stale_timeout_sec=self._config.stale_timeout_sec,
-            required_stream_names=self._config.topics_required_stream_names,
-            command_names=self._config.topics_command_names,
-        )
         with self._lock:
+            alerts = collect_runtime_alerts(
+                topics=topics,
+                subscriptions=subscriptions,
+                services=services,
+                actions=actions,
+                nodes=nodes,
+                detected_at=detected_at,
+                stale_timeout_sec=self._config.stale_timeout_sec,
+                required_stream_names=self._config.topics_required_stream_names,
+                command_names=self._config.topics_command_names,
+                qos_topics=qos_topics,
+                qos_confirmation_state=self._qos_alert_confirmation_state,
+                qos_incompatible_confirmation_count=(
+                    self._config.qos_alerts.incompatible_confirmation_count
+                ),
+            )
             alerts, alert_history, visible_ids = reconcile_alert_state(
                 current_alerts=alerts,
                 dismissed_alert_ids=self._dismissed_alert_ids,

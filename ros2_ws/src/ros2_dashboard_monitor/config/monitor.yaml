@@ -3,6 +3,11 @@ monitor:
   stale_timeout_sec: 3.0
   hz_window_sec: 5.0
 
+alerts:
+  qos:
+    # 서로 다른 Graph 갱신에서 연속 확인된 incompatible만 Alert로 승격합니다.
+    incompatible_confirmation_count: 3
+
 fastdds_observer:
   # Fast DDS Discovery 전용 Participant만 생성하며 Service/Action Client는 만들지 않습니다.
   enabled: true
@@ -37,6 +42,8 @@ topics:
     - tf2_msgs/msg/TFMessage
 
   supported_types:
+    - sensor_msgs/msg/Image
+    - sensor_msgs/msg/CompressedImage
     - sensor_msgs/msg/LaserScan
     - nav_msgs/msg/Odometry
     - sensor_msgs/msg/Imu
@@ -44,6 +51,14 @@ topics:
     - geometry_msgs/msg/TwistStamped
     - sensor_msgs/msg/JointState
     - ros2_dashboard_interfaces/msg/MonitorStatus
+
+  camera_preview:
+    # Binary image data is encoded only while a Camera Topic detail is requested.
+    demand_ttl_sec: 3.0
+    min_interval_sec: 0.5
+    max_source_bytes: 4000000
+    max_width: 1920
+    max_height: 1080
 
 services:
   primary_names: []

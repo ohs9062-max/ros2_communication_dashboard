@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchActions, fetchAlerts, fetchNodes } from '../api/rosApi.js'
 import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { buildParticipantMaps } from '../utils/participants.js'
@@ -10,6 +10,10 @@ const actionName = (action) => action.name
 export function useActionDashboard({ enabled = true } = {}) {
   const [includeIdleActions, setIncludeIdleActions] = useState(false)
   const [selectedActionName, setSelectedActionName] = useState('')
+  const [qosFocusRequest, setQosFocusRequest] = useState(null)
+  const focusQosDetails = useCallback((name, channel = null) => {
+    setQosFocusRequest({ channel, name, requestId: Date.now() })
+  }, [])
 
   const actionsState = usePolling(fetchActions, DASHBOARD_POLL_INTERVAL_MS, {
     enabled,
@@ -72,12 +76,14 @@ export function useActionDashboard({ enabled = true } = {}) {
     actions,
     alerts: alertsState,
     error: actionsState.error,
+    focusQosDetails,
     includeIdleActions,
     loading: actionsState.loading,
     meta,
     refresh: actionsState.refresh,
     selectedAction,
     selectedActionName,
+    qosFocusRequest,
     setIncludeIdleActions,
     setSelectedActionName,
     priorityError: priority.priorityError,

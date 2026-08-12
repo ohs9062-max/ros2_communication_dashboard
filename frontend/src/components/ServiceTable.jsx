@@ -5,6 +5,7 @@ import { DashboardCommunicationBadges } from './DashboardCommunicationBadges.jsx
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
+import { QosStatusBadge } from './QosSummary.jsx'
 import { PriorityStarButton } from './PriorityStarButton.jsx'
 
 const SERVICE_SORT_COLUMNS = {
@@ -120,6 +121,7 @@ export function ServiceTable({
                     label={serviceStatusLabel(service)}
                     value={service.effective_status ?? service.status}
                   />
+                  <QosStatusBadge qos={service} />
                 </td>
                 <td className="topic-name service-name service-name-cell">{service.name}</td>
                 <td className="topic-type service-type service-type-cell">{service.type ?? '-'}</td>

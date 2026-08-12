@@ -1,6 +1,7 @@
 import { formatTime } from '../utils/format.js'
 import { DetailSection } from './DetailSection.jsx'
 import { QosDetails } from './QosDetails.jsx'
+import { QosSummaryNotice } from './QosSummary.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 import {
   ActionCapabilitySection,
@@ -11,7 +12,7 @@ import {
 } from '../features/actions/ActionDetailSections.jsx'
 import { actionStatusTone } from '../features/actions/actionPresentation.js'
 
-export function ActionDetailPanel({ action, participants }) {
+export function ActionDetailPanel({ action, participants, qosFocusRequest }) {
   if (!action) {
     return (
       <aside className="detail-panel">
@@ -40,6 +41,11 @@ export function ActionDetailPanel({ action, participants }) {
       </div>
       <h2>{action.name}</h2>
       <p className="muted">{action.type ?? '-'}</p>
+
+      <QosSummaryNotice
+        kind="action"
+        qos={action.qos}
+      />
 
       {action.result_policy === 'observed_goal_only' && (
         <p className="notice-text">
@@ -100,7 +106,11 @@ export function ActionDetailPanel({ action, participants }) {
         <DetailLine label="마지막 갱신" value={formatTime(action.last_updated)} />
       </DetailSection>
 
-      <QosDetails qos={action.qos} title="Action 내부 통신 QoS" />
+      <QosDetails
+        focusRequest={qosFocusRequest?.name === action.name ? qosFocusRequest : null}
+        qos={action.qos}
+        title="Action 내부 통신 QoS"
+      />
 
       <ActionConnectionSection action={action} participants={participants} />
       <ActionExecutionSection action={action} goalSummary={goalSummary} runtime={runtime} />

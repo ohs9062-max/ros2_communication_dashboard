@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-11
+마지막 갱신: 2026-08-12
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -86,6 +86,18 @@ docs/                            설계·운영 문서
   계산된 profile이 다르면 호출 전 오류로 안내하며, 같을 때만 QoS fingerprint 기준 Client를 재사용한다.
 - `ros2_dashboard_demo_nodes`에 TurtleBot3 Gazebo World, 별도 keyboard teleop 터미널, Nav2를 순서대로 시작하는
   통합 launch 파일을 추가했다.
+- Camera Topic `sensor_msgs/msg/Image`/`CompressedImage`를 기존 Topic QoS·latest·Hz·stale 경로로
+  감시하고, 선택한 상세 화면에서만 요청형 PNG/JPEG data URL preview를 제공한다. Demo node는
+  외부 이미지 없이 320x180 RGB 패턴의 raw Image와 PNG CompressedImage를 1 Hz로 발행한다.
+  상세 preview 이미지를 누르면 데스크톱 화면의 76.8vw/89.3vh를 사용하는 다크 테마 확대 modal이 열리며 화면 맞춤,
+  25~400% 확대·축소, 원본 크기와 overflow scroll을 지원한다. Esc·배경 클릭·닫기 버튼으로 닫힌다.
+- Topic·Service·Action 목록과 상세에 기존 계산 결과를 사용하는 QoS 상태 badge/안내를 추가했다.
+  Fast DDS/Graph에서 endpoint profile을 찾았지만 적용 QoS와의 호환성 판정 전인 `observed`는 파란
+  `QoS 발견됨`으로 표시해 `unknown`의 회색 `QoS 확인 불가`와 구분한다.
+  QoS Alert는 주요 감시 대상의 확정 `incompatible`만 기본 3회 연속 관찰 후 생성하고, Graph 일부 조합
+  불일치는 warning, 실제 RMW 이벤트나 전체 상대 endpoint와 통신 불가능이 확인되면 error로 분류한다.
+  Action은 Goal/Result/Cancel/Feedback/Status 채널별 Alert key와 상세 이동을 사용하며 `partial`·`unknown`은
+  화면 안내만 하고 Alert로 만들지 않는다.
 - AI 작업 로그를 최근 기록과 `.codex/archive/`의 과거 기록으로 분리했다.
 
 ## 현재 검증 기준
@@ -93,15 +105,19 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 200 passed
-Backend pytest: 14 passed, 2 skipped
+Monitor pytest: 216 passed
+Backend pytest: 15 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
-선택 package colcon test-result: 201 tests, 0 failures, 1 skipped
+선택 package colcon test-result: 234 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Python compileall: 통과
 git diff --check: 통과
 ```
+
+격리 ROS domain의 실제 Graph E2E에서 BEST_EFFORT publisher와 RELIABLE endpoint 조합이 기본 3회 연속
+확인된 뒤 `topic_qos_incompatible` warning으로 생성되고, 불일치 endpoint 제거 후 동일 Alert가 resolved로
+전환되는 것을 확인했다.
 
 Interface Lab demo E2E에서 Topic Auto/Manual Publish·Subscribe, `/RobotControl` Service Auto와 Manual
 RELIABLE(depth 7→8), `/CanControl` Action Auto와 채널 그룹별 Manual Goal이 모두 성공했다. Service/Action
@@ -122,30 +138,29 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 - fallback으로 만든 Topic entity는 이후 Graph QoS 변화에 따라 자동 재생성되지 않는다.
 - 다른 배포 환경에서는 각 환경의 MariaDB 접속 정보와 확정 `alert` 테이블을 별도로 준비해야 한다. Backend는
   테이블을 자동 생성하거나 변경하지 않으며, DB 연결 실패 중 생성된 메모리 fallback 이력은 재시작 시 사라질 수 있다.
-- Camera Topic 이미지 시각화와 Gazebo TurtleBot 명령 preset은 아직 구현되지 않았다.
+- Gazebo TurtleBot 명령 preset은 아직 구현되지 않았다.
 - 실제 기기/Gazebo 전체 통합 E2E는 남아 있다. 기존 demo_nodes는 Backend 공개 API까지 확인했지만 Browser
   화면 자체의 자동화된 시각 검증은 수행하지 않았다.
 - TurtleBot3 통합 launch는 build, launch argument 로드와 package test까지 확인했으며, 이미 실행 중인
   Gazebo/Nav2와 충돌하지 않도록 이번 작업에서 두 번째 GUI stack을 실제로 동시에 띄우지는 않았다.
 - QoS 사유 배치는 source와 `frontend/dist`에서 전용 라벨/설명 2행 구조로 수정됐다.
 - Action QoS UI는 기본 상태에서 Service(Goal/Result/Cancel)와 Topic(Feedback/Status) 두 요약만 표시하고,
-  그룹과 개별 채널을 단계적으로 펼치는 구조다. 상태 badge와 세부 QoS 값은 정상/일부/불일치/확인 불가
+  그룹과 개별 채널을 단계적으로 펼치는 구조다. 상태 badge와 세부 QoS 값은 정상/발견/일부/불일치/확인 불가
   색상을 사용하며 항목명 typography를 통일했다.
-- 저장소의 로컬 Nginx 설정은 정적 `/var/www` 복사 대신 Vite 5173을 proxy하도록 변경됐다. 실제 시스템
-  Nginx에는 아직 재설치하지 못했으므로 현재 HTTPS 화면은 이전 정적 설정이며,
-  `sudo ./scripts/install_local_https.sh`를 한 번 실행한 뒤 문법·listener·Browser WSS를 다시 확인해야 한다.
+- 실제 시스템 Nginx는 저장소 템플릿과 일치하며 `/`를 Vite 5173으로,
+  `/health`·`/ros`·`/ws/monitor`를 FastAPI 8000으로 proxy한다. HTTPS Vite 자산,
+  Backend WSS `monitor_snapshot`, Vite HMR WSS upgrade를 2026-08-12에 재검증했다.
 - 현재 self-signed Nginx 구성의 지원 범위는 localhost와 같은 LAN의 로컬 IP 접속이다. 인터넷 공개용 인증,
   방화벽/라우터 포트 개방, 접근 제어와 운영 정적 배포 구성은 포함하지 않는다.
 - demo outcome server 종료 시 중복 shutdown traceback이 발생할 수 있다.
-- 현재 Gazebo/Nav2 Graph(137 Topics, 385 Services, 18 Actions)에서는 API 지연 개선 후에도 Monitor main spin CPU가
-  약 80~88%다. 다음 성능 진단은 1초 Graph update의 runtime별 계측이 필요하다.
+- 동일 PC의 격리 Graph 벤치마크에서 Monitor CPU는 최소 2 Nodes/7 Topics/14 Services에서 평균 4.83%,
+  중간 14/19/114/4 Actions에서 6.57%, Gazebo/Nav2 25/120/313/17에서 78.43%였다. 큰 Graph의 80%대는
+  재현됐으며 다음 성능 진단은 1초 Graph update의 runtime별 계측과 실제 기기 환경 재측정이 필요하다.
 
 ## 다음 우선 작업
 
-1. 변경된 Vite proxy 설정을 실제 시스템 Nginx에 설치하고 HTTPS/WSS/HMR 회귀 검증
-2. 운영 MariaDB credential/table 준비 후 실제 배포 Backend의 영속 이력 확인
-3. Alert DB 장기 보존량 기준 index/운영 성능 측정. 확정 스키마 변경은 별도 승인 필요
-4. Camera Topic (`sensor_msgs/msg/Image`, `CompressedImage`) 시각화
-5. Gazebo TurtleBot 명령 preset과 실제 장비/Gazebo·Browser 통합 검증
+1. 운영 MariaDB credential/table 준비 후 실제 배포 Backend의 영속 이력 확인
+2. Alert DB 장기 보존량 기준 index/운영 성능 측정. 확정 스키마 변경은 별도 승인 필요
+3. Gazebo TurtleBot 명령 preset과 실제 장비/Gazebo·Browser 통합 검증
 
 신규 작업은 `AGENTS.md`의 현재 책임 경계와 안전 정책을 따르며, 미구현 항목을 완료된 기능으로 보고하지 않는다.

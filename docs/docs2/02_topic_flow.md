@@ -84,6 +84,31 @@ get_topic_names_and_types()
 
 현재 기본 5초 창에서 첫 메시지는 `1 ÷ 5 = 0.2 Hz`다. 이는 “마지막 1초 동안 받은 개수”가 아니라 “설정된 5초 창에 남은 개수를 5로 나눈 값”이다.
 
+## Camera Topic 이미지 Preview
+
+`sensor_msgs/msg/Image`와 `sensor_msgs/msg/CompressedImage`는 기존 Topic 발견, Graph QoS 선택,
+자동 subscription, latest·Hz·age·missing·stale 판정을 그대로 사용한다. Camera 전용 경로는 수신 payload를
+Browser 이미지로 바꾸는 단계만 추가하며 일반 Topic preview를 변경하지 않는다.
+
+```text
+demo_camera_publisher
+→ /demo_camera/image_raw (Image, rgb8)
+→ /demo_camera/image_compressed (CompressedImage, png)
+→ 기존 Dashboard Topic subscription
+→ snapshot에는 width/height/encoding/format/header 메타데이터만 저장
+→ 선택한 Topic 상세의 GET /ros/topics/image-preview 요청
+→ 제한된 빈도로 PNG/JPEG data URL 생성
+→ Topic 상세 Image Preview
+```
+
+- Raw Image는 `rgb8`, `bgr8`, `mono8`을 Browser용 PNG로 변환한다.
+- CompressedImage는 format과 magic bytes가 일치하는 JPEG/PNG를 전달한다.
+- 지원하지 않는 encoding/format은 Topic 수신과 Hz 계산을 깨뜨리지 않고 미지원 상태로 표시한다.
+- binary `data` 배열과 data URL은 `/ros/topics`, Backend runtime cache, Monitor WebSocket snapshot에 넣지 않는다.
+- data URL은 Camera 상세 화면이 polling하는 동안에만 `topics.camera_preview`의 크기·빈도·TTL 제한으로 생성한다.
+- 실제 카메라 없이 `ros2 launch ros2_dashboard_demo_nodes demo_communication.launch.py`로 두 Camera Topic과
+  동일한 테스트 패턴을 검증할 수 있다.
+
 ## Dashboard 내부 통신 집계 제외
 
 1. **전체 endpoint:** Graph에서 해당 Topic의 전체 Subscriber endpoint 수를 읽는다.

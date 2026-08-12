@@ -1,6 +1,12 @@
 # Service Alert 정책
 
-현재 `build_service_alerts()`가 실제 생성하는 Service Alert는 3종입니다.
+현재 Service Alert code는 4종입니다.
+
+## `service_qos_incompatible`
+
+숨김이 아닌 주요 Service의 이미 계산된 QoS가 `incompatible`로 설정 횟수 연속 확인될 때 생성합니다.
+ID는 `service:<name>:service_qos_incompatible`이며 partial/unknown/graph_unavailable, observer 미사용,
+fallback 자체와 Call timeout만으로는 생성하지 않습니다. compatible 복귀 또는 endpoint 소멸 시 해결됩니다.
 
 ## `service_disconnected`
 
@@ -38,7 +44,7 @@
 - 아직 사용자가 Call하지 않은 상태는 Alert가 아닙니다.
 - 요청이 서버로 전송되기 전 validation에 실패한 상태는 통신 Alert가 아닙니다.
 - Active Check의 `timeout`, `failed`, `error`, `type_mismatch`는 현재 runtime 내부 점검 상태입니다.
-  `build_service_alerts()`가 `service_active_check_*` Alert code를 생성하지 않으므로 실제 18종 목록과 DB 저장
+  `build_service_alerts()`가 `service_active_check_*` Alert code를 생성하지 않으므로 실제 code 목록과 DB 저장
   대상 code 목록에 포함하지 않습니다.
 
 ## 판정 흐름

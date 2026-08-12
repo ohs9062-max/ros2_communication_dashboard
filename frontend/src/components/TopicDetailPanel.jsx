@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   formatAge,
   formatNumber,
@@ -8,9 +9,10 @@ import { ConnectionNodeList } from './ConnectionNodeList.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { KeyValueTable } from './KeyValueTable.jsx'
 import { QosDetails } from './QosDetails.jsx'
+import { QosSummaryNotice } from './QosSummary.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 
-export function TopicDetailPanel({ topic, latest, hz, participants }) {
+export function TopicDetailPanel({ cameraPreview, topic, latest, hz, participants, qosFocusRequest }) {
   if (!topic) {
     return (
       <aside className="detail-panel">
@@ -25,6 +27,11 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
   const hzData = hz.data?.data
   const preview = latestData?.message_preview ?? topic.last_message_preview
   const values = preview?.values
+  const cameraType = isCameraTopicType(topic.types?.[0])
+  const cameraData =
+    cameraPreview?.data?.data?.name === topic.name
+      ? cameraPreview.data.data
+      : null
   const neverReceived =
     hzData?.status === 'never_received' || latestData?.received === false
 
@@ -37,8 +44,16 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
       <h2>{topic.name}</h2>
       <p className="muted">{topic.types?.[0] ?? '-'}</p>
 
+      <QosSummaryNotice
+        kind="topic"
+        qos={topic}
+      />
+
       {latest.error && <p className="error-text">{latest.error}</p>}
       {hz.error && <p className="error-text">{hz.error}</p>}
+      {cameraType && cameraPreview?.error && (
+        <p className="error-text">{cameraPreview.error}</p>
+      )}
       {neverReceived && (
         <p className="notice-text warning">
           이 Topic은 아직 메시지를 수신하지 않았습니다. 발행자가 메시지를
@@ -57,7 +72,21 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
         />
       </DetailSection>
 
-      <QosDetails qos={topic} title="Topic QoS" />
+      <QosDetails
+        focusRequest={qosFocusRequest?.name === topic.name ? qosFocusRequest : null}
+        qos={topic}
+        title="Topic QoS"
+      />
+
+      {cameraType && (
+        <CameraPreview
+          data={cameraData}
+          hz={hzData?.hz}
+          metadata={cameraData?.metadata ?? preview}
+          topicName={topic.name}
+          topicType={topic.types?.[0]}
+        />
+      )}
 
       <DetailSection collapsible title="연결 정보">
         <div className="detail-line">
@@ -163,17 +192,184 @@ export function TopicDetailPanel({ topic, latest, hz, participants }) {
         </div>
       </DetailSection>
 
-      <DetailSection collapsible title="장치 상태 값">
-        <KeyValueTable values={values} />
-      </DetailSection>
+      {!cameraType && (
+        <>
+          <DetailSection collapsible title="장치 상태 값">
+            <KeyValueTable values={values} />
+          </DetailSection>
 
-      <DetailSection collapsible title="원본 Preview JSON">
-        <pre className="preview-json">
-          {preview ? JSON.stringify(preview, null, 2) : 'preview 없음'}
-        </pre>
-      </DetailSection>
+          <DetailSection collapsible title="원본 Preview JSON">
+            <pre className="preview-json">
+              {preview ? JSON.stringify(preview, null, 2) : 'preview 없음'}
+            </pre>
+          </DetailSection>
+        </>
+      )}
     </aside>
   )
+}
+
+function CameraPreview({ data, hz, metadata, topicName, topicType }) {
+  const [expanded, setExpanded] = useState(false)
+  const image = data?.preview
+  const ready = image?.status === 'ready' && image.data_url
+  const encoding = metadata?.encoding ?? metadata?.format ?? '-'
+  return (
+    <DetailSection title="Image Preview">
+      <div className="camera-preview-frame">
+        {ready ? (
+          <button
+            aria-label="Camera 이미지 크게 보기"
+            className="camera-preview-open"
+            onClick={() => setExpanded(true)}
+            title="클릭하여 크게 보기"
+            type="button"
+          >
+            <img alt="Camera Topic preview" src={image.data_url} />
+          </button>
+        ) : (
+          <div className="camera-preview-empty">
+            {cameraPreviewMessage(image)}
+          </div>
+        )}
+      </div>
+      {ready && <p className="camera-preview-hint">이미지를 클릭하면 크게 볼 수 있습니다.</p>}
+      <div className="camera-preview-meta">
+        <DetailLine label="Type" value={topicType ?? '-'} />
+        {metadata?.width != null && (
+          <DetailLine label="Width" value={metadata.width} />
+        )}
+        {metadata?.height != null && (
+          <DetailLine label="Height" value={metadata.height} />
+        )}
+        <DetailLine label="Encoding / Format" value={encoding} />
+        <DetailLine
+          label="수신 시각"
+          value={formatRelativeTime(data?.frame_received_at ?? data?.last_received_at)}
+        />
+        <DetailLine label="Hz" value={formatNumber(hz)} />
+        {metadata?.header?.frame_id && (
+          <DetailLine label="Frame ID" value={metadata.header.frame_id} />
+        )}
+      </div>
+      {expanded && ready && (
+        <CameraPreviewModal
+          dataUrl={image.data_url}
+          onClose={() => setExpanded(false)}
+          topicName={topicName}
+        />
+      )}
+    </DetailSection>
+  )
+}
+
+function CameraPreviewModal({ dataUrl, onClose, topicName }) {
+  const [viewMode, setViewMode] = useState('fit')
+  const [zoom, setZoom] = useState(100)
+
+  const changeZoom = (amount) => {
+    setViewMode('zoom')
+    setZoom((current) => Math.min(400, Math.max(25, current + amount)))
+  }
+
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [onClose])
+
+  return (
+    <div
+      aria-label="Camera 이미지 확대"
+      aria-modal="true"
+      className="preview-modal-backdrop camera-preview-modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+    >
+      <div
+        className="preview-modal camera-preview-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="preview-modal-header">
+          <div>
+            <strong>Camera Image Preview</strong>
+            <span>{topicName}</span>
+          </div>
+          <button
+            aria-label="팝업 닫기"
+            className="preview-modal-close"
+            onClick={onClose}
+            type="button"
+          >
+            닫기
+          </button>
+        </div>
+        <div aria-label="이미지 크기 조절" className="camera-preview-modal-toolbar">
+          <button
+            aria-label="이미지 축소"
+            disabled={viewMode === 'zoom' && zoom <= 25}
+            onClick={() => changeZoom(-25)}
+            title="25% 축소"
+            type="button"
+          >
+            −
+          </button>
+          <output aria-live="polite">
+            {viewMode === 'fit' ? '화면 맞춤' : viewMode === 'original' ? '원본 크기' : `${zoom}%`}
+          </output>
+          <button
+            aria-label="이미지 확대"
+            disabled={viewMode === 'zoom' && zoom >= 400}
+            onClick={() => changeZoom(25)}
+            title="25% 확대"
+            type="button"
+          >
+            +
+          </button>
+          <button
+            className={viewMode === 'fit' ? 'active' : undefined}
+            onClick={() => setViewMode('fit')}
+            type="button"
+          >
+            화면 맞춤
+          </button>
+          <button
+            className={viewMode === 'original' ? 'active' : undefined}
+            onClick={() => setViewMode('original')}
+            type="button"
+          >
+            원본 크기
+          </button>
+        </div>
+        <div className="camera-preview-modal-image">
+          <div
+            className={`camera-preview-modal-canvas camera-preview-modal-canvas-${viewMode}`}
+            style={viewMode === 'zoom' ? { width: `${zoom}%` } : undefined}
+          >
+            <img
+              alt={`${topicName} Camera 확대 preview`}
+              src={dataUrl}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function cameraPreviewMessage(preview) {
+  if (preview?.error) return preview.error
+  if (preview?.status === 'awaiting_frame') return '다음 Camera frame을 기다리는 중입니다.'
+  return '이미지 preview가 아직 없습니다.'
+}
+
+function isCameraTopicType(topicType) {
+  return [
+    'sensor_msgs/msg/Image',
+    'sensor_msgs/msg/CompressedImage',
+  ].includes(topicType)
 }
 
 function DetailLine({ label, tone, value }) {

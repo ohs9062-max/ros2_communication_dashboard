@@ -95,6 +95,20 @@ def assemble_action_snapshot(monitor) -> dict[str, Any]:
                 local_state = applied_qos.get(part) or {}
                 if isinstance(state, dict):
                     state['local_qos'] = local_state.get('local_qos')
+                    if local_state.get('qos_status') == 'incompatible':
+                        state.update({
+                            field: local_state.get(field)
+                            for field in (
+                                'qos_status',
+                                'qos_detection_source',
+                                'mismatch_policies',
+                                'mismatch_reason',
+                                'qos_error_type',
+                                'compatible_endpoint_count',
+                                'remote_endpoint_count',
+                            )
+                            if field in local_state
+                        })
         action['dashboard_communication'] = {
             'monitoring_active': (
                 action.get('status_supported') is True

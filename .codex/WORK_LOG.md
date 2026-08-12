@@ -4,270 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-10 - Topic/Service/Action QoS 결정·표시 경로 조사
-
-- 범위: 코드 수정 없이 Monitor의 ROS entity 생성 지점, Graph QoS helper, Backend snapshot 전달, Frontend
-  `QosDetails` 표시 경로를 정적으로 조사했다. rclpy profile 객체 직렬화만 실행했으며 ROS 통신 객체는 만들지 않았다.
-- Topic: 일반 Monitor Subscription과 Interface Lab Topic Publisher/Subscription은 모두 `choose_topic_qos()`로
-  상대 Graph endpoint QoS 후보를 비교한 뒤 선택한 동일 profile을 `create_subscription/create_publisher`에 넘긴다.
-  일반 fallback은 sensor type의 `qos_profile_sensor_data` 또는 `QoSProfile(depth=10)`, Interface Lab fallback은
-  `QoSProfile(depth=10)`이다. 화면 `local_qos`는 실제 객체에서 사후 조회한 actual QoS가 아니라 생성 시 전달한
-  선택 profile의 직렬화 값이다. 같은 type의 기존 entity는 재사용하므로 이후 Graph QoS 변화에 맞춰 재생성하지 않는다.
-- Service: 일반 탭은 원격 QoS를 `graph_unavailable`, `local_qos: null`로 표시하며 QoS 확인용 Client를 만들지
-  않는다. Interface Lab Client와 비활성 기본인 allowlist active-check Client는 모든 Service에
-  `qos_profile_services_default`를 사용한다. 이는 Jazzy 환경에서 KEEP_LAST/depth 10/RELIABLE/VOLATILE이다.
-- Action: 일반 탭의 Goal/Result/Cancel은 미확인으로, Feedback/Status는 Graph Topic endpoint 값으로 표시한다.
-  일반 Action monitor의 실제 Feedback/Status Subscription은 Graph 적응형이며 fallback은 각각
-  `QoSProfile(depth=10)`과 `qos_profile_action_status_default`다. 관찰 Goal Result 조회 Client는 Service default를
-  쓴다. Interface Lab ActionClient는 Goal/Result/Cancel에 Service default, Feedback/Status에 각각 Graph 적응형
-  profile을 별도로 전달하므로 Action 전체 공통 profile은 없다.
-- Frontend/Backend: FastAPI Backend는 Monitor `/transport/snapshot`을 deepcopy해 `/ros/topics|services|actions`로
-  전달할 뿐 QoS를 계산하지 않는다. Frontend는 API의 `local_qos`가 있을 때만 `Dashboard 적용 QoS`를 렌더링하며
-  QoS 값을 자체 하드코딩하지 않는다.
-- 결론: Topic/Action Topic 채널은 Graph 적응형이라 공통 depth 10을 강제하지 않지만, Graph 미확인 fallback,
-  Service default, 생성 후 entity 재사용 때문에 Dashboard 설정이 통신을 제한할 가능성은 남아 있다. 특히
-  fallback으로 만든 entity 뒤에 비호환 endpoint가 나타나도 현재 자동 재생성하지 않는다.
-
-## 2026-08-10 - Fast DDS Discovery 기반 원격 Service/Action QoS passive 조회 조사
-
-- 범위: 코드와 통신 상태를 변경하지 않고 현재 환경의 RMW 식별자, 설치 package/header, Jazzy rcl/rmw/rclpy API,
-  ROS2 설계 문서와 Fast DDS Discovery API를 조사했다. Service Client/Call, ActionClient/Goal은 생성·전송하지
-  않았고, 조사 과정에서 ROS/DDS Participant나 user-data endpoint도 만들지 않았다.
-- 현재 환경: `RMW_IMPLEMENTATION`은 명시되지 않았지만 rclpy가 선택한 구현은 `rmw_fastrtps_cpp`다. 설치 버전은
-  `ros-jazzy-rmw-fastrtps-cpp 8.4.4`, `ros-jazzy-rmw-fastrtps-shared-cpp 8.4.4`, Fast DDS 2.14.6이며 Fast DDS
-  Python binding은 설치되어 있지 않다. 프로젝트도 특정 RMW나 vendor XML profile을 강제하지 않는다.
-- 표준 Graph 경계: Jazzy rcl/rmw/rclpy는 Topic의 Publisher/Subscription endpoint info와 QoS는 제공하지만,
-  원격 Service request/response endpoint info를 service 이름으로 조회하는 공개 API는 제공하지 않는다. Service
-  actual-QoS 함수는 자신이 생성한 `rmw_client_t`/`rmw_service_t` handle의 내부 endpoint만 대상으로 한다.
-- Fast DDS 가능 범위: 별도 `DomainParticipant`와 `DomainParticipantListener`를 만든 vendor 전용 observer는 EDP의
-  원격 DataWriter/DataReader 발견 callback과 proxy data를 받을 수 있다. ROS Service의 `rq`/`rr` DDS request/
-  response endpoint를 이름·type 규칙으로 식별하면 user-data Reader/Writer를 만들거나 호출하지 않고 광고된 QoS를
-  읽을 수 있다. 단, observer 자체는 discovery traffic을 받는 DDS Participant로 도메인에 참가하므로 물리적으로
-  완전한 무참여 packet 관찰은 아니다.
-- QoS 구분: Fast DDS discovery proxy에서 원격 Reliability, Durability, Deadline, Lifespan(Writer), Liveliness와
-  lease duration은 실제 광고값으로 변환 가능하다. 설치된 `rmw_fastrtps_shared_cpp/qos.hpp`가 명시하듯 discovery의
-  `WriterQos`/`ReaderQos`에는 History와 Depth가 없으므로 두 값은 원격 실제값으로 확정할 수 없다. 로컬 기본값이나
-  표준 profile로 채우더라도 이는 추정일 뿐이다.
-- Action: Feedback/Status는 일반 Topic이므로 현재 rclpy Graph API로 endpoint QoS를 passive 조회할 수 있다.
-  Goal/Result/Cancel은 각각 Service여서 Fast DDS raw `rq`/`rr` endpoint observer 방식과 같은 제한을 받으며,
-  Action 전체에 단일 QoS는 없다.
-- 적용 판단: 현재 Python/rclpy Monitor만으로 Service/Action service endpoint 조회를 추가할 수 없다. 구현한다면
-  Fast DDS C++ API를 사용하는 별도 localhost helper가 가장 현실적이며, raw DDS 이름/type과 ROS service/action
-  채널을 연결하고 RMW/vendor·버전 차이, 동일 domain/discovery/security 조건, endpoint 수명과 중복을 처리해야 한다.
-  Python `fastdds` binding을 새로 설치하는 대안도 있으나 현재 미설치이고 ROS mapping 처리는 동일하게 필요하다.
-- 남은 위험: 원격 기기가 Fast DDS가 아니거나 DDS가 아닌 RMW를 쓰면 vendor helper의 mapping/관찰이 성립하지 않을
-  수 있다. DDS Security, Discovery Server, domain/range/네트워크 설정에 의해 발견되지 않은 endpoint는 QoS도 알 수
-  없다. 따라서 미발견과 기본 QoS를 같은 의미로 표시하면 안 되며 History/Depth는 계속 `확인할 수 없음`이어야 한다.
-
-## 2026-08-10 - Fast DDS passive Service/Action QoS observer 구현
-
-- 구조: 새 ament_cmake package `ros2_dashboard_dds_observer`에 Fast DDS 2.14 C++ helper를 추가했다. helper는 현재
-  `ROS_DOMAIN_ID`에 DomainParticipant와 DomainParticipantListener만 만들고 publisher/subscriber discovery
-  callback으로 `rq/...Request`, `rr/...Reply` endpoint를 수집한다. localhost `127.0.0.1:8766/snapshot` 외에는
-  노출하지 않으며 Browser/Backend는 helper에 직접 접근하지 않는다.
-- 안전 기준: helper는 사용자 데이터 DataWriter/DataReader, Service Client, ActionClient를 만들지 않는다.
-  구현과 검증 중 Service Call, Action Goal도 전송하지 않았다. request DataReader와 response DataWriter를
-  server 역할로 분류해 Dashboard 또는 다른 client endpoint를 Remote server QoS에 섞지 않는다.
-- QoS 모델: Reliability, Durability, Deadline, Liveliness와 lease duration 및 DataWriter Lifespan은 Fast DDS
-  discovery proxy의 실제 광고값을 공개한다. DataReader Lifespan과 History/Depth는 확인할 수 없으므로 각각
-  `unknown`/`unknown`/`null`이며 기본 Service profile을 채우지 않는다. finite duration은 ns, 무한 duration은
-  `*_status: infinite`로 구분한다.
-- Monitor 통합: `FastDdsQosObserver`가 helper 생명주기와 0.5초 localhost polling cache를 관리한다. 일반 Service는
-  passive DDS QoS를 사용하고, Action은 Goal/Result/Cancel service만 DDS 결과를 연결하며 Feedback/Status는 기존
-  rclpy Graph 조회를 유지한다. 실제 Interface Lab Client 또는 Action Feedback/Status Monitor subscription이
-  존재할 때만 생성 시 적용한 local QoS를 별도로 합친다.
-- 장애 처리: helper 실행 파일 누락, localhost 응답 실패, disabled 설정, `rmw_fastrtps_cpp`가 아닌 환경은
-  Service/Action service QoS만 `graph_unavailable`로 만든다. Topic Graph QoS와 Monitor/Backend/Frontend 흐름은
-  helper에 의존하지 않는다. 설정은 `monitor.yaml`의 `fastdds_observer` 한 곳에 둔다.
-- Frontend: Service의 Remote DDS QoS와 존재할 때만 Dashboard local QoS를 분리한다. Action은 Goal/Result/Cancel/
-  Feedback/Status를 유지하고 DDS Request/Response DataReader/DataWriter label, DDS topic/type, infinite duration,
-  확인 불가능한 History/Depth를 명확히 표시한다.
-- 실제 passive E2E: test Service server만 실행해 `/introspection_add_two_ints` request Reader와 response Writer
-  2개를 발견했다. 고유 ActionServer `/passive_qos_test`만 실행해 send_goal/get_result/cancel_goal 각각 request
-  Reader와 response Writer 총 6개를 발견했다. 모두 RELIABLE/VOLATILE/AUTOMATIC이었고 Deadline/lease는
-  infinite, Writer Lifespan은 infinite, Reader Lifespan은 unknown이었다. History/Depth는 unknown/null이었다.
-  Monitor snapshot에서도 Service 2개, Action 채널별 2개가
-  `fastdds_discovery`, local QoS null로 전달됐다. Call/Goal/Client는 만들거나 보내지 않았다.
-- 자동 검증: helper와 Monitor build 성공, Monitor pytest 183 tests, Backend 7 tests, Frontend lint/build,
-  Python compileall이 통과했다. 선택 package colcon test-result는 C++ lint와 Monitor test를 포함해 0 failure다.
-  초기 C++ lint에서 copyright/include order와 XML schema network 문제가 발견됐으며 source header/include 순서와
-  package XML을 수정해 해소했다.
-- 문서: `docs/qos/fastdds_passive_observer.md`와 AGENTS 구조/책임 경계를 갱신했다. Fast DDS vendor 이름 규칙과
-  callback에 종속되므로 Cyclone DDS/비-DDS RMW에는 별도 adapter가 필요하고, DDS Security/Discovery 설정으로
-  endpoint가 보이지 않으면 QoS도 확인할 수 없다.
-
-## 2026-08-10 - Codex 작업 로그 최근/Archive 구조 정리
-
-- 작업: 127개 항목, 2,171줄이던 `WORK_LOG.md`를 작업 순서 기준으로 분리했다. 기존 마지막 25개 항목을 최근
-  로그로 유지하고 앞선 102개 항목은 `.codex/archive/WORK_LOG_2026-08-06_to_2026-08-10_001.md`로 이동했다.
-  이번 항목 추가 후 최근 WORK_LOG는 26개 항목이다.
-- 기록 보존: 분리 직후 archive 본문과 최근 로그 본문을 다시 결합한 SHA-256이 분리 전 작업 본문의 hash
-  `1b7cacca709bac35f1a45a7bb38b1bb366468019c03387831047d8d03c12cd8d`와 일치함을 확인했다. 기존 기록은
-  삭제하거나 완료 상태를 바꾸지 않았다.
-- CURRENT_STATUS: 423줄의 누적 module 이력을 제거하고 현재 프로젝트 상태, 핵심 구조, 최근 완료 작업,
-  현재 검증 기준, 문제/제한, 다음 우선 작업만 남기는 현재형 문서로 축약했다.
-- AGENTS 정책: 작업 전에는 CURRENT_STATUS와 최근 WORK_LOG만 기본 확인하고 archive는 과거 근거가 필요할 때만
-  검색한다. 모든 작업은 최근 WORK_LOG에 기록하며, 항목이 다시 30개를 크게 넘거나 읽기 어려워지면 최근
-  20~30개를 제외한 기록을 내용 변경 없이 archive로 이동하도록 명시했다.
-- 범위와 검증: 코드 기능은 수정하지 않았다. archive 102개와 최근 26개(이번 기록 포함)의 항목 수, Markdown
-  heading 순서, 파일 경로, 본문 hash와 `git diff --check`를 확인했다.
-
-## 2026-08-10 - Fast DDS observer include 빨간줄 조사
-
-- 조사: `fastdds_qos_observer.cpp` 20~23행과 36~39행의 Fast DDS 헤더 8개가 모두
-  `/opt/ros/jazzy/include/fastrtps` 아래에 실제 설치되어 있음을 확인했다.
-- 원인: CMake 실제 컴파일에는 `-isystem /opt/ros/jazzy/include/fastrtps`가 전달되지만 package build에
-  `compile_commands.json`이 생성되어 있지 않아, 편집기 C/C++ 분석기가 include 경로를 알지 못해 표시하는
-  IDE 진단으로 판단했다.
-- 검증: `colcon build --symlink-install --packages-select ros2_dashboard_dds_observer`가 성공했고
-  `fastdds_qos_observer` target이 100% 빌드됐다. 소스와 CMake는 수정하지 않았다.
-
-## 2026-08-10 - QoS 사유 레이아웃 복구
-
-- 작업: Topic/Service/Action이 공유하는 `QosDetails`의 사유 영역에서 `사유` 라벨을 가로 한 줄로 고정하고,
-  실제 설명은 다음 줄에서 전체 폭으로 표시되도록 공통 CSS를 복구했다.
-- 범위: 기능/API/QoS 데이터는 변경하지 않고 `frontend/src/App.css`의 `.qos-reason` 레이아웃만 수정했다.
-- 검증: Frontend `npm run lint`, `npm run build`, `git diff --check`가 통과했다.
-
-## 2026-08-10 - 기존 demo_nodes passive DDS QoS unavailable 수정
-
-- 재현: 기존 `ros2_dashboard_demo_nodes`의 `demo_communication.launch.py`를 Domain 99,
-  `rmw_fastrtps_cpp`에서 실행했다. Graph 이름은 Service `/RobotControl`, `/ScheduleCrud`, Action
-  `/CanControl`이었다. Service Call, Service Client, ActionClient, Goal은 만들거나 보내지 않았다.
-- 단계 추적: 독립 C++ observer는 `/RobotControl`의 `rq/RobotControlRequest` Reader와
-  `rr/RobotControlReply` Writer, `/CanControl` Goal/Result/Cancel의 rq Reader와 rr Writer 6개를 모두
-  올바른 절대 ROS 이름으로 변환했다. 새 Monitor에서도 해당 이름의 merge와 Backend 전달은 정상이어서
-  DDS mangling, C++ 변환, Monitor merge, Frontend 데이터 구조 문제는 아니었다.
-- 실제 원인: 화면이 연결된 기존 8765 Monitor snapshot의 `observer_reason`은
-  `observer_executable_not_found`였다. helper 파일은 실제 install에 있었지만 Monitor 프로세스의
-  `AMENT_PREFIX_PATH`에는 observer가 처음 build되기 전 prefix 목록만 남아 있어
-  `ament_index_python.get_package_prefix()`가 helper package를 찾지 못했다.
-- 수정: `dds_observer.observer_executable()`이 정상 ament index 조회를 우선 사용하고, observer만 index에서
-  누락된 경우 Monitor install prefix를 기준으로 isolated/merged install의 sibling helper 경로를 확인하도록
-  보강했다. 실제 파일이 없으면 기존처럼 unavailable이며 다른 RMW/Topic QoS 정책은 변경하지 않았다.
-- 회귀 테스트: observer가 index에 없고 sibling install에는 존재하는 stale 환경을 재현하는 단위 테스트를
-  추가했다. Monitor 전체 pytest 184 passed, Backend 7 passed, Frontend lint/build, Python compileall,
-  선택 package build 및 colcon test-result 201 tests/0 failures/1 skipped가 통과했다.
-- 실제 demo E2E: 의도적으로 observer prefix를 제거한 환경에서도 `/RobotControl`은 `observed /`
-  `fastdds_discovery`와 request Reader/response Writer QoS를 반환했고, `/CanControl` Goal/Result/Cancel도 모두
-  `observed / fastdds_discovery`였다. Reliability reliable, Durability volatile이 전달됐고 Discovery에 없는
-  History/Depth만 unknown/null로 유지됐다. 실제 8765 Monitor를 수정 build로 재시작한 뒤 기존 Backend 8000의
-  `/ros/services`, `/ros/actions`에서도 동일 결과를 확인했다.
-- 실행 상태: 검증용 demo/observer/8875 Monitor/8012 Backend는 종료했다. 실제 Dashboard용 8765 Monitor는
-  수정 build로 재시작해 실행 중이며 기존 Backend/Frontend는 유지했다.
-
-## 2026-08-10 - TurtleBot3 Gazebo·Teleop·Nav2 통합 launch 추가
-
-- 작업: `ros2_dashboard_demo_nodes`에 `turtlebot3_sim_nav.launch.py`를 추가해 TurtleBot3 Gazebo World를 먼저
-  시작하고, 2초 뒤 keyboard teleop을 `gnome-terminal`에서 열며, 5초 뒤 Nav2를 simulation clock으로
-  시작하도록 구성했다. 기본 model은 `burger`다.
-- 실행 선택: `model`, `use_sim_time`, `teleop`, `teleop_delay`, `nav2_delay` launch argument를 제공한다.
-  keyboard teleop은 stdin TTY가 필수이므로 launch subprocess에 직접 붙이지 않고 현재 로컬 Ubuntu에 설치된
-  `gnome-terminal --wait`로 분리했다.
-- 의존성: demo package에 `turtlebot3_gazebo`, `turtlebot3_navigation2`, `turtlebot3_teleop` runtime dependency를
-  명시했다. Dashboard 기능 코드와 특정 Topic 제어 로직은 변경하지 않았다.
-- 검증: 세 TurtleBot3 package와 `gnome-terminal` 설치를 확인했다. Python compile, demo package build,
-  launch description 생성, `ros2 launch ... --show-args`, demo package pytest/colcon test 1개가 통과했다.
-  현재 Domain 99에 기존 Gazebo/Nav2가 실행 중이어서 중복 GUI/process 충돌을 피하려고 전체 stack의 두 번째
-  실제 실행은 하지 않았다.
-
-## 2026-08-10 - QoS 사유 전용 2행 배치 및 HTTPS stale bundle 확인
-
-- 원인: Topic/Service/Action 공통 source에는 사유 배치 CSS가 있었지만 실제 `https://localhost`는 이전
-  `/var/www/ros2-dashboard` bundle(`index-BdsMndbe.css`)을 제공해 최신 변경이 화면에 반영되지 않았다.
-- 수정: `QosDetails`의 사유를 일반 `detail-line`에서 분리해 `qos-reason-label`과
-  `qos-reason-description` 전용 구조로 변경했다. 라벨 `사유`는 horizontal/nowrap 한 줄, 설명은 grid의
-  다음 행 전체 폭에서 줄바꿈되며 Topic/Service/Action 모두 같은 컴포넌트를 사용한다.
-- 검증: Frontend lint/build와 `git diff --check`가 통과했고 새 dist CSS에서 세 전용 selector와 배치 속성을
-  확인했다.
-- 배포 상태: `sudo ./scripts/install_local_https.sh`로 Nginx static root 갱신을 시도했으나 현재 실행 환경은
-  sudo password 입력용 terminal을 제공하지 않아 중단됐다. source와 `frontend/dist`는 최신이며 사용자가 해당
-  sudo 명령을 한 번 실행해야 HTTPS의 이전 bundle이 교체된다.
-
-## 2026-08-10 - Action QoS 접기·그룹화·색상 정리
-
-- 작업: Action 내부 5개 통신을 기본 화면에 연속 출력하지 않고 Service 통신(Goal/Result/Cancel)과 Topic 통신
-  (Feedback/Status) 두 그룹으로 묶었다. 각 그룹은 전체 상태 요약만 기본 표시하며 그룹을 펼친 뒤 개별 채널도
-  별도로 펼쳐 세부 endpoint QoS를 확인할 수 있다.
-- 상태 요약: 그룹 안의 실제 channel 상태를 집계해 정상, 일부 확인, 불일치, 확인 불가 badge로 표시한다.
-  내부 5개 QoS 데이터 구조와 passive 관찰 정책은 유지하며 Action 전체에 가짜 단일 QoS를 만들지 않았다.
-- 표현: 그룹명, 채널명, endpoint profile 제목의 font family/size/weight를 통일했다. 정상은 green, 일부/fallback은
-  yellow, 불일치는 red, 확인 불가는 gray, DDS/source와 확인된 profile 값은 blue로 구분했다. Topic/Service의
-  기존 QoS 상세에도 같은 값 색상과 사유 2행 배치를 적용한다.
-- 검증: Frontend oxlint/build와 `git diff --check`가 통과했고 새 dist CSS에 group/item/status selector가 포함됨을
-  확인했다. HTTPS Nginx static root는 이전 작업과 동일하게 sudo password 없이는 갱신할 수 없어 source/dist만
-  최신 상태이며 `sudo ./scripts/install_local_https.sh` 실행이 필요하다.
-
-## 2026-08-10 - Action QoS HTTPS 미반영 확인
-
-- 확인: 최신 `frontend/dist`는 `index-BX73Qiow.js`/`index-C3cv9xHr.css`지만 HTTPS Nginx와
-  `/var/www/ros2-dashboard`는 직전 `index-DqB9U5B3.js`/`index-DCnq3rTl.css`를 제공 중이었다.
-- 결론: 브라우저 새로고침 문제가 아니라 Action QoS 접기 UI build 이후 root 권한 static 배포가 다시 실행되지
-  않은 상태다. 코드 추가 수정 없이 `sudo ./scripts/install_local_https.sh` 실행이 필요하다.
-
-## 2026-08-10 - 로컬 HTTPS Frontend 갱신 구조 원인 정리
-
-- 원인: 현재 Nginx `/`는 Vite 5173을 proxy하지 않고 `/var/www/ros2-dashboard`에 복사된 정적 build를 제공한다.
-  따라서 Vite HMR은 HTTPS 화면에 사용되지 않으며 변경마다 build 후 root 권한 복사가 필요하다.
-- 구분: `colcon --symlink-install`은 ROS2 package용이므로 Frontend dist/Nginx static root에는 영향을 주지 않는다.
-- 권장 후속: 상시 로컬 개발 환경은 Nginx의 API/WSS proxy는 유지하고 `/`와 HMR WebSocket을 Vite 5173으로
-  proxy해야 source 변경이 즉시 HTTPS에 반영된다. 이번 답변에서는 설정을 변경하지 않았다.
-
-## 2026-08-10 - 로컬/LAN HTTPS와 직접 개발 접속 병행 구조 정리
-
-- 변경: 로컬 Nginx `/`를 `/var/www` 정적 bundle 대신 localhost Vite 5173으로 전달하도록 template, env example,
-  render/install script, 실행 문서와 HTTPS/WSS 문서를 수정했다. `/health`, `/ros`, `/ws/monitor`는 기존처럼
-  FastAPI 8000으로 전달하며 Browser protocol에 따라 직접 HTTP에서는 WS, Nginx HTTPS에서는 WSS를 사용한다.
-- 운영 범위: Dashboard/ROS2/기기가 같은 로컬 PC 또는 LAN에 있는 사용 방식을 기본으로 본다. localhost 직접
-  HTTP/WS 개발 접속과 LAN HTTPS/WSS 접속은 함께 유지하고, 별도 인터넷 공개용 정적 배포 구조는 기본 범위에서
-  유지하지 않는다. 외부 인터넷 공개에는 별도 인증서, 접근 제어, 방화벽/라우터 정책이 필요하다.
-- 검증: shell 문법, Nginx render 결과와 별도 임시 설정의 `nginx -t`가 통과했다. 실제 프로세스는 Monitor
-  8765, Backend 8000, Vite 5173과 Nginx 443에서 LISTEN 중이며 HTTP upstream, 기존 HTTPS health와
-  `wss://localhost/ws/monitor`의 `monitor_snapshot` 수신도 확인했다.
-- 설치 상태: 시스템 `/etc/nginx/conf.d/ros2-dashboard.conf`는 아직 `/var/www`를 사용하는 이전 설정이다.
-  새 설정 설치는 sudo password 입력이 필요한데 현재 실행 환경에서 입력할 수 없어 중단됐다. 사용자가
-  `sudo ./scripts/install_local_https.sh`를 한 번 실행한 후 Vite proxy HTTPS/HMR을 최종 확인해야 한다.
-
-## 2026-08-11 - 전일 작업 상태 확인
-
-- `.codex/CURRENT_STATUS.md`와 최근 WORK_LOG, 현재 `git status`를 대조해 2026-08-10 완료 범위와 다음 작업을 확인했다. 코드 변경이나 검증 실행은 없었다.
-
-## 2026-08-11 - QoS 무제한 시간 문구 명확화
-
-- QoS의 `infinite` 값을 단순 `무한` 대신 의미별로 `기한 제한 없음`, `만료되지 않음`, `임대 만료 없음`으로 표시하도록 변경했다. 원본 상태와 API 계약은 변경하지 않았다.
-
-## 2026-08-11 - QoS 사유 강조색 통일
-
-- Topic/Service/Action 공통 QoS 상세의 사유 본문을 호환 상태와 관계없이 경고용 노란색으로 표시하도록 변경했다.
-
-## 2026-08-11 - Topic/Service QoS endpoint 접기 추가
-
-- Topic QoS는 Publisher/Subscriber, Service QoS는 Request/Response endpoint 그룹을 기본 접힘으로 표시하도록 변경했다. Dashboard 적용 profile도 별도 접기 항목으로 분리했으며 상단 호환 상태와 사유는 계속 바로 표시한다.
-
-## 2026-08-11 - Fast DDS Discovery 사유 색상 구분
-
-- QoS 판정 근거가 `fastdds_discovery`이면 사유를 초록색, 발견하지 못했거나 다른 근거이면 노란색으로 표시하도록 변경했다.
-
-## 2026-08-11 - QoS 상세 의미 기반 색상 정책 통일
-
-- Topic/Service/Action 공통 `QosDetails`에서 실제 조회값은 파랑, 정상 무제한은 청록, unknown은 회색, 부분 정보와 비교 불충분은 노랑, 실제 `incompatible` 판정만 빨강으로 표시하도록 정리했다. DDS Topic/Type 메타데이터는 일반 본문색으로 낮췄으며 데이터 구조와 판정 로직은 변경하지 않았다.
-
-## 2026-08-11 - Topic RMW 무제한 duration 색상 적용
-
-- Topic Graph QoS가 무제한 시간을 `*_status: infinite` 대신 RMW int64-max nanoseconds로 전달하는 경우도 공통 UI에서 정상 무제한으로 인식해 문구와 청록색을 동일하게 적용했다.
-
-## 2026-08-11 - 통신 3탭 DDS 관찰 색상 통일
-
-- Topic/Service/Action 공통 QoS 상세에서 판정 근거와 사유를 `fastdds_discovery` 관찰 시 초록, 그 외 미관찰 상태는 노랑으로 표시하도록 공통 helper를 적용했다.
-
-## 2026-08-11 - DDS Discovery 상태 배지 색상 수정
-
-- Action 내부 Goal/Result/Cancel처럼 `fastdds_discovery`로 관찰된 채널 상태 배지를 local QoS 유무보다 우선해 초록으로 표시하고, observer 미관찰/unknown 채널은 노랑으로 표시하도록 상태 및 그룹 집계를 수정했다.
-
-## 2026-08-11 - 통신 3탭 QoS 최종 상태 색상 통일
-
-- 발견 경로가 DDS인지 Graph인지와 무관하게 Topic/Service/Action QoS 최종 상태가 `compatible`이거나 Fast DDS에서 정상 관찰된 채널이면 초록, 부분/미확인/Graph 한쪽 관찰은 노랑, 실제 `incompatible`만 빨강으로 통일했다. 판정 근거와 사유도 같은 최종 상태 색을 사용한다.
-
 ## 2026-08-11 - 통신 QoS 발견·분류·적용 코드 현황 확인
 
 - Topic/Service/Action의 QoS 발견 원천, 상태 분류와 실제 entity 적용 경로를 비교했다. 코드 변경과 검증 실행은 없었다.
@@ -486,3 +222,89 @@
 - 고유 MonitorStatus warning/info를 실제 ROS2 → Monitor → Backend → MariaDB 경로로 발생·해제했다. 새 row
   id 48은 `detected_at 17:10:31.705794`, `resolved_at 17:11:00.439408`로 DB KST와 일치했다. 기존 DB row와
   schema, Alert lifecycle, Frontend 코드는 변경하지 않았다.
+
+## 2026-08-11 - ROS Graph 규모별 Monitor CPU 사전 측정
+
+- 동일 PC에서 별도 ROS domain/port, DB 비활성, Browser 요청 없음 조건으로 30초 안정화 후 30초간 측정했다.
+  최소 Graph(2 Nodes/7 Topics/14 Services)는 Monitor 4.83%, Backend 0.20%, 중간 Graph(14/19/114/4 Actions)는
+  6.57%/0.43%, Gazebo+Nav2 Graph(25/120/313/17)는 78.43%/1.77%였다.
+- Monitor RSS는 약 97.2 → 105.3 → 138.0 MiB, Backend RSS는 60.1 → 61.6 → 71.8 MiB로 증가했다. 큰 Graph에서
+  기존 80~88% CPU가 재현됐지만 실제 기기 성능을 뜻하지 않으며, 실기기 연결 후 동일 방식으로 다시 측정해야 한다.
+- 측정용 프로세스와 포트를 모두 종료하고 기존 운영 Dashboard health와 Monitor 연결이 정상임을 확인했다.
+
+## 2026-08-12 - 실제 Nginx Vite proxy·HTTPS/WSS/HMR 재검증
+
+- 시스템 `/etc/nginx/conf.d/ros2-dashboard.conf`를 현재 저장소 템플릿 렌더 결과와 byte 단위로
+  비교했으며 이미 완전히 일치해 재설치가 필요하지 않았다.
+- Nginx는 active/enabled 상태이고 HTTPS `/`의 Vite HTML, `/@vite/client`, `/src/main.jsx`, Backend
+  `/health`가 모두 정상으로 응답했다. Backend `wss://localhost/ws/monitor`에서
+  `monitor_snapshot`을 수신했고 Vite `vite-hmr` WebSocket도 HTTPS Nginx를 경유해 upgrade·연결됐다.
+- 인증서 SAN은 `localhost`, `127.0.0.1`, `192.168.1.123`을 포함하며 2028-11-12까지 유효하다.
+  코드와 시스템 설정은 변경하지 않고, 오래된 CURRENT_STATUS의 미설치 표시만 현재 사실로 갱신했다.
+
+## 2026-08-12 - Camera Topic 요청형 이미지 Preview
+
+- 기존 Topic 자동 구독·QoS·latest·Hz·age·stale 경로에 `Image`/`CompressedImage`를 추가하고,
+  정기 snapshot에는 메타데이터만 유지하며 선택한 Topic의 별도 API에서만 제한된 data URL을 생성했다.
+- Raw `rgb8`/`bgr8`/`mono8`은 PNG, CompressedImage JPEG/PNG는 Browser preview로 제공하고 미지원
+  encoding/format은 Topic 감시를 깨뜨리지 않는 상태로 표시한다. 320x180 패턴의 1 Hz demo Publisher를 추가했다.
+- 검증: Monitor 209 passed, 선택 package 227 tests/0 failures/1 skipped, Frontend lint/build 통과.
+  격리 live E2E에서 raw/compressed preview, 1.0 Hz, stale/disconnected, 일반 JSON 회귀와 headless Browser 이미지 렌더링을 확인했다.
+  실제 Monitor를 새 build로 재시작한 뒤 HTTPS→Backend→Monitor raw preview도 `ready` PNG로 재검증했다.
+- 최근 WORK_LOG 48개 중 오래된 23개를 `.codex/archive/WORK_LOG_2026-08-10_to_2026-08-11_003.md`로
+  이동해 최근 25개만 유지했고, 분리 전후 본문 SHA-256 `cfef76e3c03a46b993183ed8f31e8802811eea2d5ba4b43ebfee454c3d3465b5`가 일치했다.
+
+## 2026-08-12 - Camera Preview 클릭 확대 modal
+
+- Topic 상세의 Camera preview를 클릭·키보드로 열 수 있는 확대 modal로 연결했고,
+  Esc·배경 클릭·닫기 버튼을 지원했다. Frontend lint/build와 실제 Browser DOM 열기/닫기를 검증했다.
+
+## 2026-08-12 - 실제 기기 Camera Topic 호환 경로 재확인
+
+- Camera 변환 경로가 Demo Topic 이름이나 Publisher 구현에 의존하지 않고 ROS Graph에서 발견한
+  `sensor_msgs/msg/Image`·`CompressedImage` 타입과 실제 수신 payload를 기준으로 동작함을 코드로 재확인했다.
+- 현재 raw 지원은 `rgb8`·`bgr8`·`mono8`, compressed 지원은 JPEG·PNG이며 기본 제한은 1920x1080,
+  source payload 4 MB다. 그 밖의 encoding/format과 제한 초과 frame은 감시는 유지하되 preview 미지원으로 표시한다.
+
+## 2026-08-12 - Camera Preview 실제 확대·크기 조절
+
+- 뒤쪽 공통 modal CSS가 Camera modal을 760px로 다시 제한하던 specificity 문제를 수정해 팝업이 화면의
+  96vw/94vh를 사용하도록 했고, 기본 화면 맞춤에서 저해상도 이미지도 가용 영역까지 실제 확대되게 했다.
+- 25% 단위 25~400% 확대·축소, 화면 맞춤, 원본 크기, 확대 시 양방향 overflow scroll을 추가했다.
+  Frontend lint/build와 1440x900 headless Browser에서 320x180 frame의 1321x709 맞춤 확대,
+  125% 폭 1633px 및 동일 scroll 폭, 원본 320x180 복원을 검증했다.
+
+## 2026-08-12 - Camera 확대 popup 크기 조정
+
+- 사용자 요청에 따라 데스크톱 Camera popup을 기존 96vw/94vh 기준에서 가로 20%, 세로 5% 줄인
+  76.8vw/89.3vh로 조정했다. 화면 맞춤·확대/축소·원본 크기 동작은 유지했다.
+
+## 2026-08-12 - 실제 기기 `/camera/image_raw` 출력 조건 확인
+
+- Dashboard는 Gazebo/실기기를 구분하지 않고 ROS Topic의 표준 type, payload encoding, QoS를 기준으로 구독하므로
+  실제 Camera driver가 지원 형식의 `sensor_msgs/msg/Image` 또는 `CompressedImage`를 발행하면 같은 UI에 출력된다.
+- 확인 시점의 현재 셸 ROS Graph에는 `/camera/image_raw`가 없어 live type/QoS 대조는 하지 못했다. UI의 마지막 frame
+  유지와 실시간 Publisher 존재 여부는 구분해야 하며, 실제 장비 검증 시 Graph/type/encoding/QoS를 함께 확인해야 한다.
+
+## 2026-08-12 - QoS 상태 가시성·확정 Alert 개선
+
+- 기존 QoS 계산을 유지한 채 Topic/Service/Action 목록에 상태 badge, 상세 상단에 호환/일부 호환/불일치/확인 불가
+  안내와 QoS 상세 펼치기를 추가했다. Action은 Goal/Result/Cancel/Feedback/Status 문제를 채널별로 표시한다.
+- 주요 감시 대상에서 확정 `incompatible`만 설정값(기본 3회)만큼 연속 관찰한 뒤 QoS Alert를 생성한다.
+  Graph 일부 조합은 warning, 실제 RMW 이벤트 또는 전체 상대 endpoint와 통신 불가능이 확인되면 error이며,
+  `partial`·`unknown`·observer 미사용·fallback 자체는 Alert에서 제외했다. MariaDB 스키마는 변경하지 않았다.
+- Alert 클릭 시 해당 상세로 이동해 QoS 영역과 Action 문제 채널을 펼친다. Monitor 216 tests, colcon 234 tests
+  (0 failures, 1 skipped), Backend 15 passed/2 skipped, Frontend lint/build를 통과했다. 격리 ROS Graph E2E에서
+  3회 확인 후 warning 생성과 endpoint 제거 후 resolved 전환까지 검증했다.
+
+## 2026-08-12 - DDS observed 목록 배지 의미 수정
+
+- Service와 Action의 Fast DDS 발견 결과인 `observed`가 목록에서 `unknown`으로 합쳐져 `QoS 확인 불가`로
+  표시되던 Frontend 상태 집계 오류를 수정했다. 호환으로 과장하지 않고 파란 `QoS 발견됨`으로 분리했다.
+- Action은 5개 채널이 `compatible`/`observed` 조합이고 불일치가 없으면 `QoS 발견됨`으로 집계한다.
+  Alert 제외 정책은 유지했다. Frontend lint/build와 실제 Chrome DOM에서 Service/Action 배지 두 건을 확인했다.
+
+## 2026-08-12 - QoS 요약의 중복 상세 버튼 제거
+
+- 상세 화면의 QoS 상태 안내와 기존 접이식 QoS 영역이 함께 보이는 구조에서 중복된 `QoS 상세 보기` 버튼만
+  제거했다. 기존 QoS 상세 영역과 QoS Alert 클릭 시 자동 펼침은 유지했으며 Frontend lint/build를 통과했다.

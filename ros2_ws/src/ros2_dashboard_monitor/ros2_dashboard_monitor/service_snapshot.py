@@ -84,7 +84,22 @@ def assemble_service_snapshot(monitor, *, include_hidden: bool = False) -> dict[
         service['failure_count'] = summary.get('failure_count', 0) if summary else 0
         client_created = dashboard_states.get(key, {}).get('interface_client_created') is True
         if client_created:
-            service['local_qos'] = dashboard_states[key].get('local_qos')
+            applied_qos = dashboard_states[key]
+            service['local_qos'] = applied_qos.get('local_qos')
+            if applied_qos.get('qos_status') == 'incompatible':
+                service.update({
+                    field: applied_qos.get(field)
+                    for field in (
+                        'qos_status',
+                        'qos_detection_source',
+                        'mismatch_policies',
+                        'mismatch_reason',
+                        'qos_error_type',
+                        'compatible_endpoint_count',
+                        'remote_endpoint_count',
+                    )
+                    if field in applied_qos
+                })
         service['dashboard_communication'] = {
             'interface_client_created': client_created,
             'has_call_history': summary is not None,

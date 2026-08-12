@@ -67,6 +67,34 @@ def test_explicit_topic_exclude_names_uses_only_configured_values() -> None:
     assert config.topics_exclude == ('/rosout',)
 
 
+def test_camera_preview_limits_are_loaded_and_bounded() -> None:
+    config = _monitor_config({
+        'topics': {
+            'camera_preview': {
+                'demand_ttl_sec': 4,
+                'min_interval_sec': 0.25,
+                'max_source_bytes': 123456,
+                'max_width': 640,
+                'max_height': 480,
+            },
+        },
+    })
+
+    assert config.camera_preview.demand_ttl_sec == 4
+    assert config.camera_preview.min_interval_sec == 0.25
+    assert config.camera_preview.max_source_bytes == 123456
+    assert config.camera_preview.max_width == 640
+    assert config.camera_preview.max_height == 480
+
+
+def test_qos_alert_confirmation_count_uses_default_and_config_value() -> None:
+    assert _monitor_config({}).qos_alerts.incompatible_confirmation_count == 3
+    configured = _monitor_config({
+        'alerts': {'qos': {'incompatible_confirmation_count': 2}},
+    })
+    assert configured.qos_alerts.incompatible_confirmation_count == 2
+
+
 def test_primary_resource_names_are_loaded_separately_from_include_filters() -> None:
     config = _monitor_config({
         'services': {'primary_names': ['/robot/reset']},

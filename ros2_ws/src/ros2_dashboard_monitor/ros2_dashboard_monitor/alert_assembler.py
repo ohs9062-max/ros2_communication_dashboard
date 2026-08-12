@@ -12,6 +12,10 @@ from ros2_dashboard_monitor.ros2_topic.alerts import (
     build_alerts,
     retain_alerts,
 )
+from ros2_dashboard_monitor.qos_alerts import (
+    build_qos_alert_candidates,
+    confirm_qos_alerts,
+)
 
 
 RETAINED_ALERT_CODES = {
@@ -29,6 +33,9 @@ RETAINED_ALERT_CODES = {
     'action_result_timeout',
     'action_result_unavailable',
     'node_stale',
+    'topic_qos_incompatible',
+    'service_qos_incompatible',
+    'action_qos_incompatible',
 }
 
 
@@ -43,6 +50,9 @@ def collect_runtime_alerts(
     stale_timeout_sec: float,
     required_stream_names: tuple[str, ...],
     command_names: tuple[str, ...],
+    qos_topics: list[dict[str, Any]] | None = None,
+    qos_confirmation_state: dict[str, dict[str, Any]] | None = None,
+    qos_incompatible_confirmation_count: int = 3,
 ) -> list[dict[str, Any]]:
     """Topic·Service·Action·Node 상태 판정 결과를 하나의 Alert 목록으로 합칩니다."""
     alerts = build_alerts(
@@ -56,6 +66,21 @@ def collect_runtime_alerts(
     alerts.extend(build_service_alerts(services=services, detected_at=detected_at))
     alerts.extend(build_action_alerts(actions=actions, detected_at=detected_at))
     alerts.extend(build_node_alerts(nodes=nodes, detected_at=detected_at))
+    qos_candidates = build_qos_alert_candidates(
+        topics=qos_topics if qos_topics is not None else topics,
+        services=services,
+        actions=actions,
+        detected_at=detected_at,
+    )
+    alerts.extend(confirm_qos_alerts(
+        qos_candidates,
+        confirmation_state=(
+            qos_confirmation_state
+            if qos_confirmation_state is not None
+            else {}
+        ),
+        required_count=qos_incompatible_confirmation_count,
+    ))
     return alerts
 
 

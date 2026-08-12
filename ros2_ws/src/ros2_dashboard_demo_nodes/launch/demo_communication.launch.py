@@ -7,6 +7,7 @@ DEMO_EXECUTABLES = (
     'robot_control_service',
     'schedule_crud_service',
     'can_control_server',
+    'camera_publisher',
 )
 
 

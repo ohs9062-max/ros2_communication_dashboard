@@ -96,6 +96,8 @@ def observe_topic_qos(node: Any, topic_name: str) -> dict[str, Any]:
             'graph_endpoint_info' if status != 'unknown' else 'graph_unavailable'
         ),
         graph_mismatch_reason=reason if reasons else None,
+        endpoint_pair_count=len(publishers) * len(subscriptions),
+        incompatible_endpoint_pair_count=len(reasons),
     )
 
 

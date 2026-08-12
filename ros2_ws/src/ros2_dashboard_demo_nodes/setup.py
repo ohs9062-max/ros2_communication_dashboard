@@ -26,5 +26,6 @@ setup(
         'cleaning_schedule = ros2_dashboard_demo_nodes.demo_cleaning_schedule:main',
         'robot_control_service = ros2_dashboard_demo_nodes.demo_robot_control_service:main',
         'schedule_crud_service = ros2_dashboard_demo_nodes.demo_schedule_crud_service:main',
+        'camera_publisher = ros2_dashboard_demo_nodes.demo_camera_publisher:main',
     ]},
 )

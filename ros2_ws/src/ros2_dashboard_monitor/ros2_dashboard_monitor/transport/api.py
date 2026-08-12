@@ -67,7 +67,12 @@ def transport_snapshot() -> dict[str, Any]:
     services = ros_monitor.service_snapshot(include_hidden=False)
     actions = ros_monitor.action_snapshot()
     nodes = ros_monitor.node_snapshot()
-    alerts = ros_monitor.alerts(action_snapshot=actions, node_snapshot=nodes)
+    alerts = ros_monitor.alerts(
+        action_snapshot=actions,
+        node_snapshot=nodes,
+        service_snapshot=services,
+        topic_snapshot=topics,
+    )
     return {
         'success': True,
         'data': {

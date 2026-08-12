@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 from typing import Any
+from time import time
+
+from ros2_dashboard_monitor.ros2_topic.camera_preview import (
+    is_camera_topic_type,
+)
 
 from ros2_dashboard_monitor.ros2_topic.query_support import (
     build_topic_hz_response,
@@ -102,6 +107,63 @@ class TopicQueryFacade:
         self._ensure_subscription(name, topic_type, message_class)
         return self._topic_hz_snapshot(name, topic_type)
 
+    def image_preview(self, name: str) -> dict[str, Any]:
+        """Enable short-lived Camera encoding and return its latest bounded frame."""
+        if self._node_getter() is None:
+            return self._image_preview_response(
+                success=False, name=name, message='ROS2 monitor is not running',
+            )
+
+        topic_type = self._topic_type(name)
+        if topic_type is None:
+            return self._image_preview_response(
+                success=False, name=name, message='Topic not found',
+            )
+        if not is_camera_topic_type(topic_type):
+            return self._image_preview_response(
+                success=False, name=name, topic_type=topic_type,
+                message='Topic is not a supported Camera image type',
+            )
+
+        message_class = self._message_class(topic_type)
+        if message_class is None:
+            return self._image_preview_response(
+                success=False, name=name, topic_type=topic_type,
+                message='Failed to import topic message class',
+            )
+        self._ensure_subscription(name, topic_type, message_class)
+
+        requested_at = time()
+        with self._lock:
+            entry = self._subscriptions.get(name, {})
+            entry['image_preview_requested_until'] = (
+                requested_at + self._config.camera_preview.demand_ttl_sec
+            )
+            metadata = entry.get('message_preview')
+            image_preview = entry.get('image_preview')
+            last_received_at = entry.get('last_received_at')
+            frame_received_at = entry.get('image_preview_frame_received_at')
+
+        if image_preview is None:
+            image_preview = {
+                'status': 'awaiting_frame',
+                'mime_type': None,
+                'size_bytes': 0,
+                'data_url': None,
+                'error': None,
+            }
+        return self._image_preview_response(
+            success=True,
+            name=name,
+            topic_type=topic_type,
+            received=metadata is not None,
+            last_received_at=last_received_at,
+            frame_received_at=frame_received_at,
+            metadata=metadata,
+            image_preview=image_preview,
+            message='Camera Topic preview fetched successfully',
+        )
+
     def _topic_hz_snapshot(
         self,
         name: str,
@@ -167,3 +229,30 @@ class TopicQueryFacade:
             is_stale=is_stale,
             status=status,
         )
+
+    @staticmethod
+    def _image_preview_response(
+        *,
+        success: bool,
+        name: str,
+        message: str,
+        topic_type: str | None = None,
+        received: bool = False,
+        last_received_at: float | None = None,
+        frame_received_at: float | None = None,
+        metadata: dict[str, Any] | None = None,
+        image_preview: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            'success': success,
+            'data': {
+                'name': name,
+                'type': topic_type,
+                'received': received,
+                'last_received_at': last_received_at,
+                'frame_received_at': frame_received_at,
+                'metadata': metadata.copy() if isinstance(metadata, dict) else None,
+                'preview': image_preview.copy() if isinstance(image_preview, dict) else None,
+            },
+            'message': message,
+        }

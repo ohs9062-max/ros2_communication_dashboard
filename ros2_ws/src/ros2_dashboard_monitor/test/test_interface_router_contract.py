@@ -40,3 +40,9 @@ def test_interface_management_router_keeps_registry_and_manual_routes() -> None:
     assert '/ros/interfaces/manual-definition' in paths
     assert '/ros/interfaces/manual-definition/validate' in paths
     assert '/ros/interfaces/manual-definition/{kind}/{type_name}' in paths
+
+
+def test_camera_preview_keeps_a_separate_topic_detail_route() -> None:
+    paths = {route.path for route in _routes(app)}
+
+    assert '/ros/topics/image-preview' in paths

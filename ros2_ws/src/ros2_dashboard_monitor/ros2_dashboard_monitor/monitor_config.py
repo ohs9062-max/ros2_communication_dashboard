@@ -44,6 +44,20 @@ class FastDdsObserverConfig:
 
 
 @dataclass(frozen=True)
+class CameraPreviewConfig:
+    demand_ttl_sec: float = 3.0
+    min_interval_sec: float = 0.5
+    max_source_bytes: int = 4_000_000
+    max_width: int = 1920
+    max_height: int = 1080
+
+
+@dataclass(frozen=True)
+class QosAlertConfig:
+    incompatible_confirmation_count: int = 3
+
+
+@dataclass(frozen=True)
 class MonitorConfig:
     poll_interval_sec: float = 1.0
     stale_timeout_sec: float = 3.0
@@ -58,6 +72,8 @@ class MonitorConfig:
     topics_registered_types: tuple[str, ...] = ()
     topics_required_stream_names: tuple[str, ...] = ()
     topics_command_names: tuple[str, ...] = ()
+    camera_preview: CameraPreviewConfig = field(default_factory=CameraPreviewConfig)
+    qos_alerts: QosAlertConfig = field(default_factory=QosAlertConfig)
     services_include: tuple[str, ...] = ()
     services_primary_names: tuple[str, ...] = ()
     services_exclude: tuple[str, ...] = ()
@@ -93,6 +109,8 @@ def build_monitor_config(
     nodes = mapping(data.get('nodes'))
     actions = mapping(data.get('actions'))
     fastdds_observer = mapping(data.get('fastdds_observer'))
+    camera_preview = mapping(topics.get('camera_preview'))
+    qos_alerts = mapping(mapping(data.get('alerts')).get('qos'))
 
     return MonitorConfig(
         poll_interval_sec=positive_float(monitor.get('poll_interval_sec'), default=1.0),
@@ -117,6 +135,32 @@ def build_monitor_config(
         topics_registered_types=tuple(dict.fromkeys(registered_message_types)),
         topics_required_stream_names=string_tuple(topics.get('required_stream_names')),
         topics_command_names=string_tuple(topics.get('command_names')),
+        camera_preview=CameraPreviewConfig(
+            demand_ttl_sec=positive_float(
+                camera_preview.get('demand_ttl_sec'), default=3.0,
+            ),
+            min_interval_sec=positive_float(
+                camera_preview.get('min_interval_sec'), default=0.5,
+            ),
+            max_source_bytes=bounded_integer(
+                camera_preview.get('max_source_bytes'), default=4_000_000,
+                minimum=1024, maximum=32_000_000,
+            ),
+            max_width=bounded_integer(
+                camera_preview.get('max_width'), default=1920,
+                minimum=1, maximum=8192,
+            ),
+            max_height=bounded_integer(
+                camera_preview.get('max_height'), default=1080,
+                minimum=1, maximum=8192,
+            ),
+        ),
+        qos_alerts=QosAlertConfig(
+            incompatible_confirmation_count=bounded_integer(
+                qos_alerts.get('incompatible_confirmation_count'), default=3,
+                minimum=1, maximum=20,
+            ),
+        ),
         services_include=config_string_tuple(services, 'include'),
         services_primary_names=config_string_tuple(services, 'primary_names'),
         services_exclude=config_string_tuple(services, 'exclude'),

@@ -5,6 +5,7 @@ import { ServiceSummaryCards } from '../components/ServiceSummaryCards.jsx'
 import { ServiceTable } from '../components/ServiceTable.jsx'
 import { ServiceFilterToolbar } from '../features/services/ServiceFilterToolbar.jsx'
 import { filterServices, getPrimaryServices, getServiceUiSummary } from '../features/services/serviceFilters.js'
+import { qosAlertChannel } from '../utils/qosAlerts.js'
 
 export function ServicesPage({ dashboard }) {
   const [search, setSearch] = useState('')
@@ -14,6 +15,8 @@ export function ServicesPage({ dashboard }) {
     error,
     includeHidden,
     loading,
+    focusQosDetails,
+    qosFocusRequest,
     meta,
     selectedService,
     selectedServiceName,
@@ -62,6 +65,9 @@ export function ServicesPage({ dashboard }) {
     setSearch('')
     setStatusFilter('all')
     setSelectedServiceName(alert.name)
+    if (alert.code === 'service_qos_incompatible') {
+      focusQosDetails(alert.name, qosAlertChannel(alert))
+    }
     focusMonitorRow(alert.name, setSelectedServiceName)
   }
 
@@ -123,6 +129,7 @@ export function ServicesPage({ dashboard }) {
 
       <ServiceDetailPanel
         participants={serviceParticipants[detailService?.name] ?? null}
+        qosFocusRequest={qosFocusRequest}
         service={detailService}
       />
     </main>

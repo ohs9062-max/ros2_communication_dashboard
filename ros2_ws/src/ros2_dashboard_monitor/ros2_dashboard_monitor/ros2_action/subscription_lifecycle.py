@@ -102,6 +102,20 @@ def merge_action_topic_local_qos(
             target['qos_fallback_policies'] = source.get(
                 'qos_fallback_policies', [],
             )
+        if source.get('qos_status') == 'incompatible':
+            target.update({
+                key: source.get(key)
+                for key in (
+                    'qos_status',
+                    'qos_detection_source',
+                    'mismatch_policies',
+                    'mismatch_reason',
+                    'qos_error_type',
+                    'compatible_endpoint_count',
+                    'remote_endpoint_count',
+                )
+                if key in source
+            })
     return observed
 
 

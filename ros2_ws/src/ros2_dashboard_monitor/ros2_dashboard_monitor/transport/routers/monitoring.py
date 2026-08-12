@@ -40,6 +40,12 @@ def get_ros_topic_hz(name: str = Query(...)) -> dict[str, Any]:
     return ros_monitor.topic_hz(name)
 
 
+@router.get('/ros/topics/image-preview')
+def get_ros_topic_image_preview(name: str = Query(...)) -> dict[str, Any]:
+    """선택한 Camera Topic의 작은 요청형 image preview를 반환합니다."""
+    return ros_monitor.image_preview(name)
+
+
 @router.get('/ros/services')
 def get_ros_services(
     include_hidden: bool = Query(False),

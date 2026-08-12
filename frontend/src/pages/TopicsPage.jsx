@@ -10,16 +10,20 @@ import {
   sortTopicsByHealth,
 } from '../utils/status.js'
 import { isPrimaryTopic } from '../utils/primaryFilters.js'
+import { qosAlertChannel } from '../utils/qosAlerts.js'
 
 export function TopicsPage({ dashboard }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('primary')
   const {
     alerts,
+    cameraPreview,
     health,
     hz,
     includeAllTopics,
     latest,
+    focusQosDetails,
+    qosFocusRequest,
     selectedTopic,
     selectedTopicName,
     setIncludeAllTopics,
@@ -106,6 +110,9 @@ export function TopicsPage({ dashboard }) {
     setSearch('')
     setStatusFilter('all')
     setSelectedTopicName(alert.name)
+    if (alert.code === 'topic_qos_incompatible') {
+      focusQosDetails(alert.name, qosAlertChannel(alert))
+    }
     focusMonitorRow(alert.name, setSelectedTopicName)
   }
 
@@ -183,9 +190,11 @@ export function TopicsPage({ dashboard }) {
       </section>
 
       <TopicDetailPanel
+        cameraPreview={cameraPreview}
         hz={hz}
         latest={latest}
         participants={topicParticipants[detailTopic?.name] ?? null}
+        qosFocusRequest={qosFocusRequest}
         topic={detailTopic}
       />
     </main>

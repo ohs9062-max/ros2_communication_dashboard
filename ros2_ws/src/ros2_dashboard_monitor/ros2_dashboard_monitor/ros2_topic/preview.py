@@ -6,6 +6,11 @@ from typing import Any, Callable
 
 from rosidl_runtime_py.convert import message_to_ordereddict
 
+from ros2_dashboard_monitor.ros2_topic.camera_preview import (
+    COMPRESSED_IMAGE_TYPE,
+    IMAGE_TYPE,
+    build_camera_metadata,
+)
 from ros2_dashboard_monitor.ros2_topic.models import (
     MONITOR_STATUS_TYPE,
     SUPPORTED_PREVIEW_TYPES,
@@ -36,6 +41,10 @@ def get_supported_preview_types() -> tuple[str, ...]:
 
 def _preview_builders() -> dict[str, Callable[[Any], dict[str, Any]]]:
     return {
+        IMAGE_TYPE: lambda message: build_camera_metadata(IMAGE_TYPE, message),
+        COMPRESSED_IMAGE_TYPE: lambda message: build_camera_metadata(
+            COMPRESSED_IMAGE_TYPE, message,
+        ),
         'sensor_msgs/msg/LaserScan': _laser_scan_preview,
         'nav_msgs/msg/Odometry': _odometry_preview,
         'sensor_msgs/msg/Imu': _imu_preview,

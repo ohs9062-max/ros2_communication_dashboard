@@ -5,6 +5,7 @@ import { DashboardCommunicationBadges } from './DashboardCommunicationBadges.jsx
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
+import { QosStatusBadge } from './QosSummary.jsx'
 import { PriorityStarButton } from './PriorityStarButton.jsx'
 import {
   actionFeedbackPreview,
@@ -134,8 +135,9 @@ export function ActionTable({
                     pending={isPriorityPending(action.name)}
                   />
                 </td>
-                <td>
+                <td className="status-qos-cell">
                   <StatusBadge value={action.status} />
+                  <QosStatusBadge qos={action.qos} />
                 </td>
                 <td className="topic-name action-name">{action.name}</td>
                 <td className="topic-type action-type">{action.type ?? '-'}</td>

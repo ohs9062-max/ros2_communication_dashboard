@@ -6,6 +6,7 @@ import {
   resetCurrentAlerts,
 } from '../api/rosApi.js'
 import { AlertsList } from '../components/AlertsList.jsx'
+import { qosAlertChannel } from '../utils/qosAlerts.js'
 
 export function AlertsPage({
   actionDashboard,
@@ -87,6 +88,9 @@ export function AlertsPage({
     if (alert.source === 'topic' || alert.source === 'monitor_status') {
       dashboard.setIncludeAllTopics(true)
       dashboard.setSelectedTopicName(alert.name)
+      if (alert.code === 'topic_qos_incompatible') {
+        dashboard.focusQosDetails(alert.name, qosAlertChannel(alert))
+      }
       onNavigate('topics')
       return
     }
@@ -94,6 +98,9 @@ export function AlertsPage({
     if (alert.source === 'service') {
       serviceDashboard.setIncludeHidden(true)
       serviceDashboard.setSelectedServiceName(alert.name)
+      if (alert.code === 'service_qos_incompatible') {
+        serviceDashboard.focusQosDetails(alert.name, qosAlertChannel(alert))
+      }
       onNavigate('services')
       return
     }
@@ -101,6 +108,9 @@ export function AlertsPage({
     if (alert.source === 'action') {
       actionDashboard.setIncludeIdleActions(true)
       actionDashboard.setSelectedActionName(alert.name)
+      if (alert.code === 'action_qos_incompatible') {
+        actionDashboard.focusQosDetails(alert.name, qosAlertChannel(alert))
+      }
       onNavigate('actions')
       return
     }

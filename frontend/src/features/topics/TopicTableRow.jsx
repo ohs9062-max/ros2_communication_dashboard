@@ -2,6 +2,7 @@ import { DashboardCommunicationBadges } from '../../components/DashboardCommunic
 import { JsonPreviewButton } from '../../components/JsonPreview.jsx'
 import { PriorityStarButton } from '../../components/PriorityStarButton.jsx'
 import { StatusBadge } from '../../components/StatusBadge.jsx'
+import { QosStatusBadge } from '../../components/QosSummary.jsx'
 import { formatRelativeTime } from '../../utils/format.js'
 import {
   hzLabel,
@@ -31,7 +32,10 @@ export function TopicTableRow({
       <td className="priority-cell">
         <PriorityStarButton item={topic} name={topic.name} onToggle={onTogglePriority} pending={isPriorityPending(topic.name)} />
       </td>
-      <td className="metric-cell"><StatusBadge value={topic.status} /></td>
+      <td className="metric-cell status-qos-cell">
+        <StatusBadge value={topic.status} />
+        <QosStatusBadge qos={topic} />
+      </td>
       <td className="topic-name">{topic.name}</td>
       <td className="topic-type">{topic.types?.[0] ?? '-'}</td>
       <td className="communication-count-cell">{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>

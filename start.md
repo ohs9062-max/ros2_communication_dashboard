@@ -116,6 +116,38 @@ ros2 run turtlebot3_teleop teleop_keyboard
 export TURTLEBOT3_MODEL=burger
 ros2 launch turtlebot3_navigation2 navigation2.launch.py use_sim_time:=True
 ```
+## 가제보 카메라 실행
+
+# 1. ROS2 환경
+source /opt/ros/jazzy/setup.bash
+
+# 2. 카메라 달린 Burger 모델 선택
+export TURTLEBOT3_MODEL=burger_cam
+
+# 3. Gazebo 실행
+ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
+
+# 4. Gazebo 카메라 Topic 확인
+gz topic -l | grep -Ei 'camera|image'
+
+# 5. ROS2 카메라 Topic 확인
+ros2 topic list -t | grep camera
+
+# 6. 실제 영상 수신 Hz 확인
+ros2 topic hz /camera/image_raw
+
+# 7. 카메라 영상 직접 확인
+ros2 run rqt_image_view rqt_image_view
+```
 
 # DB
 mariadb -u ohs -p ros2_dashboard
+
+SELECT
+    id,
+    source,
+    code,
+    detected_at,
+    resolved_at
+FROM alert
+ORDER BY id DESC;

@@ -10,6 +10,10 @@ const serviceName = (service) => service.name
 export function useServiceDashboard({ enabled = true } = {}) {
   const [includeHidden, setIncludeHidden] = useState(false)
   const [selectedServiceName, setSelectedServiceName] = useState('')
+  const [qosFocusRequest, setQosFocusRequest] = useState(null)
+  const focusQosDetails = useCallback((name, channel = null) => {
+    setQosFocusRequest({ channel, name, requestId: Date.now() })
+  }, [])
 
   const servicesFetcher = useCallback(
     () => fetchServices({ includeHidden }),
@@ -76,9 +80,11 @@ export function useServiceDashboard({ enabled = true } = {}) {
     error: servicesState.error,
     includeHidden,
     loading: servicesState.loading,
+    focusQosDetails,
     meta,
     selectedService,
     selectedServiceName,
+    qosFocusRequest,
     serviceAlerts,
     serviceParticipants,
     services,

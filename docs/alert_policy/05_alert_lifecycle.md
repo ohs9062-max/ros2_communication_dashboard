@@ -107,7 +107,8 @@ Backend worker에서도 확인과 INSERT를 직렬화합니다. 스키마에 명
 
 ## 저장 범위
 
-- 현재 코드에서 실제 생성되는 18종 Alert의 모든 발생 건을 저장합니다.
+- 현재 코드에서 실제 생성되는 21종 Alert의 모든 발생 건을 저장합니다.
+- Action QoS는 `action:<name>:action_qos_incompatible:<channel>`을 `alert_key`로 사용해 채널별 발생·해결을 분리합니다.
 - DB에는 50건 제한을 두지 않고 전체 이력을 보존합니다.
 - DB 장애가 Monitor의 ROS2 상태 계산과 수집을 중단시키면 안 됩니다.
 - credential과 연결 문자열은 Backend `.env`, DB 처리는 migration과 Repository 계층에서 관리합니다.

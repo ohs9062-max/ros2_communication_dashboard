@@ -12,6 +12,13 @@ Action Alert는 **Interface Lab에서 사용자가 명시적으로 Goal을 전�
 
 ## Alert 코드 목록
 
+### `action_qos_incompatible`
+
+주요 Action의 Goal Service, Result Service, Cancel Service, Feedback Topic, Status Topic을 각각 판정합니다.
+확정 incompatible 채널만 설정 횟수 연속 확인 후 생성하고 ID는
+`action:<name>:action_qos_incompatible:<goal|result|cancel|feedback|status>`입니다. 여러 채널이 문제면
+동시에 별도 Alert로 표시·해결되며 partial/unknown/graph_unavailable은 Alert가 아닙니다.
+
 ### 1. `action_disconnected`
 
 | 항목 | 내용 |

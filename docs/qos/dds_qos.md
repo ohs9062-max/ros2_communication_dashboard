@@ -141,6 +141,23 @@ Topic, Service, Action 상세는 공통 `QosDetails` 정책을 사용한다.
 `BEST_EFFORT`, `RELIABLE`, `VOLATILE` 같은 값 자체는 오류색으로 표시하지 않는다. DDS Topic/Type 같은
 메타데이터는 흰색 또는 연한 회색으로 낮춘다.
 
+목록의 기존 상태 셀에는 `QoS 호환`(초록), `QoS 일부 호환`(노랑), `QoS 불일치`(빨강),
+`QoS 발견됨`(파랑), `QoS 확인 불가`(회색) 소형 배지를 함께 표시한다. `observed`는 Fast DDS/Graph에서
+상대 endpoint profile을 발견했지만 Dashboard 적용 profile과의 호환성 판정 전인 상태이므로
+`compatible`이나 `unknown`으로 합치지 않는다. 상세 상단은 접힌 `QosDetails`와 별개로 observed/partial/unknown/
+incompatible 안내를 보여주며, 안내 또는 QoS Alert에서 진입하면 상세가 자동으로 펼쳐진다. Action은 Goal,
+Result, Cancel, Feedback, Status를 각각 표시하고 Alert 진입 시 문제 채널을 펼친다.
+
+## QoS Alert
+
+- Alert 대상은 기존 주요/등록/감시 및 숨김 제외 정책을 그대로 사용한다.
+- `partial`, `unknown`, `observed`, `graph_unavailable`, observer 미사용, fallback 자체, 미수신/timeout 추정은 제외한다.
+- `incompatible`이 `alerts.qos.incompatible_confirmation_count`(기본 3)회의 서로 다른 Graph 갱신에서 연속
+  확인돼야 생성한다. 같은 snapshot을 여러 번 조회해도 횟수를 중복 증가시키지 않는다.
+- 일부 Graph endpoint 조합 불일치는 warning, RMW incompatible 이벤트와 Dashboard 적용 profile이 모든 상대
+  endpoint와 실제로 불가능한 경우는 error다.
+- compatible 복귀 또는 endpoint 소멸로 비교 불가가 되면 active Alert를 resolved 처리하며 재발 시 새 이력이 된다.
+
 ## 제한
 
 - Fast DDS 2.14 Discovery proxy는 History와 Depth를 제공하지 않는다.

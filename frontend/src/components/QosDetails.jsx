@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { DetailSection } from './DetailSection.jsx'
 
 const ACTION_QOS_GROUPS = [
@@ -17,14 +18,34 @@ const ACTION_QOS_GROUPS = [
 
 const RMW_INFINITE_DURATION_NS = Number('9223372036854775807')
 
-export function QosDetails({ qos, title = 'QoS' }) {
+export function QosDetails({ focusRequest, qos, title = 'QoS' }) {
+  const detailsRef = useRef(null)
+  useEffect(() => {
+    if (!focusRequest || !detailsRef.current) return
+    detailsRef.current.open = true
+    if (focusRequest.channel) {
+      const part = detailsRef.current.querySelector(
+        `[data-qos-part="${focusRequest.channel}"]`,
+      )
+      if (part) {
+        part.open = true
+        const group = part.closest('.qos-channel-group')
+        if (group) group.open = true
+      }
+    }
+    window.setTimeout(() => detailsRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    }), 0)
+  }, [focusRequest])
+
   if (!qos) return null
   const isActionQos = ['goal', 'result', 'cancel'].some(
     (part) => qos[part] && typeof qos[part] === 'object',
   )
   if (isActionQos) {
     return (
-      <DetailSection collapsible title={title}>
+      <DetailSection collapsible detailsRef={detailsRef} title={title}>
         <div className="qos-channel-groups">
           {ACTION_QOS_GROUPS.map((group) => (
             <ActionQosGroup group={group} key={group.key} qos={qos} />
@@ -34,7 +55,7 @@ export function QosDetails({ qos, title = 'QoS' }) {
     )
   }
   return (
-    <DetailSection collapsible title={title}>
+    <DetailSection collapsible detailsRef={detailsRef} title={title}>
       <QosState collapseEndpointGroups qos={qos} />
     </DetailSection>
   )
@@ -54,7 +75,7 @@ function ActionQosGroup({ group, qos }) {
       </summary>
       <div className="qos-channel-body">
         {group.parts.map((part) => (
-          <details className="qos-channel-item" key={part}>
+          <details className="qos-channel-item" data-qos-part={part} key={part}>
             <summary className="qos-part-summary">
               <strong className="qos-item-title">{partLabel(part)}</strong>
               <StatusPill label={statusLabel(qos[part] ?? {})} tone={statusTone(qos[part])} />

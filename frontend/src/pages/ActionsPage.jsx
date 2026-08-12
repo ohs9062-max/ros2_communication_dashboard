@@ -4,6 +4,7 @@ import { ActionSummaryCards } from '../components/ActionSummaryCards.jsx'
 import { ActionTable } from '../components/ActionTable.jsx'
 import { AlertsPreview } from '../components/AlertsPreview.jsx'
 import { isPrimaryAction } from '../utils/primaryFilters.js'
+import { qosAlertChannel } from '../utils/qosAlerts.js'
 
 const ACTION_FILTERS = [
   { id: 'primary', label: '주요 항목' },
@@ -25,6 +26,8 @@ export function ActionsPage({ dashboard }) {
     error,
     includeIdleActions,
     loading,
+    focusQosDetails,
+    qosFocusRequest,
     meta,
     selectedAction,
     selectedActionName,
@@ -94,6 +97,9 @@ export function ActionsPage({ dashboard }) {
     setSearch('')
     setStatusFilter('all')
     setSelectedActionName(alert.name)
+    if (alert.code === 'action_qos_incompatible') {
+      focusQosDetails(alert.name, qosAlertChannel(alert))
+    }
     focusMonitorRow(alert.name, setSelectedActionName)
   }
 
@@ -179,6 +185,7 @@ export function ActionsPage({ dashboard }) {
       <ActionDetailPanel
         action={detailAction}
         participants={actionParticipants[detailAction?.name] ?? null}
+        qosFocusRequest={qosFocusRequest}
       />
     </main>
   )
