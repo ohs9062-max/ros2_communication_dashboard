@@ -102,6 +102,8 @@ docs/                            설계·운영 문서
   행을 선택하면 390px 상세 패널이 열리며 닫기 버튼으로 목록 전체 폭을 즉시 복원한다. 이름·타입은 한 줄
   ellipsis와 title을 사용하고, 제거한 endpoint·Graph·실행 metadata는 기존 접이식 상세에 유지한다. 빈 Alert는
   한 줄로 축소했고 Sidebar 라벨, 주요 리소스 요약 용어와 대표 영문 상태 문구를 정리했다.
+  Service `최근 응답`은 헤더와 preview를 가운데 정렬하고, Action은 Feedback/Result 내용 열 오른쪽에
+  Feedback·Result 중 더 최근 수신 시각을 표시하는 `마지막 응답 시간` 정렬 열을 제공한다.
 - Interface Lab은 등록/실행 가능/build 필요/오류와 Interface 목록을 첫 화면 중심으로 표시한다. 관리와 주의사항은
   목록 검색·종류·상태 필터를 제공한다. 관리 영역은 항상 펼쳐지고 주의사항만 기본 접힘이다. 선택 상세는 데스크톱 420~460px 우측 패널로 열리고,
   Topic Publish/Receive/History, Service Call/History, Action Goal/History와 고급 정보 탭으로 실행 흐름을 분리한다.

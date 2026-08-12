@@ -481,3 +481,9 @@
   둘 다 동일한 최근 호출 이력 제목·빈 상태·History 관리·선택/전체 초기화 badge 컨테이너를 사용하게 했다.
 - Action History에도 누락됐던 동일 reset callback을 연결해 Topic/Service/Action 모두 같은 구조를 사용한다.
   Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - Service 응답 정렬·Action 마지막 응답 시간
+
+- Service 목록의 `최근 응답` 헤더와 JSON preview 내용을 동일한 가운데 정렬으로 맞췄다.
+- Action의 기존 `마지막 Feedback`/`마지막 Result` 내용은 유지하고, 두 응답 시각 중 최신 값을
+  상대 시각으로 보여주는 `마지막 응답 시간` 정렬 열을 추가했다. Frontend lint/build와 diff check를 통과했다.

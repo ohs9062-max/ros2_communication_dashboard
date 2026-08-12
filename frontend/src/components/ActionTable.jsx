@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
@@ -7,6 +8,7 @@ import { QosStatusBadge } from './QosSummary.jsx'
 import { PriorityStarButton } from './PriorityStarButton.jsx'
 import {
   actionFeedbackPreview,
+  actionLastResponseAt,
   actionResultPreview,
 } from '../features/actions/actionPresentation.js'
 
@@ -15,6 +17,7 @@ const ACTION_SORT_COLUMNS = {
   name: { value: (action) => action.name },
   type: { value: (action) => action.type },
   last_goal_status: { value: (action) => action.runtime?.last_goal_status },
+  last_response: { value: actionLastResponseAt, defaultDirection: 'desc' },
 }
 
 export function ActionTable({
@@ -51,6 +54,7 @@ export function ActionTable({
             <SortableHeader columnKey="last_goal_status" label="Goal 상태" onSort={onSort} sort={sort} />
             <th>마지막 Feedback</th>
             <th>마지막 Result</th>
+            <SortableHeader columnKey="last_response" label="마지막 응답 시간" onSort={onSort} sort={sort} />
           </tr>
         </thead>
         <tbody>
@@ -113,6 +117,9 @@ export function ActionTable({
                     previewMode="first-entry"
                     value={actionResultPreview(action)}
                   />
+                </td>
+                <td className="action-response-time-cell">
+                  {formatRelativeTime(actionLastResponseAt(action))}
                 </td>
               </tr>
             )

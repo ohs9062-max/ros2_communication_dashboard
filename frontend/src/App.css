@@ -2825,6 +2825,11 @@ h3 {
   width: 100%;
 }
 
+.service-response-preview-cell .table-preview-button,
+.service-response-preview-cell .table-preview-text {
+  text-align: center;
+}
+
 .service-col-status { width: 6%; }
 .service-col-name { width: 14%; }
 .service-col-type { width: 12%; }
@@ -4917,7 +4922,7 @@ details summary {
 }
 
 .action-table {
-  min-width: 980px;
+  min-width: 1110px;
   table-layout: fixed;
 }
 
@@ -5012,6 +5017,17 @@ details summary {
 .action-table th:nth-child(6),
 .action-table th:nth-child(7) {
   width: 150px;
+}
+
+.action-table th:nth-child(8) {
+  width: 130px;
+}
+
+.action-response-time-cell {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .node-relations-cell {

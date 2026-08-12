@@ -6,6 +6,21 @@ export function actionResultPreview(action) {
   return action.last_goal_summary?.last_result_preview ?? action.runtime?.result_preview
 }
 
+export function actionLastResponseAt(action) {
+  const summary = action.last_goal_summary ?? {}
+  const runtime = action.runtime ?? {}
+  const feedbackAt = summary.last_feedback_at ?? runtime.last_feedback_at
+  const resultAt = summary.last_result_at
+    ?? ((runtime.result_preview || runtime.result_error || runtime.result_status)
+      ? runtime.last_status_at
+      : null)
+  const timestamps = [feedbackAt, resultAt]
+    .map(Number)
+    .filter(Number.isFinite)
+
+  return timestamps.length ? Math.max(...timestamps) : null
+}
+
 export function feedbackDisplay(action) {
   const summary = action.last_goal_summary
   if (summary?.last_feedback_preview) {
