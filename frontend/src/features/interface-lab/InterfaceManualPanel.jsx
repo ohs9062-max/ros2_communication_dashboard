@@ -1,3 +1,5 @@
+import { ExecutionPanelHeading } from './execution/ExecutionPanelHeading.jsx'
+
 const MANUAL_DEFINITION_EXAMPLES = {
   msg: '예:\nuint8 cmd\nbool success\nstring message',
   srv: '예:\nuint8 cmd\n---\nbool success\nstring message',
@@ -7,6 +9,7 @@ const MANUAL_DEFINITION_EXAMPLES = {
 export function ManualInterfacePanel({
   disabled,
   editingManualDefinition,
+  expanded,
   manualDefinition,
   manualKind,
   manualMode,
@@ -16,14 +19,23 @@ export function ManualInterfacePanel({
   onDefinitionChange,
   onKindChange,
   onModeChange,
+  onClose,
   onSubmitDefinition,
   onSubmitType,
   onTypeChange,
   onTypeNameChange,
+  onToggleExpanded,
   onValidateDefinition,
 }) {
   return (
     <div className="interface-manual-panel">
+      <ExecutionPanelHeading
+        expanded={expanded}
+        onClose={onClose}
+        onToggleExpanded={onToggleExpanded}
+        showExpand
+        title="타입 직접 등록"
+      />
       <div className="interface-manual-tabs">
         <button className={manualMode === 'type' ? 'active' : ''} onClick={() => onModeChange('type')} type="button">
           기존 빌드 타입 등록

@@ -2,8 +2,8 @@ running: false
 status: success
 build_status: success
 real_apply_success: true
-started_at: '2026-08-12T06:01:05.046125+00:00'
-finished_at: '2026-08-12T06:01:11.939877+00:00'
+started_at: '2026-08-13T01:10:48.794891+00:00'
+finished_at: '2026-08-13T01:10:55.453034+00:00'
 returncode: 0
 workspace_path: /home/hs/rang/ros2_dashboard/ros2_ws
 log_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
@@ -73,5 +73,5 @@ cleanup:
   removed:
   - build/rths_interfaces
   - install/rths_interfaces
-  - log/latest_build/rths_interfaces
+  - log/latest/rths_interfaces
   duplicates: {}

@@ -605,3 +605,26 @@
 
 - Topic·Service·Action 목록의 `observed` 상태 `QoS 발견` badge를 회색에서 기존 파란
   정보색으로 변경했다. `unknown`의 `QoS 확인 불가`는 기존 회색을 유지한다.
+
+## 2026-08-13 - Interface Lab 필터 초기화 버튼 다크 테마 조정
+
+- Interface 검색·상태 필터의 빈 결과 초기화 버튼에 전용 클래스를 추가해 하얀 기본
+  배경을 제거하고, 기존 상세 닫기와 어울리는 다크 네이비 배경·중립 테두리·호버 정보색을
+  적용했다.
+
+## 2026-08-13 - Interface Lab 관리 패널 확대·닫기 통일
+
+- `타입 직접 등록`, `등록 목록`, `Package 목록` 패널 헤더를 Topic 실행 패널의 공통
+  `ExecutionPanelHeading`으로 교체해 `크게보기/목록보기`와 `닫기 ×` 버튼 형식을 동일하게
+  적용했다. 닫을 때는 해당 패널과 확대 상태를 함께 해제한다.
+
+## 2026-08-13 - Interface Lab 등록·Package 목록 닫기 연결 수정
+
+- 관리 View props 조립 시 누락된 `setShowRegistry`, `setShowPackages`를 전달해 `등록 목록`과
+  `Package 목록`의 `닫기 ×`가 실제 open 상태를 false로 바꾸고 패널을 제거하도록 수정했다.
+
+## 2026-08-13 - Node 목록 이름·Namespace 통합
+
+- Node 목록의 별도 `Namespace` 컬럼을 제거하고 `Node 전체 이름`에 `full_name`을 표시해
+  root namespace의 `/`가 행마다 반복되는 문제를 없앰다. 정렬·선택 key와 검색은 기존
+  `full_name`/`namespace`를 유지하고, 우측 상세에서는 이름과 namespace를 개별로 계속 표시한다.

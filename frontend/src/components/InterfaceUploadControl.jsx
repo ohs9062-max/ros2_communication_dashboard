@@ -164,6 +164,7 @@ export function InterfaceUploadControl({
   const {
     closeExecutionPanels,
     closeReceivePanel,
+    collapseWorkspace,
     expandedActive: topicExpandedActive,
     openActionPanel,
     openPackages,
@@ -194,8 +195,10 @@ export function InterfaceUploadControl({
     setShowPackages,
     setShowReceivePanel,
     setShowRegistry,
+    showManualInput,
     showPackages,
     showReceivePanel,
+    showRegistry,
   })
 
   useEffect(() => {
@@ -260,10 +263,12 @@ export function InterfaceUploadControl({
     regenerateUploadedInterfacesCmake, registry, reloadPhase, replacePackage,
     setEditingManualDefinition, setManualDefinition, setManualKind, setManualMode,
     setManualType, setManualTypeName, setReplacePackage, setShowManualInput,
+    setShowPackages, setShowRegistry,
     showBuildLog, showManualInput, showPackages, showRegistry,
     startEditManualDefinition, submitManualDefinition, submitManualType,
     toggleBuildLog, toggleWorkspaceExpanded, validateCurrentManualDefinition,
     websocketStatus: websocket?.status,
+    collapseWorkspace,
     expanded: topicExpandedActive,
   })
 

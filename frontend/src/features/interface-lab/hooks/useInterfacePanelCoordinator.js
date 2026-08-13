@@ -19,8 +19,10 @@ export function useInterfacePanelCoordinator({
   setShowPackages,
   setShowReceivePanel,
   setShowRegistry,
+  showManualInput,
   showPackages,
   showReceivePanel,
+  showRegistry,
 }) {
   const [executionMode, setExecutionMode] = useState(null)
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false)
@@ -119,7 +121,9 @@ export function useInterfacePanelCoordinator({
   }, [closeExecutionPanels, setShowBuildLog, setShowPackages, setShowRegistry])
 
   const expandedActive = useMemo(() => workspaceExpanded && (
-    showPackages
+    showManualInput
+    || showRegistry
+    || showPackages
     || (
       showReceivePanel
       && (
@@ -127,7 +131,15 @@ export function useInterfacePanelCoordinator({
         || (executionMode === null && receiveMode !== 'mock')
       )
     )
-  ), [executionMode, receiveMode, showPackages, showReceivePanel, workspaceExpanded])
+  ), [
+    executionMode,
+    receiveMode,
+    showManualInput,
+    showPackages,
+    showReceivePanel,
+    showRegistry,
+    workspaceExpanded,
+  ])
 
   useEffect(() => {
     onExpandedChange?.(expandedActive)
@@ -137,6 +149,7 @@ export function useInterfacePanelCoordinator({
   return {
     closeExecutionPanels,
     closeReceivePanel,
+    collapseWorkspace: () => setWorkspaceExpanded(false),
     expandedActive,
     loadExecutionPanel,
     openActionPanel,

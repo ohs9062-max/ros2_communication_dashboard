@@ -13,6 +13,7 @@ export function managementViewProps(state) {
     manual: {
       disabled: state.disabled,
       editingManualDefinition: state.editingManualDefinition,
+      expanded: state.expanded,
       manualDefinition: state.manualDefinition,
       manualKind: state.manualKind,
       manualMode: state.manualMode,
@@ -22,24 +23,39 @@ export function managementViewProps(state) {
       onDefinitionChange: state.setManualDefinition,
       onKindChange: state.setManualKind,
       onModeChange: state.setManualMode,
+      onClose: () => {
+        state.setShowManualInput(false)
+        state.collapseWorkspace()
+      },
       onSubmitDefinition: state.submitManualDefinition,
       onSubmitType: state.submitManualType,
       onTypeChange: state.setManualType,
       onTypeNameChange: state.setManualTypeName,
+      onToggleExpanded: state.toggleWorkspaceExpanded,
       onValidateDefinition: state.validateCurrentManualDefinition,
       open: state.showManualInput,
     },
     packages: {
       expanded: state.expanded,
+      onClose: () => {
+        state.setShowPackages(false)
+        state.collapseWorkspace()
+      },
       onDelete: state.handleRemovePackage,
       onToggleExpanded: state.toggleWorkspaceExpanded,
       open: state.showPackages,
       packages: state.packages,
     },
     registry: {
+      expanded: state.expanded,
       onDelete: state.handleRemoveRegistryEntry,
       onDeleteManual: state.handleRemoveManualDefinition,
       onEditManual: state.startEditManualDefinition,
+      onClose: () => {
+        state.setShowRegistry(false)
+        state.collapseWorkspace()
+      },
+      onToggleExpanded: state.toggleWorkspaceExpanded,
       open: state.showRegistry,
       recentDeletedRegistry: state.recentDeletedRegistry,
       registry: state.registry,

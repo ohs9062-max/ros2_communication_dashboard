@@ -72,7 +72,7 @@ export function InterfaceLabWorkspaceBrowser({
           {!visibleItems.length && (
             <div className="interface-empty-state">
               <p>{emptyMessage(activeGroup, search, statusFilter)}</p>
-              {(search || statusFilter !== 'all') && <button onClick={clearFilters} type="button">검색·상태 필터 초기화</button>}
+              {(search || statusFilter !== 'all') && <button className="interface-filter-reset-button" onClick={clearFilters} type="button">검색·상태 필터 초기화</button>}
             </div>
           )}
         </div>

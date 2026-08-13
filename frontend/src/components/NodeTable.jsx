@@ -8,7 +8,6 @@ import { PriorityStarButton } from './PriorityStarButton.jsx'
 const NODE_SORT_COLUMNS = {
   status: { value: (node) => node.status },
   full_name: { value: (node) => node.full_name },
-  namespace: { value: (node) => node.namespace },
   publisher_count: countColumn('publisher_count'),
   subscriber_count: countColumn('subscriber_count'),
   service_server_count: countColumn('service_server_count'),
@@ -49,8 +48,7 @@ export function NodeTable({
           <tr>
             <th className="priority-column">주요</th>
             <SortableHeader columnKey="status" headerClassName="node-status-column" label="상태" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="full_name" label="Node" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="namespace" label="Namespace" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="full_name" label="Node 전체 이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="publisher_count" headerClassName="diagnostic-count-column" label={['Topic', 'Pub']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="subscriber_count" headerClassName="diagnostic-count-column" label={['Topic', 'Sub']} onSort={onSort} sort={sort} />
             <SortableHeader columnKey="service_server_count" headerClassName="diagnostic-count-column" label={['Service', 'Server']} onSort={onSort} sort={sort} />
@@ -81,8 +79,7 @@ export function NodeTable({
                 <td className="node-status-cell">
                   <NodeStatusBadge status={node.status} />
                 </td>
-                <td className="topic-name node-name ellipsis-cell" title={node.name ?? node.full_name}>{node.name ?? node.full_name}</td>
-                <td className="node-namespace ellipsis-cell" title={node.namespace ?? '/'}>{node.namespace ?? '/'}</td>
+                <td className="topic-name node-name ellipsis-cell" title={node.full_name}>{node.full_name ?? node.name ?? '-'}</td>
                 <td className="diagnostic-count-cell">{node.publisher_count ?? 0}</td>
                 <td className="diagnostic-count-cell">{node.subscriber_count ?? 0}</td>
                 <td className="diagnostic-count-cell">{node.service_server_count ?? 0}</td>
