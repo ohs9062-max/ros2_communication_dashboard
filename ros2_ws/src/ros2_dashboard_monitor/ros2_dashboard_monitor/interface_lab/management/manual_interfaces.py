@@ -138,9 +138,9 @@ def delete_manual_definition(
 ) -> dict[str, Any]:
     """Interface Lab에서 등록 항목이나 파일을 삭제하는 함수입니다."""
     if kind not in ALLOWED_KINDS:
-        raise InterfaceUploadError('kind는 msg, srv, action 중 하나여야 합니다.')
+        raise InterfaceUploadError('kind must be one of: msg, srv, action.')
     if not TYPE_NAME_PATTERN.fullmatch(type_name):
-        raise InterfaceUploadError('type_name은 대문자로 시작하는 PascalCase여야 합니다.')
+        raise InterfaceUploadError('type_name must be PascalCase and start with an uppercase letter.')
     package_name = 'uploaded_interfaces'
     package_root = generated_interface_package_root()
     return delete_uploaded_interface(
@@ -175,10 +175,10 @@ def delete_uploaded_interface(
 ) -> dict[str, Any]:
     """업로드 Interface 파일과 정확히 일치하는 Registry 항목을 함께 삭제합니다."""
     if kind not in ALLOWED_KINDS:
-        raise InterfaceUploadError('kind는 msg, srv, action 중 하나여야 합니다.')
+        raise InterfaceUploadError('kind must be one of: msg, srv, action.')
     expected_suffix = f'.{kind}'
     if Path(file_name).name != file_name or not file_name.endswith(expected_suffix):
-        raise InterfaceUploadError(f'file_name은 안전한 {expected_suffix} 파일명이어야 합니다.')
+        raise InterfaceUploadError(f'file_name must be a safe {expected_suffix} file name.')
 
     path = registry_path or default_registry_path()
     removed = find_entry(
@@ -189,7 +189,7 @@ def delete_uploaded_interface(
         full_type=full_type,
     )
     if removed is None:
-        raise InterfaceUploadError('삭제할 registry 항목을 찾을 수 없습니다.')
+        raise InterfaceUploadError('The registry entry to delete was not found.')
     return delete_generated_interface(
         removed=removed,
         kind=kind,

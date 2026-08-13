@@ -135,11 +135,11 @@ export function useTopicExecutionController({
 
   const publish = useCallback(async () => {
     if (!publishName.trim()) {
-      setResult({ success: false, error: 'Publish할 Topic 이름을 입력하세요.' })
+      setResult({ success: false, error: 'Enter a Topic name to publish.' })
       return
     }
     if (!selected?.message_type) {
-      setResult({ success: false, error: 'Publish할 Message full_type을 선택하세요.' })
+      setResult({ success: false, error: 'Select a Message full_type to publish.' })
       return
     }
     setBusy(true)

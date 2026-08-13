@@ -71,7 +71,7 @@ export function useActionExecutionController({
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
-      setResult({ success: false, error: '실행 가능한 Action이 없습니다.' })
+      setResult({ success: false, error: 'No executable Action is available.' })
       return
     }
     setBusy(true)

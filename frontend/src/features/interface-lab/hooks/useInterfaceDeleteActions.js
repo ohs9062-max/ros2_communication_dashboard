@@ -39,7 +39,7 @@ export function useInterfaceDeleteActions({
       await deleteManualDefinition({ kind: item.file_kind, typeName: item.type_name })
       setFeedback({
         tone: 'warning',
-        text: `${item.full_type ?? item.file_name} 파일 삭제 및 CMakeLists.txt 재생성 완료 · 적용하기로 build 상태를 다시 반영하세요.`,
+        text: `Deleted ${item.full_type ?? item.file_name} and regenerated CMakeLists.txt. Run Apply to refresh the build status.`,
       })
       if (editingManualDefinition?.kind === item.file_kind && editingManualDefinition?.typeName === item.type_name) {
         setEditingManualDefinition(null)
@@ -60,7 +60,7 @@ export function useInterfaceDeleteActions({
       await deleteInterfacePackage(packageName)
       setFeedback({
         tone: 'warning',
-        text: `${packageName} package를 삭제했습니다. 적용하기로 build 상태를 갱신하세요.`,
+        text: `Deleted the ${packageName} package. Run Apply to refresh the build status.`,
       })
       await refreshManagedListsAfterDelete()
       await refreshExecutionCandidates?.()
@@ -89,8 +89,8 @@ export function useInterfaceDeleteActions({
       setFeedback({
         tone: 'warning',
         text: payload.data?.file_deleted
-          ? `${item.file_name} 파일과 등록을 삭제하고 package metadata를 재생성했습니다.`
-          : `${item.file_name} 등록을 삭제했습니다. 생성된 파일은 삭제하지 않았습니다.`,
+          ? `Deleted ${item.file_name} and its registry entry, then regenerated the package metadata.`
+          : `Deleted the registry entry for ${item.file_name}. The generated file was not deleted.`,
       })
       await refreshManagedListsAfterDelete()
       await refreshExecutionCandidates?.()

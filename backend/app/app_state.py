@@ -51,5 +51,5 @@ def sync_user_preferences() -> None:
     )
     if not 200 <= response.status_code < 300:
         raise MonitorUnavailable(
-            f'사용자 우선순위 동기화 실패: monitor HTTP {response.status_code}',
+            f'User priority synchronization failed: Monitor HTTP {response.status_code}',
         )

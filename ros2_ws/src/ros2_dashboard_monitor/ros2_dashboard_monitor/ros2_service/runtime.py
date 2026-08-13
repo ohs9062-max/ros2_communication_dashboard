@@ -161,7 +161,7 @@ class ServiceRuntime:
             return self._dds_qos_getter(name)
         return qos_state(
             status='unknown', source='graph_unavailable', local=None,
-            reason='Service endpoint QoS는 Graph에서 확인할 수 없습니다.',
+            reason='Service endpoint QoS could not be discovered from the ROS2 graph.',
             qos_visibility='graph_unavailable',
         )
 

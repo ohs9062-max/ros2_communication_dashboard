@@ -215,7 +215,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
 
 function ReceptionDiagnosis({ diagnosis }) {
   if (!diagnosis) {
-    return <p className="notice-text warning">수신 상태의 원인을 확인할 정보가 부족합니다.</p>
+    return <p className="notice-text warning">There is not enough information to determine the reception issue.</p>
   }
   const confirmed = diagnosis.certainty === 'confirmed'
   const localReliability = diagnosis.local_qos?.reliability

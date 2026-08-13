@@ -13,7 +13,7 @@ def parse_interface(raw_text: str, kind: str) -> dict[str, Any]:
     expected = {'msg': 1, 'srv': 2, 'action': 3}[kind]
     if len(sections) != expected:
         labels = {'msg': 'fields', 'srv': 'request/response', 'action': 'goal/result/feedback'}
-        raise InterfaceUploadError(f'{kind}의 {labels[kind]} 구분 형식이 올바르지 않습니다.')
+        raise InterfaceUploadError(f'The {labels[kind]} section format for {kind} is invalid.')
     parsed_sections = [_parse_fields(lines) for lines in sections]
     if kind == 'msg':
         return {'fields': parsed_sections[0]}

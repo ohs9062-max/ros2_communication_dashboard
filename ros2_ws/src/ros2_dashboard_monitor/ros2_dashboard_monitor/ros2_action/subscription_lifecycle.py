@@ -54,7 +54,7 @@ def default_action_qos() -> dict[str, Any]:
         status='unknown',
         source='graph_unavailable',
         local=None,
-        reason='Action service endpoint QoS는 Graph에서 확인할 수 없습니다.',
+        reason='Action Service endpoint QoS could not be discovered from the ROS2 graph.',
         qos_visibility='graph_unavailable',
     )
     return {

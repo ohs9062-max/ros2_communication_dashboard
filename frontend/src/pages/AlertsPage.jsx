@@ -48,7 +48,7 @@ export function AlertsPage({
       setHistoryResponse(result)
     } catch (error) {
       setHistoryError(
-        error instanceof Error ? error.message : '이전 Alert를 불러오지 못했습니다.',
+        error instanceof Error ? error.message : 'Failed to load previous Alerts.',
       )
     } finally {
       setHistoryPending(false)
@@ -77,7 +77,7 @@ export function AlertsPage({
       setDeleteError(
         error instanceof Error
           ? error.message
-          : '이전 Alert 이력을 삭제하지 못했습니다.',
+          : 'Failed to delete the previous Alert history.',
       )
     } finally {
       setDeletePending(false)

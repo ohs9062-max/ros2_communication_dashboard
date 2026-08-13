@@ -48,7 +48,7 @@ class ActionClientPool:
     ) -> Any:
         node = self._node_getter()
         if node is None:
-            raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
+            raise ActionGoalError('The ROS2 monitor node is not running.')
         profiles = self.qos_profiles(node, name, qos_selection)
         key = (name, action_type, action_profile_fingerprint(profiles))
 
@@ -134,7 +134,7 @@ class ActionClientPool:
         if node is None or not name:
             service = qos_state(
                 status='unknown', source='default_profile', local=qos_profile_services_default,
-                reason='상대 QoS를 확인할 Action endpoint가 없습니다.',
+                reason='No Action endpoint is available for remote QoS discovery.',
             )
             return {part: service for part in ('goal', 'result', 'cancel', 'feedback', 'status')}
         return self.qos_profiles(node, name)['state']

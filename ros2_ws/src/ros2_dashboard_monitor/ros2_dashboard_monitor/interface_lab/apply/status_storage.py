@@ -23,7 +23,7 @@ def read_status(path: Path, *, default_factory: Callable[[], dict[str, Any]]) ->
     try:
         data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        raise InterfaceApplyError(f'적용 상태를 읽을 수 없습니다: {exc}') from exc
+        raise InterfaceApplyError(f'The interface apply status could not be read: {exc}') from exc
     status = default_factory()
     if isinstance(data, dict):
         status.update(data)
@@ -45,7 +45,7 @@ def write_status(path: Path, status: dict[str, Any]) -> None:
         except OSError as exc:
             if temporary_name:
                 Path(temporary_name).unlink(missing_ok=True)
-            raise InterfaceApplyError(f'적용 상태를 저장할 수 없습니다: {exc}') from exc
+            raise InterfaceApplyError(f'The interface apply status could not be saved: {exc}') from exc
 
 
 def write_text(path: Path, content: str) -> None:

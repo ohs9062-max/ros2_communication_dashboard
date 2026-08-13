@@ -73,12 +73,12 @@ def duplicate_packages(workspace: Path, package_names: list[str]) -> dict[str, l
 def safe_workspace_child(workspace: Path, relative: Path) -> Path:
     root = workspace.resolve()
     if relative.is_absolute() or '..' in relative.parts:
-        raise InterfaceApplyError(f'workspace 밖 경로는 정리할 수 없습니다: {relative}')
+        raise InterfaceApplyError(f'A path outside the workspace cannot be cleaned: {relative}')
     target = root / relative
     try:
         target.resolve().relative_to(root)
     except ValueError as exc:
-        raise InterfaceApplyError(f'workspace 밖 경로는 정리할 수 없습니다: {target}') from exc
+        raise InterfaceApplyError(f'A path outside the workspace cannot be cleaned: {target}') from exc
     return target
 
 

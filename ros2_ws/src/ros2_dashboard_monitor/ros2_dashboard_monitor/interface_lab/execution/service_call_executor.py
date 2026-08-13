@@ -37,7 +37,7 @@ def execute_service_call(
 
         client = client_getter(service_name, service_type, service_class)
         if not client.service_is_ready():
-            raise error_class('Service server가 준비되지 않았습니다.')
+            raise error_class('Service server is not available.')
         future = client.call_async(request)
         sent_to_server = True
         event = threading.Event()

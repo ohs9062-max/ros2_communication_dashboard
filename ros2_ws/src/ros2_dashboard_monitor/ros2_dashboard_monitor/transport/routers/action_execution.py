@@ -30,28 +30,28 @@ async def send_registered_action_goal(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
+        raise HTTPException(status_code=400, detail='A JSON request body is required.') from exc
 
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail='JSON object 요청 본문이 필요합니다.')
+        raise HTTPException(status_code=400, detail='The JSON request body must be an object.')
 
     action_name = payload.get('action_name')
     action_type = payload.get('action_type')
     full_type = payload.get('full_type')
     goal_data = payload.get('goal')
     if not isinstance(action_name, str) or not action_name:
-        raise HTTPException(status_code=400, detail='action_name이 필요합니다.')
+        raise HTTPException(status_code=400, detail='action_name is required.')
     if full_type is not None and (not isinstance(full_type, str) or not full_type):
-        raise HTTPException(status_code=400, detail='full_type은 비어 있지 않은 문자열이어야 합니다.')
+        raise HTTPException(status_code=400, detail='full_type must be a non-empty string.')
     if action_type is not None and (not isinstance(action_type, str) or not action_type):
-        raise HTTPException(status_code=400, detail='action_type은 비어 있지 않은 문자열이어야 합니다.')
+        raise HTTPException(status_code=400, detail='action_type must be a non-empty string.')
     if full_type and action_type and full_type != action_type:
-        raise HTTPException(status_code=400, detail='action_type과 full_type이 일치해야 합니다.')
+        raise HTTPException(status_code=400, detail='action_type and full_type must match.')
     selected_type = full_type or action_type
     if not selected_type:
-        raise HTTPException(status_code=400, detail='full_type 또는 action_type이 필요합니다.')
+        raise HTTPException(status_code=400, detail='full_type or action_type is required.')
     if not isinstance(goal_data, dict):
-        raise HTTPException(status_code=400, detail='goal object가 필요합니다.')
+        raise HTTPException(status_code=400, detail='goal must be an object.')
 
     try:
         result = await run_in_threadpool(
@@ -68,7 +68,7 @@ async def send_registered_action_goal(request: Request) -> dict[str, Any]:
     return {
         **result,
         'message': (
-            '입력값이 Action 타입과 맞지 않아 Goal을 보내지 않았습니다. 서버에는 요청을 보내지 않았습니다.'
+            'The goal payload does not match the Action type. No goal was sent to the server.'
             if result.get('error_type') == 'validation_error'
             else 'Action Goal 실행이 완료되었습니다.'
         ),

@@ -88,7 +88,7 @@ export function topicCauseBadge(diagnosis) {
     non_qos_receive_path: ['QoS 외 원인 확인', 'muted'],
     qos_unconfirmed: ['원인 확인 불가', 'muted'],
     publisher_data_stopped: ['데이터 중단', 'warn'],
-    publisher_missing: ['Publisher 없음', 'warn'],
+    publisher_missing: ['발행자 없음', 'warn'],
   }
   const [label, tone] = displays[diagnosis.cause] ?? ['원인 확인 필요', 'muted']
   return { label, tone }

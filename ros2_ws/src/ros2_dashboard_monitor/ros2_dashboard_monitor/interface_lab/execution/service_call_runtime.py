@@ -63,7 +63,7 @@ class ServiceCallRuntime:
             lock=lock,
             node_getter=node_getter,
             unavailable_error=lambda: ServiceCallError(
-                'ROS2 monitor node가 실행 중이 아닙니다.',
+                'The ROS2 monitor node is not running.',
             ),
         )
         self._history = ServiceCallHistory(lock, MAX_HISTORY_ITEMS)
@@ -95,12 +95,12 @@ class ServiceCallRuntime:
         allowed = self._allowed_service(service_name, service_type)
         if allowed is None:
             raise ServiceCallError(
-                'registry에 등록되고 import 가능한 Service이며, 현재 server가 있는 경우만 호출할 수 있습니다.',
+                'Only an importable registered Service with an available server can be called.',
             )
 
         node = self._node_getter()
         if node is None:
-            raise ServiceCallError('ROS2 monitor node가 실행 중이 아닙니다.')
+            raise ServiceCallError('The ROS2 monitor node is not running.')
         try:
             qos_profile, execution_qos = resolve_split_service_execution_qos(
                 service_name,
@@ -257,9 +257,9 @@ def _normalized_timeout(timeout_sec: float | None) -> float:
     try:
         timeout = float(timeout_sec)
     except (TypeError, ValueError) as exc:
-        raise ServiceCallError('timeout_sec 값이 올바르지 않습니다.') from exc
+        raise ServiceCallError('timeout_sec must be a valid number.') from exc
     if timeout <= 0:
-        raise ServiceCallError('timeout_sec는 0보다 커야 합니다.')
+        raise ServiceCallError('timeout_sec must be greater than zero.')
     return min(timeout, MAX_TIMEOUT_SEC)
 
 

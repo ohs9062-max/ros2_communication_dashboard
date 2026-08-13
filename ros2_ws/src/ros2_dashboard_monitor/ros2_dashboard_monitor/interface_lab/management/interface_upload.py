@@ -25,22 +25,22 @@ def prepare_interface_upload(file_name: str, content: bytes) -> dict[str, Any]:
     safe_name = safe_file_name(file_name)
     kind = Path(safe_name).suffix.lower().removeprefix('.')
     if kind not in ALLOWED_KINDS:
-        raise InterfaceUploadError('.msg, .srv, .action 파일만 업로드할 수 있습니다.')
+        raise InterfaceUploadError('Only .msg, .srv, and .action files can be uploaded.')
     if not content:
-        raise InterfaceUploadError('빈 파일은 업로드할 수 없습니다.')
+        raise InterfaceUploadError('An empty file cannot be uploaded.')
     if len(content) > MAX_INTERFACE_FILE_SIZE:
         raise InterfaceUploadError(
-            f'파일 크기는 {MAX_INTERFACE_FILE_SIZE // 1024}KB 이하여야 합니다.',
+            f'The file must not exceed {MAX_INTERFACE_FILE_SIZE // 1024} KB.',
         )
     try:
         raw_text = content.decode('utf-8')
     except UnicodeDecodeError as exc:
-        raise InterfaceUploadError('파일은 UTF-8 텍스트여야 합니다.') from exc
+        raise InterfaceUploadError('The file must contain UTF-8 text.') from exc
 
     type_name = Path(safe_name).stem
     if not TYPE_NAME_PATTERN.fullmatch(type_name):
         raise InterfaceUploadError(
-            '타입 이름은 대문자로 시작하고 영문자와 숫자만 포함해야 합니다.',
+            'The type name must start with an uppercase letter and contain only letters and numbers.',
         )
 
     entry: dict[str, Any] = {
@@ -63,5 +63,5 @@ def safe_file_name(file_name: str) -> str:
     normalized = file_name.replace('\\', '/')
     safe_name = PurePath(normalized).name.strip()
     if not safe_name or safe_name in {'.', '..'} or '\x00' in safe_name:
-        raise InterfaceUploadError('파일명이 올바르지 않습니다.')
+        raise InterfaceUploadError('The file name is invalid.')
     return safe_name

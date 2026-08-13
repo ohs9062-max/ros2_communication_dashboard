@@ -10,15 +10,15 @@ from ros2_dashboard_monitor.interface_lab.management.errors import InterfaceUplo
 
 def extract_multipart_file(content_type: str, body: bytes) -> tuple[str, bytes]:
     if not content_type.lower().startswith('multipart/form-data'):
-        raise InterfaceUploadError('multipart/form-data 요청이 필요합니다.')
+        raise InterfaceUploadError('A multipart/form-data request is required.')
     message = BytesParser(policy=default).parsebytes(
         b'Content-Type: ' + content_type.encode('ascii', errors='ignore')
         + b'\r\nMIME-Version: 1.0\r\n\r\n' + body,
     )
     if not message.is_multipart():
-        raise InterfaceUploadError('multipart 요청 형식을 읽을 수 없습니다.')
+        raise InterfaceUploadError('The multipart request could not be parsed.')
     for part in message.iter_parts():
         file_name = part.get_filename()
         if file_name:
             return file_name, part.get_payload(decode=True) or b''
-    raise InterfaceUploadError('업로드할 파일이 없습니다.')
+    raise InterfaceUploadError('No file was provided for upload.')

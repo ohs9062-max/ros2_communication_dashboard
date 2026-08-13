@@ -38,7 +38,7 @@ async def upload_ros_interface(request: Request) -> dict[str, Any]:
         request,
         payload_limit=MAX_INTERFACE_FILE_SIZE,
         multipart_overhead=64 * 1024,
-        too_large_detail='업로드 요청이 너무 큽니다.',
+        too_large_detail='The upload request is too large.',
     )
     try:
         file_name, content = extract_multipart_file(
@@ -47,7 +47,7 @@ async def upload_ros_interface(request: Request) -> dict[str, Any]:
         entry = register_interface(file_name, content)
         if not default_registry_path().is_file():
             raise InterfaceUploadError(
-                f'interface_registry.yaml 파일이 생성되지 않았습니다: {default_registry_path()}',
+                f'interface_registry.yaml was not created: {default_registry_path()}',
             )
     except InterfaceUploadError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -66,7 +66,7 @@ async def upload_ros_interface(request: Request) -> dict[str, Any]:
         'message': (
             'YAML 저장, interface 파일 생성, CMake 등록, package.xml 확인이 완료되었습니다.'
             if file_ready
-            else '부분 적용: 파일 생성 또는 CMake 등록이 완료되지 않았습니다. 상세 상태를 확인하세요.'
+            else 'Partial apply: file creation or CMake registration did not complete. Check the detailed status.'
         ),
     }
 
@@ -111,7 +111,7 @@ def delete_interface_registry_entry(
                 kind=kind, file_name=file_name, source=source, full_type=full_type,
             )
             mark_interface_change_pending(
-                f'{result.get("full_type") or file_name} 삭제됨; rebuild 필요',
+                f'{result.get("full_type") or file_name} was deleted. A rebuild is required.',
             )
         else:
             result = delete_registry_entry(

@@ -34,7 +34,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     const target = selectedDetail?.connectedServices?.find((service) => service.callable)
       ?? (selectedDetail?.kind === 'callable_service' ? selectedDetail.status : null)
     if (!target?.service_name || !target?.service_type) {
-      setResult({ success: false, error: '호출 가능한 Service가 없습니다.' })
+      setResult({ success: false, error: 'No callable Service is available.' })
       return
     }
     setExecuting(true)
@@ -60,7 +60,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     const target = selectedDetail?.connectedActions?.find((action) => action.callable)
       ?? (selectedDetail?.kind === 'callable_action' ? selectedDetail.status : null)
     if (!target?.action_name || !target?.action_type) {
-      setResult({ success: false, accepted: false, error: '실행 가능한 Action이 없습니다.' })
+      setResult({ success: false, accepted: false, error: 'No executable Action is available.' })
       return
     }
     setExecuting(true)

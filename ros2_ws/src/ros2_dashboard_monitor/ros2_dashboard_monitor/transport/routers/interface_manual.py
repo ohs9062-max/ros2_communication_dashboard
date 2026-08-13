@@ -115,7 +115,7 @@ def delete_manual_interface_definition(kind: str, type_name: str) -> dict[str, A
     try:
         result = delete_manual_definition(kind=kind, type_name=type_name)
         mark_interface_change_pending(
-            f'{result.get("full_type") or type_name} 삭제됨; rebuild 필요',
+            f'{result.get("full_type") or type_name} was deleted. A rebuild is required.',
         )
     except InterfaceUploadError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -131,7 +131,7 @@ def rebuild_uploaded_interfaces_cmake_endpoint() -> dict[str, Any]:
     """현재 generated interface 파일 기준으로 package metadata를 재생성합니다."""
     result = rebuild_uploaded_interfaces_cmake()
     mark_interface_change_pending(
-        'uploaded_interfaces package metadata 재생성됨; rebuild 필요',
+        'uploaded_interfaces package metadata was regenerated. A rebuild is required.',
     )
     return {
         'success': True,

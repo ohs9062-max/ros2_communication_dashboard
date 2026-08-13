@@ -43,7 +43,6 @@ def test_user_preferences_reject_unknown_kind(tmp_path: Path) -> None:
     try:
         store.set_priority('robots', '/robot', True)
     except UserPreferencesError as exc:
-        assert '지원하지 않는' in str(exc)
+        assert 'Unsupported resource kind' in str(exc)
     else:
         raise AssertionError('unknown kind must be rejected')
-

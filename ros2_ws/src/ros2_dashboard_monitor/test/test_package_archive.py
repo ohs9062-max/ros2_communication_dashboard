@@ -30,7 +30,7 @@ def test_package_relative_path_allows_ros_interface_source():
 def test_zip_member_rejects_symlink():
     info = ZipInfo('demo_interfaces/msg/Status.msg')
     info.external_attr = (stat.S_IFLNK | 0o777) << 16
-    with pytest.raises(InterfacePackageError, match='symlink'):
+    with pytest.raises(InterfacePackageError, match='Symbolic links'):
         safe_zip_member(info)
 
 

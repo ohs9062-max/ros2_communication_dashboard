@@ -36,17 +36,17 @@ def validate_manual_definition(
     package_name = package.strip() or 'uploaded_interfaces'
     if not PACKAGE_NAME_PATTERN.fullmatch(package_name):
         raise InterfaceUploadError(
-            'validation_error: package 이름은 소문자로 시작하고 소문자/숫자/_만 포함해야 합니다.',
+            'validation_error: package must start with a lowercase letter and contain only lowercase letters, numbers, and underscores.',
         )
     if package_name != 'uploaded_interfaces':
-        raise InterfaceUploadError('validation_error: 직접 작성은 uploaded_interfaces 패키지만 지원합니다.')
+        raise InterfaceUploadError('validation_error: manual definitions are supported only in the uploaded_interfaces package.')
     if kind not in ALLOWED_KINDS:
-        raise InterfaceUploadError('validation_error: kind는 msg, srv, action 중 하나여야 합니다.')
+        raise InterfaceUploadError('validation_error: kind must be one of: msg, srv, action.')
     if not TYPE_NAME_PATTERN.fullmatch(type_name):
-        raise InterfaceUploadError('validation_error: type_name은 대문자로 시작하는 PascalCase여야 합니다.')
+        raise InterfaceUploadError('validation_error: type_name must be PascalCase and start with an uppercase letter.')
     raw_text = definition.strip() + '\n'
     if not raw_text.strip():
-        raise InterfaceUploadError('validation_error: definition을 입력하세요.')
+        raise InterfaceUploadError('validation_error: definition is required.')
     separator_count = sum(
         1 for line in raw_text.splitlines()
         if line.split('#', 1)[0].strip() == '---'
@@ -54,7 +54,7 @@ def validate_manual_definition(
     expected_separators = {'msg': 0, 'srv': 1, 'action': 2}[kind]
     if separator_count != expected_separators:
         raise InterfaceUploadError(
-            f'validation_error: {kind}는 --- 구분선이 정확히 {expected_separators}개 필요합니다.',
+            f'validation_error: {kind} requires exactly {expected_separators} --- separator(s).',
         )
     parsed = parse_interface(raw_text, kind)
     validate_parsed_fields(parsed, kind)
@@ -71,7 +71,7 @@ def validate_manual_definition(
 def parse_full_type(full_type: str) -> tuple[str, str, str]:
     match = FULL_TYPE_PATTERN.fullmatch(full_type.strip())
     if not match:
-        raise InterfaceUploadError('full_type 형식은 <package>/<msg|srv|action>/<TypeName> 이어야 합니다.')
+        raise InterfaceUploadError('full_type must use the format <package>/<msg|srv|action>/<TypeName>.')
     return match.group(1), match.group(2), match.group(3)
 
 
@@ -89,15 +89,15 @@ def validate_parsed_fields(parsed: dict[str, Any], kind: str) -> None:
             field_type = field.get('type')
             if not name or not field_type:
                 raise InterfaceUploadError(
-                    f'validation_error: "{raw_line}" 줄은 "type name" 형식이어야 합니다.',
+                    f'validation_error: "{raw_line}" must use the "type name" format.',
                 )
             if not valid_interface_type(str(field_type)):
-                raise InterfaceUploadError(f'validation_error: 알 수 없는 타입 "{field_type}"')
+                raise InterfaceUploadError(f'validation_error: unknown type "{field_type}"')
             name_pattern = CONSTANT_NAME_PATTERN if field.get('is_constant') else FIELD_NAME_PATTERN
             if not name_pattern.fullmatch(str(name)):
-                raise InterfaceUploadError(f'validation_error: 필드명 "{name}" 형식이 올바르지 않습니다.')
+                raise InterfaceUploadError(f'validation_error: field name "{name}" is invalid.')
             if name in names:
-                raise InterfaceUploadError(f'validation_error: 중복 필드명 "{name}"')
+                raise InterfaceUploadError(f'validation_error: duplicate field name "{name}"')
             names.add(str(name))
 
 

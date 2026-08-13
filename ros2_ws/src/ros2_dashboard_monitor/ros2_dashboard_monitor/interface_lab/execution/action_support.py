@@ -24,9 +24,9 @@ def normalized_timeout(timeout_sec: float | None) -> float:
     try:
         timeout = float(timeout_sec)
     except (TypeError, ValueError) as exc:
-        raise ActionGoalError('timeout_sec 값이 올바르지 않습니다.') from exc
+        raise ActionGoalError('timeout_sec must be a valid number.') from exc
     if timeout <= 0:
-        raise ActionGoalError('timeout_sec는 0보다 커야 합니다.')
+        raise ActionGoalError('timeout_sec must be greater than zero.')
     return min(timeout, MAX_TIMEOUT_SEC)
 
 

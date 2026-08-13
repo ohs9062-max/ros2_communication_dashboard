@@ -134,7 +134,7 @@ def packages_snapshot() -> dict[str, Any]:
 def delete_interface_package(package_name: str) -> dict[str, Any]:
     """Interface Lab에서 등록 항목이나 파일을 삭제하는 함수입니다."""
     if not PACKAGE_NAME_PATTERN.fullmatch(package_name):
-        raise InterfacePackageError('패키지명이 올바르지 않습니다.')
+        raise InterfacePackageError('The package name is invalid.')
     destination = default_uploaded_packages_root() / package_name
     if destination.exists():
         shutil.rmtree(destination)

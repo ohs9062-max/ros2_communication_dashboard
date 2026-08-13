@@ -46,7 +46,7 @@ export function useUserPriority({ items, kind, refresh, nameOf }) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : '사용자 주요 설정을 저장하지 못했습니다.',
+          : 'Failed to save the user priority setting.',
       )
     } finally {
       setPending((value) => {

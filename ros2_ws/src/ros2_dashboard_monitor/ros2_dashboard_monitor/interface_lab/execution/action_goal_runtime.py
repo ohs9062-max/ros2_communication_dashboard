@@ -96,12 +96,12 @@ class ActionGoalRuntime:
         allowed = self._allowed_action(action_name, action_type)
         if allowed is None:
             raise ActionGoalError(
-                'registry에 등록되고 import 가능한 Action이며, 현재 server가 있는 경우만 실행할 수 있습니다.',
+                'Only an importable registered Action with an available server can be executed.',
             )
 
         node = self._node_getter()
         if node is None:
-            raise ActionGoalError('ROS2 monitor node가 실행 중이 아닙니다.')
+            raise ActionGoalError('The ROS2 monitor node is not running.')
 
         try:
             result = execute_action_goal(

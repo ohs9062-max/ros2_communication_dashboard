@@ -9,7 +9,7 @@ async function fetchWithConnectionError(input, init) {
     return await globalThis.fetch(input, init)
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error(`백엔드 서버에 연결할 수 없습니다. 서버 실행 상태와 API 주소(${apiDisplayUrl()})를 확인한 뒤 다시 시도하세요.`)
+      throw new Error(`Could not connect to the Backend. Check the server and API address (${apiDisplayUrl()}), then try again.`)
     }
     throw error
   }

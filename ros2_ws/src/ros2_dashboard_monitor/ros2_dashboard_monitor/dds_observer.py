@@ -116,8 +116,8 @@ class FastDdsQosObserver:
             status='observed', source='fastdds_discovery', local=None,
             remote=public,
             reason=(
-                'Fast DDS Discovery에서 원격 Service endpoint QoS를 확인했습니다. '
-                'History와 Depth는 Discovery에서 제공되지 않습니다.'
+                'Remote Service endpoint QoS was discovered through Fast DDS. '
+                'History and Depth are not available through discovery.'
             ),
             publisher_qos=publishers,
             subscriber_qos=subscribers,
@@ -206,7 +206,7 @@ def unavailable_snapshot(reason: str | None) -> dict[str, Any]:
 def unavailable_service_qos(reason: str | None = None) -> dict[str, Any]:
     return qos_state(
         status='unknown', source='graph_unavailable', local=None,
-        reason='Service endpoint QoS를 DDS Discovery에서 확인할 수 없습니다.',
+        reason='Service endpoint QoS could not be discovered through DDS.',
         qos_visibility='graph_unavailable',
         observer_reason=reason or 'observer_unavailable',
     )

@@ -117,7 +117,7 @@ export function ActionsPage({ dashboard }) {
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}
-            {error && <span className="error-text">Action API 연결 실패</span>}
+            {error && <span className="error-text">Failed to connect to the Action API.</span>}
           </div>
 
           <div className="filter-toolbar">

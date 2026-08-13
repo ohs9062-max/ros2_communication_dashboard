@@ -92,7 +92,7 @@ export function TopicPublishPanel({
       </div>
       {activeContinuousPublish && (
         <p className="interface-service-state warning">
-          {activeContinuousPublish.hz} Hz로 지속 발행 중 · {activeContinuousPublish.message_count ?? 0}회 전송
+          Publishing continuously at {activeContinuousPublish.hz} Hz · {activeContinuousPublish.message_count ?? 0} message(s) sent
         </p>
       )}
     </>

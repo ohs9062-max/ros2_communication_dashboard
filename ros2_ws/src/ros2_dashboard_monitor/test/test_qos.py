@@ -133,7 +133,7 @@ def test_action_qos_keeps_services_unknown_and_observes_internal_topics():
 
     assert state['goal']['local_qos'] is None
     assert state['goal']['qos_visibility'] == 'graph_unavailable'
-    reason = 'Action service endpoint QoS는 Graph에서 확인할 수 없습니다.'
+    reason = 'Action Service endpoint QoS could not be discovered from the ROS2 graph.'
     assert state['result']['mismatch_reason'] == reason
     assert state['cancel']['mismatch_reason'] == reason
     assert state['feedback']['publisher_qos'][0]['qos']['depth'] == 3

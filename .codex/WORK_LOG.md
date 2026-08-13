@@ -571,3 +571,37 @@
 - Alert 목록을 Topic 테이블의 고정 컬럼 규칙에서 분리하고 상태·레벨·출처·이름의 폭과 셀 좌우 여백을 줄였다.
   긴 이름·메시지·code는 한 줄 ellipsis와 tooltip을 사용하며 메시지 컬럼은 300px을 확보해 이름이 길어도
   메시지를 가리지 않게 했다. Frontend lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 오류·경고 메시지 본문 영어 통일
+
+- Topic·Service·Action·Node·QoS Alert과 Topic 미수신 진단, Interface Lab의 Publish/Receive/
+  Call/Goal·build/import/apply 오류, Backend 연결·사용자 설정 오류, Frontend fallback 경고/
+  오류 본문을 짧고 직접적인 영어 문장으로 통일했다.
+- `정상/경고/오류/주의/확인 불가` 등 UI 라벨·배지는 한국어로 유지했고, status/code/enum,
+  Alert confirmation·resolve, DB schema는 변경하지 않았다. 외부 ROS `MonitorStatus.message`는
+  Dashboard가 번역할 수 없는 장비 원문이므로 그대로 전달한다.
+- 검증: Monitor 236 passed, Backend 15 passed/2 skipped, Frontend lint/build 통과, 전체 colcon
+  254 tests (0 failures, 1 skipped), 한국어 message/reason/error/detail 검색에서 성공 알림·UI 라벨·
+  외부 payload 외 내부 오류 본문이 남지 않음, `git diff --check` 통과.
+
+## 2026-08-13 - Topic 상태 발행자·구독자 용어 통일
+
+- Topic 목록의 수신 원인 보조 badge에 남아 있던 `Publisher 없음`을 `발행자 없음`으로
+  바꿔 기존 `구독자 없음`, `발행자 대기`와 한국어 용어를 맞췄다. 내부 cause/status 값과 판정
+  로직은 변경하지 않았다.
+
+## 2026-08-13 - 목록 상태 상·하단 badge 크기 통일
+
+- Topic·Service·Action 상태 셀의 대표 상태 badge와 QoS/원인 보조 badge를 112px 폭,
+  22px 최소 높이와 가운데 정렬로 맞췄다. 보조 badge 글자는 긴 `QoS 일부 호환`,
+  `QoS 불일치 가능` 등이 잘리지 않도록 11px로 조정했다.
+
+## 2026-08-13 - 목록 상태 badge 축소·Node 규격 통일
+
+- Topic·Service·Action의 상·하단 상태 badge를 104px × 최소 20px로 한 단계 줄였고,
+  Node 목록의 단일 상태 badge도 같은 폭·높이·가운데 정렬 규격을 적용했다.
+
+## 2026-08-13 - QoS 발견 badge 정보색 적용
+
+- Topic·Service·Action 목록의 `observed` 상태 `QoS 발견` badge를 회색에서 기존 파란
+  정보색으로 변경했다. `unknown`의 `QoS 확인 불가`는 기존 회색을 유지한다.

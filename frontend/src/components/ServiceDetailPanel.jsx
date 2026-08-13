@@ -139,7 +139,7 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         />
         {callSummary?.error_type === 'validation_error' && (
           <p className="notice-text warning">
-            입력값이 타입과 맞지 않아 서버로 보내지 않았습니다.
+            The payload does not match the Service type. No request was sent to the server.
           </p>
         )}
         <DetailLine

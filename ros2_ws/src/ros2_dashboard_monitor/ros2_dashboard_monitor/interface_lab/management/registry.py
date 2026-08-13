@@ -84,7 +84,7 @@ def register_interface(
         collection.append(entry)
         _write_registry(path, registry)
         if not path.is_file():
-            raise InterfaceUploadError(f'타입 registry 파일이 생성되지 않았습니다: {path}')
+            raise InterfaceUploadError(f'The type registry file was not created: {path}')
         entry['registry_path'] = _display_path(path)
     return entry
 
@@ -122,7 +122,7 @@ def delete_registry_entry(
 ) -> dict[str, Any]:
     """Interface Lab에서 등록 항목이나 파일을 삭제하는 함수입니다."""
     if kind not in ALLOWED_KINDS:
-        raise InterfaceUploadError('kind는 msg, srv, action 중 하나여야 합니다.')
+        raise InterfaceUploadError('kind must be one of: msg, srv, action.')
     path = registry_path or default_registry_path()
     with _REGISTRY_LOCK:
         registry = _load_registry(path)
@@ -140,7 +140,7 @@ def delete_registry_entry(
                 continue
             kept.append(item)
         if removed is None:
-            raise InterfaceUploadError('삭제할 registry 항목을 찾을 수 없습니다.')
+            raise InterfaceUploadError('The registry entry to delete was not found.')
         collection[:] = kept
         _write_registry(path, registry)
     return {

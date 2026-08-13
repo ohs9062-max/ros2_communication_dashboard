@@ -48,12 +48,12 @@ def apply_ros_interfaces(background_tasks: BackgroundTasks) -> dict[str, Any]:
         }
 
     message = (
-        '일부 interface가 파일 생성 또는 CMake 등록되지 않았습니다.'
+        'One or more interfaces were not written to disk or registered in CMake.'
         if status.get('status') == 'partial'
         else (
-            '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
+            'The build succeeded, but the interface import check failed in the current Monitor process.'
             if status.get('status') == 'import_failed'
-            else '빌드 실패. CMakeLists.txt, package.xml, interface 의존성을 확인하세요.'
+            else 'The build failed. Check CMakeLists.txt, package.xml, and interface dependencies.'
         )
     )
     return {

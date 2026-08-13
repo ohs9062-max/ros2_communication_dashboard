@@ -20,7 +20,7 @@ def ros_workspace_root() -> Path:
         if parent.name == 'install':
             return parent.parent
     raise RuntimeError(
-        'ROS2 workspace root를 찾을 수 없습니다. ROS2_DASHBOARD_WS_ROOT를 설정하세요.',
+        'The ROS2 workspace root could not be found. Set ROS2_DASHBOARD_WS_ROOT.',
     )
 
 

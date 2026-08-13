@@ -43,7 +43,7 @@ export function useManualInterfaceController({
         tone: entry?.build?.import_available ? 'success' : 'warning',
         text: entry?.build?.import_available
           ? `${entry.full_type} 기존 빌드 타입 등록 완료 · import됨`
-          : `${entry?.full_type ?? manualType} 기존 빌드 타입 등록 완료 · import 안됨: ${entry?.build?.import_error ?? '환경/source 확인 필요'}`,
+          : `Registered existing built type ${entry?.full_type ?? manualType}, but import failed: ${entry?.build?.import_error ?? 'Check the environment and sourced workspace.'}`,
       })
       await loadRegistry(true)
       onStateChanged?.()
@@ -82,7 +82,7 @@ export function useManualInterfaceController({
     } catch (error) {
       setFeedback({
         tone: 'error',
-        text: `문법 오류가 있어 파일을 생성/수정하지 않았습니다. CMakeLists.txt도 수정하지 않았습니다. · ${error.message}`,
+        text: `The file and CMakeLists.txt were not changed because of a syntax error. · ${error.message}`,
       })
     } finally {
       setBusy(false)
@@ -106,7 +106,7 @@ export function useManualInterfaceController({
     } catch (error) {
       setFeedback({
         tone: 'error',
-        text: `문법 오류가 있어 파일을 생성하지 않았습니다. CMakeLists.txt도 수정하지 않았습니다. · ${error.message}`,
+        text: `The file and CMakeLists.txt were not changed because of a syntax error. · ${error.message}`,
       })
     } finally {
       setBusy(false)

@@ -51,9 +51,9 @@ def build_service_state(
     callable_now = import_available and server_available
     reason = None
     if not import_available:
-        reason = entry.get('import_error') or 'import 불가'
+        reason = entry.get('import_error') or 'The Service type could not be imported.'
     elif not server_available:
-        reason = '서버 없음'
+        reason = 'Service server is not available.'
     return {
         'service_name': graph_item['name'] if graph_item else '',
         'service_type': entry['service_type'],

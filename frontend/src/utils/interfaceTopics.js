@@ -22,11 +22,11 @@ export function topicNameTypeWarning(topics = [], topicName = '', fullType = '')
   const normalizedName = topicName.trim()
   if (!normalizedName || !fullType) return null
   if (isActionInternalTopic(normalizedName)) {
-    return 'Action 내부 Topic은 Interface Lab의 일반 Message Publish에서 사용할 수 없습니다.'
+    return 'Action internal topics cannot be used for regular Message publishing in Interface Lab.'
   }
   const sameNameTopics = topics.filter((topic) => topic?.name === normalizedName)
   if (sameNameTopics.some((topic) => !topicHasType(topic, fullType))) {
-    return '같은 Topic 이름에 다른 Message type이 Graph에 있습니다. 이 조합은 Publish할 수 없습니다.'
+    return 'The ROS2 graph contains the same Topic name with a different Message type. This combination cannot be published.'
   }
   return null
 }

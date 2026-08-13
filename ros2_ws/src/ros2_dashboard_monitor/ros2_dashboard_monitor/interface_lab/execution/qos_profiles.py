@@ -29,7 +29,7 @@ class ExecutionQosError(ValueError):
 def qos_mode(selection: dict[str, Any] | None) -> str:
     mode = str((selection or {}).get('mode') or 'auto').strip().lower()
     if mode not in {'auto', 'manual'}:
-        raise ExecutionQosError('qos.mode는 auto 또는 manual이어야 합니다.')
+        raise ExecutionQosError('qos.mode must be auto or manual.')
     return mode
 
 
@@ -40,7 +40,7 @@ def manual_qos_profile(
 ) -> QoSProfile:
     values = (selection or {}).get(profile_key)
     if not isinstance(values, dict):
-        raise ExecutionQosError(f'qos.{profile_key} object가 필요합니다.')
+        raise ExecutionQosError(f'qos.{profile_key} must be an object.')
     reliability = _enum_value(
         values.get('reliability'),
         {'reliable': ReliabilityPolicy.RELIABLE, 'best_effort': ReliabilityPolicy.BEST_EFFORT},
@@ -59,11 +59,11 @@ def manual_qos_profile(
     try:
         depth = int(values.get('depth', 10))
     except (TypeError, ValueError) as exc:
-        raise ExecutionQosError(f'qos.{profile_key}.depth는 정수여야 합니다.') from exc
+        raise ExecutionQosError(f'qos.{profile_key}.depth must be an integer.') from exc
     if history == HistoryPolicy.KEEP_LAST and depth <= 0:
-        raise ExecutionQosError(f'qos.{profile_key}.depth는 KEEP_LAST일 때 1 이상이어야 합니다.')
+        raise ExecutionQosError(f'qos.{profile_key}.depth must be at least 1 when history is KEEP_LAST.')
     if depth < 0 or depth > 10000:
-        raise ExecutionQosError(f'qos.{profile_key}.depth는 0 이상 10000 이하여야 합니다.')
+        raise ExecutionQosError(f'qos.{profile_key}.depth must be between 0 and 10000.')
     deadline = _duration_value(values.get('deadline'), f'qos.{profile_key}.deadline')
     lifespan = _duration_value(values.get('lifespan'), f'qos.{profile_key}.lifespan')
     lease_duration = _duration_value(
@@ -112,10 +112,10 @@ def resolve_topic_execution_qos(
         fallback_policies = list(state.get('qos_fallback_policies') or [])
         fallback_reason = None
         if state.get('qos_detection_source') == 'default_profile':
-            fallback_reason = 'Remote QoS 확인 불가 → ROS2 기본 QoS 사용'
+            fallback_reason = 'Remote QoS is unavailable. The default ROS2 QoS is used.'
         elif fallback_policies:
             labels = ', '.join(policy.upper() for policy in fallback_policies)
-            fallback_reason = f'Remote {labels} 확인 불가 → Dashboard 기본값 사용'
+            fallback_reason = f'Remote {labels} is unavailable. The Dashboard default is used.'
         state.update({
             'qos_mode': 'auto',
             'dashboard_qos': qos_profile_dict(profile),
@@ -209,8 +209,8 @@ def resolve_split_service_execution_qos(
         states[channel] = state
     if profile_fingerprint(profiles['request']) != profile_fingerprint(profiles['response']):
         raise ExecutionQosError(
-            'ROS2 Service Client는 Request/Response에 하나의 QoSProfile만 지원합니다. '
-            '실행 QoS와 수신 QoS를 같은 값으로 맞춰주세요.',
+            'A ROS2 Service Client supports only one QoSProfile for Request and Response. '
+            'Use matching execution and receive QoS settings.',
         )
     profile = profiles['request']
     return profile, _split_service_state(remote, profile, states)
@@ -272,7 +272,7 @@ def _compatible_service_profile(
     remote: dict[str, Any], *, channel: str | None = None,
 ) -> tuple[QoSProfile, str | None]:
     if remote.get('qos_detection_source') != 'fastdds_discovery':
-        return _clone_service_default(), 'Remote QoS 확인 불가 → ROS2 기본 QoS 사용'
+        return _clone_service_default(), 'Remote QoS is unavailable. The default ROS2 QoS is used.'
     request_readers = [
         item.get('qos') or {} for item in remote.get('subscriber_qos', [])
         if item.get('service_channel') == 'request'
@@ -286,7 +286,7 @@ def _compatible_service_profile(
     request_qos = request_readers if use_request else []
     response_qos = response_writers if use_response else []
     if not request_qos and not response_qos:
-        return _clone_service_default(), 'Remote QoS 확인 불가 → ROS2 기본 QoS 사용'
+        return _clone_service_default(), 'Remote QoS is unavailable. The default ROS2 QoS is used.'
 
     default = qos_profile_services_default
     reliability = _select_service_policy(
@@ -323,7 +323,7 @@ def _compatible_service_profile(
         field='liveliness_lease_duration',
     )
     if None in (reliability, durability, liveliness, deadline_ns, lease_duration_ns):
-        return _clone_service_default(), 'Remote Request/Response QoS를 단일 Client profile로 만족할 수 없어 ROS2 기본 QoS 사용'
+        return _clone_service_default(), 'A single Client profile cannot satisfy the remote Request and Response QoS. The default ROS2 QoS is used.'
     lifespan_ns = _select_writer_duration(
         default=default.lifespan.nanoseconds,
         writers=response_qos,
@@ -458,7 +458,7 @@ def _enum_value(value: Any, allowed: dict[str, Any], label: str) -> Any:
     normalized = str(value or '').strip().lower()
     if normalized not in allowed:
         choices = ', '.join(allowed)
-        raise ExecutionQosError(f'{label}은 {choices} 중 하나여야 합니다.')
+        raise ExecutionQosError(f'{label} must be one of: {choices}.')
     return allowed[normalized]
 
 
@@ -477,7 +477,7 @@ def _duration_value(value: Any, label: str) -> Duration:
     if value is None or value == '':
         return Duration()
     if not isinstance(value, dict):
-        raise ExecutionQosError(f'{label}은 value와 unit을 가진 object여야 합니다.')
+        raise ExecutionQosError(f'{label} must be an object with value and unit.')
     raw = value.get('value')
     if raw is None or str(raw).strip() == '':
         return Duration()
@@ -489,16 +489,16 @@ def _duration_value(value: Any, label: str) -> Duration:
         's': Decimal(1_000_000_000),
     }
     if unit not in scales:
-        raise ExecutionQosError(f'{label}.unit은 ns, us, ms, s 중 하나여야 합니다.')
+        raise ExecutionQosError(f'{label}.unit must be one of: ns, us, ms, s.')
     try:
         nanoseconds = Decimal(str(raw)) * scales[unit]
     except (InvalidOperation, ValueError) as exc:
-        raise ExecutionQosError(f'{label}.value는 0 이상의 숫자여야 합니다.') from exc
+        raise ExecutionQosError(f'{label}.value must be a non-negative number.') from exc
     if not nanoseconds.is_finite() or nanoseconds < 0:
-        raise ExecutionQosError(f'{label}.value는 0 이상의 숫자여야 합니다.')
+        raise ExecutionQosError(f'{label}.value must be a non-negative number.')
     integral_ns = nanoseconds.to_integral_value()
     if nanoseconds != integral_ns:
-        raise ExecutionQosError(f'{label}은 nanosecond 단위로 정확히 변환 가능한 값이어야 합니다.')
+        raise ExecutionQosError(f'{label} must convert exactly to nanoseconds.')
     if integral_ns > 2 ** 63 - 1:
-        raise ExecutionQosError(f'{label}이 ROS2 Duration 최대값을 초과했습니다.')
+        raise ExecutionQosError(f'{label} exceeds the maximum ROS2 Duration.')
     return Duration(nanoseconds=int(integral_ns))

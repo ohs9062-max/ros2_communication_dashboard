@@ -30,7 +30,7 @@ export function useResourceReceiveObserver({
 
   const start = async () => {
     if (!selected) {
-      setFeedback({ tone: 'error', text: `수신할 ${kind}를 선택하세요.` })
+      setFeedback({ tone: 'error', text: `Select a ${kind} to receive.` })
       return
     }
     try {
@@ -53,17 +53,17 @@ export function useResourceReceiveObserver({
     if (!activeKey) {
       setFeedback({
         tone: 'warning',
-        text: `수신 중인 ${kind} 관찰 항목이 없습니다.`,
+        text: `No active ${kind} receive observer is available.`,
       })
       return
     }
     setActiveKey('')
-    setFeedback({ tone: 'warning', text: `${kind} 수신 관찰을 중지했습니다.` })
+    setFeedback({ tone: 'warning', text: `Stopped the ${kind} receive observer.` })
   }
 
   const reset = async (selectedOnly = false) => {
     if (selectedOnly && !selected) {
-      setFeedback({ tone: 'error', text: `리셋할 ${kind}를 선택하세요.` })
+      setFeedback({ tone: 'error', text: `Select a ${kind} to reset.` })
       return
     }
     try {

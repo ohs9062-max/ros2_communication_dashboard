@@ -65,7 +65,7 @@ def build_qos_alert_candidates(
                 source='action',
                 code='action_qos_incompatible',
                 channel=channel,
-                message=f'Action {label}의 QoS가 호환되지 않습니다.{_state_suffix(state)}',
+                message=f'Action {label} QoS is incompatible.{_state_suffix(state)}',
                 detected_at=detected_at,
             ))
     return candidates
@@ -183,14 +183,14 @@ def _topic_message(state: dict[str, Any]) -> str:
     mismatches = state.get('incompatible_endpoint_pair_count')
     pair_text = ''
     if isinstance(pairs, int) and isinstance(mismatches, int):
-        pair_text = f' (불일치 조합 {mismatches}/{pairs})'
-    return f'일부 Topic endpoint의 QoS가 호환되지 않습니다.{pair_text}{_state_suffix(state)}'
+        pair_text = f' (incompatible endpoint pairs: {mismatches}/{pairs})'
+    return f'Some Topic endpoints have incompatible QoS settings.{pair_text}{_state_suffix(state)}'
 
 
 def _resource_message(label: str, state: dict[str, Any]) -> str:
-    return f'{label} QoS 불일치가 감지되었습니다.{_state_suffix(state)}'
+    return f'{label} QoS incompatibility detected.{_state_suffix(state)}'
 
 
 def _state_suffix(state: dict[str, Any]) -> str:
     policies = list(state.get('mismatch_policies') or [])
-    return f' 정책: {", ".join(policies)}' if policies else ''
+    return f' Policies: {", ".join(policies)}.' if policies else ''

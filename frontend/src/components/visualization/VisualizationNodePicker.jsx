@@ -11,7 +11,7 @@ export function VisualizationNodePicker({ error, loading, nodes, onSelect }) {
       )}
       {error && (
         <section className="notice-text warning visualization-mode-warning">
-          ROS2 데이터를 불러오지 못했습니다. 백엔드 실행 상태와 API 주소를 확인하세요.
+          Failed to load ROS2 data. Check the Backend and API address.
         </section>
       )}
       <section className="topic-section visualization-node-picker">

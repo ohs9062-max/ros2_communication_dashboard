@@ -231,7 +231,7 @@ def test_continuous_topic_publish_rejects_invalid_hz(monkeypatch):
             hz=100,
         )
     except ValueError as exc:
-        assert '0.1 이상 50 이하' in str(exc)
+        assert 'between 0.1 and 50' in str(exc)
     else:
         raise AssertionError('invalid hz must fail')
 

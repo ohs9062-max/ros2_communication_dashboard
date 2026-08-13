@@ -29,8 +29,8 @@ export function NodeDetailPanel({ node, onClose }) {
 
       {node.status === 'disconnected' ? (
         <p className="notice-text error">
-          이 Node는 이전에 발견되었지만 현재 ROS2 Graph에서 사라진 상태입니다.
-          프로세스 종료, 통신 끊김, namespace 변경 가능성을 확인하세요.
+          This Node is no longer visible in the ROS2 graph. Check whether the process stopped,
+          communication was interrupted, or the namespace changed.
         </p>
       ) : (
         <p className="notice-text">

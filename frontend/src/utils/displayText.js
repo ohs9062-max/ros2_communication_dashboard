@@ -10,17 +10,17 @@ const DISPLAY_TEXT = {
   service: 'Service',
   action: 'Action',
   monitor_status: 'Monitor 상태',
-  'service server available': 'Service Server를 사용할 수 있습니다.',
-  'action server available': 'Action Server를 사용할 수 있습니다.',
-  'node discovered in ROS2 graph': '현재 ROS2 Graph에서 발견된 Node입니다.',
+  'service server available': 'Service server is available.',
+  'action server available': 'Action server is available.',
+  'node discovered in ROS2 graph': 'Node is visible in the ROS2 graph.',
   'previously discovered resource is no longer visible in ROS2 graph':
-    '이전에 발견됐지만 현재 ROS2 Graph에서 확인되지 않습니다.',
+    'The previously discovered resource is no longer visible in the ROS2 graph.',
   'node connection lost; it is no longer visible in the ros2 graph.':
-    'Node 연결이 끊겨 현재 ROS2 Graph에서 확인되지 않습니다.',
+    'Node is no longer visible in the ROS2 graph.',
   'monitored node is confirmed absent from the ros2 graph.':
-    '감시 대상 Node가 확인 시간 이후에도 ROS2 Graph에서 보이지 않습니다.',
+    'The monitored Node is no longer visible in the ROS2 graph.',
   'resource is temporarily missing from ros2 graph; awaiting confirmation':
-    'ROS2 Graph에서 일시적으로 보이지 않아 이탈 여부를 확인 중입니다.',
+    'The resource is temporarily missing from the ROS2 graph. Waiting for confirmation.',
 }
 
 export function displayText(value, fallback = '-') {

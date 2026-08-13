@@ -25,7 +25,7 @@ export function useInterfaceUploadActions({
     const supportedFiles = files.filter((file) =>
       ACCEPTED_EXTENSIONS.some((extension) => file.name.toLowerCase().endsWith(extension)))
     if (!supportedFiles.length) {
-      setFeedback({ tone: 'error', text: `${sourceLabel}에 .msg, .srv, .action 파일이 없습니다.` })
+      setFeedback({ tone: 'error', text: `No .msg, .srv, or .action file was found in ${sourceLabel}.` })
       return
     }
     setBusy(true)
@@ -44,7 +44,10 @@ export function useInterfaceUploadActions({
           failed.push(`${file.name} (${error.message})`)
         }
       }
-      const summary = [`${sourceLabel}: ${supportedFiles.length}개 처리`, `성공 ${succeeded.length}`, warned.length ? `경고 ${warned.length}` : null, failed.length ? `실패 ${failed.length}` : null].filter(Boolean).join(' · ')
+      const hasIssue = failed.length > 0 || warned.length > 0
+      const summary = hasIssue
+        ? [`${sourceLabel}: ${supportedFiles.length} processed`, `${succeeded.length} succeeded`, warned.length ? `${warned.length} warning(s)` : null, failed.length ? `${failed.length} failed` : null].filter(Boolean).join(' · ')
+        : `${supportedFiles.length}개 파일 처리 · 성공 ${succeeded.length}`
       const details = failed[0] ?? warned[0]
       setFeedback({ tone: failed.length ? 'error' : warned.length ? 'warning' : 'success', text: details ? `${summary} · ${details}` : `${summary} · ${succeeded.join(', ')}` })
       const refreshResults = await Promise.allSettled([fetchInterfaceRegistry(), fetchInterfaceApplyStatus()])
@@ -59,12 +62,12 @@ export function useInterfaceUploadActions({
       if (refreshFailure && succeeded.length) {
         setFeedback({
           tone: 'warning',
-          text: `${summary} · 등록은 완료됐지만 일부 상태 갱신에 실패했습니다. 상태 새로고침을 눌러 다시 확인하세요. · ${refreshFailure.reason.message}`,
+          text: `${summary} · Registration completed, but some status data failed to refresh. Refresh the status and try again. · ${refreshFailure.reason.message}`,
         })
       }
       onStateChanged?.()
     } catch (error) {
-      setFeedback({ tone: 'error', text: `${sourceLabel} 처리 중 오류가 발생했습니다. · ${error.message}` })
+      setFeedback({ tone: 'error', text: `Failed to process ${sourceLabel}. · ${error.message}` })
     } finally {
       setBusy(false)
     }
@@ -73,7 +76,7 @@ export function useInterfaceUploadActions({
   const handleFile = async (event) => {
     const files = Array.from(event.target.files ?? [])
     event.target.value = ''
-    if (files.length) await uploadFiles(files, '파일 업로드')
+    if (files.length) await uploadFiles(files, 'file upload')
   }
 
   const uploadPackage = async (files, folder) => {
@@ -101,7 +104,7 @@ export function useInterfaceUploadActions({
     event.target.value = ''
     if (!file) return
     if (!file.name.toLowerCase().endsWith('.zip')) {
-      setFeedback({ tone: 'error', text: 'interface package는 .zip 파일만 가능합니다.' })
+      setFeedback({ tone: 'error', text: 'The interface package must be a .zip file.' })
       return
     }
     await uploadPackage([file], false)
@@ -116,7 +119,7 @@ export function useInterfaceUploadActions({
       return /(^|\/)(package\.xml|CMakeLists\.txt)$/.test(path) || /\/(msg|srv|action)\/[^/]+\.(msg|srv|action)$/.test(path)
     })
     if (!packageFiles.length) {
-      setFeedback({ tone: 'error', text: 'package.xml, CMakeLists.txt, msg/srv/action 파일이 있는 ROS2 package 폴더를 선택하세요.' })
+      setFeedback({ tone: 'error', text: 'Select a ROS2 package folder containing package.xml, CMakeLists.txt, and msg, srv, or action files.' })
       return
     }
     await uploadPackage(packageFiles, true)

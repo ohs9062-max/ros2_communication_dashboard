@@ -71,7 +71,7 @@ export function useServiceExecutionController({
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
-      setResult({ success: false, error: '호출 가능한 Service가 없습니다.' })
+      setResult({ success: false, error: 'No callable Service is available.' })
       return
     }
     setBusy(true)

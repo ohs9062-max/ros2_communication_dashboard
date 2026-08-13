@@ -80,7 +80,7 @@ def record_import_check_status(result: dict[str, Any]) -> dict[str, Any]:
         status['reload_scheduled'] = False
         status['restart_scheduled'] = False
         status['error'] = None if result.get('real_apply_success') else (
-            '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
+            'The build succeeded, but the interface import check failed in the current Monitor process.'
         )
     status['summary'] = result.get('summary')
     status['not_applied'] = result.get('not_applied', [])

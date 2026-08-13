@@ -56,7 +56,7 @@ def reception_diagnosis(
         return base | {
             'cause': 'subscription_failed',
             'certainty': 'confirmed',
-            'message': f'Dashboard Subscription 생성에 실패했습니다.{_suffix(subscription_error)}',
+            'message': f'Dashboard subscription creation failed.{_suffix(subscription_error)}',
         }
 
     if reception_status == 'stale':
@@ -64,26 +64,26 @@ def reception_diagnosis(
             return base | {
                 'cause': 'publisher_data_stopped',
                 'certainty': 'candidate',
-                'message': 'Publisher는 Graph에 있지만 데이터 수신이 중단되었습니다.',
+                'message': 'The publisher is still visible, but message delivery has stopped.',
             }
         return base | {
             'cause': 'publisher_missing',
             'certainty': 'candidate',
-            'message': 'Publisher가 Graph에서 보이지 않아 이탈 또는 중단 가능성이 있습니다.',
+            'message': 'The publisher is no longer visible in the ROS2 graph.',
         }
 
     if not publisher_present:
         return base | {
             'cause': 'publisher_missing',
             'certainty': 'candidate',
-            'message': 'Publisher가 Graph에서 보이지 않아 메시지를 수신할 수 없습니다.',
+            'message': 'The publisher is not visible in the ROS2 graph.',
         }
 
     if source == 'incompatible_qos_event':
         return base | {
             'cause': 'qos_incompatible',
             'certainty': 'confirmed',
-            'message': 'QoS 불일치로 메시지를 수신할 수 없습니다.',
+            'message': 'Message reception failed because of a confirmed QoS incompatibility.',
             'related_alert_ids': [
                 f'topic:{topic.get("name", "")}:topic_qos_incompatible',
             ],
@@ -93,8 +93,8 @@ def reception_diagnosis(
             'cause': 'qos_incompatible',
             'certainty': 'candidate',
             'message': (
-                'Publisher와 Dashboard Subscription의 QoS가 호환되지 않아 '
-                '미수신일 가능성이 높습니다.'
+                'The publisher and Dashboard subscription have incompatible QoS settings. '
+                'This is a likely cause of the missing messages.'
             ),
             'related_alert_ids': [
                 f'topic:{topic.get("name", "")}:topic_qos_incompatible',
@@ -105,16 +105,16 @@ def reception_diagnosis(
             'cause': 'non_qos_receive_path',
             'certainty': 'candidate',
             'message': (
-                'QoS는 호환됩니다. Publisher 실제 발행 여부 또는 '
-                'Subscription callback·타입 상태를 확인하세요.'
+                'QoS is compatible. Check whether the publisher is actually publishing '
+                'data and whether the subscription callback and message type are correct.'
             ),
         }
     return base | {
         'cause': 'qos_unconfirmed',
         'certainty': 'unknown',
-        'message': 'QoS 상태를 확인할 수 없어 미수신 원인을 판단할 수 없습니다.',
+        'message': 'QoS compatibility could not be determined, so the cause of the missing messages is unknown.',
     }
 
 
 def _suffix(value: str | None) -> str:
-    return f' 사유: {value}' if value else ''
+    return f' Reason: {value}' if value else ''

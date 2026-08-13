@@ -47,19 +47,19 @@ async def publish_registered_topic(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
+        raise HTTPException(status_code=400, detail='A JSON request body is required.') from exc
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail='JSON object 요청 본문이 필요합니다.')
+        raise HTTPException(status_code=400, detail='The JSON request body must be an object.')
 
     topic_name = payload.get('topic_name')
     topic_type = payload.get('topic_type') or payload.get('full_type')
     message_data = payload.get('message')
     if not isinstance(topic_name, str) or not topic_name:
-        raise HTTPException(status_code=400, detail='topic_name이 필요합니다.')
+        raise HTTPException(status_code=400, detail='topic_name is required.')
     if not isinstance(topic_type, str) or not topic_type:
-        raise HTTPException(status_code=400, detail='topic_type 또는 full_type이 필요합니다.')
+        raise HTTPException(status_code=400, detail='topic_type or full_type is required.')
     if not isinstance(message_data, dict):
-        raise HTTPException(status_code=400, detail='message object가 필요합니다.')
+        raise HTTPException(status_code=400, detail='message must be an object.')
 
     try:
         result = ros_monitor.publish_topic(
@@ -73,13 +73,13 @@ async def publish_registered_topic(request: Request) -> dict[str, Any]:
     return {
         **result,
         'message': (
-            '입력값이 Message 타입과 맞지 않아 Publish하지 않았습니다.'
+            'The payload does not match the Message type. Nothing was published.'
             if result.get('error_type') == 'validation_error'
             else (
-                'Action 내부 Topic은 일반 Message Publish에서 사용할 수 없습니다.'
+                'An internal Action Topic cannot be used for regular Message publishing.'
                 if result.get('error_type') == 'action_internal_topic'
                 else (
-                    '같은 Topic 이름에 다른 Message type이 있어 Publish하지 않았습니다.'
+                    'The Topic name already exists with a different Message type. Nothing was published.'
                     if result.get('error_type') == 'topic_type_conflict'
                     else 'Topic Publish가 완료되었습니다.'
                 )
@@ -101,18 +101,18 @@ async def start_continuous_topic_publish(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
+        raise HTTPException(status_code=400, detail='A JSON request body is required.') from exc
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail='JSON object 요청 본문이 필요합니다.')
+        raise HTTPException(status_code=400, detail='The JSON request body must be an object.')
     topic_name = payload.get('topic_name')
     topic_type = payload.get('topic_type') or payload.get('full_type')
     message_data = payload.get('message')
     if not isinstance(topic_name, str) or not topic_name:
-        raise HTTPException(status_code=400, detail='topic_name이 필요합니다.')
+        raise HTTPException(status_code=400, detail='topic_name is required.')
     if not isinstance(topic_type, str) or not topic_type:
-        raise HTTPException(status_code=400, detail='topic_type 또는 full_type이 필요합니다.')
+        raise HTTPException(status_code=400, detail='topic_type or full_type is required.')
     if not isinstance(message_data, dict):
-        raise HTTPException(status_code=400, detail='message object가 필요합니다.')
+        raise HTTPException(status_code=400, detail='message must be an object.')
     try:
         state = ros_monitor.start_continuous_topic_publish(
             topic_name=topic_name,
@@ -127,7 +127,7 @@ async def start_continuous_topic_publish(request: Request) -> dict[str, Any]:
         **state,
         'success': state.get('active') is True,
         'data': state,
-        'message': 'Topic 지속 발행을 시작했습니다.' if state.get('active') else 'Topic 지속 발행을 시작하지 못했습니다.',
+        'message': 'Topic 지속 발행을 시작했습니다.' if state.get('active') else 'Continuous Topic publishing failed to start.',
     }
 
 
@@ -137,13 +137,13 @@ async def stop_continuous_topic_publish(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
+        raise HTTPException(status_code=400, detail='A JSON request body is required.') from exc
     topic_name = payload.get('topic_name') if isinstance(payload, dict) else None
     topic_type = (payload.get('topic_type') or payload.get('full_type')) if isinstance(payload, dict) else None
     if not isinstance(topic_name, str) or not topic_name:
-        raise HTTPException(status_code=400, detail='topic_name이 필요합니다.')
+        raise HTTPException(status_code=400, detail='topic_name is required.')
     if not isinstance(topic_type, str) or not topic_type:
-        raise HTTPException(status_code=400, detail='topic_type 또는 full_type이 필요합니다.')
+        raise HTTPException(status_code=400, detail='topic_type or full_type is required.')
     state = ros_monitor.stop_continuous_topic_publish(
         topic_name=topic_name,
         topic_type=topic_type,

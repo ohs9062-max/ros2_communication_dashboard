@@ -50,7 +50,7 @@ export function ManualInterfacePanel({
             .msg/.srv/.action 파일을 uploaded_interfaces 패키지에 직접 생성합니다. 저장 전 문법 검증을 수행하며, 저장 후 적용하기 build가 필요합니다.
           </p>
           {editingManualDefinition && (
-            <div className="interface-service-state warning">수정 중: {editingManualDefinition.kind}/{editingManualDefinition.typeName}</div>
+            <div className="interface-service-state warning">Editing: {editingManualDefinition.kind}/{editingManualDefinition.typeName}</div>
           )}
           <div className="interface-manual-fixed-path">
             저장 위치: ros2_ws/src/uploaded_interfaces/generated_interfaces/{manualKind}/{manualTypeName || 'TypeName'}.{manualKind}

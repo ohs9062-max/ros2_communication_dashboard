@@ -203,7 +203,9 @@ def test_service_auto_falls_back_when_remote_qos_is_unavailable():
 
     assert profile.reliability == qos_profile_services_default.reliability
     assert state['fallback_used'] is True
-    assert state['fallback_reason'] == 'Remote QoS 확인 불가 → ROS2 기본 QoS 사용'
+    assert state['fallback_reason'] == (
+        'Remote QoS is unavailable. The default ROS2 QoS is used.'
+    )
 
 
 def test_manual_profile_applies_advanced_qos_and_preserves_defaults_when_omitted():
@@ -246,7 +248,7 @@ def test_service_split_auto_uses_one_profile_for_request_and_response():
 
 
 def test_service_split_rejects_different_manual_profiles():
-    with pytest.raises(ExecutionQosError, match='하나의 QoSProfile'):
+    with pytest.raises(ExecutionQosError, match='only one QoSProfile'):
         resolve_split_service_execution_qos(
             '/add',
             selection={

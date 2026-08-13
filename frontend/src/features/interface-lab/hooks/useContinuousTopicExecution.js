@@ -41,7 +41,7 @@ export function useContinuousTopicExecution({
 
   const startContinuous = useCallback(async () => {
     if (!publishName.trim() || !selected?.message_type) {
-      setResult({ success: false, error: 'Publish Topic 이름과 Message full_type을 선택하세요.' })
+      setResult({ success: false, error: 'Select a publish Topic name and Message full_type.' })
       return
     }
     setBusy(true)

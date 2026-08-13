@@ -40,11 +40,11 @@ class TopicPublishExecutor:
         qos_selection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if self._node_getter() is None:
-            raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
+            raise InterfaceReceiveError('The ROS2 monitor node is not running.')
         topic_name = topic_name.strip()
         topic_type = topic_type.strip()
         if not topic_name.startswith('/'):
-            raise InterfaceReceiveError('topic_name은 /로 시작해야 합니다.')
+            raise InterfaceReceiveError('topic_name must start with /.')
         self._ensure_registered(topic_type)
         started_at = time()
         graph_state = self._graph_state(topic_name=topic_name, topic_type=topic_type)
@@ -57,8 +57,8 @@ class TopicPublishExecutor:
                 graph_state=graph_state,
                 error_type='action_internal_topic',
                 error=(
-                    f'{topic_name}은 ROS2 Action 내부 Topic이므로 '
-                    'Interface Lab의 일반 Message Publish에서 사용할 수 없습니다.'
+                    f'{topic_name} is an internal ROS2 Action Topic and cannot be used '
+                    'for regular Message publishing in Interface Lab.'
                 ),
             )
         if graph_state['conflicts']:
@@ -73,8 +73,8 @@ class TopicPublishExecutor:
                 graph_state=graph_state,
                 error_type='topic_type_conflict',
                 error=(
-                    f'{topic_name}에는 다른 Message type({conflict_types})이 Graph에 있어 '
-                    f'{topic_type} Publisher를 생성할 수 없습니다.'
+                    f'{topic_name} already exists in the ROS2 graph with a different '
+                    f'Message type ({conflict_types}). The {topic_type} publisher was not created.'
                 ),
             )
         try:

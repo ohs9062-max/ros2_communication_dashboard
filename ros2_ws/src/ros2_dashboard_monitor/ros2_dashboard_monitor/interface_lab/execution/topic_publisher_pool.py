@@ -37,7 +37,7 @@ class TopicPublisherPool:
         key = (topic_name, topic_type)
         node = self._node_getter()
         if node is None:
-            raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
+            raise InterfaceReceiveError('The ROS2 monitor node is not running.')
         qos_profile, qos = resolve_topic_execution_qos(
             node, topic_name, local_role='publisher', selection=qos_selection,
         )

@@ -40,11 +40,11 @@ async def read_json_object(request: Request) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail='JSON 요청 본문이 필요합니다.',
+            detail='A JSON request body is required.',
         ) from exc
     if not isinstance(payload, dict):
         raise HTTPException(
             status_code=400,
-            detail='JSON object 요청 본문이 필요합니다.',
+            detail='The JSON request body must be an object.',
         )
     return payload

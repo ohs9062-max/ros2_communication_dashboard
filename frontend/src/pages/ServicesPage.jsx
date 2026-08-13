@@ -91,7 +91,7 @@ export function ServicesPage({ dashboard }) {
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}
-            {error && <span className="error-text">Service API 연결 실패</span>}
+            {error && <span className="error-text">Failed to connect to the Service API.</span>}
           </div>
 
           <ServiceFilterToolbar

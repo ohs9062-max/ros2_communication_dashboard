@@ -33,7 +33,7 @@ async def upload_ros_interface_package(
         request,
         payload_limit=MAX_PACKAGE_ZIP_SIZE,
         multipart_overhead=64 * 1024,
-        too_large_detail='패키지 업로드 요청이 너무 큽니다.',
+        too_large_detail='The package upload request is too large.',
     )
     try:
         file_name, content = extract_multipart_file(
@@ -41,7 +41,7 @@ async def upload_ros_interface_package(
         )
         entry = upload_interface_package(file_name, content, replace=replace)
     except InterfacePackageError as exc:
-        status_code = 409 if '이미 있습니다' in str(exc) else 400
+        status_code = 409 if 'already exists' in str(exc) else 400
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
     except InterfaceUploadError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -63,7 +63,7 @@ async def upload_ros_interface_package_folder(
         request,
         payload_limit=MAX_PACKAGE_ZIP_SIZE,
         multipart_overhead=512 * 1024,
-        too_large_detail='패키지 폴더 업로드 요청이 너무 큽니다.',
+        too_large_detail='The package folder upload request is too large.',
     )
     try:
         files = extract_multipart_package_files(
@@ -71,7 +71,7 @@ async def upload_ros_interface_package_folder(
         )
         entry = upload_interface_package_folder(files, replace=replace)
     except InterfacePackageError as exc:
-        status_code = 409 if '이미 있습니다' in str(exc) else 400
+        status_code = 409 if 'already exists' in str(exc) else 400
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
     return {
         'success': True,

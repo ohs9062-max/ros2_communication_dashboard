@@ -53,7 +53,7 @@ export function VisualizationToolbar({
       {!isNodeMode && (
         <div className="visualization-actions">
           {loading && <span className="muted">갱신 중</span>}
-          {error && <span className="error-text">Graph API 연결 실패</span>}
+          {error && <span className="error-text">Failed to connect to the Graph API.</span>}
           <span className="muted">Shift + 드래그: 같은 종류 묶음 이동</span>
           <button className="filter" onClick={onFitView} type="button">화면 맞춤</button>
           <button className="filter" onClick={onResetLayout} type="button">배치 초기화</button>

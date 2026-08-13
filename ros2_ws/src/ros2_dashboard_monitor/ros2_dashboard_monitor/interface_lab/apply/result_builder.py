@@ -89,7 +89,7 @@ def completed(
         'restart_scheduled': real_apply_success,
         'error': None if real_apply_success else (
             'colcon build failed' if not build_success
-            else '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
+            else 'The build succeeded, but the interface import check failed in the current Monitor process.'
         ),
         'summary': summary,
         'not_applied': summary['not_applied'],

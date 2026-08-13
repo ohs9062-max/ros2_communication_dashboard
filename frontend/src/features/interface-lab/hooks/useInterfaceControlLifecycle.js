@@ -31,7 +31,7 @@ export function useInterfaceControlLifecycle({
 
   useEffect(() => {
     loadApplyStatus().catch((error) => {
-      setFeedback({ tone: 'warning', text: `적용 상태를 읽을 수 없습니다: ${error.message}` })
+      setFeedback({ tone: 'warning', text: `Failed to read the interface apply status: ${error.message}` })
     })
   }, [loadApplyStatus, setFeedback])
 
@@ -58,7 +58,7 @@ export function useInterfaceControlLifecycle({
           showCallableActions ? loadActionExecution() : null,
         ])
       } catch (error) {
-        setFeedback({ tone: 'warning', text: `상태 새로고침에 실패했습니다: ${error.message}` })
+        setFeedback({ tone: 'warning', text: `Failed to refresh the status: ${error.message}` })
       }
     }
 

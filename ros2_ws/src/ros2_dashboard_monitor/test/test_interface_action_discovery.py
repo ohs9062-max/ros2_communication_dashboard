@@ -57,7 +57,7 @@ def test_callable_actions_exact_type_match_preserves_unmatched_registration():
     assert actions['actions'][0]['action_name'] == '/work'
     assert actions['actions'][0]['qos'] == {'name': '/work'}
     assert actions['actions'][1]['action_name'] == ''
-    assert actions['actions'][1]['reason'] == '서버 없음'
+    assert actions['actions'][1]['reason'] == 'Action server is not available.'
 
 
 def test_allowed_action_requires_importable_exact_server():

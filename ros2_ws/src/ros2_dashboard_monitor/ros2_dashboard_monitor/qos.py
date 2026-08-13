@@ -77,10 +77,10 @@ def observe_topic_qos(node: Any, topic_name: str) -> dict[str, Any]:
         reason = None
     elif publishers or subscriptions:
         status = 'observed'
-        reason = '한쪽 방향의 Topic endpoint QoS만 Graph에서 확인되었습니다.'
+        reason = 'QoS was discovered for only one side of the Topic endpoints.'
     else:
         status = 'unknown'
-        reason = 'Topic endpoint QoS를 Graph에서 확인할 수 없습니다.'
+        reason = 'Topic endpoint QoS could not be discovered from the ROS2 graph.'
 
     return qos_state(
         status=status,
@@ -119,7 +119,7 @@ def choose_topic_qos(
         return clone_qos_profile(default_profile), qos_state(
             status='unknown', source='default_profile', local=default_profile,
             remote=public_endpoints, auto_applied=False,
-            reason='상대 Topic endpoint QoS를 Graph에서 확인할 수 없어 기본 프로필을 사용합니다.',
+            reason='Remote Topic endpoint QoS could not be discovered. The default profile is used.',
             qos_fallback_policies=['profile'],
         )
 

@@ -110,11 +110,11 @@ export function useInlineTopicController({
 
   const publish = async () => {
     if (!selectedDetail?.fullType) {
-      setResult({ success: false, error: 'Message full_type이 없습니다.' })
+      setResult({ success: false, error: 'Message full_type is missing.' })
       return
     }
     if (!publishName) {
-      setResult({ success: false, error: 'Publish할 Topic 이름을 입력하세요.' })
+      setResult({ success: false, error: 'Enter a Topic name to publish.' })
       return
     }
     setExecuting(true)
@@ -138,7 +138,7 @@ export function useInlineTopicController({
 
   const startContinuous = async () => {
     if (!selectedDetail?.fullType || !publishName) {
-      setResult({ success: false, error: 'Message full_type과 Publish Topic 이름이 필요합니다.' })
+      setResult({ success: false, error: 'Message full_type and a publish Topic name are required.' })
       return
     }
     setExecuting(true)
@@ -180,7 +180,7 @@ export function useInlineTopicController({
 
   const startSubscribe = async () => {
     if (!selectedDetail?.fullType || !subscribeName) {
-      setResult({ success: false, error: 'Topic 이름과 Message full_type이 필요합니다.' })
+      setResult({ success: false, error: 'Topic name and Message full_type are required.' })
       return
     }
     try {

@@ -51,7 +51,7 @@ class MonitorClient:
                 exc.headers.get('Content-Type', 'application/json'),
             )
         except (URLError, TimeoutError, OSError) as exc:
-            raise MonitorUnavailable(f'ROS2 monitor에 연결할 수 없습니다: {exc}') from exc
+            raise MonitorUnavailable(f'Could not connect to the ROS2 monitor: {exc}') from exc
 
     async def request_async(
         self,
@@ -72,7 +72,7 @@ class MonitorClient:
                     headers=headers,
                 )
         except httpx.HTTPError as exc:
-            raise MonitorUnavailable(f'ROS2 monitor에 연결할 수 없습니다: {exc}') from exc
+            raise MonitorUnavailable(f'Could not connect to the ROS2 monitor: {exc}') from exc
         return MonitorResponse(
             response.status_code,
             response.content,

@@ -87,7 +87,7 @@ export function useInterfaceLabSnapshot() {
       setLastRefreshedAt(new Date())
       const failures = results.filter((result) => result.status === 'rejected')
       return failures.length
-        ? new Error(`일부 상태를 불러오지 못했습니다(${failures.length}/${REQUESTS.length}). 연결 가능한 항목의 상태는 화면에 반영했습니다. ${failures[0].reason?.message ?? ''}`)
+        ? new Error(`Failed to load some status data (${failures.length}/${REQUESTS.length}). Available data was still applied. ${failures[0].reason?.message ?? ''}`)
         : null
     } finally {
       setRefreshing(false)

@@ -57,14 +57,14 @@ class TopicMessageRegistry:
     def ensure_available(self, message_type: str) -> None:
         entry = self.find(message_type)
         if entry is None:
-            raise InterfaceReceiveError('registry에 등록된 Message full_type만 사용할 수 있습니다.')
+            raise InterfaceReceiveError('Only a Message full_type registered in the registry can be used.')
         if entry.get('import_available') is not True:
-            raise InterfaceReceiveError(entry.get('import_error') or 'Message type import가 필요합니다.')
+            raise InterfaceReceiveError(entry.get('import_error') or 'The Message type must be importable.')
 
     def schema(self, message_type: str) -> dict[str, Any]:
         entry = self.find(message_type)
         if entry is None:
-            raise InterfaceReceiveError('registry에 등록된 Message full_type이 아닙니다.')
+            raise InterfaceReceiveError('The Message full_type is not registered in the registry.')
         schema = entry.get('message_schema') or []
         if entry.get('import_available') is True and not schema:
             schema = self._schema_loader(message_type)

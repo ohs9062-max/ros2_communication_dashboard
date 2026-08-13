@@ -30,7 +30,7 @@ class ActionGoalTracker:
         with self._lock:
             goal_handle = self._handles.get((action_name, action_type))
         if goal_handle is None:
-            raise ActionGoalError('취소할 활성 Goal을 찾을 수 없습니다.')
+            raise ActionGoalError('No active goal is available to cancel.')
         event = threading.Event()
         future = goal_handle.cancel_goal_async()
         future.add_done_callback(lambda _future: event.set())

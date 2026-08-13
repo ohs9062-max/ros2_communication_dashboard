@@ -4983,17 +4983,35 @@ details summary {
 }
 
 .resource-status-stack {
-  align-items: flex-start;
+  align-items: center;
   display: grid;
-  gap: 5px;
-  justify-items: start;
-  min-width: 112px;
+  gap: 4px;
+  justify-items: center;
+  min-width: 104px;
 }
 
 .resource-status-stack > .badge,
 .resource-status-stack > .qos-list-badge {
+  align-items: center;
+  box-sizing: border-box;
+  justify-content: center;
+  line-height: 1.15;
   margin: 0;
-  width: fit-content;
+  min-height: 20px;
+  width: 104px;
+}
+
+.resource-status-stack > .qos-list-badge {
+  font-size: 10px;
+}
+
+.node-status-cell > .badge {
+  align-items: center;
+  box-sizing: border-box;
+  justify-content: center;
+  line-height: 1.15;
+  min-height: 20px;
+  width: 104px;
 }
 
 .service-table th:nth-child(1),

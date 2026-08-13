@@ -15,7 +15,7 @@ def combine(
     if single.get('total', 0) == 0 and packages.get('total', 0) > 0:
         single_not_applied = [
             item for item in single_not_applied
-            if 'interface_registry.yaml 파일이 없습니다' not in str(item.get('reason', ''))
+            if 'interface_registry.yaml was not found' not in str(item.get('reason', ''))
         ]
     not_applied = [*single_not_applied, *list(packages.get('not_applied', []))]
     total = int(single.get('total') or 0) + int(packages.get('total') or 0)

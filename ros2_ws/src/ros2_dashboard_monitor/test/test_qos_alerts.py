@@ -32,7 +32,7 @@ def test_graph_incompatible_requires_distinct_observations_and_is_warning() -> N
     assert len(confirmed) == 1
     assert confirmed[0]['code'] == 'topic_qos_incompatible'
     assert confirmed[0]['level'] == 'warning'
-    assert '불일치 조합 1/2' in confirmed[0]['message']
+    assert 'incompatible endpoint pairs: 1/2' in confirmed[0]['message']
 
 
 def test_rmw_event_and_all_remote_incompatible_are_error() -> None:

@@ -28,7 +28,7 @@ export function CallResultBlock({ result, successPayload }) {
   return (
     <>
       {validationError && (
-        <div className="interface-validation-warning">입력값이 선택한 ROS2 타입과 맞지 않아 전송하지 않았습니다.</div>
+        <div className="interface-validation-warning">The payload does not match the selected ROS2 type. Nothing was sent.</div>
       )}
       {result.qos && <ExecutionQosSummary qos={result.qos} />}
       <pre className={`interface-service-result ${result.success ? 'success' : 'error'}`}>

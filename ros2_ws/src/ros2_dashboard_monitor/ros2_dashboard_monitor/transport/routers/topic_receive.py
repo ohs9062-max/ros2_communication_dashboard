@@ -19,7 +19,7 @@ async def start_receive_topic(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
+        raise HTTPException(status_code=400, detail='A JSON request body is required.') from exc
     try:
         state = ros_monitor.start_receive_topic(
             topic_name=str(payload.get('topic_name') or ''),
@@ -38,7 +38,7 @@ async def stop_receive_topic(request: Request) -> dict[str, Any]:
     try:
         payload = await request.json()
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail='JSON 요청 본문이 필요합니다.') from exc
+        raise HTTPException(status_code=400, detail='A JSON request body is required.') from exc
     state = ros_monitor.stop_receive_topic(
         topic_name=str(payload.get('topic_name') or ''),
         topic_type=payload.get('topic_type') or payload.get('full_type'),

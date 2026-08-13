@@ -62,7 +62,7 @@ def apply_status() -> dict[str, Any]:
 def run_interface_apply() -> dict[str, Any]:
     """Interface Lab에서 interface build/apply 상태를 처리하는 함수입니다."""
     if not _APPLY_LOCK.acquire(blocking=False):
-        raise InterfaceApplyInProgress('이미 적용하기 빌드가 실행 중입니다.')
+        raise InterfaceApplyInProgress('An interface apply build is already running.')
 
     started_at = datetime.now(timezone.utc).isoformat()
     workspace = ros_workspace_path()
@@ -84,9 +84,9 @@ def run_interface_apply() -> dict[str, Any]:
         if blocking_not_applied or preflight['total'] == 0:
             finished_at = datetime.now(timezone.utc).isoformat()
             message = (
-                '등록된 interface 또는 interface package가 없습니다.'
+                'No interface or interface package is registered.'
                 if preflight['total'] == 0
-                else '일부 interface가 파일 생성 또는 CMake 등록되지 않았습니다.'
+                else 'One or more interfaces were not written to disk or registered in CMake.'
             )
             _write_text(log_path, format_skipped_log(
                 started_at=started_at,
@@ -110,7 +110,7 @@ def run_interface_apply() -> dict[str, Any]:
         duplicates = duplicate_workspace_packages(workspace, uploaded_package_names)
         if duplicates:
             finished_at = datetime.now(timezone.utc).isoformat()
-            message = '중복 ROS2 package가 감지되어 build를 중단했습니다.'
+            message = 'The build was stopped because duplicate ROS2 packages were detected.'
             duplicate_lines = [
                 f'{name}: {", ".join(paths)}'
                 for name, paths in sorted(duplicates.items())

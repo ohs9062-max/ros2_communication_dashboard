@@ -36,14 +36,14 @@ export function useInterfaceApplyActions({
         : {
           tone: 'warning',
           text: notApplied.length
-            ? `부분 적용: 파일 생성 또는 CMake 등록이 완료되지 않았습니다. 상세 상태를 확인하세요. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
-            : '부분 적용: import 재확인이 완료되지 않았습니다.',
+            ? `Partial apply: file creation or CMake registration did not complete. Check the detailed status. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
+            : 'Partial apply: the import recheck did not complete.',
         })
       setReloadPhase('idle')
       await loadApplyStatus()
       onStateChanged?.()
     } catch (error) {
-      setFeedback({ tone: 'warning', text: `서버는 다시 연결됐지만 import 재확인에 실패했습니다: ${error.message}` })
+      setFeedback({ tone: 'warning', text: `The server reconnected, but the import recheck failed: ${error.message}` })
     }
   }, [
     loadApplyStatus,
@@ -60,7 +60,7 @@ export function useInterfaceApplyActions({
     setApplying(true)
     setBuildLogTail('')
     setShowBuildLog(false)
-    setFeedback({ tone: 'warning', text: '빌드 중...' })
+    setFeedback({ tone: 'warning', text: 'Build in progress...' })
     try {
       const payload = await applyInterfaces()
       const status = payload.data ?? {}
@@ -76,10 +76,10 @@ export function useInterfaceApplyActions({
         setFeedback({
           tone: payload.status === 'partial' || importFailed ? 'warning' : 'error',
           text: importFailed
-            ? '빌드는 성공했지만 현재 backend 프로세스에서 import 확인에 실패했습니다.'
+            ? 'The build succeeded, but the interface import check failed in the current Monitor process.'
             : notApplied.length
-              ? `부분 적용: 파일 생성 또는 CMake 등록이 완료되지 않았습니다. 상세 상태를 확인하세요. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
-              : payload.message || '빌드 실패. CMakeLists.txt, package.xml, interface 의존성을 확인하세요.',
+              ? `Partial apply: file creation or CMake registration did not complete. Check the detailed status. (${notApplied[0].file_name ?? 'registry'}: ${notApplied[0].reason})`
+              : payload.message || 'The build failed. Check CMakeLists.txt, package.xml, and interface dependencies.',
         })
       }
       await loadApplyStatus()

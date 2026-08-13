@@ -83,18 +83,17 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
       )}
       {action.feedback_supported === false && (
         <p className="notice-text">
-          이 Action의 피드백 타입을 현재 백엔드 환경에서 해석할 수 없습니다.
+          The Feedback type cannot be interpreted in the current Monitor environment.
         </p>
       )}
       {action.result_supported === false && (
         <p className="notice-text">
-          이 Action의 결과 타입을 현재 백엔드 환경에서 해석할 수 없습니다.
+          The Result type cannot be interpreted in the current Monitor environment.
         </p>
       )}
       {runtime.last_goal_status === 'aborted' && (
         <p className="error-text">
-          이 Action은 실패 종료되었습니다. 상세 원인은 피드백 또는 결과
-          메시지를 확인하세요.
+          The Action ended with an aborted result. Check the Feedback or Result message for details.
         </p>
       )}
 

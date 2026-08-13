@@ -28,7 +28,7 @@ def delete_generated_interface(
     )
     if package_name != 'uploaded_interfaces':
         raise InterfaceUploadError(
-            '이 삭제 경로는 uploaded_interfaces 단일 파일만 지원합니다.',
+            'This delete operation supports only a single uploaded_interfaces file.',
         )
 
     target = package_root / kind / file_name

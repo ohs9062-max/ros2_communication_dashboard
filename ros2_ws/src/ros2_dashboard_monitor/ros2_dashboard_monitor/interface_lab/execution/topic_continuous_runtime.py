@@ -42,7 +42,7 @@ class ContinuousTopicPublishRuntime:
         with self._lock:
             active = self._publishes.get(key)
             if active and active.get('active'):
-                raise InterfaceReceiveError('이미 지속 발행 중인 Topic입니다. 먼저 중지하세요.')
+                raise InterfaceReceiveError('This Topic is already publishing continuously. Stop it first.')
 
         first_result = self._publish(
             topic_name=topic_name,
@@ -155,7 +155,7 @@ class ContinuousTopicPublishRuntime:
                     state['message_count'] += 1 if result.get('success') is True else 0
                     state['last_published_at'] = result.get('published_at')
                     if result.get('success') is not True:
-                        state['error'] = result.get('error') or '지속 발행에 실패했습니다.'
+                        state['error'] = result.get('error') or 'Continuous publishing failed.'
                         stop_event.set()
             except Exception as exc:
                 with self._lock:

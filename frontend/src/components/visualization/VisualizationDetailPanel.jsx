@@ -13,8 +13,8 @@ export function VisualizationDetailPanel({ graphNode, missingNodeId }) {
         </div>
         <h2>{missingNodeId.replace(/^[^:]+:/, '')}</h2>
         <p className="notice-text warning">
-          선택 항목이 현재 Graph에서 사라졌습니다. 필터를 조정하거나 전체
-          보기를 누르면 다시 표시될 수 있습니다.
+          The selected item is no longer visible in the ROS2 graph. Adjust the filters or
+          show the full graph to locate it again.
         </p>
       </aside>
     )

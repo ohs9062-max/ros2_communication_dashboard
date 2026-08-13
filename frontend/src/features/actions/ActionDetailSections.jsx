@@ -63,7 +63,7 @@ export function ActionExecutionSection({ action, goalSummary, runtime }) {
         value={goalSummary ? goalSummary.sent_to_server ? '예' : '아니오' : '-'}
       />
       {goalSummary?.error_type === 'validation_error' && (
-        <p className="notice-text warning">입력값이 타입과 맞지 않아 서버로 보내지 않았습니다.</p>
+        <p className="notice-text warning">The payload does not match the Action type. No goal was sent to the server.</p>
       )}
       <DetailLine label="마지막 Goal ID" value={runtime.last_goal_id ?? '-'} />
       <DetailLine label="마지막 상태 수신" value={formatRelativeTime(runtime.last_status_at)} />

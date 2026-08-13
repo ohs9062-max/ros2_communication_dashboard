@@ -98,7 +98,7 @@ export function NodesPage({ actions, dashboard, services, topics }) {
               </p>
             </div>
             {loading && <span className="muted">로딩 중</span>}
-            {error && <span className="error-text">Node API 연결 실패</span>}
+            {error && <span className="error-text">Failed to connect to the Node API.</span>}
           </div>
         </section>
 

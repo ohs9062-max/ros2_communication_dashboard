@@ -143,7 +143,7 @@ export function TopicsPage({ dashboard }) {
             </div>
             {topics.error && <span className="error-text">{topics.error}</span>}
             {health.error && (
-              <span className="error-text">백엔드 연결 끊김</span>
+              <span className="error-text">Backend connection lost.</span>
             )}
           </div>
           <FilterToolbar

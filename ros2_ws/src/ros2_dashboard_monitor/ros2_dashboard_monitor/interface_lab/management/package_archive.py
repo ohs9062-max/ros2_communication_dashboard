@@ -20,25 +20,25 @@ MAX_PACKAGE_FILE_SIZE = 512 * 1024
 def validate_zip_upload(file_name: str, content: bytes) -> str:
     safe_name = PurePosixPath(file_name.replace('\\', '/')).name
     if not safe_name.lower().endswith('.zip'):
-        raise InterfacePackageError('zip 파일만 업로드할 수 있습니다.')
+        raise InterfacePackageError('Only zip files can be uploaded.')
     if not content:
-        raise InterfacePackageError('빈 zip 파일은 업로드할 수 없습니다.')
+        raise InterfacePackageError('An empty zip file cannot be uploaded.')
     if len(content) > MAX_PACKAGE_ZIP_SIZE:
         raise InterfacePackageError(
-            f'패키지 zip 크기는 {MAX_PACKAGE_ZIP_SIZE // (1024 * 1024)}MB 이하여야 합니다.',
+            f'The package zip must not exceed {MAX_PACKAGE_ZIP_SIZE // (1024 * 1024)} MB.',
         )
     return safe_name
 
 
 def extract_multipart_package_files(content_type: str, body: bytes) -> list[tuple[str, bytes]]:
     if not content_type.lower().startswith('multipart/form-data'):
-        raise InterfacePackageError('multipart/form-data 요청이 필요합니다.')
+        raise InterfacePackageError('A multipart/form-data request is required.')
     message = BytesParser(policy=default).parsebytes(
         b'Content-Type: ' + content_type.encode('ascii', errors='ignore')
         + b'\r\nMIME-Version: 1.0\r\n\r\n' + body,
     )
     if not message.is_multipart():
-        raise InterfacePackageError('multipart 요청 형식을 읽을 수 없습니다.')
+        raise InterfacePackageError('The multipart request could not be parsed.')
     files: list[tuple[str, bytes]] = []
     relative_paths: list[str] = []
     for part in message.iter_parts():
@@ -53,16 +53,16 @@ def extract_multipart_package_files(content_type: str, body: bytes) -> list[tupl
     if relative_paths and len(relative_paths) == len(files):
         files = [(relative_paths[index], content) for index, (_, content) in enumerate(files)]
     if not files:
-        raise InterfacePackageError('업로드할 package 폴더 파일이 없습니다.')
+        raise InterfacePackageError('No package folder files were provided for upload.')
     return files
 
 
 def validate_folder_upload(files: list[tuple[str, bytes]]) -> None:
     if len(files) > MAX_PACKAGE_FILES:
-        raise InterfacePackageError(f'파일은 최대 {MAX_PACKAGE_FILES}개까지 허용합니다.')
+        raise InterfacePackageError(f'At most {MAX_PACKAGE_FILES} files are allowed.')
     if sum(len(content) for _, content in files) > MAX_PACKAGE_ZIP_SIZE:
         raise InterfacePackageError(
-            f'패키지 폴더 총 크기는 {MAX_PACKAGE_ZIP_SIZE // (1024 * 1024)}MB 이하여야 합니다.',
+            f'The package folder must not exceed {MAX_PACKAGE_ZIP_SIZE // (1024 * 1024)} MB in total.',
         )
 
 
@@ -70,7 +70,7 @@ def safe_extract_zip(zip_path: Path, destination: Path) -> None:
     with zipfile.ZipFile(zip_path) as archive:
         infos = [info for info in archive.infolist() if not info.is_dir()]
         if len(infos) > MAX_PACKAGE_FILES:
-            raise InterfacePackageError(f'파일은 최대 {MAX_PACKAGE_FILES}개까지 허용합니다.')
+            raise InterfacePackageError(f'At most {MAX_PACKAGE_FILES} files are allowed.')
         for info in infos:
             relative = safe_zip_member(info)
             target = destination / relative
@@ -81,18 +81,18 @@ def safe_extract_zip(zip_path: Path, destination: Path) -> None:
 
 def safe_zip_member(info: zipfile.ZipInfo) -> PurePosixPath:
     if stat.S_ISLNK(info.external_attr >> 16):
-        raise InterfacePackageError(f'symlink는 허용하지 않습니다: {info.filename}')
+        raise InterfacePackageError(f'Symbolic links are not allowed: {info.filename}')
     return safe_package_relative_path(info.filename, info.file_size)
 
 
 def safe_package_relative_path(relative_path: str, file_size: int) -> PurePosixPath:
     path = PurePosixPath(relative_path.replace('\\', '/'))
     if path.is_absolute() or '..' in path.parts or '\x00' in relative_path:
-        raise InterfacePackageError(f'허용되지 않는 package 경로입니다: {relative_path}')
+        raise InterfacePackageError(f'The package path is not allowed: {relative_path}')
     if any(part in {'build', 'install', 'log', '.git', '__pycache__'} for part in path.parts):
-        raise InterfacePackageError(f'생성물/내부 폴더는 업로드할 수 없습니다: {relative_path}')
+        raise InterfacePackageError(f'Generated or internal directories cannot be uploaded: {relative_path}')
     if file_size > MAX_PACKAGE_FILE_SIZE:
-        raise InterfacePackageError(f'파일이 너무 큽니다: {relative_path}')
+        raise InterfacePackageError(f'The file is too large: {relative_path}')
     name = path.name
     allowed = (
         name in {'package.xml', 'CMakeLists.txt'}
@@ -104,7 +104,7 @@ def safe_package_relative_path(relative_path: str, file_size: int) -> PurePosixP
         )
     )
     if not allowed:
-        raise InterfacePackageError(f'허용되지 않는 파일입니다: {relative_path}')
+        raise InterfacePackageError(f'The file is not allowed: {relative_path}')
     return path
 
 
@@ -114,4 +114,4 @@ def find_package_root(extract_root: Path) -> Path:
     children = [path for path in extract_root.iterdir() if path.is_dir()]
     if len(children) == 1 and (children[0] / 'package.xml').is_file():
         return children[0]
-    raise InterfacePackageError('zip 내부에 package.xml을 포함한 최상위 패키지 폴더가 필요합니다.')
+    raise InterfacePackageError('The zip must contain one top-level package directory with package.xml.')

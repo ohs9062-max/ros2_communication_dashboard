@@ -32,7 +32,7 @@ def load_registry(path: Path) -> dict[str, Any]:
     try:
         data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        raise InterfaceUploadError(f'타입 registry를 읽을 수 없습니다: {exc}') from exc
+        raise InterfaceUploadError(f'The type registry could not be read: {exc}') from exc
 
     root = data.get('interface_registry') if isinstance(data, dict) else None
     if not isinstance(root, dict):
@@ -69,4 +69,4 @@ def write_registry(path: Path, registry: dict[str, Any]) -> None:
     except OSError as exc:
         if temporary_name:
             Path(temporary_name).unlink(missing_ok=True)
-        raise InterfaceUploadError(f'타입 registry를 저장할 수 없습니다: {exc}') from exc
+        raise InterfaceUploadError(f'The type registry could not be saved: {exc}') from exc

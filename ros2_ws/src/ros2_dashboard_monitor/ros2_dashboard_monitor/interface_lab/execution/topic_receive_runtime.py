@@ -56,16 +56,16 @@ class TopicReceiveRuntime:
     ) -> dict[str, Any]:
         node = self._node_getter()
         if node is None:
-            raise InterfaceReceiveError('ROS2 monitor node가 실행 중이 아닙니다.')
+            raise InterfaceReceiveError('The ROS2 monitor node is not running.')
         topic_name = topic_name.strip()
         topic_type = topic_type.strip()
         if not topic_name.startswith('/'):
-            raise InterfaceReceiveError('topic_name은 /로 시작해야 합니다.')
+            raise InterfaceReceiveError('topic_name must start with /.')
         self._ensure_registered(topic_type)
         try:
             message_class = self._message_loader(topic_type)
         except Exception as exc:
-            raise InterfaceReceiveError(f'topic type import 실패: {exc}') from exc
+            raise InterfaceReceiveError(f'Topic type import failed: {exc}') from exc
         limit = normalize_limit(history_limit)
         graph_state = self._graph_state(topic_name=topic_name, topic_type=topic_type)
         try:

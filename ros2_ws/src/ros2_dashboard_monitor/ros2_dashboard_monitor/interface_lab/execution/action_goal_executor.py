@@ -52,7 +52,7 @@ def execute_action_goal(
 
         client = client_getter(action_name, action_type, action_class)
         if not client.server_is_ready():
-            raise ActionGoalError('Action server가 준비되지 않았습니다.')
+            raise ActionGoalError('Action server is not available.')
 
         send_event = threading.Event()
         send_future = client.send_goal_async(

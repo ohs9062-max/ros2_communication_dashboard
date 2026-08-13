@@ -77,7 +77,7 @@ def _encode_raw_image(
     if encoding not in SUPPORTED_RAW_ENCODINGS:
         return _error_preview(
             'unsupported_encoding',
-            f'이미지 미리보기 미지원 encoding: {encoding or "unknown"}',
+            f'Image preview does not support encoding: {encoding or "unknown"}',
         )
     if width <= 0 or height <= 0 or width > max_width or height > max_height:
         return _error_preview(
@@ -136,7 +136,7 @@ def _encode_compressed_image(
         return _success_preview('image/png', bytes(source))
     return _error_preview(
         'unsupported_format',
-        f'이미지 미리보기 미지원 format: {image_format or "unknown"}',
+        f'Image preview does not support format: {image_format or "unknown"}',
     )
 
 

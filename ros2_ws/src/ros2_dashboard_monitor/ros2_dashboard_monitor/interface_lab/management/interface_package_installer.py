@@ -32,11 +32,11 @@ def install_interface(
     package_xml = package_path / 'package.xml'
     cmake_path = package_path / 'CMakeLists.txt'
     if not package_path.is_dir() or not package_xml.is_file() or not cmake_path.is_file():
-        raise InterfaceUploadError(f'interface 패키지 구성을 찾을 수 없습니다: {package_path}')
+        raise InterfaceUploadError(f'The interface package structure was not found: {package_path}')
 
     declared_name = re.search(r'<name>\s*([^<]+)\s*</name>', package_xml.read_text(encoding='utf-8'))
     if not declared_name or declared_name.group(1).strip() != package_name:
-        raise InterfaceUploadError('INTERFACE_PACKAGE_NAME과 package.xml의 패키지명이 다릅니다.')
+        raise InterfaceUploadError('INTERFACE_PACKAGE_NAME does not match the package name in package.xml.')
 
     dependencies = dependency_candidates(raw_text, package_name)
     destination = package_path / kind / safe_name
@@ -54,7 +54,7 @@ def install_interface(
             cmake_changed = update_cmake(cmake_path, f'{kind}/{safe_name}', dependencies)
             package_changed = update_package_xml(package_xml, dependencies)
     except (OSError, UnicodeError) as exc:
-        raise InterfaceUploadError(f'interface 패키지 반영에 실패했습니다: {exc}') from exc
+        raise InterfaceUploadError(f'Failed to update the interface package: {exc}') from exc
 
     import_available, import_error = check_import(package_name, kind, type_name)
     return {
@@ -101,7 +101,7 @@ def update_cmake(path: Path, interface_path: str, dependencies: list[str]) -> bo
     text = path.read_text(encoding='utf-8')
     match = re.search(r'rosidl_generate_interfaces\s*\(', text)
     if not match:
-        raise InterfaceUploadError('CMakeLists.txt에 rosidl_generate_interfaces 블록이 없습니다.')
+        raise InterfaceUploadError('CMakeLists.txt does not contain a rosidl_generate_interfaces block.')
     end = closing_parenthesis(text, match.end() - 1)
     block = text[match.start():end + 1]
     updated = block
@@ -143,7 +143,7 @@ def closing_parenthesis(text: str, opening: int) -> int:
             depth -= 1
             if depth == 0:
                 return index
-    raise InterfaceUploadError('rosidl_generate_interfaces 블록이 닫히지 않았습니다.')
+    raise InterfaceUploadError('The rosidl_generate_interfaces block is not closed.')
 
 
 def update_package_xml(path: Path, dependencies: list[str]) -> bool:
@@ -169,7 +169,7 @@ def update_package_xml(path: Path, dependencies: list[str]) -> bool:
     if marker < 0:
         marker = text.find('</package>')
     if marker < 0:
-        raise InterfaceUploadError('package.xml의 package 닫기 태그를 찾을 수 없습니다.')
+        raise InterfaceUploadError('The closing package tag was not found in package.xml.')
     result = text[:marker] + '\n'.join(additions) + '\n\n' + text[marker:]
     backup(path)
     atomic_write(path, result)

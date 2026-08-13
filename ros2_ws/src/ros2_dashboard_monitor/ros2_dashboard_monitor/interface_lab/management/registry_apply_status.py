@@ -195,7 +195,7 @@ def missing_registry_summary(
         'not_applied': [{
             'file_name': None,
             'saved_path': None,
-            'reason': f'interface_registry.yaml 파일이 없습니다: {display_path(path)}',
+            'reason': f'interface_registry.yaml was not found: {display_path(path)}',
         }],
         'import_pending': [],
         'requires_import_available': False,

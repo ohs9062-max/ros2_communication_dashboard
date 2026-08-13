@@ -72,7 +72,7 @@ class UserPreferencesStore:
             data = yaml.safe_load(self._path.read_text(encoding='utf-8')) or {}
         except (OSError, UnicodeError, yaml.YAMLError) as exc:
             raise UserPreferencesError(
-                f'사용자 주요 설정을 읽을 수 없습니다: {exc}',
+                f'User priority settings could not be read: {exc}',
             ) from exc
         root = data.get('priority') if isinstance(data, dict) else None
         root = root if isinstance(root, dict) else {}
@@ -109,7 +109,7 @@ class UserPreferencesStore:
             if temporary_name:
                 Path(temporary_name).unlink(missing_ok=True)
             raise UserPreferencesError(
-                f'사용자 주요 설정을 저장할 수 없습니다: {exc}',
+                f'User priority settings could not be saved: {exc}',
             ) from exc
 
 
@@ -119,12 +119,12 @@ def _empty_priority() -> dict[str, list[str]]:
 
 def _priority_kind(kind: str) -> str:
     if kind not in PRIORITY_KINDS:
-        raise UserPreferencesError(f'지원하지 않는 리소스 종류입니다: {kind}')
+        raise UserPreferencesError(f'Unsupported resource kind: {kind}')
     return kind
 
 
 def _resource_name(name: str) -> str:
     value = str(name or '').strip()
     if not value or '\x00' in value:
-        raise UserPreferencesError('리소스 이름이 올바르지 않습니다.')
+        raise UserPreferencesError('The resource name is invalid.')
     return value

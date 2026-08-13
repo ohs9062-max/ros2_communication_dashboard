@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-12
+마지막 갱신: 2026-08-13
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -64,6 +64,10 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- Dashboard가 생성하는 Topic·Service·Action·Node·QoS Alert과 수신 진단, Interface Lab
+  실행/관리, Backend 연결, Frontend fallback의 warning/error 본문을 짧은 영어 문장으로
+  통일했다. 한국어 UI 라벨·상태/레벨 badge와 내부 status/code/enum, Alert lifecycle,
+  MariaDB schema는 변경하지 않았다. 외부 `MonitorStatus.message`는 장비가 보낸 원문을 유지한다.
 - Service/Action은 각 `graph_missing_timeout_sec` 기본 5초, Node는 기존 `nodes.stale_timeout_sec`
   기본 5초 동안 Graph 이탈이 유지된 뒤에만 disconnected로 확정한다. 첫 누락 poll은 직전 상태를 유지하고
   재등장은 즉시 정상 복귀한다. Node `node_stale` Alert code는 DB 호환을 위해 유지하되 실제 Alert는 주요·감시

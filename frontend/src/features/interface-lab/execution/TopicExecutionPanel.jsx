@@ -104,7 +104,7 @@ export function TopicExecutionPanel({
             <button className="interface-service-call-button" disabled={busy || !selected?.import_available} onClick={onPublish} type="button">{busy ? '처리 중…' : '1회 발행'}</button>
             <button className={activeContinuousPublish ? 'interface-receive-action-button warning' : 'interface-service-call-button'} disabled={busy || !selected?.import_available} onClick={activeContinuousPublish ? onContinuousStop : onContinuousStart} type="button">{activeContinuousPublish ? '지속 발행 중지' : '지속 발행'}</button>
           </div>
-          {activeContinuousPublish && <div className="interface-service-state warning">{activeContinuousPublish.hz} Hz로 지속 발행 중 · {activeContinuousPublish.message_count ?? 0}회 전송</div>}
+          {activeContinuousPublish && <div className="interface-service-state warning">Publishing continuously at {activeContinuousPublish.hz} Hz · {activeContinuousPublish.message_count ?? 0} message(s) sent</div>}
           <div className="interface-receive-actions"><button className="interface-receive-action-button warning" onClick={onResetHistory} type="button">Publish 이력 리셋</button></div>
           {publishResult && <CallResultBlock result={publishResult} successPayload={publishResult.message_json ?? publishResult.payload} />}
           <ReceiveHistory title="Topic publish history" items={history} />

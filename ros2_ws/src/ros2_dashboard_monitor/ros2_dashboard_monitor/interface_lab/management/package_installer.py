@@ -38,12 +38,12 @@ def install_package_root(
         display_path=display_path,
     )
     if sum(len(items) for items in interfaces.values()) == 0:
-        raise InterfacePackageError('msg/srv/action 인터페이스가 하나 이상 필요합니다.')
+        raise InterfacePackageError('At least one msg, srv, or action interface is required.')
 
     destination = uploaded_root / package_name
     if destination.exists() and not replace:
         raise InterfacePackageError(
-            f'{package_name} 패키지가 이미 있습니다.',
+            f'The {package_name} package already exists.',
         )
 
     _replace_package_tree(
@@ -105,7 +105,7 @@ def _replace_package_tree(
         if backup.exists():
             backup.rename(destination)
         shutil.rmtree(staging, ignore_errors=True)
-        raise InterfacePackageError(f'패키지 저장에 실패했습니다: {exc}') from exc
+        raise InterfacePackageError(f'Failed to save the package: {exc}') from exc
 
 
 def _rebase_interface_paths(

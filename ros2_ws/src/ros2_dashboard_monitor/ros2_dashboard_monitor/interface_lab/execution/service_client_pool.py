@@ -12,7 +12,7 @@ from ros2_dashboard_monitor.interface_lab.execution.qos_profiles import profile_
 
 
 SERVICE_QOS_REASON = (
-    'Service Graph API에서 상대 endpoint QoS를 제공하지 않아 기본 Service QoS를 사용합니다.'
+    'Remote endpoint QoS is not available from the Service graph API. The default Service QoS is used.'
 )
 
 

@@ -62,12 +62,12 @@ export function useTopicReceiveController({
 
   const startTopic = async () => {
     if (!selectedTopic.trim()) {
-      setFeedback({ tone: 'error', text: '수신할 Topic 이름을 입력하세요.' })
+      setFeedback({ tone: 'error', text: 'Enter a Topic name to receive.' })
       return
     }
     const topicType = selectedMessage?.message_type
     if (!topicType) {
-      setFeedback({ tone: 'error', text: '수신할 Message full_type을 선택하세요.' })
+      setFeedback({ tone: 'error', text: 'Select a Message full_type to receive.' })
       return
     }
     try {
@@ -88,7 +88,7 @@ export function useTopicReceiveController({
     try {
       await stopReceiveTopic({ topic_name: selectedTopic, topic_type: selectedMessage?.message_type })
       await load()
-      setFeedback({ tone: 'warning', text: `${selectedTopic} 수신을 중지했습니다.` })
+      setFeedback({ tone: 'warning', text: `Stopped receiving ${selectedTopic}.` })
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message })
     }
@@ -96,7 +96,7 @@ export function useTopicReceiveController({
 
   const resetSelectedTopic = async () => {
     if (!selectedTopic) {
-      setFeedback({ tone: 'error', text: '리셋할 Topic을 선택하세요.' })
+      setFeedback({ tone: 'error', text: 'Select a Topic to reset.' })
       return
     }
     try {

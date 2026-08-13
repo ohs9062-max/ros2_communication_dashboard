@@ -65,7 +65,7 @@ def test_json_parser_accepts_only_object_payload() -> None:
     with pytest.raises(HTTPException) as caught:
         asyncio.run(read_json_object(_Request(json_value=[])))
     assert caught.value.status_code == 400
-    assert caught.value.detail == 'JSON object 요청 본문이 필요합니다.'
+    assert caught.value.detail == 'The JSON request body must be an object.'
 
 
 def test_json_parser_maps_decode_failure_to_existing_error() -> None:
@@ -73,4 +73,4 @@ def test_json_parser_maps_decode_failure_to_existing_error() -> None:
         asyncio.run(read_json_object(_Request(json_error=ValueError('invalid'))))
 
     assert caught.value.status_code == 400
-    assert caught.value.detail == 'JSON 요청 본문이 필요합니다.'
+    assert caught.value.detail == 'A JSON request body is required.'

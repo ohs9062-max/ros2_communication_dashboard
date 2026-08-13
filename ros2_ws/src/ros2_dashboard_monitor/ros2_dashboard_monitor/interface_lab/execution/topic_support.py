@@ -46,10 +46,10 @@ def normalize_publish_hz(value: float) -> float:
     try:
         hz = float(value)
     except (TypeError, ValueError) as exc:
-        raise InterfaceReceiveError('hz는 숫자여야 합니다.') from exc
+        raise InterfaceReceiveError('hz must be a number.') from exc
     if hz < MIN_CONTINUOUS_PUBLISH_HZ or hz > MAX_CONTINUOUS_PUBLISH_HZ:
         raise InterfaceReceiveError(
-            f'hz는 {MIN_CONTINUOUS_PUBLISH_HZ:g} 이상 {MAX_CONTINUOUS_PUBLISH_HZ:g} 이하여야 합니다.',
+            f'hz must be between {MIN_CONTINUOUS_PUBLISH_HZ:g} and {MAX_CONTINUOUS_PUBLISH_HZ:g}.',
         )
     return hz
 

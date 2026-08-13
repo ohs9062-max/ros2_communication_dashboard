@@ -48,9 +48,9 @@ class TopicGraphInspector:
             'exact_matches': exact,
             'conflicts': conflicts,
             'warning': (
-                '같은 Topic 이름에 다른 type이 graph에 있습니다.'
+                'The ROS2 graph contains the same Topic name with a different type.'
                 if conflicts else (
-                    'Graph에 아직 같은 이름의 Topic이 없습니다.'
+                    'No Topic with the same name is currently visible in the ROS2 graph.'
                     if not same_name else None
                 )
             ),
