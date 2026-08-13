@@ -3,7 +3,6 @@ import {
   historyLabel,
 } from '../model/executionHistory.js'
 import { ExecutionQosSummary } from '../InterfaceExecutionShared.jsx'
-export { SchemaRequestField as RequestField } from '../SchemaRequestField.jsx'
 
 export function SectionTitle({ title }) {
   return <h4 className="interface-detail-section-title">{title}</h4>

@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-
-const EXECUTION_MODES = ['topic', 'service', 'action']
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  closeExecutionPanel,
+  isExecutionMode,
+  isWorkspaceExpanded,
+  runExecutionPanelLoad,
+} from '../model/panelCoordinatorModel.js'
 
 export function useInterfacePanelCoordinator({
   loadActionExecution,
@@ -26,12 +30,15 @@ export function useInterfacePanelCoordinator({
 }) {
   const [executionMode, setExecutionMode] = useState(null)
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false)
+  const executionRequestRef = useRef(0)
 
   const showCallableTopics = executionMode === 'topic'
   const showCallableServices = executionMode === 'service'
   const showCallableActions = executionMode === 'action'
 
-  const closeExecutionPanels = useCallback(() => setExecutionMode(null), [])
+  const closeExecutionPanels = useCallback(() => {
+    closeExecutionPanel({ requestRef: executionRequestRef, setBusy, setExecutionMode })
+  }, [setBusy])
   const closeReceivePanel = useCallback(() => setShowReceivePanel(false), [setShowReceivePanel])
 
   const hideManagementPanels = useCallback(() => {
@@ -41,26 +48,22 @@ export function useInterfacePanelCoordinator({
   }, [setShowBuildLog, setShowPackages, setShowRegistry])
 
   const loadExecutionPanel = useCallback(async (mode, keepOpen = false) => {
-    const loaders = {
-      action: loadActionExecution,
-      service: loadServiceExecution,
-      topic: loadTopicExecution,
-    }
-    const loader = loaders[mode]
-    if (!loader) return false
-
-    setBusy(true)
-    try {
-      await loader()
-      setExecutionMode(mode)
-      if (!keepOpen) hideManagementPanels()
-      return true
-    } catch (error) {
-      setFeedback({ tone: 'error', text: error.message })
-      return false
-    } finally {
-      setBusy(false)
-    }
+    const requestId = executionRequestRef.current + 1
+    executionRequestRef.current = requestId
+    return runExecutionPanelLoad({
+      hideManagementPanels,
+      isCurrent: () => executionRequestRef.current === requestId,
+      keepOpen,
+      loaders: {
+        action: loadActionExecution,
+        service: loadServiceExecution,
+        topic: loadTopicExecution,
+      },
+      mode,
+      setBusy,
+      setExecutionMode,
+      setFeedback,
+    })
   }, [
     hideManagementPanels,
     loadActionExecution,
@@ -73,8 +76,7 @@ export function useInterfacePanelCoordinator({
   const openExecutionPanel = useCallback(async (mode) => {
     setShowReceivePanel(true)
     setReceiveMode(mode)
-    await loadExecutionPanel(mode)
-    await loadReceiveState({ silent: true })
+    if (await loadExecutionPanel(mode)) await loadReceiveState({ silent: true })
   }, [loadExecutionPanel, loadReceiveState, setReceiveMode, setShowReceivePanel])
 
   const openReceivePanel = useCallback(() => {
@@ -97,12 +99,11 @@ export function useInterfacePanelCoordinator({
 
   const selectReceiveMode = useCallback(async (mode) => {
     setReceiveMode(mode)
-    if (!EXECUTION_MODES.includes(mode)) {
+    if (!isExecutionMode(mode)) {
       closeExecutionPanels()
       return
     }
-    await loadExecutionPanel(mode)
-    await loadReceiveState({ silent: true })
+    if (await loadExecutionPanel(mode)) await loadReceiveState({ silent: true })
   }, [closeExecutionPanels, loadExecutionPanel, loadReceiveState, setReceiveMode])
 
   const openPackages = useCallback(async () => {
@@ -120,18 +121,7 @@ export function useInterfacePanelCoordinator({
     closeExecutionPanels()
   }, [closeExecutionPanels, setShowBuildLog, setShowPackages, setShowRegistry])
 
-  const expandedActive = useMemo(() => workspaceExpanded && (
-    showManualInput
-    || showRegistry
-    || showPackages
-    || (
-      showReceivePanel
-      && (
-        executionMode === receiveMode
-        || (executionMode === null && receiveMode !== 'mock')
-      )
-    )
-  ), [
+  const expandedActive = useMemo(() => isWorkspaceExpanded({
     executionMode,
     receiveMode,
     showManualInput,
@@ -139,6 +129,9 @@ export function useInterfacePanelCoordinator({
     showReceivePanel,
     showRegistry,
     workspaceExpanded,
+  }), [
+    executionMode, receiveMode, showManualInput, showPackages,
+    showReceivePanel, showRegistry, workspaceExpanded,
   ])
 
   useEffect(() => {

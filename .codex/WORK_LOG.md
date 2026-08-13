@@ -668,3 +668,127 @@
   `TwistStamped` 이동·회전·정지 실증이 완료돼 2026-08-11 평가 66%에서 크게 상승했다.
 - 주요 잔여는 실제 물리 기기 QoS 실증, MariaDB ACK/발생횟수·기간/레벨 필터처럼 원문에는 있으나
   현재 확정 schema에서 제외한 범위, TurtleBot 전용 안전 preset 및 실제 기기/Simulation 구분 검증이다.
+
+## 2026-08-13 - Interface Lab 공통 JSON 입력 1차 리팩토링
+
+- `nextstep.md` 핵심 범위는 현재 요구 기준 완료로 확정하고, ACK/발생 횟수와 TurtleBot 전용 preset은
+  불필요한 추가 범위로 분류했다.
+- Topic·Service·Action의 상단 실행과 우측 상세 실행 6개 사용처가 `SchemaRequestField`를 직접
+  import하도록 통일하고 `InterfaceExecutionShared`와 `WorkspaceShared`의 우회 export를 제거했다.
+- JSON 입력 전용 스타일을 전역 `App.css`에서 `SchemaRequestField.css`로 옮겨 컴포넌트와 스타일의
+  소유 위치를 맞췄다. 표시와 validation/payload 동작은 변경하지 않았다.
+- Frontend lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 프로젝트 Markdown 현재 기능 기준 정비
+
+- 사용자 요청에 따라 `docs/docs2/**`, `start.md`, `.codex/archive`, dependency/cache 문서를 제외한
+  프로젝트 Markdown을 코드·설정과 대조했다. 기존 문서 끝에 최신 내용을 추가하지 않고 오래된 본문을
+  직접 수정하거나 교체했다.
+- Electron과 구 `backend/src` 구조를 설명하던 `AGENTS_ohs.md`, 현재 UI가 해결한 endpoint 중복 조사의
+  일회성 결과인 `qos_dup.md`를 제거했다. `nextstep.md`는 현재 요구 범위 완료와 명시적 제외 범위만 남겼다.
+- README, 실행 설정, MariaDB DDL, DDS/QoS 안내, Frontend 안내와 architecture 문서를 현재
+  Monitor→Backend→Frontend 책임, Alert 21종, 요청형 Camera Preview, Interface Lab과 WSS 정책에 맞췄다.
+- `AGENTS.md`의 Topic 미수신/QoS 진단 설명을 실제 `reception_diagnosis` 구현으로 수정하고,
+  기본 supported Topic type 9개, observed badge 문구, same-origin Frontend 설정을 코드와 일치시켰다.
+- 위치·라인 참조는 이후 리팩토링 범위이므로 변경하지 않았으며 `git diff --check`와 삭제 문서 참조 검색을 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 1차 schema value 통합
+
+- 변경 전 기준선으로 Frontend lint/build, Backend pytest 15 passed·2 skipped, Monitor pytest 236 passed를
+  확인했다.
+- `interfaceUploadModel.js`와 `schemaValues.js`에 복제돼 있던 numeric/array/custom/complex type 판정,
+  schema 기본값과 숫자 normalization을 `schemaValues.js` 단일 구현으로 통합했다. 기존 import 호환을 위해
+  `interfaceUploadModel.js`의 공개 export 이름은 alias/re-export로 유지했다.
+- Node 내장 test runner 기반 unit test 5건을 추가해 primitive/array/sequence/custom type, 기본값,
+  빈 numeric 값과 object payload 보존, 잘못된 schema 입력 및 기존 helper export 호환을 검증했다.
+  별도 Frontend test dependency는 추가하지 않았다.
+- Frontend unit test 5 passed, lint/build, 전체 workspace colcon 254 tests·0 failures·1 skipped와
+  `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 2차 Workspace 상세 모델 분리
+
+- `WorkspaceDetailPanel.jsx` 안에 있던 package/ROS Interface 탭 구성, 초기 view 선택, Graph 연결 수,
+  Endpoint QoS 요약과 endpoint field 축약을 순수 `workspaceDetailModel.js`로 분리했다.
+- 기존 `통신 상세/History/고급 정보/실행`, Package 정보 탭과 `qos_mode/topics/services/actions/subscriptions`
+  snapshot shape를 그대로 유지했다. malformed list 입력은 빈 배열로 안전하게 처리한다.
+- unit test 4건을 추가해 탭·초기 view, 연결 수, raw payload 제외, QoS 요약 shape와 safe default를
+  검증했다. Frontend unit test 총 9 passed, lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 3차 Interface QoS 연동 분리
+
+- `InterfaceUploadControl.jsx`에 직접 조립돼 있던 Topic Publish/Receive, Service Request/Response,
+  Action Goal/Result/Cancel/Feedback/Status 실행·수신 QoS 연동을 `useInterfaceQosLinks.js`로 분리했다.
+- Action channel profile map, 공통 mode 선택, 원래 control setter 탐색, linked control 변환을 순수
+  `qosControlLinks.js`로 분리했다. 기존 `useLinkedQosModes`의 양방향 연동 규칙과 View props 계약은 유지했다.
+- unit test 3건을 추가해 channel profile/mode와 실행·수신 callback routing, label/profile 보존을
+  검증했다. Frontend unit test 총 12 passed, lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 4차 Interface 삭제 refresh 분리
+
+- `InterfaceUploadControl.jsx`의 manual definition, Package, Registry 삭제 후 Topic·Service·Action 실행 후보를
+  다시 읽는 lifecycle을 `useInterfaceRemovalActions.js`로 분리했다.
+- 세 loader의 병렬 실행과 삭제 함수에 기존 refresh callback을 전달하는 계약을 순수
+  `executionCandidateRefresh.js`로 분리했다. 삭제 API, 관리 목록 refresh, feedback과 `onStateChanged` 순서는
+  기존 `useInterfaceDeleteActions`에 그대로 유지했다.
+- 비동기 unit test 3건으로 세 후보 갱신, loader 오류 전파와 대상/callback identity를 검증했다.
+  Frontend unit test 총 15 passed, lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 5차 실행 View adapter 분리
+
+- `InterfaceUploadControl.jsx` 하단에 직접 나열돼 있던 Topic, Service, Action 실행과 Receive workspace의
+  View props 조립을 순수 `interfaceExecutionViews.js` presentation adapter로 분리했다.
+- adapter는 기존 execution/receive View props helper를 그대로 사용하며 controller 원본 객체, QoS link와
+  panel coordinator 상태만 입력받는다. 선택값, 실행 callback, history, QoS control과 receive mode별
+  확대 조건 계약은 변경하지 않았다.
+- contract unit test 2건으로 네 View의 핵심 참조와 action/topic receive mode별 `showExpand`를 검증했다.
+  Frontend unit test 총 17 passed, lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 6차 관리 View adapter 분리
+
+- `InterfaceUploadControl.jsx`가 `useInterfaceManagementController`의 상태와 callback 수십 개를 다시
+  destructuring하고 평평한 props로 전달하던 조립을 `interfaceManagementView` adapter로 옮겼다.
+- 기존 `managementViewProps`를 그대로 최종 변환기로 사용해 Toolbar, 수동 등록, Registry, Package,
+  Build failure 패널 계약과 닫기 후 workspace 축소 순서를 유지했다. controller의
+  `startEditingManualDefinition`은 기존 View 계약명 `startEditManualDefinition`으로 명시 연결했다.
+- contract unit test 2건을 추가했다. Frontend unit test 총 19 passed, lint/build와
+  `git diff --check`를 통과했으며 `InterfaceUploadControl.jsx`는 241줄로 줄었다.
+
+## 2026-08-13 - 안정화·리팩토링 7차 패널 lifecycle 모델 분리
+
+- `useInterfacePanelCoordinator` 안의 Topic·Service·Action loader 선택과 실행 패널 전환 lifecycle을
+  순수 `panelCoordinatorModel.js`로 분리했다. 기존 busy 설정·해제, loader 실행, mode 전환,
+  관리 패널 닫기와 오류 feedback 순서를 변경하지 않았다.
+- 관리 패널을 유지하는 `keepOpen`, 미지원 receive mode 처리와 manual/registry/package/receive 상태에 따른
+  workspace 확대 판정도 같은 모델의 명시적 함수로 옮겼다.
+- 성공·유지·실패·미지원 mode·확대 조건 unit test 5건을 추가했다. Frontend unit test 총 24 passed,
+  lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 8차 Interface polling 중복 방지
+
+- 공통 Dashboard `usePolling`에는 중복 실행 방지가 있었지만 Interface Lab의 수신 상태와 지속 Topic Publish
+  상태 polling에는 없어서, API 응답이 1초 주기보다 느릴 때 같은 hook에서 요청이 누적될 수 있음을 확인했다.
+- `runSingleFlight` helper를 추가하고 실행/수신 workspace의 Receive polling, 상단 Topic 지속 Publish polling,
+  우측 상세 Topic 지속 Publish polling 세 경로에 적용했다. 명시적 실행과 오류 표시 정책은 변경하지 않았다.
+- 진행 중 중복 호출 skip, 정상 완료 후 재실행, 실패 후 lock 해제를 unit test 3건으로 검증했다.
+  Frontend unit test 총 27 passed, lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 9차 실행 패널 최신 요청 보장
+
+- Topic→Service처럼 실행 패널을 빠르게 전환할 때 먼저 시작한 느린 loader가 나중에 완료되어 최신 선택을
+  되돌릴 수 있는 비동기 경합을 확인했다. `useInterfacePanelCoordinator`의 요청 순번으로 마지막 요청만
+  execution mode, 오류 feedback, busy 해제와 후속 Receive refresh를 반영하도록 수정했다.
+- 패널 닫기도 진행 중 요청을 무효화하고 busy를 즉시 해제한다. 따라서 닫은 뒤 늦은 응답이 패널을 다시
+  열거나, 무효화된 요청 때문에 로딩 상태가 남지 않는다.
+- 역순 응답, 오래된 오류 억제, 닫기 무효화 unit test 3건을 추가했다. Frontend unit test 총 30 passed,
+  lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화·리팩토링 10차 전체 snapshot refresh 병합
+
+- Interface Lab 초기 로드, 실행 완료의 `onStateChanged`, 수동 상태 새로고침이 같은 전체 snapshot을
+  동시에 요청할 수 있어 API 15종 묶음이 중복 실행되고 완료 순서에 따라 상태가 다시 적용될 수 있는 경로를
+  확인했다.
+- `runSharedFlight`를 `useInterfaceLabSnapshot`에 적용해 진행 중인 refresh가 있으면 새 묶음을 만들지 않고
+  기존 Promise와 동일한 성공·부분 실패 결과를 공유하도록 했다. 완료·실패 후 ref를 비워 다음 refresh는
+  정상 재시도한다.
+- 중복 caller 결과 공유와 실패 후 재시도 unit test 2건을 추가했다. Frontend unit test 총 32 passed,
+  lint/build와 `git diff --check`를 통과했다.

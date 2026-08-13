@@ -1,12 +1,12 @@
 # 현재 Alert 전체 목록
 
-2026-08-12 기준 실제 Monitor Alert builder와 대조한 결과, 생성 가능한 Alert code는 총 21종입니다.
+실제 Monitor Alert builder가 생성하는 Alert code는 총 21종입니다.
 
 ## Topic 5종
 
 | code | level | 발생 조건 요약 |
 |---|---|---|
-| `waiting_publisher` | warning | 감시 대상 Topic에 외부 Subscriber는 있으나 Publisher가 없음 |
+| `waiting_publisher` | warning | 필수 또는 등록 감시 Topic에 Publisher가 없음 |
 | `topic_message_missing` | warning | Publisher와 감시 subscription은 있으나 제한 시간 동안 한 번도 메시지를 받지 못함 |
 | `topic_stale` | warning | 이전 수신 후 새 메시지 없이 stale 기준 시간을 초과함 |
 | `topic_disconnected` | error | 이전에 발견된 감시 대상 Topic이 Graph에서 사라짐 |

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 
 import { sourceLabel } from '../model/workspacePresentation.js'
+import {
+  communicationSnapshot,
+  connectionCount,
+  defaultDetailView,
+  detailTabs,
+} from '../model/workspaceDetailModel.js'
 import { ActionWorkspaceDetail } from './ActionWorkspaceDetail.jsx'
 import { ServiceWorkspaceDetail } from './ServiceWorkspaceDetail.jsx'
 import { TopicWorkspaceDetail } from './TopicWorkspaceDetail.jsx'
@@ -62,8 +68,8 @@ export function WorkspaceDetailPanel({
   topicSubscribeName,
   timeoutSec,
 }) {
-  const [activeView, setActiveView] = useState(() => item?.kind === 'package' ? 'advanced' : 'details')
-  useEffect(() => setActiveView(item?.kind === 'package' ? 'advanced' : 'details'), [item?.id, item?.kind])
+  const [activeView, setActiveView] = useState(() => defaultDetailView(item?.kind))
+  useEffect(() => setActiveView(defaultDetailView(item?.kind)), [item?.id, item?.kind])
 
   if (!item) {
     return (
@@ -195,40 +201,4 @@ export function WorkspaceDetailPanel({
       )}
     </aside>
   )
-}
-
-function detailTabs(kind) {
-  if (kind === 'message') return [
-    { id: 'details', label: '통신 상세' },
-    { id: 'history', label: 'History' },
-    { id: 'advanced', label: '고급 정보' },
-    { id: 'open-execution', label: '실행' },
-  ]
-  if (kind === 'package') return [{ id: 'advanced', label: 'Package 정보' }]
-  return [
-    { id: 'details', label: '통신 상세' },
-    { id: 'history', label: 'History' },
-    { id: 'advanced', label: '고급 정보' },
-    { id: 'open-execution', label: '실행' },
-  ]
-}
-
-function connectionCount(item) {
-  return (item.connectedTopics?.length ?? 0) + (item.connectedServices?.length ?? 0) + (item.connectedActions?.length ?? 0)
-}
-
-function communicationSnapshot(item) {
-  return {
-    qos_mode: item.qos?.mode ?? 'auto',
-    topics: (item.connectedTopics ?? []).map(compactEndpoint),
-    services: (item.connectedServices ?? []).map(compactEndpoint),
-    actions: (item.connectedActions ?? []).map(compactEndpoint),
-    subscriptions: (item.topicStates ?? []).map(compactEndpoint),
-  }
-}
-
-function compactEndpoint(endpoint) {
-  return Object.fromEntries(Object.entries(endpoint ?? {}).filter(([key]) => (
-    /name|type|qos|endpoint|publisher|subscriber|server|client|available|reason|channel/i.test(key)
-  )))
 }

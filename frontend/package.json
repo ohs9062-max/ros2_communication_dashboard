@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test:unit": "node src/features/interface-lab/model/schemaValues.test.js && node src/features/interface-lab/model/workspaceDetailModel.test.js && node src/features/interface-lab/model/qosControlLinks.test.js && node src/features/interface-lab/model/executionCandidateRefresh.test.js && node src/features/interface-lab/model/interfaceExecutionViews.test.js && node src/features/interface-lab/model/managementViewProps.test.js && node src/features/interface-lab/model/panelCoordinatorModel.test.js && node src/features/interface-lab/model/singleFlight.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

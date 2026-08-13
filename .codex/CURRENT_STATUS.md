@@ -64,6 +64,41 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- 안정화·리팩토링 10차로 Interface Lab 전체 snapshot 새로고침을 shared-flight로 만들었다. 초기 로드,
+  실행 후 `onStateChanged`, 수동 새로고침이 겹쳐도 진행 중인 15개 API 요청 묶음과 결과를 공유하며 완료 또는
+  실패 후 다음 재시도가 가능하다. 관련 test 2건을 추가해 Frontend Interface Lab unit test는 총 32건이다.
+- 안정화·리팩토링 9차로 Interface Lab 실행 패널 전환에 latest-request-wins 규칙을 적용했다.
+  Topic·Service·Action loader 응답이 역순으로 끝나도 마지막 선택만 mode·feedback·busy와 후속 Receive refresh를
+  반영하며, 닫기는 진행 중 요청을 무효화하고 busy를 해제한다. 관련 test 3건을 추가해 총 30건이다.
+- 안정화·리팩토링 8차로 Interface Lab 수신 상태와 지속 Topic Publish 상태의 1초 polling에 공통
+  single-flight guard를 적용했다. 느린 응답 중 다음 tick이 와도 동일 hook의 요청을 중복 실행하지 않고,
+  성공·실패 뒤 lock 해제를 unit test 3건으로 고정했으며 Frontend Interface Lab unit test는 총 27건이다.
+- 안정화·리팩토링 7차로 Interface Lab 실행 패널 loader lifecycle과 workspace 확대 판정을
+  `panelCoordinatorModel.js`로 분리했다. 성공·실패·미지원 mode의 상태 변경 순서와 관리 패널 유지 옵션,
+  실행/수신 mode별 확대 조건을 unit test 5건으로 고정했으며 Frontend Interface Lab unit test는 총 24건이다.
+- 안정화·리팩토링 6차로 `InterfaceUploadControl`이 관리 controller의 수십 개 필드를 직접 펼쳐
+  View props로 재조립하던 부분을 `interfaceManagementView` adapter로 분리했다. 기존
+  `managementViewProps`와 패널 닫기·접기 순서, 편집 callback alias를 contract test 2건으로 고정했으며
+  Frontend Interface Lab unit test는 총 19건이다.
+- 안정화·리팩토링 5차로 `InterfaceUploadControl`의 Topic·Service·Action·Receive View props 조립을
+  순수 `interfaceExecutionViews.js` adapter로 분리했다. Controller 값과 callback identity, 실행/수신 mode별
+  확대 조건을 contract test 2건으로 고정했으며 Frontend Interface Lab unit test는 총 17건이다.
+- 안정화·리팩토링 4차로 Interface 삭제 후 Topic·Service·Action 실행 후보를 병렬 갱신하는 lifecycle을
+  `useInterfaceRemovalActions`와 순수 helper로 분리했다. 삭제 함수의 기존 refresh callback 계약과 오류
+  전파를 unit test 3건으로 고정했으며 Frontend Interface Lab unit test는 총 15건이다.
+- 안정화·리팩토링 3차로 `InterfaceUploadControl`의 Topic·Service·Action 실행/수신 QoS 연동 조립을
+  `useInterfaceQosLinks`로 분리했다. Action channel profile/mode 변환은 순수 helper로 분리해 3건을
+  테스트했고 Frontend Interface Lab unit test는 총 12건이다.
+- 안정화·리팩토링 2차로 `WorkspaceDetailPanel`의 탭 구성, 초기 선택, Graph 연결 수와 Endpoint QoS
+  요약 생성을 순수 `workspaceDetailModel.js`로 분리했다. package/Topic/Service/Action 표시 계약과
+  payload 제외 규칙을 unit test 4건으로 고정했으며 Frontend unit test는 총 9건이다.
+- 안정화·리팩토링 1차로 Interface Lab에 중복돼 있던 schema type 판정, 기본값 생성과 숫자 변환을
+  `schemaValues.js` 한 곳으로 통합했다. 기존 `interfaceUploadModel.js` export 계약은 유지하고 Node 내장
+  unit test 5건을 추가했다. Frontend lint/build, Backend 15 passed·2 skipped, Monitor 236 passed,
+  전체 workspace 254 tests·0 failures를 확인했다.
+- `docs/docs2/**`와 `start.md`, archive·dependency 문서를 제외한 프로젝트 Markdown을 현재 기능과
+  대조했다. Electron·구 `backend/src` 기준의 `AGENTS_ohs.md`와 일회성 QoS 중복 조사 문서는 제거하고,
+  완료된 `nextstep.md`, 실행·DB·DDS/QoS·책임 경계·Frontend 안내를 현재 정책으로 직접 교체했다.
 - Interface Lab의 schema 기반 JSON/object 입력을 공통 `SchemaRequestField`로 통합했다.
   Topic Publish, Service Call Request, Action Goal의 상단 실행 화면과 우측 상세 실행 화면에서
   필드별 `크게 보기/줄이기`를 독립적으로 제공하며, 기본 200px·확대 450~600px(최대 62vh)로 표시한다.
@@ -171,6 +206,7 @@ Backend pytest: 15 passed, 2 skipped
 실제 MariaDB Alert UI 조회 E2E: 1 passed
 전체 workspace colcon test-result: 254 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
+Frontend Interface Lab unit tests: 17 passed
 Python compileall: 통과
 git diff --check: 통과
 ```
@@ -201,10 +237,12 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 - fallback으로 만든 Topic entity는 이후 Graph QoS 변화에 따라 자동 재생성되지 않는다.
 - 다른 배포 환경에서는 각 환경의 MariaDB 접속 정보와 확정 `alert` 테이블을 별도로 준비해야 한다. Backend는
   테이블을 자동 생성하거나 변경하지 않으며, DB 연결 실패 중 생성된 메모리 fallback 이력은 재시작 시 사라질 수 있다.
-- Gazebo TurtleBot 명령 preset은 아직 구현되지 않았다.
-- 실제 기기 전체 통합 E2E는 남아 있다. 현재 Gazebo/demo 데이터 기반 Browser에서는 Overview, Topic,
+- `nextstep.md`의 핵심 범위는 현재 요구 기준으로 완료했다. 원문에 있던 TurtleBot 전용 preset,
+  Alert ACK/발생 횟수와 같은 후속 후보는 현재 진단 목적에 불필요한 추가 범위로 분류한다.
+- 현재 검증 범위는 단일 기기의 Gazebo/demo와 연결된 ROS2 Graph다. 이 범위의 Browser에서는 Overview, Topic,
   Service, Action, Node를 1440x1000으로 렌더링해 목록 밀도와 헤더를 확인했고, Topic 상세 패널의
-  선택 전·열기·닫기와 목록 폭 복원을 Chrome DOM에서 검증했다.
+  선택 전·열기·닫기와 목록 폭 복원을 Chrome DOM에서 검증했다. 물리 장비별 인증은 배포 환경 검증이며
+  미완료 제품 기능으로 분류하지 않는다.
 - TurtleBot3 통합 launch는 build, launch argument 로드와 package test까지 확인했으며, 이미 실행 중인
   Gazebo/Nav2와 충돌하지 않도록 이번 작업에서 두 번째 GUI stack을 실제로 동시에 띄우지는 않았다.
 - QoS 사유 배치는 source와 `frontend/dist`에서 전용 라벨/설명 2행 구조로 수정됐다.
@@ -226,8 +264,8 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 
 ## 다음 우선 작업
 
-1. 운영 MariaDB credential/table 준비 후 실제 배포 Backend의 영속 이력 확인
-2. Alert DB 장기 보존량 기준 index/운영 성능 측정. 확정 스키마 변경은 별도 승인 필요
-3. Gazebo TurtleBot 명령 preset과 실제 장비/Gazebo·Browser 통합 검증
+1. 현재 dirty diff와 runtime 생성 YAML을 기능 변경과 실행 상태로 구분해 정리
+2. Interface Lab UI 동작 회귀 테스트 보강
+3. 테스트가 확보된 Frontend 대형 컴포넌트를 책임 단위로 점진적으로 정리
 
-신규 작업은 `AGENTS.md`의 현재 책임 경계와 안전 정책을 따르며, 미구현 항목을 완료된 기능으로 보고하지 않는다.
+신규 작업은 `AGENTS.md`의 현재 책임 경계와 안전 정책을 따른다.

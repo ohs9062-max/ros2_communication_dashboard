@@ -857,63 +857,6 @@ h3 {
   resize: vertical;
 }
 
-.interface-json-field-heading {
-  align-items: center;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.interface-json-field-heading > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.interface-json-expand-button {
-  background: rgba(30, 41, 59, .72);
-  border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  color: #c7d2e0;
-  cursor: pointer;
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 9px;
-}
-
-.interface-json-expand-button:hover,
-.interface-json-expand-button:focus-visible {
-  background: rgba(51, 65, 85, .9);
-  border-color: rgba(106, 169, 244, .6);
-  color: var(--text);
-  outline: 0;
-}
-
-.interface-service-field .interface-json-input {
-  box-sizing: border-box;
-  min-height: 200px;
-  overflow-wrap: anywhere;
-  tab-size: 2;
-  white-space: pre-wrap;
-  width: 100%;
-  word-break: break-word;
-}
-
-.interface-json-field.expanded .interface-json-input {
-  height: clamp(450px, 62vh, 600px);
-  min-height: 450px;
-}
-
-@media (max-width: 760px) {
-  .interface-json-field.expanded .interface-json-input {
-    height: min(520px, 62vh);
-    min-height: 360px;
-  }
-}
-
 .interface-service-field input:disabled,
 .interface-service-field select:disabled,
 .interface-service-field textarea:disabled {

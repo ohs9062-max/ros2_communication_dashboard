@@ -142,7 +142,7 @@ Topic, Service, Action 상세는 공통 `QosDetails` 정책을 사용한다.
 메타데이터는 흰색 또는 연한 회색으로 낮춘다.
 
 목록의 기존 상태 셀에는 `QoS 호환`(초록), `QoS 일부 호환`(노랑), `QoS 불일치`(빨강),
-`QoS 발견됨`(파랑), `QoS 확인 불가`(회색) 소형 배지를 함께 표시한다. `observed`는 Fast DDS/Graph에서
+`QoS 발견`(파랑), `QoS 확인 불가`(회색) 소형 배지를 함께 표시한다. `observed`는 Fast DDS/Graph에서
 상대 endpoint profile을 발견했지만 Dashboard 적용 profile과의 호환성 판정 전인 상태이므로
 `compatible`이나 `unknown`으로 합치지 않는다. 상세 상단은 접힌 `QosDetails`와 별개로 observed/partial/unknown/
 incompatible 안내를 보여주며, 안내 또는 QoS Alert에서 진입하면 상세가 자동으로 펼쳐진다. Action은 Goal,

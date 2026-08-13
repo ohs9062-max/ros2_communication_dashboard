@@ -1,5 +1,3 @@
-export { SchemaRequestField as RequestField } from './SchemaRequestField.jsx'
-
 export function ActionGoalResult({ result }) {
   return (
     <div className="interface-action-result">

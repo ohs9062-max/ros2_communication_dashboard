@@ -1,8 +1,8 @@
 import {
   CallResultBlock,
   ReceiveHistory,
-  RequestField,
 } from '../InterfaceExecutionShared.jsx'
+import { SchemaRequestField } from '../SchemaRequestField.jsx'
 import {
   messageKey,
   topicGraphStatusLabel,
@@ -94,7 +94,7 @@ export function TopicExecutionPanel({
             onModeLinkChange={onModeLinkChange}
           />
           {selected?.message_schema?.map((field) => (
-            <RequestField disabled={!selected?.import_available} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={messageValues[field.name]} />
+            <SchemaRequestField disabled={!selected?.import_available} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={messageValues[field.name]} />
           ))}
           <label className="interface-service-field">
             <span>지속 발행 주기 (Hz)</span>

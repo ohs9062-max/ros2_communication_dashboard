@@ -362,8 +362,10 @@ Topic/Service/Action 목록은 대표 상태 아래 소형 QoS 배지를 표시�
 endpoint profile과 mismatch policy는 접힌 `QosDetails`에서 본다. QoS Alert 클릭은 대상 상세를 열고
 QoS 영역을 펼치며 Action이면 문제 채널로 이동한다.
 
-미수신·timeout만으로 QoS 불일치를 추정하지 않는다. 현재는 missing/stale 현상과 QoS를 하나의 자동 원인 문장으로
-결합하는 상관 분석도 구현하지 않았다.
+미수신·timeout만으로 QoS 불일치를 추정하지 않는다. Topic missing/stale의 `reception_diagnosis`는 Subscription
+생성 실패와 실제 RMW incompatible event를 확정 근거로, Graph QoS incompatible와 Publisher 존재 여부를 원인
+후보로 구분한다. compatible이면 Publisher의 실제 발행과 callback/type 경로를, unknown/observed이면 판단 불가를
+안내하지만 QoS 외 원인을 확정하거나 새 Alert code를 만들지는 않는다.
 
 ## 8. Alert 생성과 생명주기
 
@@ -556,7 +558,8 @@ fingerprint가 같을 때만 재사용한다.
 전체/Topic/Service/Action/Package 목록으로 구성된다. 항목을 선택하면 목록 위치를 유지한 채 우측 상세가 열리고
 `통신 상세 / History / 고급 정보 / 실행`을 제공한다. 실행 버튼은 해당 Topic/Service/Action 실행 workbench를
 열고 각 workbench와 수신 workbench는 명시적 닫기 동작을 가진다. QoS/Graph/schema/raw text는 상세 또는 고급
-영역에 두며 기본 목록은 이름, type, 대표 상태와 주요 동작 중심이다.
+영역에 두며 기본 목록은 이름, type, 대표 상태와 주요 동작 중심이다. Schema가 object/array JSON 입력을 만들면
+Topic Publish, Service Request, Action Goal 모두 공통 입력 컴포넌트를 사용하고 필드별 크게 보기/줄이기를 제공한다.
 
 ## 12. Web, HTTPS와 WSS
 
@@ -647,6 +650,7 @@ cd backend
 .venv/bin/python -m pytest -q tests
 
 cd frontend
+npm run test:unit
 npm run lint
 npm run build
 ```
@@ -693,7 +697,8 @@ docs/docs2/                                     resource별 실제 흐름
 - MariaDB migration/자동 schema 생성은 없다.
 - Alert DB에는 acknowledgement, occurrence count, last detected, JSON detail 컬럼이 없다.
 - Fast DDS observer는 History/Depth를 발견하지 못하고 다른 RMW adapter가 없다.
-- QoS compatible인데 미수신인 경우의 자동 원인 추론은 없다.
+- QoS compatible인데 미수신이면 Publisher 실제 발행과 callback/type 경로를 점검하도록 안내하지만 그 원인을
+  Dashboard가 확정하지는 않는다.
 - Camera는 rgb8/bgr8/mono8와 JPEG/PNG만 지원한다.
 - Dashboard는 물리 카메라 driver가 아니며 ROS2 camera publisher가 별도로 필요하다.
 - MariaDB는 Alert 이력만 저장하며 Interface Lab 실행 history의 영속 DB가 아니다.

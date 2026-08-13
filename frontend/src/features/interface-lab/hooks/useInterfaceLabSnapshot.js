@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { fetchActions, fetchServices, fetchTopics } from '../../../api/monitoring.js'
 import {
   fetchInterfaceApplyStatus,
@@ -16,6 +16,7 @@ import {
   fetchServiceCallHistory,
   fetchTopicPublishHistory,
 } from '../../../api/interfaceExecution.js'
+import { runSharedFlight } from '../model/singleFlight.js'
 
 const EMPTY_REGISTRY = { messages: [], services: [], actions: [] }
 
@@ -57,8 +58,9 @@ export function useInterfaceLabSnapshot() {
   })
   const [refreshing, setRefreshing] = useState(false)
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null)
+  const refreshPromiseRef = useRef(null)
 
-  const refreshSnapshot = useCallback(async () => {
+  const refreshSnapshot = useCallback(() => runSharedFlight(refreshPromiseRef, async () => {
     setRefreshing(true)
     try {
       const results = await Promise.allSettled(REQUESTS.map(([, request]) => request()))
@@ -92,7 +94,7 @@ export function useInterfaceLabSnapshot() {
     } finally {
       setRefreshing(false)
     }
-  }, [])
+  }), [])
 
   const updateSnapshotField = useCallback((field, value) => {
     setSnapshot((current) => ({

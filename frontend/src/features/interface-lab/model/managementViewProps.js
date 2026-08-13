@@ -86,3 +86,22 @@ export function managementViewProps(state) {
     },
   }
 }
+
+export function interfaceManagementView({
+  disabled,
+  management,
+  panel,
+  refs,
+  removal,
+  websocketStatus,
+}) {
+  return managementViewProps({
+    ...management,
+    ...panel,
+    ...refs,
+    ...removal,
+    disabled,
+    startEditManualDefinition: management.startEditingManualDefinition,
+    websocketStatus,
+  })
+}

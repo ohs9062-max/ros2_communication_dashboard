@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   fetchContinuousTopicPublishes,
@@ -6,6 +6,7 @@ import {
   stopContinuousTopicPublish,
 } from '../../../api/interfaceExecution.js'
 import { normalizeNumericValues } from '../model/interfaceUploadModel.js'
+import { runSingleFlight } from '../model/singleFlight.js'
 
 export function useContinuousTopicExecution({
   messageValues,
@@ -18,6 +19,7 @@ export function useContinuousTopicExecution({
 }) {
   const [publishHz, setPublishHz] = useState(10)
   const [continuousPublishes, setContinuousPublishes] = useState([])
+  const pollInFlightRef = useRef(false)
   const activeContinuousPublish = continuousPublishes.find((item) =>
     item.active
     && item.topic_name === publishName.trim()
@@ -29,12 +31,14 @@ export function useContinuousTopicExecution({
   useEffect(() => {
     if (!activeKey) return undefined
     const timer = window.setInterval(async () => {
-      try {
-        const payload = await fetchContinuousTopicPublishes()
-        setContinuousPublishes(payload.data ?? [])
-      } catch {
-        // Explicit actions and the regular page refresh surface transport errors.
-      }
+      await runSingleFlight(pollInFlightRef, async () => {
+        try {
+          const payload = await fetchContinuousTopicPublishes()
+          setContinuousPublishes(payload.data ?? [])
+        } catch {
+          // Explicit actions and the regular page refresh surface transport errors.
+        }
+      })
     }, 1000)
     return () => window.clearInterval(timer)
   }, [activeKey])

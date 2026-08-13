@@ -1,3 +1,16 @@
+import {
+  defaultValue,
+  defaultValues,
+} from './schemaValues.js'
+
+export {
+  isArrayType,
+  isComplexType,
+  isCustomType,
+  isNumericType,
+  normalizeNumericValues,
+} from './schemaValues.js'
+
 export function interfaceCounts(interfaces = {}) {
   return {
     msg: interfaces.msg?.length ?? 0,
@@ -48,45 +61,11 @@ export function actionStatusLabel(action) {
 }
 
 export function defaultRequestValues(schema = []) {
-  return Object.fromEntries(
-    schema.filter((field) => field.name).map((field) => [field.name, defaultFieldValue(field.type)]),
-  )
-}
-
-export function normalizeNumericValues(values, schema = []) {
-  const numericFields = new Set(
-    schema.filter((field) => field.name && isNumericType(field.type)).map((field) => field.name),
-  )
-  return Object.fromEntries(
-    Object.entries(values).map(([name, value]) => [
-      name,
-      numericFields.has(name) && value !== '' ? Number(value) : value,
-    ]),
-  )
+  return defaultValues(schema)
 }
 
 export function defaultFieldValue(type = '') {
-  if (type === 'bool' || type === 'boolean') return false
-  if (isArrayType(type)) return []
-  if (isCustomType(type)) return {}
-  if (isNumericType(type)) return 0
-  return ''
-}
-
-export function isNumericType(type = '') {
-  return /^(?:u?int(?:8|16|32|64)|float(?:32|64)|double)$/.test(type)
-}
-
-export function isArrayType(type = '') {
-  return /\[[0-9]*\]$/.test(type) || /^sequence<.+>$/.test(type)
-}
-
-export function isCustomType(type = '') {
-  return /^[A-Za-z][A-Za-z0-9_]*\/(?:msg\/)?[A-Z][A-Za-z0-9_]*$/.test(type)
-}
-
-export function isComplexType(type = '') {
-  return isArrayType(type) || isCustomType(type)
+  return defaultValue(type)
 }
 
 export function registryRowKey(item) {

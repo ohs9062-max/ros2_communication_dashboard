@@ -1,37 +1,50 @@
-# ROS2 / Web Backend 분리 조사 결과
+# 현재 프로세스 책임 경계
 
-## 기존 결합
+프로젝트는 ROS2 실행과 Web/DB 책임을 프로세스 단위로 분리한다.
 
-- `app_state.py`가 `RosMonitor` singleton과 사용자 설정 store를 함께 생성했습니다.
-- FastAPI lifespan이 `RosMonitor.start()`와 `stop()`을 호출해 같은 프로세스에서
-  `rclpy.init`, Node 생성, spin thread, shutdown을 수행했습니다.
-- 모든 monitoring/Interface Lab Router가 singleton의 Python 메서드를 직접 호출했습니다.
-- `RosMonitor`가 Topic, Service, Action, Node Runtime과 Interface Lab execution Runtime의
-  cache를 조립했으며 Router는 이 메모리를 직접 읽었습니다.
-- Interface 등록·package upload·apply Runtime은 ROS2 workspace 상대 경로와
-  `__file__.parents` 계산에 의존했습니다.
+## ROS2 Monitor
 
-## 직접 의존 파일
+- rclpy Node와 spin lifecycle
+- ROS2 Graph 및 endpoint discovery
+- Topic latest/Hz/age와 missing/stale/disconnected
+- Service, Action, Node 상태와 연결 관계
+- QoS 관찰·비교와 Interface Lab entity 생성
+- Alert 후보와 localhost transport snapshot
 
-- rclpy: `ros_monitor.py`, `ros2_topic/runtime.py`, `ros2_service/introspection_test_nodes.py`,
-  `ros2_action/runtime.py`, `ros2_node/runtime.py`, Interface Lab의
-  `action_goal_runtime.py`.
-- FastAPI: 기존 `main.py`, WebSocket manager, monitoring 및 Interface Lab Router 일체.
-- 혼합 책임: 기존 `app_state.py`, `main.py`, `config_loader.py`, `ros_monitor.py`,
-  Interface management/apply Router.
+## Fast DDS observer
 
-## 새 경계
+- Service와 Action Goal/Result/Cancel의 원격 DDS endpoint discovery
+- Request Reader와 Response Writer QoS 제공
+- 사용자 데이터 entity, Client 또는 요청을 생성하지 않음
 
-- ROS2 Graph, 상태 판정, Publisher/Subscription/Client, interface 파일 및 build는
-  `ros2_dashboard_monitor`가 소유합니다.
-- 공개 REST/WebSocket, 사용자 설정, Runtime Cache와 Alert 이력은 `backend/app`이 소유합니다.
-- Backend에는 `rclpy` import가 없습니다.
-- source/install 어느 위치에서도 경로가 유지되도록 ament package share와
-  `ROS2_DASHBOARD_WS_ROOT` fallback을 사용합니다.
+## FastAPI Backend
 
-## 마이그레이션과 롤백
+- Monitor snapshot polling과 마지막 정상 cache
+- Browser REST 및 `/ws/monitor`
+- Interface Lab/Camera 요청의 Monitor proxy
+- Alert active/resolved 전이와 MariaDB 저장·조회
+- 사용자 주요 리소스 설정 보존·동기화
 
-설정 YAML과 업로드 파일을 새 workspace로 먼저 복사하고 `colcon list/build`, 테스트를
-통과한 뒤 구 `backend/src`를 제거했습니다. 롤백은 Git에서 리팩토링 전 commit을 복원하고
-새 `ros2_ws`를 제거하는 방식이며, 사용자 데이터는 YAML과 interface 원본을 별도 백업한 뒤
-수행해야 합니다.
+Backend는 `rclpy`를 import하거나 ROS2 Node를 만들지 않는다. Router는 SQL, YAML 처리 또는 ROS2 실행을 직접
+수행하지 않는다.
+
+## React Frontend
+
+- Backend REST/WebSocket만 사용
+- 목록의 빠른 상태 판단과 선택 상세의 원인 분석
+- 사용자 명시 Interface Lab 실행과 결과 표시
+
+Frontend는 Monitor, observer, ROS2 또는 MariaDB에 직접 접근하지 않는다.
+
+## 데이터 흐름
+
+```text
+ROS2 Graph / Fast DDS discovery
+  → Monitor snapshot
+  → Backend cache, Alert lifecycle
+  → REST / WebSocket
+  → Frontend
+```
+
+MariaDB는 snapshot transport가 아니며 Alert 이력만 저장한다. 생성물은 `ros2_ws/build`, `install`, `log`,
+`frontend/dist`, `node_modules`, `.runtime`이고 소스처럼 수정하지 않는다.

@@ -157,4 +157,4 @@ Topic 감시 대상인가?
 | `monitor.hz_window_sec` | `5.0` | Hz 계산 시 사용하는 타임스탬프 윈도우 (초) |
 | `topics.required_stream_names` | `[]` | 필수 감시 스트림 Topic 목록 |
 | `topics.command_names` | `[]` | Alert 제외 대상 명령 Topic 목록 |
-| `topics.supported_types` | (기본 7개 타입) | 딥 모니터링 대상 메시지 타입 |
+| `topics.supported_types` | (기본 9개 타입) | 딥 모니터링 대상 메시지 타입 |

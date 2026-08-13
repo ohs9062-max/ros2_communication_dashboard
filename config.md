@@ -139,13 +139,21 @@ MONITOR_TIMEOUT_SEC=30
 MONITOR_POLL_INTERVAL_SEC=1
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 USER_PREFERENCES_PATH=config/user_preferences.yaml
+ALERT_DB_ENABLED=true
+MARIADB_HOST=127.0.0.1
+MARIADB_PORT=3306
+MARIADB_DATABASE=ros2_dashboard
+MARIADB_USER=ros2_dashboard
+MARIADB_PASSWORD=<secret>
+MARIADB_CONNECT_TIMEOUT_SEC=2
+MARIADB_RETRY_INTERVAL_SEC=5
 ```
 
 Frontend 설정:
 
 ```text
 frontend/.env
-VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_BASE_URL=
 VITE_TOPIC_POLL_INTERVAL_MS=1000
 VITE_DASHBOARD_POLL_INTERVAL_MS=3000
 VITE_VISUALIZATION_POLL_INTERVAL_MS=5000
@@ -186,7 +194,11 @@ ros2 run ros2_dashboard_demo_nodes robot_control_service
 ros2 run ros2_dashboard_demo_nodes schedule_crud_service
 ros2 run ros2_dashboard_demo_nodes can_control_server
 ros2 run ros2_dashboard_demo_nodes can_control_outcome_server
+ros2 run ros2_dashboard_demo_nodes demo_camera_publisher
 ```
+
+Camera demo는 외부 이미지 없이 생성한 패턴을 `/demo_camera/image_raw`와
+`/demo_camera/image_compressed`에 1 Hz로 발행한다. Preview는 Topic 상세을 열었을 때만 요청형으로 생성된다.
 
 ## Gazebo
 
@@ -294,6 +306,7 @@ cd ~/rang/ros2_dashboard/backend
 .venv/bin/python -m pytest -q tests
 
 cd ~/rang/ros2_dashboard/frontend
+npm run test:unit
 npm run lint
 npm run build
 ```
@@ -324,8 +337,9 @@ curl http://127.0.0.1:8000/health
 
 ### Frontend API 연결 실패
 
-`frontend/.env`의 `VITE_API_BASE_URL`을 확인하고 Frontend를 다시 실행한다.
+Vite 개발 proxy나 Nginx same-origin 구성이면 `VITE_API_BASE_URL`은 비워둔다. 별도 Backend origin을
+사용할 때만 URL을 지정하고 Frontend를 다시 실행한다.
 
 ```text
-VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_BASE_URL=
 ```

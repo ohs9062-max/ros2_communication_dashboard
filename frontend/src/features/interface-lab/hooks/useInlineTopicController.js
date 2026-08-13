@@ -15,6 +15,7 @@ import {
   topicNameTypeWarning,
 } from '../../../utils/interfaceTopics.js'
 import { defaultValues, normalizeNumericValues } from '../model/schemaValues.js'
+import { runSingleFlight } from '../model/singleFlight.js'
 import { useExecutionQos } from './useExecutionQos.js'
 
 export function useInlineTopicController({
@@ -30,6 +31,7 @@ export function useInlineTopicController({
   const [subscribeName, setSubscribeName] = useState('')
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState(null)
+  const continuousPollInFlightRef = useRef(false)
   const publishNameSourceRef = useRef('empty')
   const publishQos = useExecutionQos()
   const subscribeQos = useExecutionQos()
@@ -53,12 +55,14 @@ export function useInlineTopicController({
   useEffect(() => {
     if (!activeContinuousPublishKey) return undefined
     const timer = window.setInterval(async () => {
-      try {
-        const payload = await fetchContinuousTopicPublishes()
-        updateSnapshotField('continuousTopicPublishes', payload.data ?? [])
-      } catch {
-        // Explicit actions and the regular refresh surface connection errors.
-      }
+      await runSingleFlight(continuousPollInFlightRef, async () => {
+        try {
+          const payload = await fetchContinuousTopicPublishes()
+          updateSnapshotField('continuousTopicPublishes', payload.data ?? [])
+        } catch {
+          // Explicit actions and the regular refresh surface connection errors.
+        }
+      })
     }, 1000)
     return () => window.clearInterval(timer)
   }, [activeContinuousPublishKey, updateSnapshotField])

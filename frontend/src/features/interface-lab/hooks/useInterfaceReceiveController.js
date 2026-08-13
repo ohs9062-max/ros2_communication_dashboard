@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   fetchCallableActions,
@@ -15,6 +15,7 @@ import {
 } from '../../../api/interfaceExecution.js'
 import { fetchTopics } from '../../../api/monitoring.js'
 import { actionKey, serviceKey } from '../model/interfaceUploadModel.js'
+import { runSingleFlight } from '../model/singleFlight.js'
 import { useActionExecutionQos } from './useExecutionQos.js'
 import { useResourceReceiveObserver } from './useResourceReceiveObserver.js'
 import { useTopicReceiveController } from './useTopicReceiveController.js'
@@ -41,6 +42,7 @@ export function useInterfaceReceiveController({
   const [topicHistory, setTopicHistory] = useState([])
   const [serviceHistory, setServiceHistory] = useState([])
   const [actionHistory, setActionHistory] = useState([])
+  const pollInFlightRef = useRef(false)
   const actionQos = useActionExecutionQos()
 
   const load = useCallback(async ({ silent = false } = {}) => {
@@ -148,20 +150,22 @@ export function useInterfaceReceiveController({
   })
 
   const pollReceiveState = useCallback(async () => {
-    try {
-      const [receivingPayload, topicPayload, servicePayload, actionPayload] = await Promise.all([
-        fetchReceiveTopics(),
-        fetchReceiveTopicHistory('', { limit: 500 }),
-        fetchReceiveServiceHistory(),
-        fetchReceiveActionHistory(),
-      ])
-      setTopics(receivingPayload.data ?? [])
-      setTopicHistory(topicPayload.data ?? [])
-      setServiceHistory(servicePayload.data ?? [])
-      setActionHistory(actionPayload.data ?? [])
-    } catch {
-      // Background polling keeps the last successful state; explicit loads report errors.
-    }
+    await runSingleFlight(pollInFlightRef, async () => {
+      try {
+        const [receivingPayload, topicPayload, servicePayload, actionPayload] = await Promise.all([
+          fetchReceiveTopics(),
+          fetchReceiveTopicHistory('', { limit: 500 }),
+          fetchReceiveServiceHistory(),
+          fetchReceiveActionHistory(),
+        ])
+        setTopics(receivingPayload.data ?? [])
+        setTopicHistory(topicPayload.data ?? [])
+        setServiceHistory(servicePayload.data ?? [])
+        setActionHistory(actionPayload.data ?? [])
+      } catch {
+        // Background polling keeps the last successful state; explicit loads report errors.
+      }
+    })
   }, [])
   const {
     activeKey: activeServiceKey,

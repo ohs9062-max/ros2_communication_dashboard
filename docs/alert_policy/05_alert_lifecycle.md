@@ -5,7 +5,7 @@
 Alert는 Monitor가 계산하는 현재 ROS2 상태와 사용자 실행 결과에서 생성됩니다. MariaDB의 목적은 이 현재
 상태를 계산하는 것이 아니라, 발생하고 해결된 모든 Alert 이력을 Backend 재시작 뒤에도 영구 보존하는 것입니다.
 
-2026-08-11 현재 Backend는 `AlertHistoryService`를 단일 저장 진입점으로 사용해 MariaDB와 동기화합니다.
+Backend는 `AlertHistoryService`를 단일 저장 진입점으로 사용해 MariaDB와 동기화합니다.
 DB 연결 실패 시 ROS2 Monitoring을 중단하지 않고 메모리 최대 50건 fallback을 사용하며 주기적으로 재연결합니다.
 
 ## 현재 구현 생명주기

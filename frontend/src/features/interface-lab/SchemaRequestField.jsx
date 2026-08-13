@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import './SchemaRequestField.css'
+
 import {
   defaultValue,
   isComplexType,

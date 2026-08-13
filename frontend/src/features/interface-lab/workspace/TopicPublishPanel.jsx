@@ -1,6 +1,7 @@
 import { schemaFields } from '../model/schemaValues.js'
 import { firstType } from '../model/workspacePresentation.js'
-import { RequestField, SectionTitle } from './WorkspaceShared.jsx'
+import { SchemaRequestField } from '../SchemaRequestField.jsx'
+import { SectionTitle } from './WorkspaceShared.jsx'
 import { QosModeControl } from '../execution/QosModeControl.jsx'
 
 export function TopicPublishPanel({
@@ -55,7 +56,7 @@ export function TopicPublishPanel({
       </label>
       {topicPublishWarning && <div className="interface-service-state warning">{topicPublishWarning}</div>}
       {schemaFields(item.schema).map((field) => (
-        <RequestField
+        <SchemaRequestField
           field={field}
           key={field.name ?? field.raw_line}
           onChange={(value) => onMessageChange((current) => ({ ...current, [field.name]: value }))}

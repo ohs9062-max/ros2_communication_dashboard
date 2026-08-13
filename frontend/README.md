@@ -1,16 +1,18 @@
-# React + Vite
+# ROS2 Dashboard Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React와 Vite로 구성된 Dashboard 화면이다. ROS2, Monitor, Fast DDS observer 또는 MariaDB에 직접 연결하지 않고
+FastAPI Backend의 REST API와 `/ws/monitor`만 사용한다.
 
-Currently, two official plugins are available:
+주요 화면은 Overview, Topic, Service, Action, Node, Alert, Visualization, Interface Lab이다. 기본 목록은 빠른
+상태 판단을, 선택 상세는 QoS·endpoint·payload·실행 결과의 원인 분석을 담당한다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+npm run test:unit
+npm run lint
+npm run build
+```
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+`VITE_API_BASE_URL`이 비어 있으면 현재 page origin을 사용한다. HTTPS 화면에서는 WebSocket URL을 자동으로
+`wss://`로 선택한다. polling 기본값은 `.env.example`을 따른다.
