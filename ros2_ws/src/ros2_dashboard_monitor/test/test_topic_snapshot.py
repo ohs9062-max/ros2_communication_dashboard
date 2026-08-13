@@ -174,3 +174,27 @@ def test_snapshot_exposes_one_effective_status_for_graph_and_reception_state() -
         '/recent': ('active', 'active'),
         '/graph-only': ('waiting_publisher', 'waiting_publisher'),
     }
+
+
+def test_command_topic_keeps_graph_status_while_waiting_for_on_demand_data() -> None:
+    snapshot = build_topic_snapshot(
+        topics=[{
+            'name': '/cmd_vel',
+            'status': 'waiting_publisher',
+            'supported_type': True,
+            'deep_monitoring': True,
+            'graph_present': True,
+        }],
+        subscriptions={'/cmd_vel': {'last_received_at': None}},
+        subscription_errors={},
+        last_updated=10.0,
+        required_stream_names=(),
+        command_names=('/cmd_vel',),
+        stale_timeout_sec=3.0,
+    )
+
+    topic = snapshot['topics'][0]
+    assert topic['monitoring_role'] == 'command'
+    assert topic['status'] == 'waiting_publisher'
+    assert topic['effective_status'] == 'waiting_publisher'
+    assert topic['last_received_at'] is None

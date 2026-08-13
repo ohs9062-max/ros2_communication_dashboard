@@ -7,17 +7,21 @@ import { QosStatusBadge } from './QosSummary.jsx'
 import { PriorityStarButton } from './PriorityStarButton.jsx'
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { compactDataPreview } from '../utils/dataPreview.js'
+import {
+  serviceEffectiveStatus,
+  servicePresentation,
+} from '../features/services/servicePresentation.js'
 
 const SERVICE_SORT_COLUMNS = {
-  status: { value: (service) => service.status },
+  status: { value: serviceEffectiveStatus },
   name: { value: (service) => service.name },
   type: { value: (service) => service.type },
-  server_count: { value: (service) => service.server_node_count ?? service.server_count ?? 0, defaultDirection: 'desc' },
-  client_count: { value: (service) => service.client_node_count ?? service.client_count ?? 0, defaultDirection: 'desc' },
-  request: { value: (service) => compactDataPreview(service.last_call_summary?.last_request_preview) },
-  response: { value: (service) => compactDataPreview(service.last_call_summary?.last_response_preview) },
-  response_time: { value: (service) => service.last_call_summary?.last_response_time_ms, defaultDirection: 'desc' },
-  last_call: { value: (service) => service.last_call_summary?.last_called_at, defaultDirection: 'desc' },
+  server_count: { value: (service) => servicePresentation(service).serverNodeCount, defaultDirection: 'desc' },
+  client_count: { value: (service) => servicePresentation(service).clientNodeCount, defaultDirection: 'desc' },
+  request: { value: (service) => compactDataPreview(servicePresentation(service).requestPreview) },
+  response: { value: (service) => compactDataPreview(servicePresentation(service).responsePreview) },
+  response_time: { value: (service) => servicePresentation(service).responseTimeMs, defaultDirection: 'desc' },
+  last_call: { value: (service) => servicePresentation(service).lastCalledAt, defaultDirection: 'desc' },
 }
 
 export function ServiceTable({
@@ -61,7 +65,7 @@ export function ServiceTable({
         </thead>
         <tbody>
           {sortedServices.map((service) => {
-            const summary = service.last_call_summary
+            const presentation = servicePresentation(service)
             const selected = service.name === selectedServiceName
             return (
               <tr
@@ -81,24 +85,24 @@ export function ServiceTable({
                 <td className="service-status-cell">
                   <div className="resource-status-stack">
                     <StatusBadge
-                      label={serviceStatusLabel(service)}
-                      value={service.effective_status ?? service.status}
+                      label={presentation.statusLabel}
+                      value={presentation.effectiveStatus}
                     />
                     <QosStatusBadge qos={service} />
                   </div>
                 </td>
                 <td className="topic-name service-name service-name-cell ellipsis-cell" title={service.name}>{service.name}</td>
                 <td className="topic-type service-type service-type-cell ellipsis-cell" title={service.type ?? '-'}>{service.type ?? '-'}</td>
-                <td className="diagnostic-count-cell">{service.server_node_count ?? service.server_count ?? 0}</td>
-                <td className="diagnostic-count-cell">{service.client_node_count ?? service.client_count ?? 0}</td>
+                <td className="diagnostic-count-cell">{presentation.serverNodeCount}</td>
+                <td className="diagnostic-count-cell">{presentation.clientNodeCount}</td>
                 <td className="diagnostic-data-cell">
                   <JsonPreviewButton
                     onOpen={() => setPreview({
                       name: service.name,
                       title: '마지막 Request',
-                      value: summary?.last_request_preview,
+                      value: presentation.requestPreview,
                     })}
-                    value={summary?.last_request_preview}
+                    value={presentation.requestPreview}
                   />
                 </td>
                 <td className="diagnostic-data-cell">
@@ -106,13 +110,13 @@ export function ServiceTable({
                     onOpen={() => setPreview({
                       name: service.name,
                       title: '마지막 Response',
-                      value: summary?.last_response_preview,
+                      value: presentation.responsePreview,
                     })}
-                    value={summary?.last_response_preview}
+                    value={presentation.responsePreview}
                   />
                 </td>
-                <td className="diagnostic-time-cell">{formatMs(summary?.last_response_time_ms)}</td>
-                <td className="service-last-call-cell">{formatRelativeTime(summary?.last_called_at)}</td>
+                <td className="diagnostic-time-cell">{formatMs(presentation.responseTimeMs)}</td>
+                <td className="service-last-call-cell">{formatRelativeTime(presentation.lastCalledAt)}</td>
               </tr>
             )
           })}
@@ -128,15 +132,4 @@ export function ServiceTable({
       )}
     </div>
   )
-}
-
-function serviceStatusLabel(service) {
-  const effectiveStatus = service.effective_status ?? service.status
-  if (effectiveStatus === 'timeout') return 'Timeout'
-  if (effectiveStatus === 'failed') return '호출 실패'
-  if (effectiveStatus === 'active' && service.call_status === 'not_called') {
-    return '서버 있음'
-  }
-  if (effectiveStatus === 'active') return '정상'
-  return undefined
 }

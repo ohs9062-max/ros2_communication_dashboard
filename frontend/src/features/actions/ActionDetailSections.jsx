@@ -43,15 +43,10 @@ export function ActionConnectionSection({ action, participants }) {
   )
 }
 
-export function ActionExecutionSection({ action, goalSummary, runtime }) {
-  const goalStatus = goalSummary?.last_goal_status
-    ? goalStatusLabel(goalSummary.last_goal_status)
-    : runtime.last_goal_status === 'unknown'
-    ? 'Goal 미관찰'
-    : goalStatusLabel(runtime.last_goal_status)
+export function ActionExecutionSection({ action, goalSummary, presentation, runtime }) {
   return (
     <DetailSection collapsible title="실행/측정 정보">
-      <DetailLine label="마지막 Goal 상태" tone={actionStatusTone(runtime.last_goal_status)} value={goalStatus} />
+      <DetailLine label="마지막 Goal 상태" tone={actionStatusTone(presentation.goalStatus)} value={goalStatusLabel(presentation.goalStatus)} />
       <DetailLine
         label="실행 가능"
         tone={action.callable ? 'good' : action.allowlisted ? 'warn' : 'muted'}
@@ -67,13 +62,13 @@ export function ActionExecutionSection({ action, goalSummary, runtime }) {
       )}
       <DetailLine label="마지막 Goal ID" value={runtime.last_goal_id ?? '-'} />
       <DetailLine label="마지막 상태 수신" value={formatRelativeTime(runtime.last_status_at)} />
-      <DetailLine label="마지막 피드백" value={formatRelativeTime(runtime.last_feedback_at)} />
-      <DetailLine label="실행 시간" value={formatMs(goalSummary?.execution_time_ms ?? runtime.elapsed_time_ms)} />
-      <DetailLine label="관찰 Goal 수" value={runtime.observed_goal_count ?? 0} />
+      <DetailLine label="마지막 피드백" value={formatRelativeTime(presentation.lastFeedbackAt)} />
+      <DetailLine label="실행 시간" value={formatMs(presentation.executionTimeMs)} />
+      <DetailLine label="관찰 Goal 수" value={presentation.observedGoalCount} />
       <DetailLine
         label="결과 상태"
-        tone={actionStatusTone(goalSummary?.last_goal_status ?? runtime.result_status)}
-        value={resultStatusLabel(goalSummary?.last_goal_status ?? runtime.result_status)}
+        tone={actionStatusTone(presentation.result.value)}
+        value={resultStatusLabel(presentation.result.value)}
       />
       <DetailLine label="결과 오류" value={runtime.result_error ?? '-'} />
       <DetailLine label="마지막 실행 오류" value={goalSummary?.last_error ?? '-'} />

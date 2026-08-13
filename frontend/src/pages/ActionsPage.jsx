@@ -5,6 +5,10 @@ import { ActionTable } from '../components/ActionTable.jsx'
 import { AlertsPreview } from '../components/AlertsPreview.jsx'
 import { isPrimaryAction } from '../utils/primaryFilters.js'
 import { qosAlertChannel } from '../utils/qosAlerts.js'
+import {
+  actionSearchValues,
+  matchesActionStatusFilter,
+} from '../features/actions/actionPresentation.js'
 
 const ACTION_FILTERS = [
   { id: 'primary', label: '주요 항목' },
@@ -61,19 +65,7 @@ export function ActionsPage({ dashboard }) {
         return true
       }
 
-      const runtime = action.runtime ?? {}
-      const goalSummary = action.last_goal_summary
-      const fields = [
-        action.name,
-        action.type,
-        action.status,
-        action.reason,
-        runtime.last_goal_status,
-        runtime.result_status,
-        goalSummary?.last_goal_status,
-        goalSummary?.last_error,
-      ]
-      return fields.some((field) =>
+      return actionSearchValues(action).some((field) =>
         String(field ?? '').toLowerCase().includes(normalizedSearch),
       )
     })
@@ -183,51 +175,6 @@ export function ActionsPage({ dashboard }) {
       )}
     </main>
   )
-}
-
-function matchesActionStatusFilter(action, statusFilter) {
-  if (statusFilter === 'primary' || statusFilter === 'all') {
-    return true
-  }
-
-  const runtime = action.runtime ?? {}
-  const goalSummary = action.last_goal_summary
-  const lastGoalStatus = String(
-    goalSummary?.last_goal_status ??
-    runtime.last_goal_status ??
-    action.last_goal_status ??
-    '',
-  ).toLowerCase()
-  const resultStatus = String(runtime.result_status ?? '').toLowerCase()
-
-  if (statusFilter === 'running') {
-    return ['accepted', 'executing', 'canceling'].includes(lastGoalStatus)
-  }
-  if (statusFilter === 'succeeded') {
-    return lastGoalStatus === 'succeeded' || resultStatus === 'succeeded'
-  }
-  if (statusFilter === 'failed') {
-    return (
-      ['aborted', 'canceled'].includes(lastGoalStatus) ||
-      [
-        'goal_rejected',
-        'goal_send_failed',
-        'goal_accept_timeout',
-        'result_timeout',
-        'result_receive_failed',
-      ].includes(lastGoalStatus) ||
-      ['aborted', 'canceled', 'error', 'timeout'].includes(resultStatus) ||
-      Boolean(runtime.result_error)
-    )
-  }
-  if (statusFilter === 'unobserved') {
-    return (
-      (runtime.observed_goal_count ?? 0) === 0 &&
-      (!lastGoalStatus || lastGoalStatus === 'unknown')
-    )
-  }
-
-  return true
 }
 
 function focusMonitorRow(name, select) {

@@ -1,33 +1,17 @@
 import { SummaryCard } from './SummaryCard.jsx'
+import { actionPresentation } from '../features/actions/actionPresentation.js'
 
 export function ActionSummaryCards({
   actions = [],
   activeActions = [],
   meta = {},
 }) {
-  const runningCount = actions.filter((action) =>
-    ['accepted', 'executing', 'canceling'].includes(
-      String(action.runtime?.last_goal_status ?? '').toLowerCase(),
-    ),
+  const presentations = actions.map(actionPresentation)
+  const runningCount = presentations.filter((item) => item.isRunning).length
+  const succeededCount = presentations.filter((item) => item.isSucceeded).length
+  const failedCanceledCount = presentations.filter(
+    (item) => item.isFailedOrCanceled,
   ).length
-  const succeededCount = actions.filter((action) => {
-    const runtime = action.runtime ?? {}
-    return (
-      runtime.last_goal_status === 'succeeded' ||
-      runtime.result_status === 'succeeded' ||
-      runtime.result_status === 'success'
-    )
-  }).length
-  const failedCanceledCount = actions.filter((action) => {
-    const runtime = action.runtime ?? {}
-    const lastGoalStatus = String(runtime.last_goal_status ?? '').toLowerCase()
-    const resultStatus = String(runtime.result_status ?? '').toLowerCase()
-    return (
-      ['aborted', 'canceled'].includes(lastGoalStatus) ||
-      ['aborted', 'canceled', 'error', 'timeout'].includes(resultStatus) ||
-      Boolean(runtime.result_error)
-    )
-  }).length
   return (
     <div className="summary-grid action-summary-grid">
       <SummaryCard label="전체 Action" value={meta.count ?? 0} />

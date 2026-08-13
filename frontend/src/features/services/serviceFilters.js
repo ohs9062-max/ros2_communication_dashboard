@@ -1,7 +1,10 @@
 import { isPrimaryService } from '../../utils/primaryFilters.js'
-import { matchesServiceStatusFilter } from '../../utils/status.js'
+import {
+  matchesServicePresentationFilter,
+  servicePresentation,
+  serviceSearchValues,
+} from './servicePresentation.js'
 
-const ISSUE_SERVICE_STATUSES = new Set(['waiting_server', 'disconnected', 'error', 'failed', 'timeout'])
 const LIFECYCLE_SERVICE_SUFFIXES = [
   '/change_state',
   '/get_available_states',
@@ -30,8 +33,7 @@ export function filterServices({ primaryServices, search, services, statusFilter
       : services.filter((service) => !isInternalOrManagementService(service))
 
   return baseServices.filter((service) => {
-    const fields = [service.name, service.type, service.category, service.status, service.effective_status, service.call_status]
-    const matchesSearch = !normalizedSearch || fields.some(
+    const matchesSearch = !normalizedSearch || serviceSearchValues(service).some(
       (field) => String(field ?? '').toLowerCase().includes(normalizedSearch),
     )
     return matchesSearch && matchesServiceFilter(service, statusFilter)
@@ -48,11 +50,11 @@ export function getServiceUiSummary(services, primaryServices, meta) {
   const total = meta.count ?? ((meta.visible_count ?? services.length) + (meta.hidden_count ?? 0))
   const hiddenNotFetched = services.length < total ? (meta.hidden_count ?? 0) : 0
   return {
-    activeCount: services.filter((service) => serviceEffectiveStatus(service) === 'active').length,
+    activeCount: services.filter((service) => servicePresentation(service).effectiveStatus === 'active').length,
     internalManagementCount: services.filter(isInternalOrManagementService).length + hiddenNotFetched,
     issueCount: services.filter(isIssueService).length,
     primaryCount: primaryServices.length,
-    waitingCount: services.filter((service) => serviceEffectiveStatus(service) === 'waiting_server').length,
+    waitingCount: services.filter((service) => servicePresentation(service).isWaiting).length,
     total,
   }
 }
@@ -61,15 +63,11 @@ function matchesServiceFilter(service, filter) {
   if (filter === 'primary') return isPrimaryService(service)
   if (filter === 'all' || filter === 'internal') return true
   if (filter === 'issues') return isIssueService(service)
-  return matchesServiceStatusFilter(service, filter)
+  return matchesServicePresentationFilter(service, filter)
 }
 
 function isIssueService(service) {
-  return ISSUE_SERVICE_STATUSES.has(serviceEffectiveStatus(service))
-}
-
-function serviceEffectiveStatus(service) {
-  return String(service.effective_status ?? service.status ?? 'unknown').toLowerCase()
+  return servicePresentation(service).isIssue
 }
 
 export function isInternalOrManagementService(service) {

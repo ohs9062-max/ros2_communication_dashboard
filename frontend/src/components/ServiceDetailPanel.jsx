@@ -6,6 +6,7 @@ import { DetailSection } from './DetailSection.jsx'
 import { QosDetails } from './QosDetails.jsx'
 import { QosSummaryNotice } from './QosSummary.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
+import { servicePresentation } from '../features/services/servicePresentation.js'
 
 export function ServiceDetailPanel({ onClose, participants, service, qosFocusRequest }) {
   if (!service) {
@@ -18,7 +19,8 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
     )
   }
 
-  const callSummary = service.last_call_summary
+  const presentation = servicePresentation(service)
+  const callSummary = presentation.summary
 
   return (
     <aside className="detail-panel">
@@ -26,8 +28,8 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         <span>Service 상세</span>
         <div className="detail-panel-heading-actions">
           <StatusBadge
-            label={effectiveStatusLabel(service)}
-            value={service.effective_status ?? service.status}
+            label={presentation.statusLabel}
+            value={presentation.effectiveStatus}
           />
           <button className="detail-panel-close" onClick={onClose} type="button">닫기 ×</button>
         </div>
@@ -57,13 +59,13 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         />
         <DetailLine
           label="서버 상태"
-          tone={statusTone(service.status)}
-          value={serverStatusLabel(service.status)}
+          tone={presentation.serverStatusTone}
+          value={presentation.serverStatusLabel}
         />
         <DetailLine
           label="최근 호출 결과"
-          tone={statusTone(service.effective_status)}
-          value={callStatusLabel(callSummary)}
+          tone={presentation.callTone}
+          value={presentation.callLabel}
         />
         <DetailLine label="상태 이유" value={displayText(service.reason)} />
         <DetailLine label="마지막 갱신" value={formatTime(service.last_updated)} />
@@ -78,19 +80,19 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
       <DetailSection collapsible title="연결 정보">
         <DetailLine
           label="Server Node 수 (Dashboard 제외)"
-          value={service.server_node_count ?? service.server_count ?? 0}
+          value={presentation.serverNodeCount}
         />
         <DetailLine
           label="Client Node 수 (Dashboard 제외)"
-          value={service.client_node_count ?? service.client_count ?? 0}
+          value={presentation.clientNodeCount}
         />
         <DetailLine
           label="Server Endpoint 수"
-          value={service.server_endpoint_count ?? service.server_count ?? 0}
+          value={presentation.serverEndpointCount}
         />
         <DetailLine
           label="Client Endpoint 수"
-          value={service.client_endpoint_count ?? service.client_count ?? 0}
+          value={presentation.clientEndpointCount}
         />
         <p className="detail-help-text">
           요청자 Node는 요청을 보내고, 응답자 Node는 요청을 받아 응답합니다.
@@ -121,19 +123,19 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         />
         <DetailLine
           label="마지막 호출"
-          value={formatRelativeTime(callSummary?.last_called_at)}
+          value={formatRelativeTime(presentation.lastCalledAt)}
         />
         <DetailLine
           label="마지막 호출 상태"
-          tone={statusTone(callSummary?.last_call_status)}
-          value={callStatusLabel(callSummary)}
+          tone={presentation.callTone}
+          value={presentation.callLabel}
         />
         <DetailLine
           label="서버 전송"
-          tone={callSummary?.sent_to_server === false ? 'warn' : 'muted'}
+          tone={presentation.sentToServer === false ? 'warn' : 'muted'}
           value={
             callSummary
-              ? callSummary.sent_to_server ? '예' : '아니오'
+              ? presentation.sentToServer ? '예' : '아니오'
               : '-'
           }
         />
@@ -144,9 +146,9 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         )}
         <DetailLine
           label="호출 응답 시간"
-          value={formatMs(callSummary?.last_response_time_ms)}
+          value={formatMs(presentation.responseTimeMs)}
         />
-        <DetailLine label="마지막 호출 오류" value={callSummary?.last_error ?? '-'} />
+        <DetailLine label="마지막 호출 오류" value={presentation.callError ?? '-'} />
         <DetailLine label="호출 수" value={service.call_count ?? 0} />
         <DetailLine label="성공/실패" value={`${service.success_count ?? 0}/${service.failure_count ?? 0}`} />
       </DetailSection>
@@ -155,16 +157,16 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         <details>
           <summary>마지막 요청 JSON</summary>
           <pre className="preview-json">
-            {callSummary?.last_request_preview
-              ? JSON.stringify(callSummary.last_request_preview, null, 2)
+            {presentation.requestPreview
+              ? JSON.stringify(presentation.requestPreview, null, 2)
               : '데이터 없음'}
           </pre>
         </details>
         <details>
           <summary>마지막 응답 JSON</summary>
           <pre className="preview-json">
-            {callSummary?.last_response_preview
-              ? JSON.stringify(callSummary.last_response_preview, null, 2)
+            {presentation.responsePreview
+              ? JSON.stringify(presentation.responsePreview, null, 2)
               : '데이터 없음'}
           </pre>
         </details>
@@ -181,39 +183,6 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
   )
 }
 
-function effectiveStatusLabel(service) {
-  const status = service.effective_status ?? service.status
-  if (status === 'timeout') return 'Timeout'
-  if (status === 'failed') return '호출 실패'
-  if (status === 'active' && service.call_status === 'not_called') {
-    return '서버 있음'
-  }
-  if (status === 'active') return '정상'
-  return undefined
-}
-
-function serverStatusLabel(status) {
-  if (status === 'active') return '사용 가능'
-  if (status === 'waiting_server') return '서버 대기'
-  if (status === 'disconnected') return '연결 끊김'
-  return status ?? '-'
-}
-
-function callStatusLabel(summary) {
-  if (!summary) return '호출 이력 없음'
-  if (summary.last_call_status === 'success') return '정상'
-  if (summary.last_call_status === 'timeout') return 'Timeout'
-  if (
-    ['failed', 'response_failed', 'service_call_error'].includes(
-      summary.last_call_status,
-    )
-  ) {
-    return '호출 실패'
-  }
-  if (summary.last_call_status === 'validation_error') return '입력 검증 실패'
-  return summary.last_call_status ?? '-'
-}
-
 function DetailLine({ label, tone, value }) {
   return (
     <div className="detail-line">
@@ -223,23 +192,4 @@ function DetailLine({ label, tone, value }) {
       </strong>
     </div>
   )
-}
-
-function statusTone(status) {
-  const value = String(status || '').toLowerCase()
-  if (['active', 'success', 'succeeded'].includes(value)) {
-    return 'good'
-  }
-  if (['warning', 'waiting_server', 'pending'].includes(value)) {
-    return 'warn'
-  }
-  if (
-    ['error', 'critical', 'disconnected', 'failed', 'timeout'].includes(value)
-  ) {
-    return 'bad'
-  }
-  if (['accepted', 'executing'].includes(value)) {
-    return 'info'
-  }
-  return 'muted'
 }

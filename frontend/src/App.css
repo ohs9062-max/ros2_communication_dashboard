@@ -4995,6 +4995,10 @@ details summary {
   padding: 10px 14px;
 }
 
+.overview-preview-grid > .compact-empty-alert {
+  align-self: start;
+}
+
 .topic-table {
   min-width: 860px;
 }

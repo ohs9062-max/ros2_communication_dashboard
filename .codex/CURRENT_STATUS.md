@@ -64,6 +64,30 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- 최종 통합 검수에서 command Topic `/cmd_vel`이 수신 stream처럼 `never_received` 오류로 승격되는 표시 공백을
+  수정했다. `monitoring_role=command`는 Graph의 `waiting_publisher`를 대표 상태로 유지하고, latest·Hz·수신 진단은
+  계속 제공한다. 따라서 정상적인 on-demand 대기는 노란 `발행자 대기`로 보이고 Topic 미수신 오류에는 포함되지
+  않는다. command Alert 제외 정책은 그대로다.
+- Dashboard 실행 프로세스를 구성요소별 독립 process group으로 기동하고 종료 스크립트가 해당 그룹 전체를
+  종료하도록 보강했다. npm/ros2 wrapper만 종료되어 Vite·Monitor·Fast DDS observer가 포트를 점유하던 문제를
+  실제 stop/start로 재현·해결했으며 5173/8000/8765/8766 네 포트 해제와 재기동을 확인했다.
+- Overview의 빈 Alert는 공통 compact empty UI를 그대로 사용하되, 미리보기 CSS Grid의 기본 stretch에서만
+  제외한다. Alert가 없을 때 `현재 Alert가 없습니다` 한 줄 높이로 표시되고, 실제 Alert 목록·클릭 동작과
+  Node/Topic/Service/Action 미리보기 카드 높이는 유지된다. Frontend lint/build와 1440×1000 Browser 화면을
+  확인했다.
+- Service의 Graph 서버 상태와 사용자 명시 Call 상태·Request/Response·응답 시간·마지막 호출 시각은 공통
+  `servicePresentation` selector가 파생한다. 목록·정렬·검색·필터·요약·상세·Visualization이 같은 판정을
+  사용하며, 호출 이력이 없는 활성 Service는 `서버 있음`으로 구분한다. Frontend unit/lint/build와
+  `/RobotControl`, `/ScheduleCrud`의 1440×1000 Browser 표시를 확인했다.
+- Action의 최근 Goal·Feedback·Result·실행 시간·최근 시각은 Frontend 공통 `actionPresentation` selector가
+  `last_goal_summary → runtime → 구 snapshot field` 우선순위로 파생한다. Action 목록·정렬·검색·상태 필터·
+  요약 카드·상세 안내·Visualization이 같은 판정을 사용하며 summary/runtime 충돌, runtime-only, 미관찰,
+  실패 결과 회귀 테스트를 추가했다. Frontend unit/lint/build와 `/CanControl` 1440×1000 Browser 표시를 확인했다.
+- QoS 상세을 1440×1000 headless Chrome에서 Topic `/demo_cleaning_schedule`, Service `/RobotControl`, Action
+  `/CanControl` 순서로 실제 행 선택·상세 열기·QoS 계층 펼치기까지 검수했다. 최신 격리 스택에서 Action
+  Feedback/Status는 각각 동일 QoS Subscriber 3개, Topic은 Subscriber 2개로 그룹화됐고, 펼친 상세에는 서로
+  다른 GUID/GID와 participant가 모두 유지됐다. 세 화면 모두 QoS 사유의 영어 잔존과 페이지 가로 overflow가
+  없었으며 390px 상세 패널 안에서 긴 identity가 카드 내부에 표시됐다.
 - Topic·Service·Action 상세의 QoS 사유와 상단 QoS 안내, Interface Lab 실행 QoS fallback 설명은 공통
   `qosDisplayText`를 통해 한글로 표시한다. Graph/Fast DDS/RMW가 제공하는 내부 영문 reason과 API payload는
   유지하고 화면 표현만 변환하며, 알려지지 않은 middleware reason도 QoS 상태·불일치 정책 기반 한글 안내로
@@ -239,9 +263,9 @@ Monitor pytest: 243 passed
 Backend pytest: 15 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
-전체 workspace colcon test-result: 261 tests, 0 failures, 1 skipped
+전체 workspace colcon test-result: 262 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
-Frontend Interface Lab unit tests: 17 passed
+Frontend unit test scripts: 전체 통과
 Python compileall: 통과
 git diff --check: 통과
 ```
@@ -303,8 +327,10 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 
 ## 다음 우선 작업
 
-1. 현재 dirty diff와 runtime 생성 YAML을 기능 변경과 실행 상태로 구분해 정리
-2. Interface Lab UI 동작 회귀 테스트 보강
-3. 테스트가 확보된 Frontend 대형 컴포넌트를 책임 단위로 점진적으로 정리
+현재 단일 기기 진단 목적의 필수 수정과 최종 통합 검수는 완료됐다. 이후에는 실제 장비별 ROS2 Graph와
+카메라 driver에서 배포 환경 검증이 필요할 때만 추가한다.
+
+Alert 행 focus helper, shared DetailLine, `QosDetails` 표시 파일 분리는 현재 기능 완료를 막지 않는 선택적
+유지보수로 분류한다.
 
 신규 작업은 `AGENTS.md`의 현재 책임 경계와 안전 정책을 따른다.

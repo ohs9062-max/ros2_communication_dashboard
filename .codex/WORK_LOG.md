@@ -885,3 +885,96 @@
   사용한 한글 fallback으로 표시하며 Interface Lab 실행 QoS fallback에도 같은 helper를 적용했다.
 - 변환 unit test 7건을 추가했고 Frontend 전체 unit test, oxlint, production build와 `git diff --check`를
   통과했다.
+
+## 2026-08-13 - QoS 상세 실제 브라우저 검수
+
+- 기존 실행 스택은 건드리지 않고 최신 소스용 임시 Monitor 8875, Backend 8010, Frontend 5174와 격리 Chrome
+  profile을 사용해 Topic·Service·Action 상세을 1440×1000에서 직접 열었다. 검수 후 임시 프로세스는 모두
+  종료했고 기존 5173/8000/8765 스택은 유지했다.
+- `/CanControl` Feedback·Status의 동일 QoS Subscriber가 각각 `×3`, `/demo_cleaning_schedule` Subscriber가
+  `×2`로 표시됐다. Endpoint 상세에는 실제 GUID/GID, participant, Node와 Dashboard 소유 여부가 endpoint별로
+  모두 남았고 Service `/RobotControl`의 Request Reader/Response Writer도 분리됐다.
+- 세 화면의 QoS 사유/안내 영어 잔존 0건, document 가로 overflow 0건, 상세 내부 overflow 0건을 DOM으로
+  확인했다. 긴 GID는 390px 상세 카드 안에서 줄바꿈되고 목록·페이지 영역을 침범하지 않았다.
+
+## 2026-08-13 - QoS 변경 후 전체 회귀 체크포인트
+
+- dirty worktree를 다시 분류한 결과 코드 변경은 기준 상태에 이미 반영돼 있었고, 미반영 변경은
+  `.codex/CURRENT_STATUS.md`와 `.codex/WORK_LOG.md`의 최신 작업 기록뿐이었다. 생성물이나 미추적 소스는
+  남아 있지 않았다.
+- Frontend 전체 unit test script, oxlint, production build, Backend pytest 15 passed·2 skipped와 Python
+  compileall을 통과했다. ROS Jazzy workspace 6개 package를 build/test해 261 tests·0 errors·0 failures·
+  1 skipped를 확인했고 Monitor pytest는 별도로 243 passed였다.
+- `git diff --check`를 통과했으며 기능 회귀나 추가 수정 필요 항목은 발견되지 않았다. commit/push와 기존 실행
+  스택 재시작은 수행하지 않았다.
+
+## 2026-08-13 - 최종 Frontend 리팩토링 범위 재대조
+
+- 코드 수정 전 Action·Service의 목록, 필터, 요약, 상세에서 runtime과 최근 실행 summary를 서로 다른 우선순위로
+  재해석하는 위치를 다시 확인했다. Action은 `actionPresentation`을 확장하고 Service는 대응 presentation selector를
+  두는 것이 남은 필수 단일화 범위다.
+- Topic 대표 상태와 transport snapshot, Interface Lab 실행 구조, Monitor/Backend 책임 경계는 이미 단일화된 상태라
+  최종 리팩토링에서 다시 열지 않는다. 공통화는 Action·Service 도메인 내부 count/time/status fallback까지만 한다.
+- 네 resource 페이지에 완전히 복제된 Alert 대상 행 선택·재시도·scroll 동작은 공통 navigation helper로 옮기고,
+  Topic·Service·Action·Node·Visualization 상세의 동일한 label/value 행은 작은 shared `DetailLine`으로 통일한다.
+  마지막 구조 정리는 동작을 바꾸지 않는 `QosDetails` endpoint/profile 표시 책임 분리까지로 제한한다. 거대 generic
+  table, Backend/Monitor 재설계, 새 브라우저 자동화 의존성, 광범위 dead-code 삭제는 별도 후속 범위로 분리했다.
+
+## 2026-08-13 - 최종 완성 전 전 범위 검수
+
+- 기능 코드는 수정하지 않고 worktree, Monitor·Backend·Frontend 책임 경계, 잔여 파생 상태 중복, 문서·package
+  metadata와 실제 1440×1000 Browser 화면을 다시 점검했다. Frontend unit/lint/build, Backend 15 passed·2 skipped,
+  Monitor 243 passed, ROS workspace 261 tests·0 failures·1 skipped와 `git diff --check`를 통과했다.
+- 실제 Backend/Frontend, Topic·Service·Action·Node·Alert, Camera demand preview와 Interface Registry/Apply API를
+  읽기 검수했다. Camera raw preview는 demand 활성화 다음 frame에서 320×180 PNG data URL을 정상 반환했고 Apply와
+  import 상태는 success였다.
+- 완료 전 수정 대상으로 Action summary/runtime 표시 파생값 단일화와 Overview의 빈 Alert 카드 과대 높이를 확정했다.
+  현재 실행 Monitor는 최신 Topic `effective_status` 코드 재로딩 전 상태라 최종 수정 후 전체 스택 재시작과 Browser
+  재검증이 필요하다. Service presentation 공통화는 권장, 행 focus·DetailLine·QosDetails 분리는 완료 차단이 아닌
+  선택적 유지보수로 재분류했다.
+
+## 2026-08-13 - Action Frontend 파생 상태 단일화
+
+- `actionPresentation`에 최근 Goal 상태, Feedback/Result 표시, 실행 시간, Goal/응답 시각, 관찰 Goal 수와
+  실행 중·성공·실패/취소 플래그를 모았다. 공개 snapshot 호환을 위해 `last_goal_summary`, runtime, 구 최상위
+  필드 순서의 fallback을 유지한다.
+- Action 목록·정렬·검색·필터·요약 카드·상세 안내/측정 정보와 Visualization이 공통 selector를 사용하도록 바꿔
+  같은 Action을 화면별로 다시 판정하던 코드를 제거했다. Backend/Monitor, Action 실행과 Alert 정책은 변경하지 않았다.
+- summary/runtime 충돌, runtime-only 실행, Goal 미관찰, validation/Goal 실패와 모순된 result 회귀 테스트를
+  추가했다. Frontend 전체 unit test, oxlint, production build, `git diff --check`를 통과했고 실행 중
+  `/CanControl`의 요약 성공 1·목록 성공 표시를 1440×1000 Browser에서 확인했다.
+
+## 2026-08-13 - Service Frontend 표시 모델 단일화
+
+- `servicePresentation`에 Graph 기반 서버 상태와 사용자 명시 Call의 상태, Request/Response, 응답 시간,
+  마지막 호출 시각 및 endpoint/Node 수 fallback을 모았다. 최근 Call summary를 우선하되 기존 최상위 필드도
+  호환하며, 호출 이력이 없는 활성 Service는 `서버 있음`으로 표시한다.
+- Service 목록·정렬·검색·필터·요약·상세와 Visualization이 공통 selector를 사용하도록 바꿨다. timeout/실패
+  결과는 대표 상태에 반영하지만 validation 오류는 실행 결과 안내에만 남겨 Graph 서버 정상 상태를 오류로
+  오인하지 않게 했다. Backend/Monitor와 Service 실행·Alert 정책은 변경하지 않았다.
+- summary와 최상위 필드 충돌, 0 count 보존, 호출 이력 없음, validation 분리와 구 snapshot fallback을 unit
+  test로 고정했다. Frontend 전체 unit test, oxlint, production build를 통과했고 `/RobotControl`의 정상·최근
+  Request/Response·7.00 ms와 `/ScheduleCrud`의 `서버 있음` 표시를 1440×1000 Browser에서 확인했다.
+
+## 2026-08-13 - Overview 빈 Alert 높이 수정
+
+- 공통 `AlertsPreview`는 이미 빈 상태를 compact하게 렌더링하고 있었지만 Overview의 CSS Grid 기본 stretch가
+  옆 리소스 카드 높이까지 빈 Alert를 늘리는 원인이었다. Overview의 compact empty Alert에만
+  `align-self: start`를 적용해 한 줄 높이로 유지했다.
+- 실제 Alert가 있는 상태의 목록·접기·클릭 동작과 다른 리소스 탭의 Alert UI는 변경하지 않았다. Frontend
+  oxlint와 production build를 통과했고 1440×1000 Browser에서 빈 Alert, 네 리소스 미리보기 및 아래 상태 분포
+  배치를 확인했다.
+
+## 2026-08-13 - 최종 스택 재시작 및 통합 검수
+
+- 최신 ROS workspace를 빌드하고 Monitor·Backend·Frontend를 재시작해 Overview, Topic, Service, Action, Node,
+  Alert, Interface Lab을 1440×1000 Browser에서 확인했다. Backend와 실시간 연결, active Alert 0, Camera raw
+  preview의 `awaiting_frame → image/png 4302 bytes`, Interface Apply 5/5 성공을 확인했다.
+- 검수 중 `/cmd_vel` command Topic이 `effective_status=never_received`로 빨간 오류 집계되는 공백을 발견했다.
+  command는 Graph 상태 `waiting_publisher`를 대표 상태로 유지하도록 수정하고 회귀 테스트를 추가했다. 실제 화면은
+  `발행자 대기`, Topic 미수신 0, Overview Topic 주의로 표시되며 수신 데이터 없음과 진단 payload는 유지된다.
+- 통합 스크립트가 npm/ros2 wrapper만 종료해 Vite·Monitor·Fast DDS observer 자식을 남기던 문제를 process group
+  기동·종료로 수정했다. 실제 stop에서 5173/8000/8765/8766이 모두 해제되고 재시작되는 것을 확인했다.
+- 최종 Monitor pytest 244건, Backend 15 passed·2 skipped, ROS workspace 262 tests·0 failures·1 skipped,
+  Frontend 전체 unit test·oxlint·production build와 `git diff --check`를 통과했다. 최종 스택은 Monitor 361363,
+  Backend 361435, Frontend 361468 기준으로 실행 상태를 유지했다.

@@ -46,26 +46,29 @@ set -u
   cd "$ROS_WS"
   export ROS_LOG_DIR="$ROS_LOG_DIR_VALUE"
   export ROS2_DASHBOARD_WS_ROOT="$ROS_WS"
-  exec ros2 run ros2_dashboard_monitor monitor
+  exec setsid ros2 run ros2_dashboard_monitor monitor
 ) >"$RUNTIME_DIR/monitor.log" 2>&1 &
 MONITOR_PID=$!
 echo "$MONITOR_PID" >"$RUNTIME_DIR/monitor.pid"
+echo "$MONITOR_PID" >"$RUNTIME_DIR/monitor.pgid"
 wait_http monitor http://127.0.0.1:8765/health "$MONITOR_PID"
 
 (
   cd "$BACKEND_DIR"
-  exec .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+  exec setsid .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ) >"$RUNTIME_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" >"$RUNTIME_DIR/backend.pid"
+echo "$BACKEND_PID" >"$RUNTIME_DIR/backend.pgid"
 wait_http backend http://127.0.0.1:8000/health "$BACKEND_PID"
 
 (
   cd "$FRONTEND_DIR"
-  exec npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+  exec setsid npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ) >"$RUNTIME_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" >"$RUNTIME_DIR/frontend.pid"
+echo "$FRONTEND_PID" >"$RUNTIME_DIR/frontend.pgid"
 wait_http frontend http://127.0.0.1:5173/ "$FRONTEND_PID"
 
 echo "[ros2_dashboard] monitor=$MONITOR_PID backend=$BACKEND_PID frontend=$FRONTEND_PID"

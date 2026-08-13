@@ -8,7 +8,10 @@ import { PriorityStarButton } from './PriorityStarButton.jsx'
 import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { compactDataPreview } from '../utils/dataPreview.js'
 import {
+  actionExecutionTimeMs,
   actionFeedbackPreview,
+  actionGoalStatus,
+  actionLastGoalAt,
   actionResultPreview,
 } from '../features/actions/actionPresentation.js'
 
@@ -16,12 +19,12 @@ const ACTION_SORT_COLUMNS = {
   status: { value: (action) => action.status },
   name: { value: (action) => action.name },
   type: { value: (action) => action.type },
-  last_goal_status: { value: (action) => action.last_goal_summary?.last_goal_status ?? action.runtime?.last_goal_status },
+  last_goal_status: { value: actionGoalStatus },
   server_count: { value: (action) => action.server_node_count ?? action.server_count ?? 0, defaultDirection: 'desc' },
   client_count: { value: (action) => action.client_node_count ?? action.client_count ?? 0, defaultDirection: 'desc' },
   feedback: { value: (action) => compactDataPreview(actionFeedbackPreview(action)) },
   result: { value: (action) => compactDataPreview(actionResultPreview(action)) },
-  execution_time: { value: actionExecutionTime, defaultDirection: 'desc' },
+  execution_time: { value: actionExecutionTimeMs, defaultDirection: 'desc' },
   last_goal: { value: actionLastGoalAt, defaultDirection: 'desc' },
 }
 
@@ -67,8 +70,6 @@ export function ActionTable({
         </thead>
         <tbody>
           {sortedActions.map((action) => {
-            const runtime = action.runtime ?? {}
-            const summary = action.last_goal_summary
             const selected = action.name === selectedActionName
             return (
               <tr
@@ -96,15 +97,7 @@ export function ActionTable({
                 <td className="diagnostic-count-cell">{action.server_node_count ?? action.server_count ?? 0}</td>
                 <td className="diagnostic-count-cell">{action.client_node_count ?? action.client_count ?? 0}</td>
                 <td className="diagnostic-state-cell">
-                  <StatusBadge
-                    value={
-                      summary?.last_goal_status
-                        ? summary.last_goal_status
-                        : runtime.last_goal_status === 'unknown'
-                        ? 'goal_unobserved'
-                        : runtime.last_goal_status ?? 'goal_unobserved'
-                    }
-                  />
+                  <StatusBadge value={actionGoalStatus(action)} />
                 </td>
                 <td className="diagnostic-data-cell">
                   <JsonPreviewButton
@@ -126,7 +119,7 @@ export function ActionTable({
                     value={actionResultPreview(action)}
                   />
                 </td>
-                <td className="diagnostic-time-cell">{formatMs(actionExecutionTime(action))}</td>
+                <td className="diagnostic-time-cell">{formatMs(actionExecutionTimeMs(action))}</td>
                 <td className="diagnostic-time-cell">{formatRelativeTime(actionLastGoalAt(action))}</td>
               </tr>
             )
@@ -143,12 +136,4 @@ export function ActionTable({
       )}
     </div>
   )
-}
-
-function actionExecutionTime(action) {
-  return action.last_goal_summary?.execution_time_ms ?? action.runtime?.elapsed_time_ms
-}
-
-function actionLastGoalAt(action) {
-  return action.last_goal_summary?.last_goal_sent_at ?? action.runtime?.last_status_at
 }

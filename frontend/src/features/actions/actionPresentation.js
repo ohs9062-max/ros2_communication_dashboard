@@ -1,3 +1,78 @@
+const RUNNING_GOAL_STATUSES = new Set(['accepted', 'executing', 'canceling'])
+const FAILED_GOAL_STATUSES = new Set([
+  'aborted',
+  'canceled',
+  'goal_rejected',
+  'goal_send_failed',
+  'goal_accept_timeout',
+  'result_timeout',
+  'result_receive_failed',
+])
+const FAILED_RESULT_STATES = new Set([
+  'aborted',
+  'failed',
+  'goal_rejected',
+  'goal_accept_timeout',
+  'goal_send_failed',
+  'result_canceled',
+  'result_error',
+  'result_receive_failed',
+  'result_timeout',
+  'timeout',
+  'validation_error',
+])
+
+export function actionPresentation(action) {
+  const runtime = action.runtime ?? {}
+  const summary = action.last_goal_summary ?? null
+  const goalStatus = actionGoalStatus(action)
+  const feedback = feedbackDisplay(action)
+  const result = resultDisplay(action)
+  const observedGoalCount = Number(runtime.observed_goal_count ?? 0)
+  const feedbackPreview = actionFeedbackPreview(action)
+
+  return {
+    executionTimeMs: actionExecutionTimeMs(action),
+    feedback,
+    feedbackPreview,
+    feedbackReceived: feedbackPreview != null,
+    feedbackWaiting: RUNNING_GOAL_STATUSES.has(goalStatus) && feedbackPreview == null,
+    goalExecuting: goalStatus === 'executing',
+    goalStatus,
+    goalUnobserved: goalStatus === 'goal_unobserved',
+    isFailedOrCanceled:
+      FAILED_GOAL_STATUSES.has(goalStatus) ||
+      FAILED_RESULT_STATES.has(result.value),
+    isRunning: RUNNING_GOAL_STATUSES.has(goalStatus),
+    isSucceeded:
+      result.value === 'success' ||
+      (goalStatus === 'succeeded' && !FAILED_RESULT_STATES.has(result.value)),
+    lastFeedbackAt: summary?.last_feedback_at ?? runtime.last_feedback_at ?? null,
+    lastGoalAt: actionLastGoalAt(action),
+    lastResponseAt: actionLastResponseAt(action),
+    observedGoalCount: Number.isFinite(observedGoalCount) ? observedGoalCount : 0,
+    result,
+    resultPreview: actionResultPreview(action),
+  }
+}
+
+export function actionGoalStatus(action) {
+  const status = normalizeStatus(
+    action.last_goal_summary?.last_goal_status ??
+    action.runtime?.last_goal_status ??
+    action.last_goal_status,
+  )
+  return !status || status === 'unknown' ? 'goal_unobserved' : status
+}
+
+export function actionExecutionTimeMs(action) {
+  return action.last_goal_summary?.execution_time_ms ?? action.runtime?.elapsed_time_ms
+}
+
+export function actionLastGoalAt(action) {
+  return action.last_goal_summary?.last_goal_sent_at ?? action.runtime?.last_status_at ?? null
+}
+
 export function actionFeedbackPreview(action) {
   return action.last_goal_summary?.last_feedback_preview ?? action.runtime?.feedback_preview
 }
@@ -19,6 +94,31 @@ export function actionLastResponseAt(action) {
     .filter(Number.isFinite)
 
   return timestamps.length ? Math.max(...timestamps) : null
+}
+
+export function matchesActionStatusFilter(action, statusFilter) {
+  if (statusFilter === 'primary' || statusFilter === 'all') return true
+
+  const presentation = actionPresentation(action)
+  if (statusFilter === 'running') return presentation.isRunning
+  if (statusFilter === 'succeeded') return presentation.isSucceeded
+  if (statusFilter === 'failed') return presentation.isFailedOrCanceled
+  if (statusFilter === 'unobserved') return presentation.goalUnobserved
+  return true
+}
+
+export function actionSearchValues(action) {
+  const presentation = actionPresentation(action)
+  return [
+    action.name,
+    action.type,
+    action.status,
+    action.reason,
+    presentation.goalStatus,
+    presentation.result.value,
+    action.last_goal_summary?.last_error,
+    action.runtime?.result_error,
+  ]
 }
 
 export function feedbackDisplay(action) {
@@ -131,6 +231,7 @@ export function goalStatusLabel(status) {
   const labels = {
     accepted: 'Goal 수락', executing: '실행 중', canceling: '취소 중',
     succeeded: '성공', canceled: '취소됨', aborted: '실패 종료',
+    goal_unobserved: 'Goal 미관찰', validation_error: '검증 실패',
     goal_rejected: 'Goal 거절', goal_send_failed: 'Goal 전송 실패',
     goal_accept_timeout: 'Goal 수락 Timeout', result_timeout: 'Result Timeout',
     result_receive_failed: 'Result 수신 실패',
@@ -142,6 +243,8 @@ export function resultStatusLabel(status) {
   const labels = {
     success: '성공', succeeded: '성공', aborted: '실패 종료', canceled: '취소됨',
     timeout: '시간 초과', error: '결과 조회 오류', unavailable: '결과 없음',
+    failed: '실패', goal_unobserved: 'Goal 미관찰', result_canceled: '취소됨',
+    result_error: '결과 조회 오류', result_none: '결과 없음', validation_error: '검증 실패',
     pending: '결과 대기', goal_rejected: 'Goal 거절',
     goal_send_failed: 'Goal 전송 실패', goal_accept_timeout: 'Goal 수락 Timeout',
     result_timeout: 'Result Timeout', result_receive_failed: 'Result 수신 실패',
@@ -159,7 +262,12 @@ export function actionStatusTone(status) {
   if ([
     'error', 'critical', 'disconnected', 'failed', 'aborted', 'timeout',
     'goal_send_failed', 'goal_accept_timeout', 'result_receive_failed',
+    'result_error', 'validation_error',
   ].includes(value)) return 'bad'
   if (['accepted', 'executing'].includes(value)) return 'info'
   return 'muted'
+}
+
+function normalizeStatus(status) {
+  return String(status ?? '').trim().toLowerCase()
 }

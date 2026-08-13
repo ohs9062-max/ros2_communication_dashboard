@@ -11,7 +11,10 @@ import {
   ActionPreviewSections,
   DetailLine,
 } from '../features/actions/ActionDetailSections.jsx'
-import { actionStatusTone } from '../features/actions/actionPresentation.js'
+import {
+  actionPresentation,
+  actionStatusTone,
+} from '../features/actions/actionPresentation.js'
 
 export function ActionDetailPanel({ action, onClose, participants, qosFocusRequest }) {
   if (!action) {
@@ -26,13 +29,7 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
 
   const runtime = action.runtime ?? {}
   const goalSummary = action.last_goal_summary
-  const goalUnobserved = (runtime.observed_goal_count ?? 0) === 0 && !goalSummary
-  const goalExecuting = runtime.last_goal_status === 'executing'
-  const feedbackReceived = Boolean(runtime.feedback_preview)
-  const feedbackWaiting =
-    ['accepted', 'executing', 'canceling'].includes(
-      String(runtime.last_goal_status || '').toLowerCase(),
-    ) && !feedbackReceived
+  const presentation = actionPresentation(action)
 
   return (
     <aside className="detail-panel">
@@ -58,24 +55,24 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
           조회합니다.
         </p>
       )}
-      {goalUnobserved && (
+      {presentation.goalUnobserved && (
         <p className="notice-text">
           아직 관찰된 Goal이 없어 피드백도 수신되지 않았습니다. 외부 Action
           Client가 Goal을 보내면 상태, 피드백, 결과, 실행 시간이 여기에
           표시됩니다.
         </p>
       )}
-      {feedbackWaiting && (
+      {presentation.feedbackWaiting && (
         <p className="notice-text">
           현재 Goal이 실행 중이지만 아직 피드백 미리보기는 없습니다.
         </p>
       )}
-      {feedbackReceived && (
+      {presentation.feedbackReceived && (
         <p className="notice-text">
           최근 수신한 피드백 미리보기입니다.
         </p>
       )}
-      {goalExecuting && (
+      {presentation.goalExecuting && (
         <p className="notice-text">
           현재 Goal이 실행 중이므로 최종 결과는 아직 없습니다. 실행이 끝나면
           결과가 표시됩니다.
@@ -91,7 +88,7 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
           The Result type cannot be interpreted in the current Monitor environment.
         </p>
       )}
-      {runtime.last_goal_status === 'aborted' && (
+      {presentation.goalStatus === 'aborted' && (
         <p className="error-text">
           The Action ended with an aborted result. Check the Feedback or Result message for details.
         </p>
@@ -116,7 +113,7 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
       />
 
       <ActionConnectionSection action={action} participants={participants} />
-      <ActionExecutionSection action={action} goalSummary={goalSummary} runtime={runtime} />
+      <ActionExecutionSection action={action} goalSummary={goalSummary} presentation={presentation} runtime={runtime} />
       <ActionCapabilitySection action={action} />
       <ActionPreviewSections goalSummary={goalSummary} runtime={runtime} />
     </aside>

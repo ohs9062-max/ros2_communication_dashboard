@@ -1,4 +1,5 @@
 import { SummaryCard } from './SummaryCard.jsx'
+import { servicePresentation } from '../features/services/servicePresentation.js'
 
 export function ServiceSummaryCards({
   meta = {},
@@ -12,15 +13,10 @@ export function ServiceSummaryCards({
     ((meta.visible_count ?? services.length) + (meta.hidden_count ?? 0))
   const activeCount =
     summary?.activeCount ??
-    services.filter(
-      (service) => (service.effective_status ?? service.status) === 'active',
-    ).length
+    services.filter((service) => servicePresentation(service).effectiveStatus === 'active').length
   const waitingCount =
     summary?.waitingCount ??
-    services.filter(
-      (service) =>
-        (service.effective_status ?? service.status) === 'waiting_server',
-    ).length
+    services.filter((service) => servicePresentation(service).isWaiting).length
   const issueCount = summary?.issueCount ?? waitingCount
   const internalManagementCount =
     summary?.internalManagementCount ?? meta.hidden_count ?? 0

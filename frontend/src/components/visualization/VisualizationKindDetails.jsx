@@ -1,5 +1,11 @@
 import { CollapsibleList } from '../CollapsibleList.jsx'
 import { ConnectionNodeList } from '../ConnectionNodeList.jsx'
+import {
+  actionPresentation,
+  goalStatusLabel,
+  resultStatusLabel,
+} from '../../features/actions/actionPresentation.js'
+import { servicePresentation } from '../../features/services/servicePresentation.js'
 
 export function VisualizationKindDetails({ data }) {
   const entity = data.entity ?? {}
@@ -39,10 +45,12 @@ function TopicDetails({ data, entity }) {
 }
 
 function ServiceDetails({ data, entity }) {
+  const presentation = servicePresentation(entity)
   return (
     <>
-      <DetailLine label="서버 수" value={entity.server_count} />
-      <DetailLine label="클라이언트 수" value={entity.client_count} />
+      <DetailLine label="서버 수" value={presentation.serverNodeCount} />
+      <DetailLine label="클라이언트 수" value={presentation.clientNodeCount} />
+      <DetailLine label="최근 호출 결과" value={presentation.callLabel} />
       <p className="detail-help-text">요청자 Node는 요청을 보내고, 응답자 Node는 요청을 받아 응답합니다.</p>
       <ConnectionNodeList emptyText="응답자 Node 없음" items={data.participants?.servers ?? []} title="응답자 Node" />
       <ConnectionNodeList emptyText="요청자 Node 없음" items={data.participants?.clients ?? []} title="요청자 Node" />
@@ -51,13 +59,14 @@ function ServiceDetails({ data, entity }) {
 }
 
 function ActionDetails({ data, entity }) {
+  const presentation = actionPresentation(entity)
   return (
     <>
       <DetailLine label="서버 수" value={entity.server_count} />
       <DetailLine label="클라이언트 수" value={entity.client_count} />
-      <DetailLine label="마지막 Goal 상태" value={entity.runtime?.last_goal_status} />
-      <DetailLine label="결과 상태" value={entity.runtime?.result_status} />
-      <DetailLine label="관찰 Goal 수" value={entity.runtime?.observed_goal_count} />
+      <DetailLine label="마지막 Goal 상태" value={goalStatusLabel(presentation.goalStatus)} />
+      <DetailLine label="결과 상태" value={resultStatusLabel(presentation.result.value)} />
+      <DetailLine label="관찰 Goal 수" value={presentation.observedGoalCount} />
       <p className="detail-help-text">Goal 요청자 Node는 Goal을 보내고, Goal 실행자 Node는 Goal을 받아 실행합니다.</p>
       <ConnectionNodeList emptyText="Goal 실행자 Node 없음" items={data.participants?.servers ?? []} title="Goal 실행자 Node" />
       <ConnectionNodeList emptyText="Goal 요청자 Node 없음" items={data.participants?.clients ?? []} title="Goal 요청자 Node" />

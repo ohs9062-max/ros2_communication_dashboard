@@ -191,6 +191,8 @@ def _effective_status(
     """Graph 원본 status를 보존하면서 실제 수신 상태를 공개 대표 상태로 계산합니다."""
     if topic.get('deep_monitoring') is not True:
         return str(topic.get('status') or 'unknown')
+    if topic.get('monitoring_role') == 'command':
+        return str(topic.get('status') or 'unknown')
 
     _, _, reception_status = hz_status(
         last_received_at=last_received_at,
