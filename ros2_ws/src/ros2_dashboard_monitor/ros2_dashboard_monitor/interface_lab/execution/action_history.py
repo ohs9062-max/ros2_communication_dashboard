@@ -48,6 +48,7 @@ def build_receive_history(
                 feedback=feedback,
                 result=None,
                 status='feedback',
+                received_at=_feedback_received_at(goal, feedback_index),
             ))
         events.append(_receive_event(
             goal,
@@ -59,6 +60,7 @@ def build_receive_history(
             feedback=None,
             result=goal.get('result'),
             status=summary['last_goal_status'],
+            received_at=_result_received_at(goal),
         ))
     return {'history': events, 'meta': {'count': len(events)}}
 
@@ -104,6 +106,7 @@ def _receive_event(
     feedback: Any,
     result: Any,
     status: str,
+    received_at: float | None,
 ) -> dict[str, Any]:
     return {
         'id': event_id,
@@ -119,9 +122,22 @@ def _receive_event(
         'error': goal.get('error'),
         'sent_to_server': goal.get('sent_to_server', False),
         'goal_sent_at': goal.get('sent_at'),
-        'received_at': goal.get('sent_at'),
+        'received_at': received_at,
         'execution_time_ms': goal.get('elapsed_ms'),
         'execution_source': goal.get('execution_source'),
         'requester_node': goal.get('requester_node'),
         'raw': goal,
     }
+
+
+def _feedback_received_at(goal: dict[str, Any], index: int) -> float | None:
+    timestamps = goal.get('feedback_timestamps')
+    if isinstance(timestamps, list):
+        return timestamps[index] if index < len(timestamps) else None
+    return goal.get('sent_at')
+
+
+def _result_received_at(goal: dict[str, Any]) -> float | None:
+    if 'result_received_at' in goal:
+        return goal.get('result_received_at')
+    return goal.get('sent_at')

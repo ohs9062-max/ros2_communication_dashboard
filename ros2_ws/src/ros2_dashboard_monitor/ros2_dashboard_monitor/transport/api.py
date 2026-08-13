@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from ros2_dashboard_monitor.transport.state import backend_config, priority_state, ros_monitor
 from pydantic import BaseModel
 from ros2_dashboard_monitor.interface_lab.apply.runtime import apply_status
+from ros2_dashboard_monitor.service_snapshot import visible_service_snapshot
 from ros2_dashboard_monitor.transport.routers import (
     action_execution,
     interface_apply,
@@ -64,9 +65,14 @@ def health() -> dict[str, Any]:
 def transport_snapshot() -> dict[str, Any]:
     """Return one coherent payload for the backend runtime cache."""
     topics = ros_monitor.snapshot()
-    services = ros_monitor.service_snapshot(include_hidden=False)
+    all_services = ros_monitor.service_snapshot(include_hidden=True)
+    services = visible_service_snapshot(all_services)
     actions = ros_monitor.action_snapshot()
-    nodes = ros_monitor.node_snapshot()
+    nodes = ros_monitor.node_snapshot(
+        topic_snapshot=topics,
+        service_snapshot=all_services,
+        action_snapshot=actions,
+    )
     alerts = ros_monitor.alerts(
         action_snapshot=actions,
         node_snapshot=nodes,

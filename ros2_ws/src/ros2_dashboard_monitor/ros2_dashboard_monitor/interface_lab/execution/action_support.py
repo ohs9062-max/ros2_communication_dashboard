@@ -51,6 +51,21 @@ def goal_summary(goal: dict[str, Any]) -> dict[str, Any]:
     if not status or status == 'unknown':
         status = 'success' if goal.get('success') is True else error_type or 'failed'
     feedback = goal.get('feedback') if isinstance(goal.get('feedback'), list) else []
+    feedback_timestamps = (
+        goal.get('feedback_timestamps')
+        if isinstance(goal.get('feedback_timestamps'), list)
+        else []
+    )
+    last_feedback_at = (
+        feedback_timestamps[-1]
+        if feedback and feedback_timestamps
+        else goal.get('sent_at') if feedback else None
+    )
+    last_result_at = (
+        goal.get('result_received_at', goal.get('sent_at'))
+        if goal.get('result') is not None
+        else None
+    )
     return {
         'status': status,
         'success': goal.get('success') is True,
@@ -59,9 +74,9 @@ def goal_summary(goal: dict[str, Any]) -> dict[str, Any]:
         'last_goal_preview': goal.get('goal'),
         'last_goal_sent_at': goal.get('sent_at'),
         'last_feedback_preview': feedback[-1] if feedback else None,
-        'last_feedback_at': goal.get('sent_at') if feedback else None,
+        'last_feedback_at': last_feedback_at,
         'last_result_preview': goal.get('result'),
-        'last_result_at': goal.get('sent_at') if goal.get('result') is not None else None,
+        'last_result_at': last_result_at,
         'last_goal_status': status,
         'execution_time_ms': goal.get('elapsed_ms'),
         'last_error': goal.get('error'),

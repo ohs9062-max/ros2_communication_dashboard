@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from time import time
 from typing import Any, Callable
 
@@ -69,7 +70,7 @@ class ActionRuntime(ActionSubscriptionFacade):
     def snapshot(self) -> dict[str, Any]:
         """현재 Action Graph와 관찰 상태 Cache를 복사해 반환합니다."""
         with self._lock:
-            actions = [action.copy() for action in self._actions]
+            actions = deepcopy(self._actions)
             last_updated = self._last_updated
 
         return {

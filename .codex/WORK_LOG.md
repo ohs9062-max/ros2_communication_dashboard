@@ -792,3 +792,96 @@
   정상 재시도한다.
 - 중복 caller 결과 공유와 실패 후 재시도 unit test 2건을 추가했다. Frontend unit test 총 32 passed,
   lint/build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - 안정화 11차 전체 회귀 검증 체크포인트
+
+- 1~10차 Interface Lab 구조·비동기 안정화 변경을 기준으로 프로젝트 전체 회귀 검증을 다시 실행했다.
+- Frontend unit test 32 passed, oxlint와 Vite production build를 통과했다. Backend pytest는
+  15 passed·2 skipped였다.
+- ROS Jazzy 환경에서 workspace 6개 package를 `colcon build --symlink-install`한 뒤 전체 test를 실행했고
+  254 tests·0 errors·0 failures·1 skipped를 확인했다. 추가 코드 수정이 필요한 회귀는 없었으며
+  `git diff --check`도 통과했다.
+
+## 2026-08-13 - Camera Image Preview 중앙 정렬
+
+- Topic 상세 Camera 확대창의 `원본 크기` 바로 옆에 `중앙 정렬` 버튼을 추가했다. 현재 image viewport의
+  scrollWidth/clientWidth와 scrollHeight/clientHeight 차이를 사용해 이미지 중심으로 이동한다.
+- 작은 이미지는 canvas의 auto margin으로 기본 중앙 배치하고, 확대·축소와 화면 맞춤·원본 크기 전환 후에는
+  갱신된 layout 기준으로 자동 재중앙화한다. 이미지 최초 load 때도 같은 동작을 적용했다.
+- Frontend unit test 32 passed, oxlint, Vite production build와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - Topic Camera Preview 책임 분리
+
+- 498줄 `TopicDetailPanel.jsx` 안에서만 상태를 가지던 Camera thumbnail, metadata, 확대 modal, Esc 닫기,
+  zoom과 중앙 정렬을 `features/topics/CameraTopicPreview.jsx`로 옮겼다. Topic 상세은 Camera 데이터 선택과
+  일반 상태·QoS·연결 진단 조립에 집중하며 314줄로 줄었다.
+- 중앙 scroll 위치, 기존 25~400% zoom clamp와 Image/CompressedImage type 판정을
+  `cameraPreviewModel.js`의 순수 함수로 분리했다. 기존 화면 문구, 버튼 순서, CSS class와 동작은 유지했다.
+- model unit test 4건을 추가해 Frontend unit test 총 36 passed를 확인했다. oxlint 경고 없이 통과했고
+  Vite production build와 `git diff --check`도 통과했다.
+
+## 2026-08-13 - Action snapshot 불변성 보장
+
+- `ActionRuntime.snapshot()`이 Action 최상위 dict만 얕게 복사해 `action_snapshot`의 Interface Lab QoS 병합이
+  nested QoS/runtime cache에 역반영될 수 있던 경로를 차단했다. lock 안에서 Action cache 전체를 깊은 복사하며
+  공개 API와 QoS 병합 정책은 변경하지 않았다.
+- 반환 snapshot의 channel QoS 상태·local profile과 feedback preview를 수정한 뒤에도 runtime 원본이 유지되는
+  회귀 테스트를 추가했다.
+- 관련 테스트 23건, Monitor pytest 237건을 통과했다. `ros2_dashboard_monitor` package build/test 후 전체
+  `colcon test-result`는 255 tests·0 errors·0 failures·1 skipped였고 `git diff --check`도 통과했다.
+
+## 2026-08-13 - Action 실제 Feedback·Result 수신 시각
+
+- Interface Lab Action Goal 실행 callback에서 각 Feedback의 실제 수신 시각을 `feedback_timestamps`에 기록하고,
+  Result future 완료 직후 `result_received_at`을 기록한다. 기존 Feedback/Result payload 형식과 실행 API는
+  유지했다.
+- Action summary의 `last_feedback_at`·`last_result_at`과 Receive History의 `received_at`이 새 timestamp를
+  사용하도록 연결했다. 새 필드가 없는 과거 in-memory 이력은 기존 `sent_at` fallback을 유지한다.
+- executor producer와 summary/history timestamp 회귀 테스트 2건을 추가했다. 관련 테스트 29건과 Monitor
+  pytest 239건을 통과했고, package build/test 후 전체 `colcon test-result`는
+  257 tests·0 errors·0 failures·1 skipped였다.
+
+## 2026-08-13 - Topic 대표 상태 단일화
+
+- Topic Graph 원본 `status`는 유지하고, 기존 목록이 별도 Hz 응답으로 계산하던 deep monitoring의
+  `never_received`·`stale` 판정을 Monitor snapshot의 `effective_status`로 옮겼다. 감시하지 않는 Topic은
+  기존 Graph status를 그대로 대표 상태로 사용한다.
+- Topic 목록·정렬·요약·필터·상세·Overview와 WebSocket meta가 `effective_status`를 우선 사용하며,
+  구 snapshot은 `status` fallback으로 호환한다. 개별 Hz API는 빈도와 age 표시에 계속 사용하고 Alert 정책은
+  변경하지 않았다.
+- Monitor snapshot/WebSocket과 Frontend selector 회귀 테스트를 추가했다. Monitor pytest 241건,
+  Frontend unit/lint/build를 통과했고, package build/test 후 전체 `colcon test-result`는
+  259 tests·0 errors·0 failures·1 skipped였다.
+
+## 2026-08-13 - Transport resource snapshot 재사용
+
+- `/transport/snapshot`에서 Topic·Service·Action을 만든 뒤 Node snapshot이 같은 세 resource snapshot을 다시
+  조립하던 흐름을 제거했다. Node 주요 판정은 transport가 이미 만든 Topic·숨김 포함 Service·Action을
+  명시적으로 전달받으며, 개별 `node_snapshot()` 호출은 기존 fallback 조립을 유지한다.
+- Service는 숨김 포함 snapshot을 한 번 만든 뒤 `visible_service_snapshot()`으로 공개 view를 파생한다.
+  사용자 주요 숨김 Service 노출과 meta count 정책, Node 판정에 필요한 전체 Service 목록을 모두 보존한다.
+- resource별 단일 호출과 전달 객체 identity, 공개 Service 필터의 원본 비변경을 회귀 테스트 2건으로 고정했다.
+  Monitor pytest 243건을 통과했고 package build/test 후 전체 `colcon test-result`는
+  261 tests·0 errors·0 failures·1 skipped였다.
+
+## 2026-08-13 - QoS endpoint profile 그룹 표시
+
+- Topic·Service·Action이 공유하는 `QosDetails`에서 endpoint를 role, ROS/DDS 통신 scope와 QoS fingerprint로
+  그룹화했다. 동일 profile은 `Subscriber × N` 형태로 QoS를 한 번만 표시하고, 서로 다른 profile과 Action
+  Goal/Result/Cancel/Feedback/Status 채널은 계속 분리한다.
+- Topic endpoint 공개 payload에 GID와 participant prefix를 보존하고, Fast DDS Service endpoint에도 GUID 기반
+  participant를 추가했다. 접힌 Endpoint 상세은 Node/Namespace, GUID/GID, Participant, Dashboard 소유 여부와
+  endpoint kind를 실제 endpoint별로 모두 표시한다.
+- `/CanControl` live Graph의 Feedback·Status에서 동일 QoS이지만 GID가 다른 Subscriber 3개씩을 확인했다.
+  Monitor pytest 243건, 관련 테스트 21건, ROS workspace 261 tests·0 failures·1 skipped, Frontend unit/lint/build와
+  `git diff --check`를 통과했다.
+
+## 2026-08-13 - 상세 QoS 사유 한글 표시
+
+- Topic·Service·Action 공통 `QosDetails`의 `사유`와 상단 QoS 안내 문구를 한글로 통일했다. Action은
+  Goal/Result/Cancel/Feedback/Status 채널별 안내와 불일치 정책도 같은 기준으로 표시한다.
+- Graph/Fast DDS/RMW의 내부 `mismatch_reason`, status/code와 API payload는 바꾸지 않고 Frontend 공통
+  `qosDisplayText`에서 알려진 reason을 변환한다. 알 수 없는 middleware 문구는 QoS 상태와 mismatch policy를
+  사용한 한글 fallback으로 표시하며 Interface Lab 실행 QoS fallback에도 같은 helper를 적용했다.
+- 변환 unit test 7건을 추가했고 Frontend 전체 unit test, oxlint, production build와 `git diff --check`를
+  통과했다.

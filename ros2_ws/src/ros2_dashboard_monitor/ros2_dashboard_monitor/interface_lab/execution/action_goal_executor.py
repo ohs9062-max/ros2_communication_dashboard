@@ -32,9 +32,15 @@ def execute_action_goal(
     """검증된 name/type에 Goal을 보내고 terminal result까지 기다립니다."""
     started_at = time()
     feedback_items: list[dict[str, Any]] = []
+    feedback_timestamps: list[float] = []
     sent_to_server = False
     accepted = False
     phase = 'goal_send'
+
+    def record_feedback(feedback: Any) -> None:
+        feedback_items.append(ros_message_to_json(feedback.feedback))
+        feedback_timestamps.append(time())
+
     try:
         action_class = get_action(action_type)
         try:
@@ -43,6 +49,7 @@ def execute_action_goal(
             result = result_builder(
                 success=False, action_name=action_name, action_type=action_type,
                 goal_data=goal_data, accepted=False, feedback=feedback_items,
+                feedback_timestamps=feedback_timestamps,
                 result=None, started_at=started_at, timeout_sec=timeout,
                 error=str(exc), error_type='validation_error', details=exc.details,
                 sent_to_server=False,
@@ -57,9 +64,7 @@ def execute_action_goal(
         send_event = threading.Event()
         send_future = client.send_goal_async(
             goal,
-            feedback_callback=lambda feedback: feedback_items.append(
-                ros_message_to_json(feedback.feedback),
-            ),
+            feedback_callback=record_feedback,
         )
         sent_to_server = True
         phase = 'goal_accept'
@@ -73,6 +78,7 @@ def execute_action_goal(
             result = result_builder(
                 success=False, action_name=action_name, action_type=action_type,
                 goal_data=goal_data, accepted=False, feedback=feedback_items,
+                feedback_timestamps=feedback_timestamps,
                 result=None, started_at=started_at, timeout_sec=timeout,
                 error='goal rejected', error_type='goal_rejected',
                 sent_to_server=sent_to_server,
@@ -90,6 +96,7 @@ def execute_action_goal(
             raise TimeoutError(f'action result timeout after {timeout:.2f}s')
 
         result_response = result_future.result()
+        result_received_at = time()
         result_msg = getattr(result_response, 'result', result_response)
         status = getattr(result_response, 'status', None)
         status_label = goal_status_label(status)
@@ -97,8 +104,10 @@ def execute_action_goal(
         result = result_builder(
             success=succeeded, action_name=action_name, action_type=action_type,
             goal_data=goal_data, accepted=True, feedback=feedback_items,
+            feedback_timestamps=feedback_timestamps,
             result=ros_message_to_json(result_msg), started_at=started_at,
             timeout_sec=timeout, status=status,
+            result_received_at=result_received_at,
             error=None if succeeded else f'action finished with status {status_label}',
             sent_to_server=sent_to_server,
         )
@@ -112,6 +121,7 @@ def execute_action_goal(
         result = result_builder(
             success=False, action_name=action_name, action_type=action_type,
             goal_data=goal_data, accepted=accepted, feedback=feedback_items,
+            feedback_timestamps=feedback_timestamps,
             result=None, started_at=started_at, timeout_sec=timeout,
             error=str(exc), error_type=error_type, sent_to_server=sent_to_server,
         )

@@ -22,8 +22,8 @@ export function TopicTableRow({
   topic,
 }) {
   const hzData = hz?.data
-  const missing = isMissingTopic(topic, hz)
-  const displayStatus = topicDisplayStatus(topic, hzData)
+  const missing = isMissingTopic(topic)
+  const displayStatus = topicDisplayStatus(topic)
   const causeBadge = topicCauseBadge(topic.reception_diagnosis)
   return (
     <tr

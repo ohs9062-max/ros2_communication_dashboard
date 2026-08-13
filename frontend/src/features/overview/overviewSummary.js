@@ -82,7 +82,9 @@ export function applyAlertsToResourceSummary(
       continue
     }
 
-    const currentBucket = resourceSummaryBucket(resource.status)
+    const currentBucket = resourceSummaryBucket(
+      resource.effective_status ?? resource.status,
+    )
     if (
       currentBucket === alertBucket ||
       summaryBucketRank(alertBucket) <= summaryBucketRank(currentBucket)

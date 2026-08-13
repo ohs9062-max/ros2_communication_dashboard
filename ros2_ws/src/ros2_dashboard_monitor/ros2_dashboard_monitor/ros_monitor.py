@@ -187,8 +187,19 @@ class RosMonitor(InterfaceLabFacade):
     def action_snapshot(self) -> dict[str, Any]:
         return assemble_action_snapshot(self)
 
-    def node_snapshot(self) -> dict[str, Any]:
-        return assemble_node_snapshot(self)
+    def node_snapshot(
+        self,
+        *,
+        topic_snapshot: dict[str, Any] | None = None,
+        service_snapshot: dict[str, Any] | None = None,
+        action_snapshot: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return assemble_node_snapshot(
+            self,
+            topic_snapshot=topic_snapshot,
+            service_snapshot=service_snapshot,
+            action_snapshot=action_snapshot,
+        )
 
     def _apply_primary_state(
         self,

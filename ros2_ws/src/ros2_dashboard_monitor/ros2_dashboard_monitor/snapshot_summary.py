@@ -35,19 +35,23 @@ def assemble_websocket_snapshot(
 
 
 def websocket_topic_meta(topics: list[dict[str, Any]]) -> dict[str, Any]:
+    statuses = [
+        item.get('effective_status') or item.get('status')
+        for item in topics
+    ]
     return {
         'count': len(topics),
-        'active_count': sum(1 for item in topics if item.get('status') == 'active'),
+        'active_count': sum(1 for status in statuses if status == 'active'),
         'warning_count': sum(
-            1 for item in topics
-            if item.get('status') in ('warning', 'stale', 'no_subscriber', 'waiting_publisher')
+            1 for status in statuses
+            if status in ('warning', 'stale', 'no_subscriber', 'waiting_publisher')
         ),
         'error_count': sum(
-            1 for item in topics
-            if item.get('status') in ('error', 'critical', 'disconnected')
+            1 for status in statuses
+            if status in ('error', 'critical', 'disconnected', 'never_received')
         ),
         'deep_monitoring_count': sum(1 for item in topics if item.get('deep_monitoring') is True),
-        'stale_count': sum(1 for item in topics if item.get('status') in ('stale', 'disconnected')),
+        'stale_count': sum(1 for status in statuses if status in ('stale', 'disconnected')),
         'latest': {
             item['name']: {
                 'message_preview': item.get('last_message_preview'),

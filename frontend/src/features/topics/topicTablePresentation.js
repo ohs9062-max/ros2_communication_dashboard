@@ -1,8 +1,9 @@
 import { compactDataPreview } from '../../utils/dataPreview.js'
+import { topicEffectiveStatus } from '../../utils/status.js'
 
 export function createTopicSortColumns(hzByTopic) {
   return {
-    status: { value: (topic) => topicDisplayStatus(topic, hzByTopic[topic.name]?.data) },
+    status: { value: (topic) => topicDisplayStatus(topic) },
     name: { value: (topic) => topic.name },
     type: { value: (topic) => topic.types?.[0] },
     publisher_count: { defaultDirection: 'desc', value: (topic) => topic.publisher_node_count ?? topic.publisher_count ?? 0 },
@@ -55,26 +56,16 @@ export function topicLastCheckedAt(topic, hzData) {
     : topic.last_updated
 }
 
-export function topicDisplayStatus(topic, hzData) {
-  if (topic.deep_monitoring === true) {
-    if (hzData?.status === 'never_received' || hzData?.received === false) {
-      return 'never_received'
-    }
-    if (hzData?.status === 'stale' || hzData?.stale === true) {
-      return 'stale'
-    }
-  }
-  return topic.status ?? 'unknown'
+export function topicDisplayStatus(topic) {
+  return topicEffectiveStatus(topic)
 }
 
 export function topicLastReceivedAt(topic, hzData) {
   return hzData?.last_received_at ?? topic.last_received_at
 }
 
-export function isMissingTopic(topic, hzEntry) {
-  return topic.deep_monitoring === true && (
-    hzEntry?.data?.status === 'never_received' || hzEntry?.data?.received === false
-  )
+export function isMissingTopic(topic) {
+  return topicEffectiveStatus(topic) === 'never_received'
 }
 
 export function topicCauseBadge(diagnosis) {

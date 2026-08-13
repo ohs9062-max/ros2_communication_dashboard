@@ -10,7 +10,7 @@ from test_qos import TopicNode
 
 def endpoint(service_name, channel, kind):
     return {
-        'guid': f'{service_name}-{channel}-{kind}',
+        'guid': f'participant-{service_name}|{channel}-{kind}',
         'dds_topic': f'rq{service_name}Request',
         'dds_type': 'example_interfaces::srv::dds_::AddTwoInts_Request_',
         'service_name': service_name,
@@ -62,6 +62,7 @@ def test_service_qos_exposes_discovered_values_without_inventing_history_depth()
     assert state['publisher_qos'][0]['service_channel'] == 'response'
     assert state['remote_qos'][0]['qos']['history'] == 'unknown'
     assert state['remote_qos'][0]['qos']['depth'] is None
+    assert state['remote_qos'][0]['participant_id'] == 'participant-/add'
 
 
 def test_service_qos_does_not_copy_unrelated_service_endpoints():

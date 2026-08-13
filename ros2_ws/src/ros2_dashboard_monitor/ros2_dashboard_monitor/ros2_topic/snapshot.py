@@ -6,6 +6,7 @@ from typing import Any, Iterable
 
 from ros2_dashboard_monitor.ros2_topic.models import copy_message_preview
 from ros2_dashboard_monitor.ros2_topic.diagnostics import reception_diagnosis
+from ros2_dashboard_monitor.ros2_topic.hz import hz_status
 
 
 UNKNOWN_QOS = {
@@ -132,6 +133,12 @@ def _decorate_topic(
     topic['last_received_at'] = latest.get('last_received_at')
     topic['message_count'] = latest.get('message_count', 0)
     topic['detailed_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
+    topic['effective_status'] = _effective_status(
+        topic,
+        last_received_at=topic['last_received_at'],
+        observed_at=observed_at,
+        stale_timeout_sec=stale_timeout_sec,
+    )
     topic['last_error'] = subscription_error
     topic.update(latest.get('qos') or UNKNOWN_QOS)
     topic['reception_diagnosis'] = reception_diagnosis(
@@ -172,3 +179,24 @@ def _hz_monitoring_status(
     if topic.get('supported_type') is True:
         return 'subscription_failed'
     return 'not_configured'
+
+
+def _effective_status(
+    topic: dict[str, Any],
+    *,
+    last_received_at: float | None,
+    observed_at: float,
+    stale_timeout_sec: float,
+) -> str:
+    """Graph 원본 status를 보존하면서 실제 수신 상태를 공개 대표 상태로 계산합니다."""
+    if topic.get('deep_monitoring') is not True:
+        return str(topic.get('status') or 'unknown')
+
+    _, _, reception_status = hz_status(
+        last_received_at=last_received_at,
+        now=observed_at,
+        stale_timeout_sec=stale_timeout_sec,
+    )
+    if reception_status in {'never_received', 'stale'}:
+        return reception_status
+    return str(topic.get('status') or 'unknown')

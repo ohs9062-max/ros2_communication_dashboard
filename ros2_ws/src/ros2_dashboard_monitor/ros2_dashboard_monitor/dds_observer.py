@@ -213,8 +213,10 @@ def unavailable_service_qos(reason: str | None = None) -> dict[str, Any]:
 
 
 def public_endpoint(endpoint: dict[str, Any]) -> dict[str, Any]:
+    guid = endpoint.get('guid')
     return {
-        'guid': endpoint.get('guid'),
+        'guid': guid,
+        'participant_id': _participant_id_from_guid(guid),
         'dds_topic': endpoint.get('dds_topic'),
         'dds_type': endpoint.get('dds_type'),
         'service_channel': endpoint.get('service_channel'),
@@ -224,3 +226,11 @@ def public_endpoint(endpoint: dict[str, Any]) -> dict[str, Any]:
         'qos_source': 'fastdds_discovery',
         'dashboard_owned': False,
     }
+
+
+def _participant_id_from_guid(guid: Any) -> str | None:
+    value = str(guid or '')
+    if not value:
+        return None
+    participant, separator, _entity = value.partition('|')
+    return participant if separator else None

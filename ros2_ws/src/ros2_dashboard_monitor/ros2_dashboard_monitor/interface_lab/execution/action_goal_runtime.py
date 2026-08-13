@@ -293,6 +293,7 @@ class ActionGoalRuntime:
         goal_data: dict[str, Any],
         accepted: bool,
         feedback: list[dict[str, Any]],
+        feedback_timestamps: list[float],
         result: dict[str, Any] | None,
         started_at: float,
         timeout_sec: float,
@@ -301,6 +302,7 @@ class ActionGoalRuntime:
         error_type: str | None = None,
         details: list[str] | None = None,
         sent_to_server: bool = False,
+        result_received_at: float | None = None,
     ) -> dict[str, Any]:
         return build_action_goal_result(
             success=success,
@@ -309,6 +311,7 @@ class ActionGoalRuntime:
             goal_data=goal_data,
             accepted=accepted,
             feedback=feedback,
+            feedback_timestamps=feedback_timestamps,
             result=result,
             started_at=started_at,
             timeout_sec=timeout_sec,
@@ -317,4 +320,5 @@ class ActionGoalRuntime:
             error_type=error_type,
             details=details,
             sent_to_server=sent_to_server,
+            result_received_at=result_received_at,
         )

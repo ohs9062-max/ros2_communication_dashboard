@@ -8,6 +8,7 @@ import {
   getTopicSummary,
   matchesStatusFilter,
   sortTopicsByHealth,
+  topicEffectiveStatus,
 } from '../utils/status.js'
 import { isPrimaryTopic } from '../utils/primaryFilters.js'
 import { qosAlertChannel } from '../utils/qosAlerts.js'
@@ -40,10 +41,8 @@ export function TopicsPage({ dashboard }) {
   const summary = getTopicSummary(topicItems)
   const activeTopics = useMemo(
     () =>
-      topicItems.filter((topic) =>
-        isPrimaryTopic(topic, topicHzByName[topic.name]),
-      ),
-    [topicItems, topicHzByName],
+      topicItems.filter((topic) => isPrimaryTopic(topic)),
+    [topicItems],
   )
   const warningCount = alerts.data?.meta?.warning_count ?? 0
   const errorCount =
@@ -52,9 +51,9 @@ export function TopicsPage({ dashboard }) {
   const missedCount = useMemo(
     () =>
       topicItems.filter((topic) =>
-        isTopicMissingMessages(topic, topicHzByName[topic.name]),
+        isTopicMissingMessages(topic),
       ).length,
-    [topicItems, topicHzByName],
+    [topicItems],
   )
   const topicAlerts = useMemo(
     () =>
@@ -80,14 +79,14 @@ export function TopicsPage({ dashboard }) {
           : statusFilter === 'waiting'
             ? isWaitingTopic(topic)
             : statusFilter === 'missing'
-              ? isTopicMissingMessages(topic, topicHzByName[topic.name])
+              ? isTopicMissingMessages(topic)
               : matchesStatusFilter(topic, statusFilter)
       return (
         matchesSearch &&
         matchesStatus
       )
     })
-  }, [activeTopics, includeAllTopics, search, statusFilter, topicHzByName, topicItems])
+  }, [activeTopics, includeAllTopics, search, statusFilter, topicItems])
 
   const detailTopic = filteredTopics.some(
     (topic) => topic.name === selectedTopicName,
@@ -212,16 +211,8 @@ function findMonitorRow(name) {
   )
 }
 
-function isTopicMissingMessages(topic, hzEntry) {
-  const hzStatus = hzEntry?.data?.status
-  return (
-    hzStatus === 'never_received' ||
-    (
-      topic.deep_monitoring === true &&
-      topic.publisher_count > 0 &&
-      hzEntry?.data?.received === false
-    )
-  )
+function isTopicMissingMessages(topic) {
+  return topicEffectiveStatus(topic) === 'never_received'
 }
 
 function isWaitingTopic(topic) {

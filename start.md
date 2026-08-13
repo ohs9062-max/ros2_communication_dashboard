@@ -160,7 +160,30 @@ ros2 topic hz /image_raw
 
 # 6. 영상 직접 확인
 ros2 run rqt_image_view rqt_image_view
-```
+
+# 가제보 구동
+{
+  "stamp": {
+    "sec": 0,
+    "nanosec": 0
+  },
+  "frame_id": ""
+}
+
+{
+  "linear": {
+    "x": 0.2,
+    "y": 0.0,
+    "z": 0.0
+  },
+  "angular": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.0
+  }
+}
+
+
 # DB
 mariadb -u ohs -p ros2_dashboard
 
@@ -172,3 +195,4 @@ SELECT
     resolved_at
 FROM alert
 ORDER BY id DESC;
+```

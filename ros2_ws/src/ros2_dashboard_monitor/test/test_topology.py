@@ -5,6 +5,7 @@ from ros2_dashboard_monitor.topology import (
 from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.ros_monitor import RosMonitor
 from ros2_dashboard_monitor.node_snapshot import is_auxiliary_node
+from ros2_dashboard_monitor.service_snapshot import visible_service_snapshot
 
 
 def _entity(name: str, full_type: str) -> dict:
@@ -117,6 +118,24 @@ def test_role_node_index_deduplicates_and_excludes_disconnected_nodes() -> None:
         resource_name='/demo_cleaning_schedule',
         resource_types=['rths_interfaces/msg/CleaningSchedule'],
     ) == ['/ros2_dashboard_topic_monitor']
+
+
+def test_visible_service_snapshot_filters_without_mutating_full_snapshot() -> None:
+    full = {
+        'services': [
+            {'name': '/visible', 'hidden_by_default': False, 'user_primary': False},
+            {'name': '/hidden', 'hidden_by_default': True, 'user_primary': False},
+            {'name': '/favorite', 'hidden_by_default': True, 'user_primary': True},
+        ],
+        'meta': {'count': 3},
+    }
+
+    visible = visible_service_snapshot(full)
+
+    assert [item['name'] for item in visible['services']] == ['/visible', '/favorite']
+    assert visible['meta'] == {'count': 2, 'visible_count': 2, 'hidden_count': 1}
+    assert len(full['services']) == 3
+    assert full['meta'] == {'count': 3}
 
 
 def test_node_snapshot_marks_only_the_dashboard_node_as_internal() -> None:

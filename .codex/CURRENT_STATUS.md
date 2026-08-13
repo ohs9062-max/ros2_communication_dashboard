@@ -64,6 +64,41 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- Topic·Service·Action 상세의 QoS 사유와 상단 QoS 안내, Interface Lab 실행 QoS fallback 설명은 공통
+  `qosDisplayText`를 통해 한글로 표시한다. Graph/Fast DDS/RMW가 제공하는 내부 영문 reason과 API payload는
+  유지하고 화면 표현만 변환하며, 알려지지 않은 middleware reason도 QoS 상태·불일치 정책 기반 한글 안내로
+  대체한다.
+- 공통 `QosDetails`가 Topic·Service·Action endpoint를 role·통신 scope·QoS fingerprint별로 묶어 공통 QoS를
+  한 번만 표시하고, GUID/GID가 다른 실제 endpoint identity는 기본 접힘 상세에 모두 유지한다. Topic Graph
+  payload에는 GID와 DDS participant prefix를 추가했고 Fast DDS Service endpoint에도 GUID 기반 participant를
+  명시했다. `/CanControl` live Graph에서 Feedback·Status 각각 동일 QoS Subscriber 3개가 서로 다른 GID로
+  보존되면서 하나의 표시 그룹이 되는 조건을 확인했다.
+- Monitor `/transport/snapshot`은 Topic·숨김 포함 Service·Action을 각각 한 번만 조립한다. 공개 Service 목록은
+  같은 전체 Service snapshot에서 숨김 정책 view로 파생하고, Node 주요 판정에는 이미 만든 Topic·전체 Service·
+  Action snapshot을 전달해 내부 재조립과 시점 불일치를 제거했다. 개별 `/ros/...` 조회 호환은 유지하며 Monitor
+  pytest 243건과 ROS workspace 261 tests·0 failures를 확인했다.
+- Topic snapshot에 Graph 원본 `status`를 보존하면서 기존 deep monitoring 수신 판정의
+  `never_received`·`stale`을 반영한 `effective_status`를 추가했다. Topic 목록·상세·요약·필터·Overview와
+  WebSocket meta가 같은 대표 상태를 사용하며, 구 snapshot은 `status` fallback으로 호환한다. Alert 조건과
+  Graph 판정은 변경하지 않았다. Monitor pytest 241건, Frontend unit/lint/build와 ROS workspace
+  259 tests·0 failures를 확인했다.
+- Interface Lab Action Goal 실행이 Feedback payload별 callback 시각과 Result future 완료 시각을 별도로 기록한다.
+  Action 목록의 `last_feedback_at`·`last_result_at`과 수신 History의 `received_at`은 새 실행부터 실제 응답 시각을
+  사용하고, timestamp 필드가 없는 과거 이력은 기존 `sent_at` fallback으로 호환한다. Monitor pytest 239건과
+  ROS workspace 257 tests·0 failures를 확인했다.
+- Action runtime snapshot이 최상위 dict만 얕게 복사해 공개 snapshot 조립 중 nested QoS/runtime 변경이
+  내부 cache에 역반영될 수 있던 문제를 수정했다. `ActionRuntime.snapshot()`은 lock 안에서 Action cache를
+  깊은 복사하고, 반환값의 QoS profile·상태와 feedback preview를 변경해도 다음 snapshot 원본이 유지되는
+  회귀 테스트를 추가했다. Monitor pytest 237건과 ROS workspace 255 tests·0 failures를 확인했다.
+- Topic UI 리팩토링으로 `TopicDetailPanel`에 섞여 있던 Camera preview 표시·modal·확대·키보드·중앙 정렬을
+  `features/topics/CameraTopicPreview.jsx`로 분리했다. 중심 scroll, 25~400% zoom clamp와 Camera type 판정은
+  순수 model 및 test 4건으로 고정했으며 Frontend unit test는 총 36건이다.
+- Topic 상세 `Camera Image Preview` 확대창에서 `원본 크기` 옆에 `중앙 정렬`을 추가했다. 버튼 클릭뿐 아니라
+  확대·축소, 화면 맞춤·원본 크기 전환과 이미지 로드 후에도 scroll viewport의 수평·수직 중심을 다시 계산해
+  이미지가 왼쪽으로 치우치지 않는다. Frontend unit 32건, lint/build와 diff 검증을 통과했다.
+- 안정화 11차 전체 회귀 체크포인트에서 Frontend Interface Lab unit test 32건, oxlint와 Vite build,
+  Backend pytest 15 passed·2 skipped, ROS workspace 6개 package build 및 254 tests·0 failures·1 skipped를
+  다시 확인했다. 1~10차 변경으로 인한 Backend·Monitor·ROS package 회귀는 발견되지 않았다.
 - 안정화·리팩토링 10차로 Interface Lab 전체 snapshot 새로고침을 shared-flight로 만들었다. 초기 로드,
   실행 후 `onStateChanged`, 수동 새로고침이 겹쳐도 진행 중인 15개 API 요청 묶음과 결과를 공유하며 완료 또는
   실패 후 다음 재시도가 가능하다. 관련 test 2건을 추가해 Frontend Interface Lab unit test는 총 32건이다.
@@ -200,11 +235,11 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 236 passed
+Monitor pytest: 243 passed
 Backend pytest: 15 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
-전체 workspace colcon test-result: 254 tests, 0 failures, 1 skipped
+전체 workspace colcon test-result: 261 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Frontend Interface Lab unit tests: 17 passed
 Python compileall: 통과
@@ -222,6 +257,10 @@ Service 채널은 Fast DDS, Topic과 Action Feedback/Status는 Graph 관찰값�
 Fast DDS passive E2E에서는 Call/Goal/Client 생성 없이 Service request Reader/response Writer와 Action
 Goal/Result/Cancel의 각 request Reader/response Writer를 발견했다. History/Depth는 `unknown`/`null`,
 DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 종료했다.
+
+QoS endpoint 표시 E2E에서는 임시 Monitor를 별도 8875 포트로 실행해 `/CanControl` Feedback·Status의 동일 QoS
+Subscriber가 채널별 3개씩 존재하고 GID가 모두 다름을 확인했다. Topic endpoint에는 16-byte GID와 12-byte
+participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 GUID 기반 participant가 공개된다.
 
 ## 현재 문제와 제한
 

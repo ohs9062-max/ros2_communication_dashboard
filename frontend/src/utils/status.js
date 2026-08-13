@@ -5,8 +5,12 @@ const WARNING_STATUSES = new Set([
   'waiting_publisher',
 ])
 
-const ERROR_STATUSES = new Set(['error', 'critical', 'disconnected'])
-const INACTIVE_STATUSES = new Set(['inactive', 'unknown', 'unsupported'])
+const ERROR_STATUSES = new Set(['error', 'critical', 'disconnected', 'never_received'])
+const INACTIVE_STATUSES = new Set(['inactive', 'unknown', 'unsupported', 'not_discovered'])
+
+export function topicEffectiveStatus(topic) {
+  return String(topic?.effective_status ?? topic?.status ?? 'unknown').toLowerCase()
+}
 
 export function getTopicSummary(topics) {
   const summary = {
@@ -22,7 +26,7 @@ export function getTopicSummary(topics) {
   }
 
   for (const topic of topics) {
-    const status = String(topic.status || 'unknown').toLowerCase()
+    const status = topicEffectiveStatus(topic)
     if (status === 'active') {
       summary.active += 1
     } else if (ERROR_STATUSES.has(status)) {
@@ -122,7 +126,7 @@ function countActionsByStatus(actions, expectedStatus) {
 }
 
 export function topicSeverity(topic) {
-  const status = String(topic.status || 'unknown').toLowerCase()
+  const status = topicEffectiveStatus(topic)
   if (ERROR_STATUSES.has(status)) {
     return 0
   }
@@ -146,7 +150,7 @@ export function sortTopicsByHealth(topics) {
 }
 
 export function matchesStatusFilter(topic, filter) {
-  const status = String(topic.status || 'unknown').toLowerCase()
+  const status = topicEffectiveStatus(topic)
   if (filter === 'all') {
     return true
   }

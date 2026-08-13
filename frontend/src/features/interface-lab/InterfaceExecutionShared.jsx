@@ -1,3 +1,5 @@
+import { qosReasonText } from '../../utils/qosDisplayText.js'
+
 export function ActionGoalResult({ result }) {
   return (
     <div className="interface-action-result">
@@ -44,7 +46,7 @@ function QosChannel({ label, state }) {
     <div className="interface-qos-result-channel">
       <strong>{label}</strong>
       <span>QoS Mode: {state.qos_mode === 'manual' ? 'Manual' : 'Auto'}</span>
-      {state.fallback_reason && <div className="interface-service-state warning">{state.fallback_reason}</div>}
+      {state.fallback_reason && <div className="interface-service-state warning">{qosReasonText(state.fallback_reason, state)}</div>}
       <details><summary>Remote QoS</summary><pre>{JSON.stringify(remote, null, 2)}</pre></details>
       <details><summary>Dashboard 실행 QoS</summary><pre>{JSON.stringify(dashboard, null, 2)}</pre></details>
     </div>

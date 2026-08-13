@@ -109,21 +109,23 @@ def assemble_service_snapshot(monitor, *, include_hidden: bool = False) -> dict[
                 else dashboard_execution_node(internal_node) if client_created else None
             ),
         }
-    if not include_hidden:
-        all_services = snapshot['services']
-        preferences = getattr(monitor, '_priority_state', None)
-        snapshot['services'] = [
-            service for service in all_services
-            if service.get('hidden_by_default') is not True or service.get('user_primary') is True
-        ]
-        snapshot['meta']['count'] = len(snapshot['services'])
-        snapshot['meta']['visible_count'] = len(snapshot['services'])
-        snapshot['meta']['hidden_count'] = sum(
-            1 for service in all_services
-            if service.get('hidden_by_default') is True
-            and not (
-                preferences
-                and preferences.contains('services', str(service.get('name') or ''))
-            )
-        )
-    return snapshot
+    return snapshot if include_hidden else visible_service_snapshot(snapshot)
+
+
+def visible_service_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """숨김 포함 Service snapshot에서 공개 목록 view를 추가 조회 없이 만듭니다."""
+    all_services = snapshot.get('services') or []
+    services = [
+        service for service in all_services
+        if service.get('hidden_by_default') is not True
+        or service.get('user_primary') is True
+    ]
+    meta = dict(snapshot.get('meta') or {})
+    meta['count'] = len(services)
+    meta['visible_count'] = len(services)
+    meta['hidden_count'] = len(all_services) - len(services)
+    return {
+        **snapshot,
+        'services': services,
+        'meta': meta,
+    }

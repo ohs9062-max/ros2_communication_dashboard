@@ -39,10 +39,13 @@ def endpoint_qos(node: Any, topic_name: str, endpoint_kind: Literal['publishers'
     own_name = _node_identity(node, 'get_name')
     own_namespace = _node_identity(node, 'get_namespace', fallback='/')
     return [{
+        'topic_name': topic_name,
         'node_name': str(getattr(endpoint, 'node_name', '')),
         'node_namespace': str(getattr(endpoint, 'node_namespace', '') or '/'),
         'topic_type': str(getattr(endpoint, 'topic_type', '')),
         'endpoint_kind': endpoint_kind,
+        'gid': (gid := _endpoint_gid(getattr(endpoint, 'endpoint_gid', None))),
+        'participant_id': _participant_id_from_gid(gid),
         'dashboard_owned': (
             own_name is not None
             and str(getattr(endpoint, 'node_name', '')) == own_name
@@ -319,3 +322,20 @@ def _node_identity(
         return str(reader() or fallback)
     except Exception:
         return fallback
+
+
+def _endpoint_gid(value: Any) -> str | None:
+    """rclpy TopicEndpointInfo GID를 안정적인 16진수 문자열로 직렬화합니다."""
+    raw = getattr(value, 'data', value)
+    if raw is None:
+        return None
+    try:
+        octets = bytes(raw)
+    except (TypeError, ValueError):
+        return str(raw) or None
+    return ''.join(f'{octet:02x}' for octet in octets) or None
+
+
+def _participant_id_from_gid(gid: str | None) -> str | None:
+    """DDS GUID prefix에 해당하는 Topic GID 앞 12 byte를 별도 identity로 제공합니다."""
+    return gid[:24] if gid and len(gid) >= 24 else None

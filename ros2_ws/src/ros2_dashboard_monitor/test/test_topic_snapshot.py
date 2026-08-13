@@ -129,3 +129,48 @@ def test_snapshot_keeps_graph_endpoint_qos_with_auto_applied_local_qos() -> None
     assert topic['graph_qos_status'] == 'compatible'
     assert topic['local_qos']['depth'] == 4
     assert topic['qos_auto_applied'] is True
+
+
+def test_snapshot_exposes_one_effective_status_for_graph_and_reception_state() -> None:
+    snapshot = build_topic_snapshot(
+        topics=[
+            {
+                'name': '/never', 'status': 'active', 'supported_type': True,
+                'deep_monitoring': True, 'graph_present': True,
+            },
+            {
+                'name': '/stale', 'status': 'active', 'supported_type': True,
+                'deep_monitoring': True, 'graph_present': True,
+            },
+            {
+                'name': '/recent', 'status': 'active', 'supported_type': True,
+                'deep_monitoring': True, 'graph_present': True,
+            },
+            {
+                'name': '/graph-only', 'status': 'waiting_publisher',
+                'supported_type': False, 'deep_monitoring': False,
+                'graph_present': True,
+            },
+        ],
+        subscriptions={
+            '/never': {'last_received_at': None},
+            '/stale': {'last_received_at': 5.0},
+            '/recent': {'last_received_at': 9.0},
+        },
+        subscription_errors={},
+        last_updated=10.0,
+        required_stream_names=(),
+        command_names=(),
+        stale_timeout_sec=3.0,
+    )
+
+    statuses = {
+        topic['name']: (topic['status'], topic['effective_status'])
+        for topic in snapshot['topics']
+    }
+    assert statuses == {
+        '/never': ('active', 'never_received'),
+        '/stale': ('active', 'stale'),
+        '/recent': ('active', 'active'),
+        '/graph-only': ('waiting_publisher', 'waiting_publisher'),
+    }

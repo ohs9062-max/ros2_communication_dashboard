@@ -37,6 +37,27 @@ def test_receive_history_expands_feedback_before_result() -> None:
     ]
     assert history['history'][0]['feedback'] == {'progress': 0.5}
     assert history['history'][1]['result'] == {'done': True}
+    assert [item['received_at'] for item in history['history']] == [10.0, 10.0]
+
+
+def test_action_summary_and_receive_history_use_actual_response_times() -> None:
+    goal = _goal(sent_at=10.0)
+    goal['feedback'] = [{'progress': 0.25}, {'progress': 0.75}]
+    goal['feedback_timestamps'] = [11.0, 12.0]
+    goal['result_received_at'] = 13.0
+
+    summary = summarize_action_history([goal])[
+        ('/work', 'demo_interfaces/action/Work')
+    ]
+    history = build_receive_history(
+        [goal],
+        reset_at=None,
+        reset_by_key={},
+    )
+
+    assert summary['last_feedback_at'] == 12.0
+    assert summary['last_result_at'] == 13.0
+    assert [item['received_at'] for item in history['history']] == [11.0, 12.0, 13.0]
 
 
 def test_receive_history_applies_global_and_exact_reset_boundaries() -> None:

@@ -47,3 +47,23 @@ def test_websocket_snapshot_keeps_compact_public_contract() -> None:
     assert payload['data']['actions']['executing_count'] == 1
     assert payload['data']['nodes']['count'] == 1
     assert payload['data']['alerts'] == [{'id': 'topic:/demo:stale'}]
+
+
+def test_websocket_topic_counts_use_effective_status() -> None:
+    payload = assemble_websocket_snapshot(
+        timestamp=12.5,
+        topic_snapshot={'topics': [
+            {'name': '/never', 'status': 'active', 'effective_status': 'never_received'},
+            {'name': '/stale', 'status': 'active', 'effective_status': 'stale'},
+            {'name': '/active', 'status': 'active', 'effective_status': 'active'},
+        ]},
+        service_snapshot={'services': [], 'meta': {}},
+        action_snapshot={'actions': [], 'meta': {}},
+        node_snapshot={'nodes': [], 'meta': {}},
+        alerts={'data': []},
+    )
+
+    topics = payload['data']['topics']
+    assert topics['active_count'] == 1
+    assert topics['warning_count'] == 1
+    assert topics['error_count'] == 1

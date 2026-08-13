@@ -3045,6 +3045,7 @@ h3 {
 
 .camera-preview-modal-canvas {
   flex: 0 0 auto;
+  margin: auto;
 }
 
 .camera-preview-modal-canvas img {
@@ -3704,6 +3705,69 @@ h3 {
 
 .qos-channel-body {
   padding: 8px;
+}
+
+.qos-endpoint-profile-group {
+  background: rgba(17, 25, 36, 0.72);
+  border: 1px solid rgba(106, 169, 244, 0.2);
+  border-radius: var(--radius-control);
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.qos-endpoint-profile-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  justify-content: space-between;
+}
+
+.qos-endpoint-profile-heading strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.qos-endpoint-profile-heading small {
+  color: var(--blue);
+  font-size: 11px;
+}
+
+.qos-endpoint-scope,
+.qos-endpoint-identity-list,
+.qos-endpoint-identity {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.qos-endpoint-identities {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.qos-endpoint-identities > summary {
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.qos-endpoint-identity-list {
+  margin-top: 8px;
+}
+
+.qos-endpoint-identity {
+  background: var(--panel-soft);
+  border-radius: var(--radius-control);
+  padding: 9px;
+}
+
+.qos-endpoint-identity > strong {
+  color: var(--text);
+  font-size: 12px;
 }
 
 .qos-channel-item-body {

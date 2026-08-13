@@ -25,9 +25,10 @@ from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import (
 )
 
 
-def endpoint(profile):
+def endpoint(profile, gid=bytes(range(16))):
     return SimpleNamespace(
-        node_name='remote', node_namespace='/', topic_type='pkg/msg/Value', qos_profile=profile,
+        node_name='remote', node_namespace='/', topic_type='pkg/msg/Value',
+        qos_profile=profile, endpoint_gid=gid,
     )
 
 
@@ -105,6 +106,9 @@ def test_topic_graph_exposes_publisher_and_subscriber_qos():
     assert state['publisher_qos'][0]['qos']['history'] == 'keep_last'
     assert state['publisher_qos'][0]['qos']['depth'] == 5
     assert state['subscriber_qos'][0]['qos']['depth'] == 7
+    assert state['publisher_qos'][0]['topic_name'] == '/value'
+    assert state['publisher_qos'][0]['gid'] == '000102030405060708090a0b0c0d0e0f'
+    assert state['publisher_qos'][0]['participant_id'] == '000102030405060708090a0b'
 
 
 def test_topic_graph_reports_confirmed_endpoint_mismatch():

@@ -10,7 +10,13 @@ from ros2_dashboard_monitor.monitor_helpers import (
 )
 
 
-def assemble_node_snapshot(monitor) -> dict[str, Any]:
+def assemble_node_snapshot(
+    monitor,
+    *,
+    topic_snapshot: dict[str, Any] | None = None,
+    service_snapshot: dict[str, Any] | None = None,
+    action_snapshot: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     snapshot = monitor._node_runtime.snapshot()
     internal_node = monitor._monitor_node_full_name()
     has_resource_runtimes = all(hasattr(monitor, name) for name in (
@@ -20,14 +26,23 @@ def assemble_node_snapshot(monitor) -> dict[str, Any]:
         '_action_runtime',
         '_action_goal_runtime',
     ))
-    system_resources = (
-        system_primary_resources(
-            topics=monitor.snapshot()['topics'],
-            services=monitor.service_snapshot(include_hidden=True)['services'],
-            actions=monitor.action_snapshot()['actions'],
+    if has_resource_runtimes:
+        topic_snapshot = topic_snapshot if topic_snapshot is not None else monitor.snapshot()
+        service_snapshot = (
+            service_snapshot
+            if service_snapshot is not None
+            else monitor.service_snapshot(include_hidden=True)
         )
-        if has_resource_runtimes else set()
-    )
+        action_snapshot = (
+            action_snapshot if action_snapshot is not None else monitor.action_snapshot()
+        )
+        system_resources = system_primary_resources(
+            topics=topic_snapshot['topics'],
+            services=service_snapshot['services'],
+            actions=action_snapshot['actions'],
+        )
+    else:
+        system_resources = set()
     for node in snapshot['nodes']:
         node['is_internal'] = node.get('full_name') == internal_node
         node['is_auxiliary'] = is_auxiliary_node(node)

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
+import { policyLabel, qosReasonText } from '../utils/qosDisplayText.js'
 import { DetailSection } from './DetailSection.jsx'
+import { endpointRoleLabel, groupQosEndpoints } from './qosEndpointGroups.js'
 
 const ACTION_QOS_GROUPS = [
   {
@@ -125,34 +127,17 @@ function QosState({ collapseEndpointGroups = false, qos }) {
       <Line
         label="불일치 정책"
         tone={qos.qos_status === 'incompatible' ? 'bad' : qos.mismatch_policies?.length ? 'warn' : 'muted'}
-        value={qos.mismatch_policies?.join(', ') || '-'}
+        value={qos.mismatch_policies?.map(policyLabel).join(', ') || '-'}
       />
       <ReasonLine
         tone={stateTone}
-        value={qos.mismatch_reason ?? '-'}
+        value={qosReasonText(qos.mismatch_reason, qos)}
       />
-      {collapseEndpointGroups ? (
-        <QosEndpointGroups local={local} publishers={publishers} subscribers={subscribers} />
-      ) : (
-        <>
-          {publishers.map((endpoint, index) => (
-            <QosProfile
-              endpoint={endpoint}
-              key={`publisher-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
-              label={endpointLabel(endpoint, 'Publisher', index)}
-              profile={endpoint.qos}
-            />
-          ))}
-          {subscribers.map((endpoint, index) => (
-            <QosProfile
-              endpoint={endpoint}
-              key={`subscriber-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
-              label={endpointLabel(endpoint, 'Subscriber', index)}
-              profile={endpoint.qos}
-            />
-          ))}
-        </>
-      )}
+      <QosEndpointGroups
+        local={collapseEndpointGroups ? local : null}
+        publishers={publishers}
+        subscribers={subscribers}
+      />
       {!publishers.length && !subscribers.length && (qos.remote_qos ?? []).length > 0 && (
         <details>
           <summary>상대 Endpoint QoS</summary>
@@ -188,17 +173,75 @@ function QosEndpointGroups({ local, publishers, subscribers }) {
 
 function EndpointGroup({ endpoints, fallback, label }) {
   if (!endpoints.length) return null
+  const groups = groupQosEndpoints(endpoints)
   return (
-    <QosProfileGroup caption={`${endpoints.length}개 endpoint`} label={label}>
-      {endpoints.map((endpoint, index) => (
-        <QosProfile
-          endpoint={endpoint}
-          key={`${fallback}-${endpoint.node_namespace}-${endpoint.node_name}-${index}`}
-          label={endpointLabel(endpoint, fallback, index)}
-          profile={endpoint.qos}
+    <QosProfileGroup
+      caption={`${endpoints.length}개 endpoint · ${groups.length}개 QoS profile`}
+      label={label}
+    >
+      {groups.map((group, index) => (
+        <EndpointProfileGroup
+          fallback={fallback}
+          group={group}
+          groupCount={groups.length}
+          index={index}
+          key={group.key}
         />
       ))}
     </QosProfileGroup>
+  )
+}
+
+function EndpointProfileGroup({ fallback, group, groupCount, index }) {
+  const endpoint = group.endpoints[0]
+  const role = endpointRoleLabel(endpoint, fallback)
+  const count = group.endpoints.length
+  const label = [
+    count > 1 ? `${role} × ${count}` : role,
+    groupCount > 1 ? `QoS Profile ${index + 1}` : null,
+  ].filter(Boolean).join(' · ')
+  return (
+    <section className="qos-endpoint-profile-group">
+      <div className="qos-endpoint-profile-heading">
+        <strong>{label}</strong>
+        {count > 1 && <small>QoS 동일</small>}
+      </div>
+      <EndpointScope endpoint={endpoint} />
+      <QosProfile label="공통 QoS" profile={group.profile} />
+      <EndpointIdentityDetails endpoints={group.endpoints} fallback={fallback} />
+    </section>
+  )
+}
+
+function EndpointScope({ endpoint }) {
+  return (
+    <div className="qos-endpoint-scope">
+      {endpoint?.topic_name && <Line label="ROS Topic" tone="meta" value={endpoint.topic_name} />}
+      {endpoint?.topic_type && <Line label="ROS Type" tone="meta" value={endpoint.topic_type} />}
+      {endpoint?.dds_topic && <Line label="DDS Topic" tone="meta" value={endpoint.dds_topic} />}
+      {endpoint?.dds_type && <Line label="DDS Type" tone="meta" value={endpoint.dds_type} />}
+    </div>
+  )
+}
+
+function EndpointIdentityDetails({ endpoints, fallback }) {
+  return (
+    <details className="qos-endpoint-identities">
+      <summary>Endpoint 상세 보기 · {endpoints.length}개</summary>
+      <div className="qos-endpoint-identity-list">
+        {endpoints.map((endpoint, index) => (
+          <div className="qos-endpoint-identity" key={endpointIdentityKey(endpoint, index)}>
+            <strong>{endpointRoleLabel(endpoint, fallback)} {index + 1}</strong>
+            <Line label="Node" value={endpoint.node_name || '-'} />
+            <Line label="Namespace" value={endpoint.node_namespace || '-'} />
+            <Line label={endpoint.guid ? 'GUID' : 'GID'} tone="meta" value={endpoint.guid || endpoint.gid || '-'} />
+            <Line label="Participant" tone="meta" value={endpoint.participant_id || '-'} />
+            <Line label="Dashboard endpoint" value={endpoint.dashboard_owned ? '예' : '아니오'} />
+            <Line label="Endpoint kind" tone="meta" value={endpoint.endpoint_kind || '-'} />
+          </div>
+        ))}
+      </div>
+    </details>
   )
 }
 
@@ -216,18 +259,11 @@ function QosProfileGroup({ caption, children, label }) {
   )
 }
 
-function QosProfile({ endpoint, label, profile }) {
+function QosProfile({ label, profile }) {
   if (!profile) return null
-  const nodeLabel = endpoint
-    && endpoint.node_name
-    ? `${endpoint.node_namespace ?? '/'}${endpoint.node_name}${endpoint.dashboard_owned ? ' (Dashboard)' : ''}`
-    : null
   return (
     <div className="qos-profile">
       <h5>{label}</h5>
-      {nodeLabel && <Line label="Node" value={nodeLabel} />}
-      {endpoint?.dds_topic && <Line label="DDS Topic" tone="meta" value={endpoint.dds_topic} />}
-      {endpoint?.dds_type && <Line label="DDS Type" tone="meta" value={endpoint.dds_type} />}
       <ProfileLine label="Reliability" rawValue={profile.reliability} />
       <ProfileLine label="Durability" rawValue={profile.durability} />
       <ProfileLine label="History" rawValue={profile.history} />
@@ -347,13 +383,13 @@ function partLabel(part) {
   return ({ goal: 'Goal Service', result: 'Result Service', cancel: 'Cancel Service', feedback: 'Feedback Topic', status: 'Status Topic' })[part]
 }
 
-function endpointLabel(endpoint, fallback, index) {
-  if (!endpoint?.service_channel || !endpoint?.endpoint_kind) {
-    return `${fallback} ${index + 1}`
-  }
-  const channel = endpoint.service_channel === 'request' ? 'Request' : 'Response'
-  const kind = endpoint.endpoint_kind === 'writer' ? 'DataWriter' : 'DataReader'
-  return `${channel} ${kind} ${index + 1}`
+function endpointIdentityKey(endpoint, index) {
+  return endpoint.guid || endpoint.gid || [
+    endpoint.node_namespace,
+    endpoint.node_name,
+    endpoint.endpoint_kind,
+    index,
+  ].join(':')
 }
 
 function knownValue(value) {

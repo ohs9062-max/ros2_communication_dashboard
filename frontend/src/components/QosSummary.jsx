@@ -1,3 +1,5 @@
+import { policyLabel } from '../utils/qosDisplayText.js'
+
 const ACTION_CHANNELS = [
   ['goal', 'Goal Service'],
   ['result', 'Result Service'],
@@ -77,39 +79,39 @@ function isActionQos(qos) {
 function actionNoticeLines(states, aggregate) {
   const incompatible = states.filter(({ qos }) => stateOf(qos) === 'incompatible')
   if (incompatible.length) {
-    return incompatible.map(({ label }) => `Action ${label} QoS is incompatible.`)
+    return incompatible.map(({ label }) => `Action ${label}의 QoS가 호환되지 않습니다.`)
   }
   const partial = states.filter(({ qos }) => stateOf(qos) === 'partial')
   if (partial.length) {
-    return partial.map(({ label }) => `Only some Action ${label} endpoints are QoS compatible.`)
+    return partial.map(({ label }) => `Action ${label}의 일부 endpoint만 QoS가 호환됩니다.`)
   }
-  if (aggregate === 'unknown') return ['QoS compatibility could not be determined for one or more Action channels.']
-  if (aggregate === 'observed') return ['Action endpoint QoS was discovered through DDS or the ROS2 graph. Compatibility is determined when a communication profile is applied.']
+  if (aggregate === 'unknown') return ['하나 이상의 Action channel에서 QoS 호환 여부를 확인하지 못했습니다.']
+  if (aggregate === 'observed') return ['DDS 또는 ROS2 Graph에서 Action endpoint QoS를 발견했습니다. 통신 profile이 적용되면 호환 여부를 판정합니다.']
   return []
 }
 
 function resourceNotice(kind, qos, status) {
-  if (status === 'partial') return 'Only some endpoints are QoS compatible.'
-  if (status === 'observed') return 'Remote endpoint QoS was discovered through DDS or the ROS2 graph. Compatibility is determined when a communication profile is applied.'
-  if (status === 'unknown') return 'QoS compatibility could not be determined.'
+  if (status === 'partial') return '일부 endpoint만 QoS가 호환됩니다.'
+  if (status === 'observed') return 'DDS 또는 ROS2 Graph에서 상대 endpoint QoS를 발견했습니다. 통신 profile이 적용되면 호환 여부를 판정합니다.'
+  if (status === 'unknown') return 'QoS 호환 여부를 확인하지 못했습니다.'
   if (kind === 'topic') {
     const pairs = qos?.endpoint_pair_count
     const mismatches = qos?.incompatible_endpoint_pair_count
     const count = Number.isInteger(pairs) && Number.isInteger(mismatches)
-      ? ` (${mismatches}/${pairs} endpoint pairs)`
+      ? ` (불일치 ${mismatches}/${pairs} endpoint 조합)`
       : ''
-    return `Some Topic endpoints have incompatible QoS settings.${count}`
+    return `일부 Topic endpoint의 QoS가 호환되지 않습니다.${count}`
   }
-  return 'QoS incompatibility detected.'
+  return 'QoS 불일치가 감지되었습니다.'
 }
 
 function mismatchSummary(qos) {
   if (isActionQos(qos)) {
     return ACTION_CHANNELS.flatMap(([key, label]) => {
       const policies = qos[key]?.mismatch_policies ?? []
-      return policies.length ? [`${label}: ${policies.join(', ')}`] : []
+      return policies.length ? [`${label}: ${policies.map(policyLabel).join(', ')}`] : []
     }).join(' · ')
   }
   const policies = qos?.mismatch_policies ?? []
-  return policies.length ? `Incompatible policies: ${policies.join(', ')}` : ''
+  return policies.length ? `불일치 정책: ${policies.map(policyLabel).join(', ')}` : ''
 }

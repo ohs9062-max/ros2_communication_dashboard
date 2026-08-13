@@ -85,6 +85,38 @@ def test_action_graph_missing_debounces_and_recovers(monkeypatch) -> None:
     assert runtime.update()[0]['status'] == 'active'
 
 
+def test_action_snapshot_does_not_share_nested_runtime_state() -> None:
+    runtime = ActionRuntime(
+        config=MonitorConfig(),
+        lock=Lock(),
+        node_getter=lambda: object(),
+    )
+    runtime._actions = [{
+        'name': '/demo',
+        'type': 'example_interfaces/action/Fibonacci',
+        'qos': {
+            'feedback': {
+                'qos_status': 'observed',
+                'local_qos': {'reliability': 'best_effort'},
+            },
+        },
+        'runtime': {
+            'feedback_preview': {'sequence': [1, 2, 3]},
+        },
+    }]
+
+    snapshot = runtime.snapshot()
+    action = snapshot['actions'][0]
+    action['qos']['feedback']['qos_status'] = 'incompatible'
+    action['qos']['feedback']['local_qos']['reliability'] = 'reliable'
+    action['runtime']['feedback_preview']['sequence'].append(5)
+
+    unchanged = runtime.snapshot()['actions'][0]
+    assert unchanged['qos']['feedback']['qos_status'] == 'observed'
+    assert unchanged['qos']['feedback']['local_qos']['reliability'] == 'best_effort'
+    assert unchanged['runtime']['feedback_preview']['sequence'] == [1, 2, 3]
+
+
 def test_node_graph_missing_uses_stale_timeout_and_recovers(monkeypatch) -> None:
     node = _NodeGraph()
     times = iter((100.0, 101.0, 106.0, 107.0))
