@@ -1,8 +1,4 @@
-import {
-  defaultFieldValue,
-  isComplexType,
-  isNumericType,
-} from './model/interfaceUploadModel.js'
+export { SchemaRequestField as RequestField } from './SchemaRequestField.jsx'
 
 export function ActionGoalResult({ result }) {
   return (
@@ -67,41 +63,6 @@ export function ExecutionQosSummary({ qos }) {
         ? channels.map((key) => <QosChannel key={key} label={key[0].toUpperCase() + key.slice(1)} state={qos[key]} />)
         : <QosChannel label="실행 채널" state={qos} />}
     </div>
-  )
-}
-
-export function RequestField({ disabled = false, field, onChange, value }) {
-  if (!field.name) return null
-  const type = field.type ?? ''
-  if (type === 'bool' || type === 'boolean') {
-    return (
-      <label className="interface-service-field inline">
-        <input checked={Boolean(value)} disabled={disabled} onChange={(event) => onChange(event.target.checked)} type="checkbox" />
-        <span>{field.name}</span>
-      </label>
-    )
-  }
-  if (isComplexType(type)) {
-    return (
-      <label className="interface-service-field">
-        <span>{field.name} <small>{type} · JSON</small></span>
-        <textarea
-          disabled={disabled}
-          onChange={(event) => {
-            try { onChange(JSON.parse(event.target.value || 'null')) }
-            catch { onChange(event.target.value) }
-          }}
-          rows={type.includes('[') || type.startsWith('sequence<') ? 4 : 3}
-          value={typeof value === 'string' ? value : JSON.stringify(value ?? defaultFieldValue(type), null, 2)}
-        />
-      </label>
-    )
-  }
-  return (
-    <label className="interface-service-field">
-      <span>{field.name} <small>{type}</small></span>
-      <input disabled={disabled} onChange={(event) => onChange(event.target.value)} type={isNumericType(type) ? 'number' : 'text'} value={value ?? ''} />
-    </label>
   )
 }
 

@@ -64,6 +64,14 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- Interface Lab의 schema 기반 JSON/object 입력을 공통 `SchemaRequestField`로 통합했다.
+  Topic Publish, Service Call Request, Action Goal의 상단 실행 화면과 우측 상세 실행 화면에서
+  필드별 `크게 보기/줄이기`를 독립적으로 제공하며, 기본 200px·확대 450~600px(최대 62vh)로 표시한다.
+  기존 JSON parsing, schema validation, payload 생성과 Auto/Manual QoS 실행 흐름은 변경하지 않았다.
+- 현재 TurtleBot3 Jazzy Gazebo의 실제 이동 입력은 `/cmd_vel`
+  `geometry_msgs/msg/TwistStamped`이며 `/ros_gz_bridge`가 RELIABLE/VOLATILE로 구독한다.
+  Interface Lab에 설치 타입으로 등록해 Auto QoS Publish로 전진·회전·정지와 `/odom`
+  변화를 실제 검증했으며, 전용 Backend/demo Node 로직은 추가하지 않았다.
 - Dashboard가 생성하는 Topic·Service·Action·Node·QoS Alert과 수신 진단, Interface Lab
   실행/관리, Backend 연결, Frontend fallback의 warning/error 본문을 짧은 영어 문장으로
   통일했다. 한국어 UI 라벨·상태/레벨 badge와 내부 status/code/enum, Alert lifecycle,

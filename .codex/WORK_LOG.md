@@ -628,3 +628,43 @@
 - Node 목록의 별도 `Namespace` 컬럼을 제거하고 `Node 전체 이름`에 `full_name`을 표시해
   root namespace의 `/`가 행마다 반복되는 문제를 없앰다. 정렬·선택 key와 검색은 기존
   `full_name`/`namespace`를 유지하고, 우측 상세에서는 이름과 namespace를 개별로 계속 표시한다.
+
+## 2026-08-13 - Interface Lab TurtleBot3 Gazebo Topic Publish 실증
+
+- 실제 Jazzy Graph에서 Burger의 입력이 `/cmd_vel` `geometry_msgs/msg/TwistStamped`이고
+  `/ros_gz_bridge`가 RELIABLE/VOLATILE로 구독함을 확인했다. `Twist`가 아니므로 불필요한
+  커스텀 `.msg`나 demo Node는 추가하지 않았다.
+- `geometry_msgs/msg/TwistStamped`를 Interface Lab `manual_type`으로 등록하고 기존 Auto QoS
+  Topic Publish로 전진 `linear.x=0.2`, 회전 `angular.z=0.5`, 정지 0 명령을 전송했다.
+  전진 전/후 `/odom` position이 `(0.347, 0.417)`에서 `(3.455, 4.150)`으로 변했고,
+  회전 전/후 position은 유지된 채 orientation z/w가 `-0.409/-0.913`에서 `0.664/0.748`로
+  변했다. 최종 `/odom` linear/angular 속도 0을 확인했다.
+- Dashboard `/cmd_vel`은 active, QoS compatible, 마지막 값 zero velocity, Interface Lab Publisher 생성
+  상태로 관찰됐다. 실행 절차·payload·다른 cmd_vel Publisher 경합 주의와 정지 절차를
+  `docs/interface_lab/turtlebot3_gazebo_topic_publish.md`에 기록했다.
+
+## 2026-08-13 - Interface Lab JSON 입력 필드 확대·축소
+
+- 중복돼 있던 실행 화면과 우측 상세의 schema 기반 입력 렌더러를 공통
+  `SchemaRequestField`로 통합했다. 배열과 custom ROS object를 포함한 모든 complex field에
+  타입·필드명 하드코딩 없이 `크게 보기/줄이기`를 적용했다.
+- 각 필드 컴포넌트가 독립적인 확대 상태를 가지며 textarea를 다시 만들지 않고 class만 바꿔
+  입력값, cursor, 기존 JSON/schema validation과 payload 생성 흐름을 유지했다.
+- JSON 입력 기본 높이는 200px, 확대 높이는 450~600px 범위와 viewport 62vh로 조정했다.
+  작은 화면에서는 최소 360px로 제한하고 wrapping, 전체 폭, 세로 resize를 유지했다.
+- Frontend `npm run lint`, `npm run build`와 `git diff --check`를 통과했다.
+
+## 2026-08-13 - Service·Action 실행 JSON 확대 연결 명시화
+
+- Service 실행 Request와 Action 실행 Goal의 상단 workbench 및 우측 상세 실행 화면이
+  공통 `SchemaRequestField`를 직접 import하도록 연결했다. 중첩 object/array 필드의
+  필드별 `크게 보기/줄이기` 동작과 기존 validation/payload 흐름은 Topic과 동일하다.
+
+## 2026-08-13 - nextstep 구현률 재대조
+
+- `nextstep.md`의 7개 핵심 항목을 현재 코드·문서·검증 기록과 다시 대조했다. 원문의 세부 요구를
+  동일 가중치로 엄격하게 적용하면 약 88%, 이후 확정된 범위와 정책을 적용하면 약 93%다.
+- Camera Image/CompressedImage 요청형 Preview와 Gazebo TurtleBot3 `/cmd_vel`
+  `TwistStamped` 이동·회전·정지 실증이 완료돼 2026-08-11 평가 66%에서 크게 상승했다.
+- 주요 잔여는 실제 물리 기기 QoS 실증, MariaDB ACK/발생횟수·기간/레벨 필터처럼 원문에는 있으나
+  현재 확정 schema에서 제외한 범위, TurtleBot 전용 안전 preset 및 실제 기기/Simulation 구분 검증이다.

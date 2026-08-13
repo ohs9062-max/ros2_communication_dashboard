@@ -1,8 +1,8 @@
 import {
   CallResultBlock,
-  RequestField,
   ServiceCallHistory,
 } from '../InterfaceExecutionShared.jsx'
+import { SchemaRequestField } from '../SchemaRequestField.jsx'
 import { serviceKey, serviceStatusLabel } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
 import { QosModeControl } from './QosModeControl.jsx'
@@ -64,7 +64,7 @@ export function ServiceExecutionPanel({
             onModeLinkChange={onModeLinkChange}
           />
           {selected?.request_schema?.map((field) => (
-            <RequestField disabled={!selected?.callable} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={requestValues[field.name]} />
+            <SchemaRequestField disabled={!selected?.callable} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={requestValues[field.name]} />
           ))}
           <label className="interface-service-field">
             <span>timeout_sec</span>

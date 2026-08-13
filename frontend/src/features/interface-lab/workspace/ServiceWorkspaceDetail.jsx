@@ -3,9 +3,9 @@ import {
   ConnectionList,
   HistoryList,
   LastResultBlock,
-  RequestField,
   SectionTitle,
 } from './WorkspaceShared.jsx'
+import { SchemaRequestField } from '../SchemaRequestField.jsx'
 import { QosModeControl } from '../execution/QosModeControl.jsx'
 
 export function ServiceWorkspaceDetail({
@@ -43,7 +43,7 @@ export function ServiceWorkspaceDetail({
       {callableTarget ? (
         <>
           {schemaFields(item.schema).map((field) => (
-            <RequestField
+            <SchemaRequestField
               field={field}
               key={field.name ?? field.raw_line}
               onChange={(value) => onRequestChange((current) => ({

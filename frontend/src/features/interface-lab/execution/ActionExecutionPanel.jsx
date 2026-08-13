@@ -1,8 +1,8 @@
 import {
   ActionGoalHistory,
   ActionGoalResult,
-  RequestField,
 } from '../InterfaceExecutionShared.jsx'
+import { SchemaRequestField } from '../SchemaRequestField.jsx'
 import { actionKey, actionStatusLabel } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
 import { ActionQosControl } from './ActionQosControl.jsx'
@@ -55,7 +55,7 @@ export function ActionExecutionPanel({
           {selected && <div className="interface-package-help">선택 타입 {selected.action_type}의 Goal schema {selected.goal_schema?.length ?? 0}개 필드로 폼을 생성합니다.</div>}
           <ActionQosControl controls={qosControls} modeLinked={modeLinked} onModeLinkChange={onModeLinkChange} />
           {selected?.goal_schema?.map((field) => (
-            <RequestField disabled={!selected?.callable} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={goalValues[field.name]} />
+            <SchemaRequestField disabled={!selected?.callable} field={field} key={field.name ?? field.raw_line} onChange={(value) => onFieldChange(field.name, value)} value={goalValues[field.name]} />
           ))}
           <label className="interface-service-field">
             <span>timeout_sec</span>

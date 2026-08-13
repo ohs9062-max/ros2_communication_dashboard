@@ -4,9 +4,9 @@ import {
   ConnectionList,
   HistoryList,
   LastResultBlock,
-  RequestField,
   SectionTitle,
 } from './WorkspaceShared.jsx'
+import { SchemaRequestField } from '../SchemaRequestField.jsx'
 import { ActionQosControl } from '../execution/ActionQosControl.jsx'
 
 export function ActionWorkspaceDetail({
@@ -47,7 +47,7 @@ export function ActionWorkspaceDetail({
       {callableTarget ? (
         <>
           {schemaFields(item.schema).map((field) => (
-            <RequestField
+            <SchemaRequestField
               field={field}
               key={field.name ?? field.raw_line}
               onChange={(value) => onGoalChange((current) => ({

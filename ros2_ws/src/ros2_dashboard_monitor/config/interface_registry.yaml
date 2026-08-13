@@ -1,4 +1,27 @@
 interface_registry:
-  messages: []
+  messages:
+  - file_name: TwistStamped.msg
+    file_kind: msg
+    type_name: TwistStamped
+    full_type: geometry_msgs/msg/TwistStamped
+    source: manual_type
+    allowlisted: true
+    description: ''
+    uploaded_at: '2026-08-13T01:41:53.414815+00:00'
+    raw_text: ''
+    parsed: {}
+    build:
+      interface_package: geometry_msgs
+      file_saved: false
+      cmake_registered: false
+      package_xml_checked: false
+      rebuild_required: false
+      import_available: true
+      import_error: null
+      manual_registration: true
+      error: null
+      last_build_status: success
+      last_build_at: '2026-08-13T01:42:03.662379+00:00'
+      import_checked_at: '2026-08-13T01:42:03.679452+00:00'
   services: []
   actions: []

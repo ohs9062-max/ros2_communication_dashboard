@@ -1,14 +1,9 @@
 import {
-  defaultValue,
-  isArrayType,
-  isComplexType,
-  isNumericType,
-} from '../model/schemaValues.js'
-import {
   historyKey,
   historyLabel,
 } from '../model/executionHistory.js'
 import { ExecutionQosSummary } from '../InterfaceExecutionShared.jsx'
+export { SchemaRequestField as RequestField } from '../SchemaRequestField.jsx'
 
 export function SectionTitle({ title }) {
   return <h4 className="interface-detail-section-title">{title}</h4>
@@ -80,51 +75,5 @@ export function CollapsibleText({ title, value }) {
       <summary>{title}</summary>
       <pre>{value}</pre>
     </details>
-  )
-}
-
-export function RequestField({ field, onChange, value }) {
-  if (!field?.name) return null
-  const type = field.type ?? ''
-  if (type === 'bool' || type === 'boolean') {
-    return (
-      <label className="interface-service-field inline">
-        <input
-          checked={Boolean(value)}
-          onChange={(event) => onChange(event.target.checked)}
-          type="checkbox"
-        />
-        <span>{field.name}</span>
-      </label>
-    )
-  }
-  if (isComplexType(type)) {
-    return (
-      <label className="interface-service-field">
-        <span>{field.name} <small>{type} · JSON</small></span>
-        <textarea
-          onChange={(event) => {
-            try {
-              onChange(JSON.parse(event.target.value || 'null'))
-            } catch {
-              onChange(event.target.value)
-            }
-          }}
-          rows={isArrayType(type) ? 4 : 3}
-          value={typeof value === 'string' ? value : JSON.stringify(value ?? defaultValue(type), null, 2)}
-        />
-      </label>
-    )
-  }
-  const numeric = isNumericType(type)
-  return (
-    <label className="interface-service-field">
-      <span>{field.name} <small>{type}</small></span>
-      <input
-        onChange={(event) => onChange(event.target.value)}
-        type={numeric ? 'number' : 'text'}
-        value={value ?? ''}
-      />
-    </label>
   )
 }
