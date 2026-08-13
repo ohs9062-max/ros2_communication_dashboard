@@ -334,6 +334,37 @@ def test_required_stream_topic_reports_missing_alert() -> None:
     ]
 
 
+def test_missing_alert_includes_existing_qos_cause_and_related_alert() -> None:
+    topic = {
+        'name': '/robot/state',
+        'publisher_count': 1,
+        'registered_interface_type': True,
+        'status': 'active',
+    }
+    subscriptions = {
+        '/robot/state': {
+            'created_at': 0.0,
+            'last_received_at': None,
+            'qos': {
+                'qos_status': 'incompatible',
+                'qos_detection_source': 'graph_profile_comparison',
+                'mismatch_policies': ['reliability'],
+            },
+        },
+    }
+
+    alert = build_alerts(
+        topics=[topic], subscriptions=subscriptions, detected_at=4.0,
+        stale_timeout_sec=3.0,
+    )[0]
+
+    assert alert['diagnosis']['cause'] == 'qos_incompatible'
+    assert alert['diagnosis']['certainty'] == 'candidate'
+    assert alert['related_alert_ids'] == [
+        'topic:/robot/state:topic_qos_incompatible',
+    ]
+
+
 def test_missing_topic_alert_is_retained_for_sixty_seconds_after_resolution() -> None:
     retained = {}
     active_alert = {

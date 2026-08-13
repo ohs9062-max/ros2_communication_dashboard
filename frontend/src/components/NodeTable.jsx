@@ -8,10 +8,13 @@ import { PriorityStarButton } from './PriorityStarButton.jsx'
 const NODE_SORT_COLUMNS = {
   status: { value: (node) => node.status },
   full_name: { value: (node) => node.full_name },
-  relationship_count: {
-    defaultDirection: 'desc',
-    value: (node) => relationshipCount(node),
-  },
+  namespace: { value: (node) => node.namespace },
+  publisher_count: countColumn('publisher_count'),
+  subscriber_count: countColumn('subscriber_count'),
+  service_server_count: countColumn('service_server_count'),
+  service_client_count: countColumn('service_client_count'),
+  action_server_count: countColumn('action_server_count'),
+  action_client_count: countColumn('action_client_count'),
   last_seen_at: {
     defaultDirection: 'desc',
     value: (node) => node.last_seen_at,
@@ -45,10 +48,16 @@ export function NodeTable({
         <thead>
           <tr>
             <th className="priority-column">주요</th>
-            <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="status" headerClassName="node-status-column" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="full_name" label="Node" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="relationship_count" label="연결 리소스" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="last_seen_at" label="마지막 확인" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="namespace" label="Namespace" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="publisher_count" headerClassName="diagnostic-count-column" label={['Topic', 'Pub']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="subscriber_count" headerClassName="diagnostic-count-column" label={['Topic', 'Sub']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="service_server_count" headerClassName="diagnostic-count-column" label={['Service', 'Server']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="service_client_count" headerClassName="diagnostic-count-column" label={['Service', 'Client']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="action_server_count" headerClassName="diagnostic-count-column" label={['Action', 'Server']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="action_client_count" headerClassName="diagnostic-count-column" label={['Action', 'Client']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="last_seen_at" headerClassName="diagnostic-time-column" label="마지막 확인" onSort={onSort} sort={sort} />
           </tr>
         </thead>
         <tbody>
@@ -69,14 +78,18 @@ export function NodeTable({
                     pending={isPriorityPending(node.full_name)}
                   />
                 </td>
-                <td>
+                <td className="node-status-cell">
                   <NodeStatusBadge status={node.status} />
                 </td>
-                <td className="topic-name node-name ellipsis-cell" title={node.full_name}>{node.full_name}</td>
-                <td className="node-relations-cell" title="Topic · Service · Action 연결 수">
-                  Topic {resourceCount(node.publisher_count, node.subscriber_count)} · Service {resourceCount(node.service_server_count, node.service_client_count)} · Action {resourceCount(node.action_server_count, node.action_client_count)}
-                </td>
-                <td>{formatRelativeTime(node.last_seen_at)}</td>
+                <td className="topic-name node-name ellipsis-cell" title={node.name ?? node.full_name}>{node.name ?? node.full_name}</td>
+                <td className="node-namespace ellipsis-cell" title={node.namespace ?? '/'}>{node.namespace ?? '/'}</td>
+                <td className="diagnostic-count-cell">{node.publisher_count ?? 0}</td>
+                <td className="diagnostic-count-cell">{node.subscriber_count ?? 0}</td>
+                <td className="diagnostic-count-cell">{node.service_server_count ?? 0}</td>
+                <td className="diagnostic-count-cell">{node.service_client_count ?? 0}</td>
+                <td className="diagnostic-count-cell">{node.action_server_count ?? 0}</td>
+                <td className="diagnostic-count-cell">{node.action_client_count ?? 0}</td>
+                <td className="diagnostic-time-cell">{formatRelativeTime(node.last_seen_at)}</td>
               </tr>
             )
           })}
@@ -86,14 +99,8 @@ export function NodeTable({
   )
 }
 
-function resourceCount(left, right) {
-  return (left ?? 0) + (right ?? 0)
-}
-
-function relationshipCount(node) {
-  return resourceCount(node.publisher_count, node.subscriber_count) +
-    resourceCount(node.service_server_count, node.service_client_count) +
-    resourceCount(node.action_server_count, node.action_client_count)
+function countColumn(field) {
+  return { defaultDirection: 'desc', value: (node) => node[field] ?? 0 }
 }
 
 export function NodeStatusBadge({ status }) {
@@ -104,7 +111,7 @@ function nodeStatusLabel(status) {
   const labels = {
     active: '실행 중',
     stale: '종료 감지',
-    disconnected: '종료 감지',
+    disconnected: 'Graph 이탈',
     inactive: '비활성',
     unknown: '알 수 없음',
   }

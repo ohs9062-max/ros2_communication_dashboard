@@ -93,7 +93,7 @@ Graph 정보만으로 정상 종료와 비정상 종료를 구분할 수 없으�
 
 ## MariaDB 이력 흐름
 
-현재 메모리 50건 이력과 달리 MariaDB는 실제 18종 Alert의 모든 발생 이력을 보존한다.
+현재 메모리 50건 이력과 달리 MariaDB는 실제 21종 Alert의 모든 발생 이력을 보존한다.
 
 ```text
 같은 alert_key의 resolved_at IS NULL row 없음 → 최초 발생 INSERT

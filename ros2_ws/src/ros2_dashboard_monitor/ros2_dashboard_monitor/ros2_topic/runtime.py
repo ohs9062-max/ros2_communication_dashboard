@@ -76,6 +76,7 @@ class TopicRuntime(TopicQueryFacade, TopicSubscriptionFacade):
             last_updated=last_updated,
             required_stream_names=self._config.topics_required_stream_names,
             command_names=self._config.topics_command_names,
+            stale_timeout_sec=self._config.stale_timeout_sec,
         )
 
     def alert_snapshot(
@@ -91,6 +92,8 @@ class TopicRuntime(TopicQueryFacade, TopicSubscriptionFacade):
                     'message_preview': copy_message_preview(
                         entry.get('message_preview'),
                     ),
+                    'qos': entry.get('qos'),
+                    'subscription_error': self._subscription_errors.get(name),
                 }
                 for name, entry in self._subscriptions.items()
             }

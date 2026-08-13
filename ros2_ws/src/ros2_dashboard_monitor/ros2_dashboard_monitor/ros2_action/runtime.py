@@ -25,7 +25,7 @@ from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import (
 )
 from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.resource_state import (
-    disconnected_resource,
+    debounce_disconnected_resource,
     mark_graph_present,
 )
 
@@ -140,9 +140,10 @@ class ActionRuntime(ActionSubscriptionFacade):
             if key in current_keys:
                 continue
             actions.append(
-                disconnected_resource(
+                debounce_disconnected_resource(
                     cached,
                     detected_at=updated_at,
+                    timeout_sec=self._config.actions_graph_missing_timeout_sec,
                     count_fields=('server_count', 'client_count'),
                 ),
             )

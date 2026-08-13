@@ -53,7 +53,17 @@ export function AlertsList({
 
   return (
     <div className="table-wrap">
-      <table className="topic-table">
+      <table className="topic-table alert-table">
+        <colgroup>
+          <col className="alert-col-state" />
+          <col className="alert-col-level" />
+          <col className="alert-col-source" />
+          <col className="alert-col-name" />
+          <col className="alert-col-message" />
+          <col className="alert-col-code" />
+          <col className="alert-col-time" />
+          {previous && <col className="alert-col-time" />}
+        </colgroup>
         <thead>
           <tr>
             <SortableHeader columnKey="status" label="상태" onSort={onSort} sort={sort} />
@@ -86,10 +96,12 @@ export function AlertsList({
                   value={alert.level}
                 />
               </td>
-              <td>{displayText(alert.source)}</td>
-              <td className="topic-name">{alert.name}</td>
-              <td>{displayText(alert.message)}</td>
-              <td>{alert.code}</td>
+              <td className="alert-source-cell">{displayText(alert.source)}</td>
+              <td className="alert-name-cell topic-name" title={alert.name}>{alert.name}</td>
+              <td className="alert-message-cell" title={displayText(alert.message)}>
+                {displayText(alert.message)}
+              </td>
+              <td className="alert-code-cell" title={alert.code}>{alert.code}</td>
               <td>{formatTime(detectedAt(alert))}</td>
               {previous && <td>{formatTime(alert.resolved_at)}</td>}
             </tr>

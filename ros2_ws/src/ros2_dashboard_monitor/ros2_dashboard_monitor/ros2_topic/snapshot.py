@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from ros2_dashboard_monitor.ros2_topic.models import copy_message_preview
+from ros2_dashboard_monitor.ros2_topic.diagnostics import reception_diagnosis
 
 
 UNKNOWN_QOS = {
@@ -41,6 +42,7 @@ def build_topic_snapshot(
     last_updated: float,
     required_stream_names: tuple[str, ...],
     command_names: tuple[str, ...],
+    stale_timeout_sec: float = 3.0,
 ) -> dict[str, Any]:
     """Graph/cache 상태에 사용자 정책과 공개 상태 필드를 결합합니다."""
     items = [topic.copy() for topic in topics]
@@ -59,6 +61,8 @@ def build_topic_snapshot(
             ),
             required_stream_names=required_stream_names,
             command_names=command_names,
+            observed_at=last_updated,
+            stale_timeout_sec=stale_timeout_sec,
         )
 
     return {
@@ -97,6 +101,8 @@ def _decorate_topic(
     subscription_error: str | None,
     required_stream_names: tuple[str, ...],
     command_names: tuple[str, ...],
+    observed_at: float,
+    stale_timeout_sec: float,
 ) -> None:
     name = str(topic.get('name') or '')
     required_stream = name in required_stream_names
@@ -128,6 +134,13 @@ def _decorate_topic(
     topic['detailed_monitoring_enabled'] = bool(topic.get('deep_monitoring'))
     topic['last_error'] = subscription_error
     topic.update(latest.get('qos') or UNKNOWN_QOS)
+    topic['reception_diagnosis'] = reception_diagnosis(
+        topic=topic,
+        subscription=latest if latest else None,
+        subscription_error=subscription_error,
+        observed_at=observed_at,
+        stale_timeout_sec=stale_timeout_sec,
+    )
 
 
 def _monitoring_role(

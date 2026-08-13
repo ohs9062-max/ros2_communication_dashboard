@@ -1,5 +1,5 @@
-import { JsonPreviewButton } from '../../components/JsonPreview.jsx'
 import { PriorityStarButton } from '../../components/PriorityStarButton.jsx'
+import { JsonPreviewButton } from '../../components/JsonPreview.jsx'
 import { StatusBadge } from '../../components/StatusBadge.jsx'
 import { QosStatusBadge } from '../../components/QosSummary.jsx'
 import { formatRelativeTime } from '../../utils/format.js'
@@ -7,7 +7,9 @@ import {
   hzLabel,
   hzState,
   isMissingTopic,
-  topicLastCheckedAt,
+  topicDisplayStatus,
+  topicLastReceivedAt,
+  topicCauseBadge,
 } from './topicTablePresentation.js'
 
 export function TopicTableRow({
@@ -21,6 +23,8 @@ export function TopicTableRow({
 }) {
   const hzData = hz?.data
   const missing = isMissingTopic(topic, hz)
+  const displayStatus = topicDisplayStatus(topic, hzData)
+  const causeBadge = topicCauseBadge(topic.reception_diagnosis)
   return (
     <tr
       className={[selected ? 'selected' : '', missing ? 'message-missing' : ''].join(' ')}
@@ -32,15 +36,21 @@ export function TopicTableRow({
       </td>
       <td className="status-qos-cell">
         <div className="resource-status-stack">
-          <StatusBadge value={topic.status} />
-          <QosStatusBadge qos={topic} />
+          <StatusBadge value={displayStatus} />
+          {causeBadge
+            ? <span className={`qos-list-badge ${causeBadge.tone}`}>{causeBadge.label}</span>
+            : <QosStatusBadge qos={topic} />}
         </div>
       </td>
       <td className="topic-name ellipsis-cell" title={topic.name}>{topic.name}</td>
       <td className="topic-type ellipsis-cell" title={topic.types?.[0] ?? '-'}>{topic.types?.[0] ?? '-'}</td>
+      <td className="diagnostic-count-cell">{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>
+      <td className="diagnostic-count-cell">{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</td>
       <td className="metric-cell"><HzBadge hzData={hzData} topic={topic} /></td>
-      <td><JsonPreviewButton onOpen={() => onPreview(topic)} value={topic.last_message_preview} /></td>
-      <td>{formatRelativeTime(topicLastCheckedAt(topic, hzData))}</td>
+      <td className="diagnostic-data-cell">
+        <JsonPreviewButton onOpen={() => onPreview(topic)} value={topic.last_message_preview} />
+      </td>
+      <td className="diagnostic-time-cell">{formatRelativeTime(topicLastReceivedAt(topic, hzData))}</td>
     </tr>
   )
 }

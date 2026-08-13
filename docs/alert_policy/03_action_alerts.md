@@ -21,6 +21,10 @@ Action Alert는 **Interface Lab에서 사용자가 명시적으로 Goal을 전�
 
 ### 1. `action_disconnected`
 
+Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmation 후보이며 Alert를 만들지 않습니다.
+`actions.graph_missing_timeout_sec`(기본 5초) 동안 계속 보이지 않을 때만 `disconnected`로 확정하며,
+재등장하면 즉시 정상 상태로 복귀합니다.
+
 | 항목 | 내용 |
 |---|---|
 | **Alert ID** | `action:<action_name>:action_disconnected` |

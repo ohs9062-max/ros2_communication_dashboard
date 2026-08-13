@@ -56,7 +56,9 @@ def is_auxiliary_node(node: dict[str, Any]) -> bool:
     full_name = str(node.get('full_name') or '')
     leaf_name = (full_name.rsplit('/', 1)[-1] or name).lower()
     return (
-        'transform_listener' in leaf_name
+        'ros2cli_daemon' in leaf_name
+        or leaf_name.startswith('_ros2cli_')
+        or 'transform_listener' in leaf_name
         or leaf_name.startswith('launch_ros_')
         or leaf_name.endswith('_rclcpp_node')
         or leaf_name.endswith('_action_client')

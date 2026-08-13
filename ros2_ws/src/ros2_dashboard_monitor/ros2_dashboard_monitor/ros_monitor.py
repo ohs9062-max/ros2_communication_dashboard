@@ -280,7 +280,7 @@ class RosMonitor(InterfaceLabFacade):
         actions = (action_snapshot or self.action_snapshot())['actions']
         topics, subscriptions = self._topic_runtime.alert_snapshot()
         qos_topics = (topic_snapshot or self.snapshot())['topics']
-        node_snapshot = node_snapshot or self._node_runtime.snapshot()
+        node_snapshot = node_snapshot or self.node_snapshot()
         nodes = node_snapshot['nodes']
 
         with self._lock:

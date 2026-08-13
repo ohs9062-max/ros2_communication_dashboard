@@ -1,17 +1,22 @@
 import { useMemo, useState } from 'react'
-import { formatRelativeTime } from '../utils/format.js'
+import { formatMs, formatRelativeTime } from '../utils/format.js'
 import { nextSortState, sortRows } from '../utils/sort.js'
-import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
 import { SortableHeader } from './SortableHeader.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 import { QosStatusBadge } from './QosSummary.jsx'
 import { PriorityStarButton } from './PriorityStarButton.jsx'
+import { JsonPreviewButton, JsonPreviewModal } from './JsonPreview.jsx'
+import { compactDataPreview } from '../utils/dataPreview.js'
 
 const SERVICE_SORT_COLUMNS = {
   status: { value: (service) => service.status },
   name: { value: (service) => service.name },
   type: { value: (service) => service.type },
-  callable: { value: (service) => (service.callable ? 1 : 0), defaultDirection: 'desc' },
+  server_count: { value: (service) => service.server_node_count ?? service.server_count ?? 0, defaultDirection: 'desc' },
+  client_count: { value: (service) => service.client_node_count ?? service.client_count ?? 0, defaultDirection: 'desc' },
+  request: { value: (service) => compactDataPreview(service.last_call_summary?.last_request_preview) },
+  response: { value: (service) => compactDataPreview(service.last_call_summary?.last_response_preview) },
+  response_time: { value: (service) => service.last_call_summary?.last_response_time_ms, defaultDirection: 'desc' },
   last_call: { value: (service) => service.last_call_summary?.last_called_at, defaultDirection: 'desc' },
 }
 
@@ -46,8 +51,11 @@ export function ServiceTable({
             <SortableHeader columnKey="status" headerClassName="resource-status-column" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" headerClassName="service-name-column" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" headerClassName="service-type-column" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="callable" headerClassName="service-callable-column" label="호출 가능" onSort={onSort} sort={sort} />
-            <th className="service-preview-column">최근 응답</th>
+            <SortableHeader columnKey="server_count" headerClassName="diagnostic-count-column" label={['Server Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" headerClassName="diagnostic-count-column" label={['Client Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="request" headerClassName="diagnostic-data-column" label="마지막 Request" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="response" headerClassName="diagnostic-data-column" label="마지막 Response" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="response_time" headerClassName="diagnostic-time-column" label="마지막 응답 시간" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_call" headerClassName="service-last-call-column" label="마지막 호출" onSort={onSort} sort={sort} />
           </tr>
         </thead>
@@ -81,18 +89,29 @@ export function ServiceTable({
                 </td>
                 <td className="topic-name service-name service-name-cell ellipsis-cell" title={service.name}>{service.name}</td>
                 <td className="topic-type service-type service-type-cell ellipsis-cell" title={service.type ?? '-'}>{service.type ?? '-'}</td>
-                <td className="service-callable-cell">{service.callable ? '예' : service.allowlisted ? '등록됨' : '아니오'}</td>
-                <td className="service-preview-cell service-response-preview-cell">
+                <td className="diagnostic-count-cell">{service.server_node_count ?? service.server_count ?? 0}</td>
+                <td className="diagnostic-count-cell">{service.client_node_count ?? service.client_count ?? 0}</td>
+                <td className="diagnostic-data-cell">
                   <JsonPreviewButton
                     onOpen={() => setPreview({
                       name: service.name,
-                      title: '마지막 응답',
-                      value: summary?.last_response_preview ?? summary?.last_error,
+                      title: '마지막 Request',
+                      value: summary?.last_request_preview,
                     })}
-                    previewMode="first-entry"
-                    value={summary?.last_response_preview ?? summary?.last_error}
+                    value={summary?.last_request_preview}
                   />
                 </td>
+                <td className="diagnostic-data-cell">
+                  <JsonPreviewButton
+                    onOpen={() => setPreview({
+                      name: service.name,
+                      title: '마지막 Response',
+                      value: summary?.last_response_preview,
+                    })}
+                    value={summary?.last_response_preview}
+                  />
+                </td>
+                <td className="diagnostic-time-cell">{formatMs(summary?.last_response_time_ms)}</td>
                 <td className="service-last-call-cell">{formatRelativeTime(summary?.last_called_at)}</td>
               </tr>
             )

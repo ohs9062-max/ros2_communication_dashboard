@@ -18,6 +18,41 @@ def mark_graph_present(
     item['ever_discovered'] = True
     item['last_seen_at'] = observed_at
     item['disconnected_at'] = None
+    item['graph_missing_since'] = None
+    item['graph_missing_pending'] = False
+    return item
+
+
+def debounce_disconnected_resource(
+    cached: dict[str, Any],
+    *,
+    detected_at: float,
+    timeout_sec: float,
+    count_fields: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Graph 누락이 설정 시간을 넘기 전에는 기존 상태를 유지합니다."""
+    missing_since = cached.get('graph_missing_since')
+    if not isinstance(missing_since, (int, float)):
+        missing_since = detected_at
+
+    if detected_at - float(missing_since) >= timeout_sec:
+        item = disconnected_resource(
+            cached,
+            detected_at=detected_at,
+            count_fields=count_fields,
+        )
+        item['graph_missing_since'] = missing_since
+        item['graph_missing_pending'] = False
+        return item
+
+    item = cached.copy()
+    item['graph_present'] = False
+    item['graph_missing_since'] = missing_since
+    item['graph_missing_pending'] = True
+    item['reason'] = 'resource is temporarily missing from ROS2 graph; awaiting confirmation'
+    item['last_updated'] = detected_at
+    for field in count_fields:
+        item[field] = 0
     return item
 
 

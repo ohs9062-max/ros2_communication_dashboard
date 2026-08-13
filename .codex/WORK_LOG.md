@@ -487,3 +487,87 @@
 - Service 목록의 `최근 응답` 헤더와 JSON preview 내용을 동일한 가운데 정렬으로 맞췄다.
 - Action의 기존 `마지막 Feedback`/`마지막 Result` 내용은 유지하고, 두 응답 시각 중 최신 값을
   상대 시각으로 보여주는 `마지막 응답 시간` 정렬 열을 추가했다. Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - 모니터링 목록 핵심 진단 정보 복원
+
+- 현재 경량 UI를 유지하면서 Topic에 endpoint Pub/Sub·Hz·최근 데이터·마지막 수신, Service에 Server/Client·호출
+  가능·최근 응답·응답 시간·마지막 호출, Action에 Server/Client·Goal·Feedback·Result·실행 시간·최근 Goal을 복원했다.
+  Node는 합쳐진 연결 리소스 대신 namespace와 Topic/Service/Action의 Server/Client 역할별 수를 다시 분리했다.
+- raw JSON과 endpoint 상세는 우측 상세에 유지하고, 이름·타입 ellipsis, 숫자·상태·시간의 공통 가운데 정렬과
+  좁은 화면 가로 스크롤을 적용했다. 실제 `/RobotControl`, `/CanControl`, demo Node 응답과 1440x1000 Chrome에서
+  전 열 표시·헤더 겹침 없음·QoS 보조 badge를 확인했고 Frontend lint/build와 diff check를 통과했다.
+
+## 2026-08-12 - 모니터링 목록 실제 최신 payload 복원
+
+- Topic의 요약 `데이터 있음`, Service의 호출 가능/응답 상태, Action의 Feedback/Result 상태 badge를 제거하고 기존
+  `last_message_preview`, `last_request_preview`, `last_response_preview`, `last_feedback_preview`,
+  `last_result_preview`를 목록에 compact JSON으로 직접 표시했다. Backend/Monitor 수집 로직은 변경하지 않았다.
+- 객체/배열·문자열·숫자·boolean·빈 값을 공통 처리하는 preview formatter/component를 추가하고 기존 JSON popup도
+  같은 formatter를 재사용한다. 데이터 셀은 고정 폭, 한 줄 ellipsis, 전체값 title을 사용한다.
+- 1440x1000 Chrome에서 Topic/Service/Action 전 컬럼 정렬과 실제 값 표시를 확인했다. Demo `/RobotControl`
+  Service Call과 `/CanControl` Action Goal을 실제 실행해 Request/Response 및 Feedback/Result 갱신을 검증했다.
+  Frontend lint/build, ROS2 workspace build와 `git diff --check`가 통과했다.
+
+## 2026-08-12 - 목록 마지막 값 명칭·기존 JSON modal 복원
+
+- Topic/Service/Action의 최신 payload 열을 `마지막 값`, `마지막 Request/Response`, `마지막 Feedback/Result`로
+  통일하고 Goal 상태·응답/실행 시간·Goal 시각도 마지막 실행 기준임을 헤더에 명시했다.
+- 이전 diff의 `JsonPreviewButton`과 `JsonPreviewModal` 연결 방식을 그대로 복원했다. 목록은 compact JSON 한 줄을
+  유지하고 값을 누르면 전체 payload를 pretty JSON modal에서 확인하며, 배경/Esc/닫기 동작도 기존 구현을 재사용한다.
+- 1440x1000 Chrome에서 세 목록 헤더와 값 정렬을 확인했다. 긴 Action 헤더는 필수 정보를 숨기지 않고 테이블 가로
+  스크롤로 처리했다. Frontend lint/build와 `git diff --check`가 통과했다.
+
+## 2026-08-12 - 통신 목록 Dashboard 포함 여부·정책 대조
+
+- 코드와 실행 API를 조사해 Topic·Service·Action 목록이 현재 Dashboard 포함 원본 endpoint count를 표시하는 반면,
+  snapshot에는 Dashboard 제외 고유 Node count가 별도로 존재함을 확인했다. `/demo_camera/image_raw` Subscriber,
+  `/RobotControl` Client, `/CanControl` Client가 각각 화면 1·외부 Node 0으로 재현됐다.
+- AGENTS와 `docs/docs2` 정책은 기본 목록에는 Dashboard 제외 `*_node_count`, 상세에는 Dashboard 포함 endpoint 진단값을
+  사용하도록 정의한다. Node 탭은 기본적으로 내부 Node를 제외하고 `숨김 포함`에서만 표시해 정책과 일치한다.
+- 조사만 수행했으며 계산·Frontend·문서 정책은 변경하지 않았다. 확인된 구현/정책 불일치만 CURRENT_STATUS에 기록했다.
+
+## 2026-08-12 - 통신 목록 Dashboard 제외 Node 수 정책 복원
+
+- 과거 구현의 기존 fallback을 그대로 복원해 Topic은 `publisher_node_count/subscriber_node_count`, Service와
+  Action은 `server_node_count/client_node_count`를 목록 표시와 정렬에 우선 사용한다. 구 API에만 원본 endpoint
+  count를 fallback으로 사용하며 Monitor/API 계산 로직은 변경하지 않았다.
+- 헤더를 `Publisher/Subscriber/Server/Client Node 수 (Dashboard 제외)`로 명시했다. Dashboard 포함 원본 endpoint
+  수는 기존 상세 패널에 유지되고 Node 탭의 기본 제외·`숨김 포함` 정책도 변경하지 않았다.
+- 실제 API와 1440x1000 Chrome에서 Camera Subscriber, Service Client, Action Client가 Dashboard endpoint 1개를
+  제외해 각각 0으로 표시되고 외부 Publisher/Server Node는 1로 유지됨을 확인했다. Frontend lint/build와
+  `git diff --check`가 통과했다.
+
+## 2026-08-12 - AGENTS 현재 구현 기준 통합 갱신
+
+- 기존 `AGENTS.md`의 “최신 우선 절 + 리팩토링 전 기록” 중복 구조를 제거하고 실제 폴더, 프로세스 책임,
+  설정, resource 정책, Interface Lab, WSS와 작업 규칙을 현재형 단일 문서로 교체했다.
+- 실제 코드와 DDL을 대조해 QoS 상태·채널·Alert confirmation, 현재 21종 Alert, MariaDB `alert`의 총 9개 컬럼,
+  PK/무 unique·index, advisory lock lifecycle, acknowledgement/detail/occurrence 및 migration 미구현을 명시했다.
+- Camera Preview의 지원 type/encoding/format, 별도 demand endpoint, TTL/rate/size 제한과 snapshot binary 제외를
+  기록했다. Alert 문서의 오래된 18종 및 migration 표현도 최소 교정했으며 경로·용어 grep과
+  `git diff --check`로 문서 변경을 검수했다.
+
+## 2026-08-12 - Graph 이탈 debounce·Topic 미수신 원인 진단
+
+- 순간 Graph 흔들림을 장애로 확정하지 않도록 Service/Action에 설정형 5초 confirmation을 추가하고 Node는 기존
+  5초 stale 설정을 같은 공통 debounce 경로에 적용했다. 첫 누락 poll은 직전 상태를 유지하며, 제한 시간 뒤에만
+  disconnected가 되고 재등장하면 즉시 active로 복귀한다.
+- Node `node_stale` code는 DB 호환을 위해 유지하되 주요 감시 대상이면서 내부/tool Node가 아닌 경우에만 Alert를
+  생성하고, 화면 용어를 실제 의미인 `Graph 이탈`로 정리했다.
+- Topic missing/stale에 기존 Publisher, Dashboard Subscription, 생성 실패, Graph QoS와 실제 RMW incompatible
+  event를 조합한 `reception_diagnosis`를 추가했다. RMW event와 Subscription 실패만 confirmed, Graph 불일치는
+  candidate로 구분하며 compatible/unknown/observed와 stale Publisher 유무도 별도 안내한다. 새 Alert code나 DB
+  schema는 만들지 않고 기존 Alert에 진단과 관련 QoS Alert id만 부가했다.
+- Topic 상세에는 진단 근거를, 목록에는 작은 원인 badge를 표시하고 기존 대표 상태·QoS 상세·Alert lifecycle을
+  유지했다. 정책 문서 01~04에 debounce, 원인 진단과 Node 대상 제한을 반영했다.
+- 검증: Monitor 236 passed, Backend 15 passed/2 skipped, Frontend lint/build 통과, 전체 colcon 254 tests
+  (0 failures, 1 skipped), `git diff --check` 통과. 격리 ROS domain에서 BEST_EFFORT Publisher와 RELIABLE
+  Dashboard Subscription 조합이 Graph QoS 원인 후보로 표시되는 실제 rclpy E2E도 확인했다.
+- 남은 제한: 실제 RMW event 외 Graph 비교와 수신 경로 안내는 증명된 장애 원인이 아니라 원인 후보이며,
+  실제 장비 callback/transport 상태를 직접 확인하는 기능은 아니다.
+
+## 2026-08-13 - Alert 목록 앞쪽 컬럼 간격 축소
+
+- Alert 목록을 Topic 테이블의 고정 컬럼 규칙에서 분리하고 상태·레벨·출처·이름의 폭과 셀 좌우 여백을 줄였다.
+  긴 이름·메시지·code는 한 줄 ellipsis와 tooltip을 사용하며 메시지 컬럼은 300px을 확보해 이름이 길어도
+  메시지를 가리지 않게 했다. Frontend lint/build와 `git diff --check`를 통과했다.

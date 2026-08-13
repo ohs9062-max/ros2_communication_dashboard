@@ -10,6 +10,10 @@ fallback 자체와 Call timeout만으로는 생성하지 않습니다. compatibl
 
 ## `service_disconnected`
 
+Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmation 후보이며 Alert를 만들지 않습니다.
+`services.graph_missing_timeout_sec`(기본 5초) 동안 계속 보이지 않을 때만 `disconnected`로 확정합니다.
+재등장하면 즉시 후보를 지우고 정상 상태로 복귀합니다.
+
 | 항목 | 내용 |
 |---|---|
 | level | `error` |

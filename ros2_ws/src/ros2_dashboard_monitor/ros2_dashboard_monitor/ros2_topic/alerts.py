@@ -17,6 +17,7 @@ from ros2_dashboard_monitor.ros2_topic.models import (
 from ros2_dashboard_monitor.ros2_topic.monitor_status_alerts import (
     monitor_status_alert as _monitor_status_alert,
 )
+from ros2_dashboard_monitor.ros2_topic.diagnostics import reception_diagnosis
 from ros2_dashboard_monitor.ros2_topic.alert_retention import (
     ALERT_RESOLVED_RETENTION_SEC,
     build_alert_meta,
@@ -98,13 +99,26 @@ def _topic_alerts(
         ]
 
     if publisher_count > 0 and subscription is not None:
-        return _topic_message_alerts(
+        alerts = _topic_message_alerts(
             name=name,
             first_observed_at=subscription.get('created_at'),
             last_received_at=subscription.get('last_received_at'),
             detected_at=detected_at,
             stale_timeout_sec=stale_timeout_sec,
         )
+        diagnosis = reception_diagnosis(
+            topic=topic,
+            subscription=subscription,
+            subscription_error=subscription.get('subscription_error'),
+            observed_at=detected_at,
+            stale_timeout_sec=stale_timeout_sec,
+        )
+        for alert in alerts:
+            alert['diagnosis'] = diagnosis
+            alert['related_alert_ids'] = (
+                diagnosis.get('related_alert_ids', []) if diagnosis else []
+            )
+        return alerts
 
     if publisher_count == 0:
         return [

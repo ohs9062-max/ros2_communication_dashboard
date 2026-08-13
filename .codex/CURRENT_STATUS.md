@@ -20,7 +20,8 @@
   전체 profile, Service Auto는 Fast DDS Request Reader/Response Writer에서 발견한 Reliability, Durability,
   Deadline, Lifespan, Liveliness, Lease Duration을 Client 관점에서 적용한다. History/Depth만 local Service
   기본값을 사용하며, Action은 이 Service Auto와 Topic Auto로 5개 내부 채널 QoS를 각각 전달한다.
-- Alert DB 정책은 단일 MariaDB `alert` 테이블의 8개 컬럼으로 확정됐다. 동일 `alert_key`의 미해결 row는
+- Alert DB 정책은 단일 MariaDB `alert` 테이블의 자동 증가 `id`와 8개 업무 컬럼(총 9개 컬럼)으로 확정됐다.
+  동일 `alert_key`의 미해결 row는
   중복 INSERT하지 않고, 정상 복귀 시 `resolved_at`을 기록하며, 해결 뒤 재발하면 새 row를 만든다. DB는 전체
   이력을 보존하고 이전 Alert UI는 `name` 검색과 해결 최신순 50개 페이지 조회를 사용한다.
 - Backend `AlertHistoryService`와 MariaDB Repository가 위 정책을 실제 연결한다. 현재/이전 Alert는 DB에서
@@ -63,6 +64,19 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- Service/Action은 각 `graph_missing_timeout_sec` 기본 5초, Node는 기존 `nodes.stale_timeout_sec`
+  기본 5초 동안 Graph 이탈이 유지된 뒤에만 disconnected로 확정한다. 첫 누락 poll은 직전 상태를 유지하고
+  재등장은 즉시 정상 복귀한다. Node `node_stale` Alert code는 DB 호환을 위해 유지하되 실제 Alert는 주요·감시
+  대상이면서 내부/tool Node가 아닌 경우에만 생성한다.
+- Topic missing/stale에는 기존 Publisher/Subscription/QoS/RMW 근거를 조합한 `reception_diagnosis`를 추가했다.
+  Subscription 생성 실패를 최우선 확정 원인으로, 실제 RMW incompatible event를 확정 QoS 원인으로,
+  Graph incompatible를 원인 후보로 구분한다. compatible/unknown/observed도 QoS 외 수신 경로 점검 또는 판단 불가로
+  안내하며 stale은 Publisher 존재 중 데이터 중단과 Publisher Graph 이탈을 구분한다. 기존 missing/stale와 QoS
+  Alert code/lifecycle은 유지하고 관련 Alert id와 진단 근거만 함께 제공한다.
+- `AGENTS.md`의 최신 내용 추가/구 내용 병렬 구조를 제거하고 실제 코드 기준의 단일 현재 문서로 교체했다.
+  현재 폴더와 Monitor/Backend/Frontend 책임, 21종 Alert와 QoS confirmation/channel 정책, MariaDB 단일
+  `alert` 테이블의 정확한 9개 컬럼 및 migration 미구현, 요청형 Camera Preview, HTTPS/WSS, Interface Lab과
+  설정 source를 통합했다. Alert 문서에 남아 있던 18종 표기와 migration 표현도 현재 구현에 맞췄다.
 - Frontend/Backend/Monitor의 대형 기능을 feature/runtime 단위로 분리하고 전체 회귀 검증을 완료했다.
 - 로컬 Nginx self-signed HTTPS/WSS 설치와 `/ws/monitor` reverse proxy를 적용하고 Browser WSS snapshot을 확인했다.
 - Interface Lab 첫 ActionClient 생성 시 발생하던 non-reentrant Lock deadlock을 수정하고 실제 Goal 실행을 검증했다.
@@ -98,12 +112,20 @@ docs/                            설계·운영 문서
   불일치는 warning, 실제 RMW 이벤트나 전체 상대 endpoint와 통신 불가능이 확인되면 error로 분류한다.
   Action은 Goal/Result/Cancel/Feedback/Status 채널별 Alert key와 상세 이동을 사용하며 `partial`·`unknown`은
   화면 안내만 하고 Alert로 만들지 않는다.
-- Topic·Service·Action·Node 화면은 5~7개 핵심 열의 목록을 먼저 표시하고, 선택 전에는 상세 패널을 열지 않는다.
-  행을 선택하면 390px 상세 패널이 열리며 닫기 버튼으로 목록 전체 폭을 즉시 복원한다. 이름·타입은 한 줄
-  ellipsis와 title을 사용하고, 제거한 endpoint·Graph·실행 metadata는 기존 접이식 상세에 유지한다. 빈 Alert는
+- Topic·Service·Action·Node 화면은 빠른 진단에 필요한 핵심 열을 목록에 표시한다. Topic은 외부 Node Pub/Sub,
+  Hz, compact JSON Latest와 마지막 수신, Service는 Server/Client, 실제 마지막 Request/Response·응답 시간·마지막 호출,
+  Action은 Server/Client, Goal 상태·실제 Feedback/Result·실행 시간·최근 Goal, Node는 namespace와 Topic/Service/Action의
+  역할별 수를 제공한다. 행을 선택하면 390px 상세 패널이 열리며 닫기 버튼으로 목록 전체 폭을 즉시 복원한다.
+  마지막 값/Request/Response/Feedback/Result는 공통 compact formatter와 한 줄 ellipsis를 사용하며, 기존
+  JSON preview 버튼을 누르면 pretty JSON modal로 전체 payload를 확인한다. 이름·타입도 한 줄 ellipsis와 title을
+  사용하고, endpoint·Graph·raw 실행 metadata는 기존 접이식 상세에 유지한다. 빈 Alert는
   한 줄로 축소했고 Sidebar 라벨, 주요 리소스 요약 용어와 대표 영문 상태 문구를 정리했다.
   Service `최근 응답`은 헤더와 preview를 가운데 정렬하고, Action은 Feedback/Result 내용 열 오른쪽에
   Feedback·Result 중 더 최근 수신 시각을 표시하는 `마지막 응답 시간` 정렬 열을 제공한다.
+- Topic·Service·Action 기본 목록의 Pub/Sub·Server/Client 수는 정책에 따라 Dashboard 내부 Node를 제외한 고유
+  `*_node_count`를 표시한다. 구 API 응답에만 원본 count를 fallback으로 쓰며, Dashboard를 포함한 원본 endpoint
+  수는 기존 상세 패널의 Endpoint 진단값으로 유지한다. Node 탭은 기본 필터에서 내부 Node를 제외하고
+  `숨김 포함`에서만 Dashboard Node와 그 역할 수를 표시한다.
 - Interface Lab은 등록/실행 가능/build 필요/오류와 Interface 목록을 첫 화면 중심으로 표시한다. 관리와 주의사항은
   목록 검색·종류·상태 필터를 제공한다. 관리 영역은 항상 펼쳐지고 주의사항만 기본 접힘이다. 선택 상세는 데스크톱 420~460px 우측 패널로 열리고,
   Topic Publish/Receive/History, Service Call/History, Action Goal/History와 고급 정보 탭으로 실행 흐름을 분리한다.
@@ -131,11 +153,11 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 219 passed
+Monitor pytest: 236 passed
 Backend pytest: 15 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
-선택 package colcon test-result: 237 tests, 0 failures, 1 skipped
+전체 workspace colcon test-result: 254 tests, 0 failures, 1 skipped
 Frontend oxlint/build: 통과
 Python compileall: 통과
 git diff --check: 통과
@@ -156,6 +178,9 @@ DataReader Lifespan은 `unknown`으로 유지했다. 테스트 프로세스는 �
 ## 현재 문제와 제한
 
 - 작업 트리가 dirty 상태다. 기존 변경을 reset하거나 덮어쓰지 말고 작업별 diff를 구분해야 한다.
+- Topic 수신 원인 진단에서 실제 RMW incompatible event와 Subscription 생성 실패만 확정 원인이다. Graph QoS
+  비교, Publisher 존재 여부와 compatible 상태 기반 안내는 기존 관찰값을 조합한 원인 후보이며 실제 장비의
+  발행 callback/transport 오류를 직접 증명하지 않는다.
 - Fast DDS observer는 `rmw_fastrtps_cpp`와 Fast DDS 이름 규칙에 종속된다. 다른 RMW, DDS Security 또는
   Discovery 범위 밖에서는 Service/Action Service QoS가 `graph_unavailable`이 된다.
 - DDS Discovery가 제공하지 않는 History/Depth와 DataReader Lifespan은 추정하지 않는다. Service Auto의

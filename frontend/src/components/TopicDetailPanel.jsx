@@ -59,10 +59,10 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
         <p className="error-text">{cameraPreview.error}</p>
       )}
       {neverReceived && (
-        <p className="notice-text warning">
-          이 Topic은 아직 메시지를 수신하지 않았습니다. 발행자가 메시지를
-          발행 중인지 확인하세요.
-        </p>
+        <ReceptionDiagnosis diagnosis={topic.reception_diagnosis} />
+      )}
+      {!neverReceived && hzData?.status === 'stale' && (
+        <ReceptionDiagnosis diagnosis={topic.reception_diagnosis} />
       )}
 
       <DetailSection title="상태 요약">
@@ -211,6 +211,44 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
       )}
     </aside>
   )
+}
+
+function ReceptionDiagnosis({ diagnosis }) {
+  if (!diagnosis) {
+    return <p className="notice-text warning">수신 상태의 원인을 확인할 정보가 부족합니다.</p>
+  }
+  const confirmed = diagnosis.certainty === 'confirmed'
+  const localReliability = diagnosis.local_qos?.reliability
+  const remoteReliability = remoteReliabilities(diagnosis.remote_qos)
+  return (
+    <section className={`topic-reception-diagnosis ${confirmed ? 'confirmed' : 'candidate'}`}>
+      <div className="topic-reception-diagnosis-heading">
+        <strong>{diagnosis.reception_status === 'stale' ? '수신 중단' : '미수신'}</strong>
+        <span>{confirmed ? '원인 확인' : diagnosis.certainty === 'unknown' ? '원인 확인 불가' : '원인 후보'}</span>
+      </div>
+      <p>{diagnosis.message}</p>
+      <div className="topic-reception-diagnosis-grid">
+        <DetailLine label="Publisher" value={diagnosis.publisher_present ? '존재' : '없음'} />
+        <DetailLine label="Dashboard Subscription" value={diagnosis.subscription_created ? '존재' : '없음'} />
+        <DetailLine label="QoS 상태" value={diagnosis.qos_status ?? 'unknown'} />
+        <DetailLine label="판정 근거" value={diagnosis.qos_detection_source ?? '-'} />
+        {(localReliability || remoteReliability) && (
+          <DetailLine
+            label="Reliability"
+            value={`${remoteReliability || '-'} ↔ ${localReliability || '-'}`}
+          />
+        )}
+        {diagnosis.mismatch_policies?.length > 0 && (
+          <DetailLine label="불일치 정책" value={diagnosis.mismatch_policies.join(', ')} />
+        )}
+      </div>
+    </section>
+  )
+}
+
+function remoteReliabilities(remote) {
+  const entries = Array.isArray(remote) ? remote : []
+  return [...new Set(entries.map((item) => item?.qos?.reliability ?? item?.reliability).filter(Boolean))].join(', ')
 }
 
 function CameraPreview({ data, hz, metadata, topicName, topicType }) {

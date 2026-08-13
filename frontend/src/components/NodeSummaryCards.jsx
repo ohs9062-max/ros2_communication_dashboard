@@ -11,7 +11,7 @@ export function NodeSummaryCards({ meta = {}, nodes = [], primaryNodes = [] }) {
       <SummaryCard label="주요 Node" value={primaryNodes.length} tone="good" />
       <SummaryCard label="실행 중" value={active} tone="good" />
       <SummaryCard
-        label="종료 감지"
+        label="Graph 이탈"
         tone={disconnected ? 'bad' : 'default'}
         value={disconnected}
       />

@@ -58,6 +58,12 @@ compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:to
 > - **missing**: 감시 Subscription이 생성됐지만 **한 번도 수신하지 못한** 상태
 > - **stale**: 이전에 수신한 적 있으나 기준 시간을 **초과**한 상태
 
+목록과 Topic 상세의 `reception_diagnosis`는 새 Alert를 만들지 않고 기존 근거를 연결합니다.
+Subscription 생성 실패를 최우선으로 표시하고, RMW incompatible event는 확정 원인, Graph QoS
+incompatible는 원인 후보로 구분합니다. QoS compatible이면 실제 Publisher 발행과 callback/type 경로를
+확인하도록 안내하며, unknown/observed는 원인 확인 불가로 표시합니다. Alert payload에는 관련
+`topic_qos_incompatible` ID를 함께 넣을 수 있지만 MariaDB 스키마와 Alert key는 바꾸지 않습니다.
+
 ---
 
 ### 3. `topic_stale`
@@ -75,6 +81,9 @@ compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:to
 | **해제 조건** | 새 메시지 수신 (`age_sec ≤ stale_timeout_sec`) |
 | **설정 가능 여부** | `monitor.yaml` → `monitor.stale_timeout_sec` (기본값: `3.0초`) |
 | **소스 코드** | [ros2_topic/alerts.py:260-278](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py#L260-L278) |
+
+상세 진단에서는 Publisher가 계속 Graph에 있으면 `데이터 중단`, Publisher가 없으면 `Publisher 이탈/중단
+가능성`으로 구분합니다. 기존 required/등록 대상 Alert 조건과 command 예외는 그대로입니다.
 
 ---
 
@@ -97,7 +106,7 @@ compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:to
 ### 5. MonitorStatus 3종 (MonitorStatus 메시지 기반)
 
 실제 code는 level에 따라 `monitor_status_warning`, `monitor_status_error`,
-`monitor_status_critical` 중 하나입니다. 따라서 전체 18종을 셀 때 3개 code로 계산합니다.
+`monitor_status_critical` 중 하나입니다. 따라서 현재 전체 21종을 셀 때 3개 code로 계산합니다.
 
 | 항목 | 내용 |
 |---|---|

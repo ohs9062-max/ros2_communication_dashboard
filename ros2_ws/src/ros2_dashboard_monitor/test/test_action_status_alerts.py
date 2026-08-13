@@ -1,6 +1,7 @@
 import pytest
 
 from ros2_dashboard_monitor.ros2_action.alerts import build_action_alerts
+from ros2_dashboard_monitor.ros2_node.alerts import build_node_alerts
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime import (
     _goal_summary,
 )
@@ -79,6 +80,49 @@ def test_action_failure_alert_resolves_after_success() -> None:
         ),
         retained_alerts=cache,
         retained_codes={'action_goal_aborted'},
+        detected_at=13.0,
+    )
+
+    assert active[0]['alert_state'] == 'active'
+    assert resolved[0]['alert_state'] == 'resolved'
+    assert resolved[0]['resolved_at'] == 13.0
+
+
+def test_node_disconnected_alert_only_targets_primary_non_internal_nodes() -> None:
+    base = {'status': 'disconnected', 'last_seen_at': 10.0}
+    alerts = build_node_alerts(
+        nodes=[
+            {**base, 'full_name': '/primary', 'is_primary': True},
+            {**base, 'full_name': '/ordinary', 'is_primary': False},
+            {**base, 'full_name': '/dashboard', 'is_primary': True, 'is_internal': True},
+        ],
+        detected_at=12.0,
+    )
+
+    assert [alert['name'] for alert in alerts] == ['/primary']
+    assert alerts[0]['code'] == 'node_stale'
+
+
+def test_node_disconnected_alert_resolves_after_graph_reappearance() -> None:
+    cache = {}
+    disconnected = {
+        'full_name': '/primary',
+        'status': 'disconnected',
+        'last_seen_at': 10.0,
+        'is_primary': True,
+        'is_internal': False,
+    }
+    active = retain_alerts(
+        current_alerts=build_node_alerts(nodes=[disconnected], detected_at=12.0),
+        retained_alerts=cache,
+        retained_codes={'node_stale'},
+        detected_at=12.0,
+    )
+    recovered = {**disconnected, 'status': 'active', 'last_seen_at': 13.0}
+    resolved = retain_alerts(
+        current_alerts=build_node_alerts(nodes=[recovered], detected_at=13.0),
+        retained_alerts=cache,
+        retained_codes={'node_stale'},
         detected_at=13.0,
     )
 

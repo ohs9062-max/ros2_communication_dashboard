@@ -20,6 +20,8 @@ def build_node_alerts(
     for node in nodes:
         if node.get('status') != NODE_STATUS_DISCONNECTED:
             continue
+        if node.get('is_internal') is True or node.get('is_primary') is not True:
+            continue
 
         name = node.get('full_name') or node.get('name')
         alerts.append(
@@ -30,8 +32,7 @@ def build_node_alerts(
                 'name': name,
                 'code': ALERT_CODE_NODE_STALE,
                 'message': (
-                    'Node connection lost; it is no longer visible '
-                    'in the ROS2 graph.'
+                    'Monitored Node is confirmed absent from the ROS2 graph.'
                 ),
                 'status': NODE_STATUS_DISCONNECTED,
                 'last_received_at': node.get('last_seen_at'),

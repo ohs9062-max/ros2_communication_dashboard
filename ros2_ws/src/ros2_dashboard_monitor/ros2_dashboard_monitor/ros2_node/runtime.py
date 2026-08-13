@@ -17,7 +17,7 @@ from ros2_dashboard_monitor.ros2_node.discovery import (
 from ros2_dashboard_monitor.ros2_node.filters import is_node_included
 from ros2_dashboard_monitor.ros2_node.models import node_meta
 from ros2_dashboard_monitor.resource_state import (
-    disconnected_resource,
+    debounce_disconnected_resource,
     mark_graph_present,
 )
 
@@ -144,9 +144,10 @@ class NodeRuntime:
                 if full_name in next_nodes:
                     continue
 
-                next_nodes[full_name] = disconnected_resource(
+                next_nodes[full_name] = debounce_disconnected_resource(
                     cached_node,
                     detected_at=updated_at,
+                    timeout_sec=self._stale_timeout_sec,
                     count_fields=(
                         'publisher_count',
                         'subscriber_count',

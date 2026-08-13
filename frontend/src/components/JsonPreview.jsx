@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { compactDataPreview, fullDataPreview } from '../utils/dataPreview.js'
 
 export function JsonPreviewButton({ onOpen, previewMode = 'json', value }) {
   if (value === undefined || value === null || value === '') {
@@ -71,7 +72,7 @@ export function JsonPreviewModal({ name, onClose, title, value }) {
 }
 
 function previewText(value) {
-  return typeof value === 'string' ? value : JSON.stringify(value)
+  return compactDataPreview(value)
 }
 
 function firstEntryPreviewText(value) {
@@ -104,5 +105,5 @@ function compactValue(value) {
 }
 
 function fullPreviewText(value) {
-  return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+  return fullDataPreview(value)
 }

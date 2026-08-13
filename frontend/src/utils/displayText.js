@@ -17,6 +17,10 @@ const DISPLAY_TEXT = {
     '이전에 발견됐지만 현재 ROS2 Graph에서 확인되지 않습니다.',
   'node connection lost; it is no longer visible in the ros2 graph.':
     'Node 연결이 끊겨 현재 ROS2 Graph에서 확인되지 않습니다.',
+  'monitored node is confirmed absent from the ros2 graph.':
+    '감시 대상 Node가 확인 시간 이후에도 ROS2 Graph에서 보이지 않습니다.',
+  'resource is temporarily missing from ros2 graph; awaiting confirmation':
+    'ROS2 Graph에서 일시적으로 보이지 않아 이탈 여부를 확인 중입니다.',
 }
 
 export function displayText(value, fallback = '-') {

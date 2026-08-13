@@ -78,6 +78,7 @@ class MonitorConfig:
     services_primary_names: tuple[str, ...] = ()
     services_exclude: tuple[str, ...] = ()
     services_exclude_prefixes: tuple[str, ...] = ()
+    services_graph_missing_timeout_sec: float = 5.0
     services_active_check: ServiceActiveCheckConfig = field(
         default_factory=ServiceActiveCheckConfig,
     )
@@ -90,6 +91,7 @@ class MonitorConfig:
     actions_primary_names: tuple[str, ...] = ()
     actions_exclude: tuple[str, ...] = ()
     actions_exclude_prefixes: tuple[str, ...] = ()
+    actions_graph_missing_timeout_sec: float = 5.0
     actions_auto_monitor_status: bool = True
     actions_auto_monitor_feedback: bool = True
     actions_auto_fetch_result_for_observed_goals: bool = True
@@ -165,6 +167,9 @@ def build_monitor_config(
         services_primary_names=config_string_tuple(services, 'primary_names'),
         services_exclude=config_string_tuple(services, 'exclude'),
         services_exclude_prefixes=config_string_tuple(services, 'exclude_prefixes'),
+        services_graph_missing_timeout_sec=positive_float(
+            services.get('graph_missing_timeout_sec'), default=5.0,
+        ),
         services_active_check=service_active_check_config(services.get('active_check')),
         nodes_include=config_string_tuple(nodes, 'include'),
         nodes_primary_names=config_string_tuple(nodes, 'primary_names'),
@@ -177,6 +182,9 @@ def build_monitor_config(
         actions_primary_names=config_string_tuple(actions, 'primary_names'),
         actions_exclude=config_string_tuple(actions, 'exclude'),
         actions_exclude_prefixes=config_string_tuple(actions, 'exclude_prefixes'),
+        actions_graph_missing_timeout_sec=positive_float(
+            actions.get('graph_missing_timeout_sec'), default=5.0,
+        ),
         actions_auto_monitor_status=boolean(
             actions.get('auto_monitor_status'), default=True,
         ),

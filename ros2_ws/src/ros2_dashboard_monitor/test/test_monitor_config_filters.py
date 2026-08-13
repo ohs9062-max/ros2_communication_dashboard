@@ -95,6 +95,21 @@ def test_qos_alert_confirmation_count_uses_default_and_config_value() -> None:
     assert configured.qos_alerts.incompatible_confirmation_count == 2
 
 
+def test_graph_missing_timeouts_use_defaults_and_config_values() -> None:
+    defaults = _monitor_config({})
+    assert defaults.nodes_stale_timeout_sec == 5.0
+    assert defaults.services_graph_missing_timeout_sec == 5.0
+    assert defaults.actions_graph_missing_timeout_sec == 5.0
+    configured = _monitor_config({
+        'nodes': {'stale_timeout_sec': 2},
+        'services': {'graph_missing_timeout_sec': 3},
+        'actions': {'graph_missing_timeout_sec': 4},
+    })
+    assert configured.nodes_stale_timeout_sec == 2.0
+    assert configured.services_graph_missing_timeout_sec == 3.0
+    assert configured.actions_graph_missing_timeout_sec == 4.0
+
+
 def test_primary_resource_names_are_loaded_separately_from_include_filters() -> None:
     config = _monitor_config({
         'services': {'primary_names': ['/robot/reset']},

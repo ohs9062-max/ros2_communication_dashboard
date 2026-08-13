@@ -16,19 +16,20 @@ Backend는 현재 MariaDB 저장/조회 경로를 사용합니다. DB 연결 실
 메모리 이력으로 fallback하며, 이 fallback 이력만 Backend 재시작 시 사라집니다. 확정 스키마와 전이 정책은
 [05_alert_lifecycle.md](./05_alert_lifecycle.md)를 기준으로 합니다.
 
-## 현재 실제 Alert 18종
+## 현재 실제 Alert 21종
 
 | 문서 | Source | 코드 수 |
 |---|---|---:|
-| [01_topic_alerts.md](./01_topic_alerts.md) | `topic` | 4 |
+| [01_topic_alerts.md](./01_topic_alerts.md) | `topic` | 5 |
 | [01_topic_alerts.md](./01_topic_alerts.md) | `monitor_status` | 3 |
-| [02_service_alerts.md](./02_service_alerts.md) | `service` | 3 |
-| [03_action_alerts.md](./03_action_alerts.md) | `action` | 7 |
+| [02_service_alerts.md](./02_service_alerts.md) | `service` | 4 |
+| [03_action_alerts.md](./03_action_alerts.md) | `action` | 8 |
 | [04_node_alerts.md](./04_node_alerts.md) | `node` | 1 |
 
-전체 목록은 [00_total_alert.md](./00_total_alert.md)에 있습니다. `QoS incompatible`,
-`service_waiting_server`, `action_waiting_server`와 Service Active Check 내부 상태는 현재 Alert builder가
-실제 Alert code로 생성하지 않으므로 18종에 포함하지 않습니다.
+전체 목록은 [00_total_alert.md](./00_total_alert.md)에 있습니다. QoS는 확정된 `incompatible`만
+Topic/Service/Action Alert에 포함하며 `partial`, `unknown`, `observed`, `graph_unavailable`은 제외합니다.
+`service_waiting_server`, `action_waiting_server`와 Service Active Check 내부 상태도 현재 Alert builder가
+실제 Alert code로 생성하지 않습니다.
 
 ## 공통 표시 원칙
 

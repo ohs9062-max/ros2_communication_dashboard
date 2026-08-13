@@ -9,9 +9,9 @@
 |---|---|
 | level | `error` |
 | alert_key 형식 | `node:<full_name>:node_stale` |
-| 발생 조건 | 이전 snapshot에서 발견된 Node가 현재 Graph에서 사라져 `status == disconnected`가 됨 |
+| 발생 조건 | 주요 감시 Node가 `nodes.stale_timeout_sec` 동안 Graph에서 계속 보이지 않아 `status == disconnected`로 확정됨 |
 | 판정 데이터 | `status`, `full_name`, `last_seen_at` |
-| 사용자 메시지 | `Node connection lost; it is no longer visible in the ROS2 graph.` |
+| 사용자 메시지 | `Monitored Node is confirmed absent from the ROS2 graph.` |
 | 정상화 조건 | 같은 Node가 Graph에 다시 나타나 `active`가 됨 |
 
 ```text
@@ -22,7 +22,10 @@ Graph 발견
 → active
 
 다음 Graph snapshot에서 사라짐
-→ disconnected
+→ confirmation 후보 (`graph_missing_pending = true`, Alert 없음)
+
+stale_timeout_sec 동안 계속 누락
+→ disconnected 확정
 → node_stale (error)
 
 다시 발견
@@ -30,9 +33,10 @@ Graph 발견
 → Alert 해제
 ```
 
-`NodeRuntime`은 현재 Graph에서 빠진 기존 Node를 `disconnected_resource()`로 즉시 변환합니다.
-생성자에 전달되는 `stale_timeout_sec`은 현재 Node 상태 전이에 사용되지 않으므로, 5초 유예 뒤 Alert가
-발생한다고 문서화하지 않습니다. 처음부터 발견된 적 없는 Node에는 Alert를 만들지 않습니다.
+`node_stale` code는 DB/API 호환을 위해 유지하지만 사용자 화면에서는 `Graph 이탈`로 표시합니다.
+Alert 대상은 최종 `is_primary == true`이고 Dashboard 내부 Node가 아닌 항목입니다. ros2cli daemon과
+일시적인 보조 Node는 자동 주요 대상에서 제외하되, 설정 또는 사용자 별표로 명시한 항목은 감시할 수 있습니다.
+처음부터 발견된 적 없는 Node에는 Alert를 만들지 않습니다.
 
 소스 기준은 `ros2_dashboard_monitor/ros2_node/runtime.py`, `resource_state.py`,
 `ros2_node/alerts.py`입니다.
