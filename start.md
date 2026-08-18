@@ -181,6 +181,18 @@ ros2 run rqt_image_view rqt_image_view
   }
 }
 
+
+# DB
+mariadb -u ohs -p ros2_dashboard
+
+SELECT
+    id,
+    source,
+    code,
+    detected_at,
+    resolved_at
+FROM alert
+ORDER BY id DESC;
 ```
 
 # 새 Ubuntu 환경 최초 설치
