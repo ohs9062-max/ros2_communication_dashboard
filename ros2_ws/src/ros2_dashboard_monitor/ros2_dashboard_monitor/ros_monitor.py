@@ -175,6 +175,8 @@ class RosMonitor(InterfaceLabFacade):
             internal_node=self._monitor_node_full_name(),
             interface_states=interface_states,
             apply_primary_state=self._apply_primary_state,
+
+            
         )
 
     def service_snapshot(
