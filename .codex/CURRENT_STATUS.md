@@ -72,6 +72,10 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- 전체 Git 추적 Markdown 40개 중 `start.md`를 완전히 제외한 39개를 실제 코드와 대조했다.
+  구 `backend/` ROS workspace·Backend/rclpy 일체형 설명을 현재 `ros2_ws` Monitor → localhost transport →
+  순수 Web Backend 구조로 교정했고, 설치 자동화·systemd·MariaDB·HTTPS/WSS·ROS Domain/RMW 흐름과
+  docs2의 현재 함수 line range를 동기화했다. 과거 `.codex/archive` 기록은 당시 사실 보존을 위해 수정하지 않았다.
 - Fresh clone 설치 실패 원인이 Git에 추적된 이식 불가능한 `backend/.venv` 539개 파일과 기존 venv의
   절대경로 pip shebang 재사용임을 확인했다. venv를 Git index에서 제거했고 설치기는 checkout 경로·machine id·
   Python ABI stamp와 prefix/pip 경로가 현재 환경과 다르면 venv만 재생성한 뒤 `python -m pip`를 사용한다.
@@ -301,7 +305,7 @@ docs/                            설계·운영 문서
 
 ```text
 Monitor pytest: 245 passed
-Backend pytest: 15 passed, 2 skipped
+Backend pytest: 16 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
 전체 workspace colcon test-result: 262 tests, 0 failures, 1 skipped

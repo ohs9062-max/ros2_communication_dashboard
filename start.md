@@ -184,6 +184,10 @@ ros2 run rqt_image_view rqt_image_view
 
 # DB
 mariadb -u ohs -p ros2_dashboard
+sudo mariadb
+show database;
+use db명;
+show tables;
 
 SELECT
     id,

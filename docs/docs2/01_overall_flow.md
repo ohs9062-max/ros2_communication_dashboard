@@ -2,114 +2,71 @@
 
 ## 한 문장으로 보기
 
-React 화면이 FastAPI Router에 요청하면 `RosMonitor`가 ROS2 Runtime의 Cache를 읽고 필요한 공통 관계를 합쳐 JSON으로 반환하며, 실제 Graph 수집은 별도 timer가 반복 실행한다.
+독립 ROS2 Monitor가 Graph와 사용자 통신을 수집해 localhost snapshot을 만들고, 순수 FastAPI Backend가 이를
+polling·cache한 뒤 REST/WSS로 React Frontend에 전달한다.
 
 ```text
-ROS2 장비
-→ rclpy Graph API와 subscription callback
-→ Topic/Service/Action/Node Runtime Cache
-→ RosMonitor 병합
-→ FastAPI Router
-→ REST API
-→ React Hook
-→ Page/Table
+ROS2 Graph / data
+→ Fast DDS observer(optional) + rclpy Monitor
+→ Monitor GET /transport/snapshot (127.0.0.1:8765)
+→ Backend MonitorEventConsumer / MonitorCache (127.0.0.1:8000)
+→ REST + /ws/monitor
+→ React
 ```
 
-## 전체 왕복 9단계
+## Monitor 시작과 snapshot
 
-1. **Backend 시작:** FastAPI와 `RosMonitor`가 함께 시작되어 ROS2 Graph를 읽을 준비를 한다.
+| 단계 | 현재 코드 위치 | 역할 |
+|---:|---|---|
+| 1 | `transport/api.py lifespan()` L22-L29 | Monitor FastAPI 시작·종료에 `RosMonitor.start/stop` 연결 |
+| 2 | `ros_monitor.py RosMonitor.start()` L125-L139 | rclpy Node, observer, 최초 Graph update, spin thread 시작 |
+| 3 | `ros_monitor.py RosMonitor._update_graph()` L346-L353 | Node → Topic → Service → Action Runtime 갱신 |
+| 4 | `ros_monitor.py RosMonitor.snapshot()` L165-L178 | Topic runtime 결과에 topology·primary·Lab 상태 병합 |
+| 5 | `service_snapshot.py assemble_service_snapshot()` L16-L112 | Service topology·Call·QoS 병합 |
+| 6 | `action_snapshot.py assemble_action_snapshot()` L15-L127 | Action topology·Goal·채널 QoS 병합 |
+| 7 | `node_snapshot.py assemble_node_snapshot()` L13-L65 | Node 목록과 리소스 snapshot 연결 |
+| 8 | `transport/api.py transport_snapshot()` L64-L99 | 한 시점의 Topic/Service/Action/Node/Alert/WebSocket payload 조립 |
 
-2. **Graph와 통신 관찰:** Timer가 Node·Topic·Service·Action Cache를 갱신하고, subscription callback은 실제 메시지와 Action 상태를 반영한다.
+`timer`는 Graph cache를 갱신하고 rclpy spin thread는 Topic, Action status/feedback 등 실제 callback을 처리한다.
+Service 자동 호출은 `RosMonitor._update_graph()` L351-L353에서 의도적으로 수행하지 않는다.
 
-3. **API용 정보 병합:** `RosMonitor`가 Runtime Cache에 Node 관계, Dashboard 통신, 등록 타입과 사용자 실행 결과를 합친다.
+## Backend 경계
 
-4. **REST API 반환:** FastAPI Router가 병합된 snapshot을 기능별 JSON 응답으로 반환한다.
+Backend는 `rclpy`를 import하거나 ROS2 Node를 만들지 않는다.
 
-5. **화면 표시:** React Hook이 API를 반복 요청하고 각 Page가 주요·전체·상태 필터를 적용한다.
+| 단계 | 현재 코드 위치 | 역할 |
+|---:|---|---|
+| 1 | `backend/app/main.py lifespan()` L14-L21 | Alert DB service와 Monitor consumer 시작·종료 |
+| 2 | `backend/app/app_state.py` L16-L41 | MonitorClient, cache, MariaDB repository, preference store 조립 |
+| 3 | `backend/app/monitor_client/event_consumer.py` | Monitor snapshot polling, 마지막 정상 cache와 연결 오류 유지 |
+| 4 | `backend/app/routers/monitoring.py` L23-L55 | cache의 Topic/Service/Action/Node 공개 |
+| 5 | `backend/app/routers/alerts.py` L13-L47 | 현재 Alert, DB 이력, 확인·이력 초기화 |
+| 6 | `backend/app/routers/monitor_proxy.py` L35-L54 | Interface Lab과 Camera 요청을 method/body/content-type 보존해 Monitor로 전달 |
 
-| 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
-|---:|---|---:|---:|---|
-| 1 | `main.py` `lifespan()` | `main.py` L21-L27 | `main.py` L22-L27 | FastAPI 시작과 종료를 `RosMonitor.start()`·`stop()`에 연결한다. |
-| 2 | `ros_monitor.py` `start()` | `ros_monitor.py` L84-L98 | `ros_monitor.py` L89-L98 | rclpy Node, Graph timer, 최초 update, spin thread를 시작한다. |
-| 3 | `ros_monitor.py` `_update_graph()` | `ros_monitor.py` L787-L793 | `ros_monitor.py` L788-L791 | timer가 만료될 때 Node → Topic → Service → Action Runtime 순서로 Graph Cache를 갱신한다. |
-| 4 | 각 Runtime `update()` | 기능별 문서 참고 | 각 `update()` 핵심 L | ROS2 Graph API 결과를 필터링하고 각 기능의 Runtime Cache로 저장한다. |
-| 5 | rclpy subscription callback | 기능별 문서 참고 | Topic·Action callback 핵심 L | 실제 메시지·status·feedback이 도착하면 timer와 별개로 관찰 Cache를 갱신한다. |
-| 6 | `ros_monitor.py` 각 `*_snapshot()` | `ros_monitor.py` L126-L552의 기능별 함수 | `ros_monitor.py`의 각 snapshot 핵심 L | Runtime Cache에 Dashboard 내부 Node를 제외한 기본 관계 수·목록, 원본 진단 수, 목적별 `dashboard_communication`, Registry 판정, 사용자 실행 요약을 병합한다. |
-| 7 | `routers/monitoring.py` | `routers/monitoring.py` L16-L89 | `routers/monitoring.py`의 각 endpoint 반환 L | FastAPI가 snapshot을 기존 REST 응답 구조로 포장한다. |
-| 8 | `rosApi.js` → `use*Dashboard.js` | `rosApi.js` L45-L72 | 각 `use*Dashboard.js`의 `usePolling()` L | Frontend가 REST API를 주기적으로 요청해 응답을 React state로 저장한다. |
-| 9 | 각 `*Page.jsx` | 기능별 Page 전체 L | 주요/전체·상태 필터 L | state에 검색·필터를 적용하고 Table과 상세 Panel을 렌더링한다. |
+Backend가 Monitor보다 먼저 시작해도 종료되지 않는다. Monitor가 끊기면 cache의 마지막 정상 snapshot과
+`monitor_error`를 함께 유지하고 재연결 시 사용자 별표를 `PUT /transport/priority`로 다시 보낸다.
 
-이 표는 프로그램 시작부터 화면까지의 지도다. 실제 계산은 각 기능 문서의 7~9단계 표에서 이어서 본다.
+## Frontend 흐름
 
-## 프로그램 시작
+| 기능 | API | Hook | Page |
+|---|---|---|---|
+| Topic | `frontend/src/api/monitoring.js` | `useTopicDashboard.js` L21-L203 | `TopicsPage.jsx` L16-L186 |
+| Service | `frontend/src/api/monitoring.js` | `useServiceDashboard.js` L10-L87 | `ServicesPage.jsx` L10-L130 |
+| Action | `frontend/src/api/monitoring.js` | `useActionDashboard.js` L10-L83 | `ActionsPage.jsx` L22-L178 |
+| Node | `frontend/src/api/monitoring.js` | `useNodeDashboard.js` L9-L69 | `NodesPage.jsx` L16-L170 |
+| Alert | `frontend/src/api/monitoring.js` | 각 Dashboard Hook | `AlertsPage.jsx` L11-L273 |
 
-1. **lifespan 연결:** 서버 시작과 종료 시점에 `RosMonitor.start()`와 `stop()`을 호출한다.
+`frontend/src/api/rosApi.js` L1-L7은 기능별 API 모듈을 다시 export하는 compatibility entry다.
+Frontend는 Monitor 8765나 observer 8766에 직접 연결하지 않는다.
 
-2. **Monitor Node와 Timer 생성:** Graph를 조회할 rclpy Node를 만들고 주기 갱신 Timer와 최초 update를 실행한다.
-
-3. **Spin thread 실행:** 별도 thread에서 ROS2 spin을 실행해 메시지와 feedback callback이 계속 처리되도록 한다.
-
-| 순서 | 파일·함수 | 함수 전체 L | 핵심 L | 핵심 줄에서 하는 일 |
-|---:|---|---:|---:|---|
-| 1 | `main.py` `lifespan()` | `main.py` L21-L27 | `main.py` L22-L27 | FastAPI 시작 때 `ros_monitor.start()`, 종료 때 `stop()` |
-| 2 | `ros_monitor.py` `start()` | `ros_monitor.py` L84-L98 | `ros_monitor.py` L89-L98 | rclpy Node, timer, 최초 Graph update, spin thread 생성 |
-| 3 | `ros_monitor.py` `_update_graph()` | `ros_monitor.py` L787-L793 | `ros_monitor.py` L788-L791 | Node → Topic → Service → Action 순으로 Runtime 갱신 |
-| 4 | `ros_monitor.py` `_spin()` | `ros_monitor.py` L775-L785 | `ros_monitor.py` L779-L781 | 실제 subscription callback이 실행되도록 ROS2 spin |
-
-`timer`는 정해진 간격으로 Graph 목록을 다시 읽는 시계이고, `spin`은 실제 메시지·feedback 같은 통신 callback을 처리하는 반복 실행기다.
-
-## 목록 API 공통 흐름
-
-1. **Runtime Cache 읽기:** 각 기능 Runtime이 이미 수집한 최신 snapshot을 읽는다.
-
-2. **공통 관계와 실행 상태 추가:** Node 관계를 역집계하고 Dashboard 내부 통신, Registry 판정과 최근 실행 결과를 합친다.
-
-3. **Router 응답:** 각 `/ros/*` Router가 병합 결과를 기존 API 형식으로 반환한다.
-
-| 화면 | Router 전체 L | Router 핵심 L | RosMonitor 전체 L | RosMonitor 핵심 L |
-|---|---:|---:|---:|---:|
-| Topic | `monitoring.py` L16-L28 | `monitoring.py` L19-L27 | `ros_monitor.py` `snapshot()` L126-L209 | `ros_monitor.py` L128-L208 |
-| Service | `monitoring.py` L43-L57 | `monitoring.py` L48-L56 | `ros_monitor.py` `service_snapshot()` L211-L299 | `ros_monitor.py` L217-L298 |
-| Action | `monitoring.py` L60-L70 | `monitoring.py` L63-L69 | `ros_monitor.py` `action_snapshot()` L341-L424 | `ros_monitor.py` L343-L423 |
-| Node | `monitoring.py` L73-L83 | `monitoring.py` L76-L82 | `ros_monitor.py` `node_snapshot()` L546-L552 | `ros_monitor.py` L548-L552 |
-| Alert | `monitoring.py` L86-L89 | `monitoring.py` L89 | `ros_monitor.py` `alerts()` L606-L674 | `ros_monitor.py` L609-L673 |
-
-`RosMonitor`의 병합은 원본 Graph를 새로 발견하는 단계가 아니다. 각 Runtime Cache를 읽어 Node 수, 실행 요약, 등록 여부 같은 API용 필드를 더하는 단계다. Topic·Service·Action의 기본 Node 수와 목록에서는 Dashboard 내부 Node를 제외하고 endpoint 수는 Graph 원본을 유지한다. 메인 목록의 `Dashboard 통신`은 Topic의 자동 감시·Lab 수신·Lab 발행과 Service/Action의 Lab Client만 배지로 표시하며, Action status·feedback 자동 관찰은 API 상태에는 남기되 목록 배지에서는 생략한다.
-
-## 화면까지 오는 흐름
+## 값의 구분
 
 ```text
-Router JSON
-→ frontend/src/api/rosApi.js의 fetch 함수
-→ use*Dashboard.js의 usePolling()
-→ Page의 주요/전체 필터
-→ Table과 상세 Panel
+Graph/Topology = 현재 Node와 endpoint의 역할
+Observation    = latest, Hz, status, feedback 등 실제 수신
+Activity       = 사용자가 Interface Lab에서 수행한 Publish/Call/Goal 이력
 ```
 
-1. **API 호출:** `rosApi.js`가 Backend endpoint를 호출해 JSON을 받는다.
-
-2. **Polling과 state 갱신:** Dashboard Hook이 주기적으로 다시 요청해 React state를 최신 상태로 유지한다.
-
-3. **필터와 렌더링:** Page가 주요·전체·검색 조건을 적용하고 Table과 상세 Panel에 결과를 전달한다.
-
-| 기능 | API 함수 전체/핵심 L | Hook 전체 L | Page에서 먼저 볼 핵심 L |
-|---|---|---:|---:|
-| Topic | `rosApi.js` `fetchTopics()` L45-L47 | `useTopicDashboard.js` `useTopicDashboard()` L17-L164 | `TopicsPage.jsx` L33-L83 |
-| Service | `rosApi.js` `fetchServices()` L61-L64 | `useServiceDashboard.js` `useServiceDashboard()` L7-L78 | `ServicesPage.jsx` L68-L110 |
-| Action | `rosApi.js` `fetchActions()` L66-L68 | `useActionDashboard.js` `useActionDashboard()` L7-L74 | `ActionsPage.jsx` L35-L74 |
-| Node | `rosApi.js` `fetchNodes()` L70-L72 | `useNodeDashboard.js` `useNodeDashboard()` L6-L66 | `NodesPage.jsx` L35-L60 |
-
-## 코드를 읽을 때 지켜야 할 구분
-
-```text
-Graph/Topology
-= 현재 어떤 Node가 어떤 통신 역할을 가지고 있는가; 기본 리소스 화면의 Node 수·목록은 Dashboard 내부 Node 제외
-
-Observation
-= 메시지, status, feedback이 실제로 들어왔는가
-
-Activity
-= 사용자가 Service Call이나 Action Goal을 몇 번 실행했는가
-```
-
-세 값은 목적이 다르다. 화면에서 `(Dashboard 제외)`가 붙은 Node 수는 외부 고유 Node 관계이고, `Endpoint 수`는 Dashboard 통신까지 포함한 Graph 원본 진단값이며, Activity는 Interface Lab 사용자 실행 이력이다.
+기본 목록의 `*_node_count`는 내부 `/ros2_dashboard_topic_monitor`를 제외한 고유 Node 수다.
+`publisher_count`, `subscriber_count`, `server_count`, `client_count`와 endpoint 상세는 Dashboard를 포함한
+raw Graph 진단값을 유지한다. Interface Lab에서 사용자가 명시적으로 만든 entity는 실행 사실로 별도 표시한다.

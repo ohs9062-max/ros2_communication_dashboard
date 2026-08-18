@@ -89,10 +89,12 @@ https://<장비 LAN IP>/
 - Backend/DB: `backend/.env` (설치 시 최초 생성, 권한 `0600`)
 - Nginx/TLS: `config/nginx/dashboard.env`, `/etc/nginx/ssl/`
 
-설정 변경 후 해당 서비스를 재시작한다.
+`backend/.env`의 ROS Domain/RMW 변경은 runtime env 동기화가 필요하므로 `start.sh`로 반영한다.
+Backend/DB 설정만 바꾼 경우에는 Backend service를 재시작한다.
 
 ```bash
-sudo systemctl restart ros2-dashboard-monitor ros2-dashboard-backend
+./scripts/start.sh
+sudo systemctl restart ros2-dashboard-backend.service
 ```
 
 ## 구성과 주요 기능

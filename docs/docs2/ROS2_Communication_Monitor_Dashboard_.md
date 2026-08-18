@@ -39,26 +39,26 @@ Node는 기능을 수행하는 실행 단위이고, Topic은 메시지가 계속
 
 이 페이지는 ROS2 상태가 웹 화면까지 전달되는 전체 구조입니다.
 
-먼저 Backend의 rclpy Runtime이 ROS2 Graph를 주기적으로 조회해 Node, Topic, Service, Action의 존재와 연결 관계를 수집합니다. 수집한 결과는 Runtime cache에 최신 상태로 저장합니다.
+먼저 독립 Monitor의 rclpy Runtime이 ROS2 Graph를 주기적으로 조회해 Node, Topic, Service, Action의 존재와 연결 관계를 수집합니다. 수집한 결과는 Runtime cache에 최신 상태로 저장합니다.
 
 cache를 사용하는 이유는 사용자가 화면을 열 때마다 ROS2 Graph를 처음부터 다시 조회하지 않고, 이미 수집한 최신 결과를 빠르게 반환하기 위해서입니다.
 
-FastAPI의 REST API는 Topic, Service, Action, Node의 상세 목록과 snapshot을 전달합니다. WebSocket은 Backend 연결 상태나 Alert 개수 같은 가벼운 요약 정보를 보조적으로 전달합니다.
+Monitor FastAPI는 localhost snapshot과 Interface Lab 명령을 제공하고, 순수 Web Backend가 이를 polling해 REST와 WebSocket으로 Browser에 전달합니다.
 
 Frontend는 이 데이터를 받아 목록, 상세 패널, Alert, Visualization 화면으로 표현합니다.
 
-정리하면 흐름은 **ROS2 Graph → rclpy Runtime → cache → REST·WebSocket → React 화면**입니다.
+정리하면 흐름은 **ROS2 Graph → rclpy Monitor cache → localhost snapshot → Web Backend cache → REST·WebSocket → React 화면**입니다.
 
 
 ---
 
 ## 4페이지. 기술 스택
 
-Backend에는 ROS2, ROS2 Graph API, rclpy, FastAPI, WebSocket을 사용했습니다.
+Monitor에는 ROS2 Graph API, rclpy와 localhost FastAPI를, Web Backend에는 FastAPI와 WebSocket을 사용했습니다.
 
 ROS2 Graph API는 현재 실행 중인 ROS2 리소스와 연결 관계를 조회하는 데 사용했습니다. rclpy는 Python에서 ROS2 Node와 Subscription, Service Client, Action Client 같은 객체를 구성하는 데 사용했습니다.
 
-FastAPI는 Backend가 수집한 상태와 Interface Lab 기능을 REST API로 Frontend에 제공하기 위해 사용했고, WebSocket은 연결 상태와 Alert 요약을 실시간으로 전달하는 보조 채널입니다.
+Monitor FastAPI는 snapshot과 Interface Lab 실행 API를 localhost에 제공하고, Web Backend FastAPI는 cache, MariaDB Alert lifecycle, 공개 REST/WSS를 담당합니다.
 
 Frontend에는 React, Vite, React Flow를 사용했습니다. React는 상태 변화가 많은 화면을 동적으로 구성하고, Vite는 개발 환경을 단순화합니다. React Flow는 Node와 통신 관계를 확대, 축소, 이동할 수 있는 그래프로 표현합니다.
 
@@ -69,15 +69,15 @@ YAML은 Message 타입, 감시 대상, timeout 정책 같은 설정을 코드 �
 
 ## 5페이지. 프로젝트 폴더 구조
 
-프로젝트는 크게 Backend와 Frontend로 나뉩니다.
+프로젝트는 ROS2 workspace, Web Backend와 Frontend로 나뉩니다.
 
-`backend/config`에는 모니터링 대상, Interface 등록 상태, timeout과 필터 정책을 보관합니다. `backend/src`에는 FastAPI와 rclpy Runtime, Topic, Service, Action, Node 감시 로직이 있습니다.
+`ros2_ws/src/ros2_dashboard_monitor`에는 rclpy Runtime, Monitor transport와 Interface Lab이 있고, `backend/app`에는 순수 Web Backend가 있습니다. Monitor 정책과 Interface Registry는 `ros2_ws/src/ros2_dashboard_monitor/config`에, 사용자 별표는 `backend/config`에 보관합니다.
 
 `interface_lab`에는 Interface 등록과 업로드, 패키지 Build와 Apply, Publish, Receive, Call, Goal 실행 기능이 들어 있습니다.
 
 `frontend/src`는 REST와 WebSocket 데이터를 받아 목록, 상세 화면, Alert, Visualization 화면을 구성합니다.
 
-한 문장으로 정리하면 Backend는 ROS2와 직접 통신하고 API를 제공하며, Frontend는 API 결과를 화면과 그래프로 표현합니다.
+한 문장으로 정리하면 Monitor가 ROS2와 직접 통신하고 Backend가 공개 API·cache·Alert DB를 제공하며, Frontend가 이를 화면과 그래프로 표현합니다.
 
 
 ---
@@ -112,7 +112,7 @@ resolved Alert는 사용자가 어떤 문제가 해결됐는지 확인할 수 �
 
 Topic 화면에서는 Publisher와 Subscriber 수, 최신 데이터, Hz, age, stale 상태를 확인할 수 있습니다.
 
-Backend는 지원하는 Message 타입을 자동 구독합니다. 메시지가 수신되면 callback에서 최신 값을 갱신하고, 최근 5초 동안 받은 메시지 수를 5초로 나누어 Hz를 계산합니다.
+Monitor는 지원하거나 등록된 Message 타입을 자동 구독합니다. 메시지가 수신되면 callback에서 최신 값을 갱신하고, 설정된 Hz window 동안 받은 메시지 수를 window 초로 나누어 Hz를 계산합니다.
 
 `latest`는 마지막으로 수신한 실제 메시지 값입니다. `age`는 마지막 메시지를 받은 뒤 지난 시간이고, `stale`은 age가 설정된 3초를 초과한 상태입니다.
 
@@ -207,7 +207,7 @@ Interface는 화면에서 직접 작성하거나 실제 ROS2 패키지 단위로
 
 Apply는 단순히 파일을 저장하는 과정이 아닙니다.
 
-업로드된 ROS2 Interface 패키지를 빌드하고, install 환경을 반영한 뒤, Backend가 실제 Python 타입을 import할 수 있는지 확인합니다.
+업로드된 ROS2 Interface 패키지를 빌드하고 install 환경을 반영한 뒤, Monitor가 실제 Python 타입을 import할 수 있는지 확인합니다.
 
 이 과정을 통과해야 Interface Lab에서 실제 Message 객체, Service Request, Action Goal 객체를 만들 수 있습니다.
 
@@ -220,7 +220,7 @@ YAML 등록은 빌드를 대신하는 것이 아니라 어떤 패키지와 Inter
 
 Topic Lab에서는 같은 Message 타입으로 Publish와 Receive를 시험할 수 있습니다.
 
-Publish를 실행할 때 사용자는 Topic 이름, Message 전체 타입, JSON payload를 입력합니다. Backend는 등록된 Message 타입을 import한 뒤 JSON payload를 해당 ROS2 Message 객체의 필드 구조와 타입에 맞게 변환합니다.
+Publish를 실행할 때 사용자는 Topic 이름, Message 전체 타입, JSON payload를 입력합니다. Monitor는 등록된 Message 타입을 import한 뒤 JSON payload를 해당 ROS2 Message 객체의 필드 구조와 타입에 맞게 변환합니다.
 
 변환이 성공하면 Publisher를 통해 실제 Topic으로 발행하고, payload와 성공 또는 실패 결과를 history에 저장합니다.
 
@@ -237,7 +237,7 @@ Service Call과 Action Goal은 사용자가 명시적으로 실행합니다.
 
 Service는 전체 `.srv` 타입으로 Request와 Response 구조를 확인하고 Service Client를 생성합니다. Action은 전체 `.action` 타입으로 Goal, Feedback, Result 구조를 확인하고 Action Client를 생성합니다.
 
-Frontend는 full type을 기준으로 입력 schema를 만들고, Backend는 사용자가 입력한 JSON을 실제 ROS2 Request 또는 Goal 객체로 변환합니다.
+Frontend는 full type을 기준으로 입력 schema를 만들고, Monitor는 사용자가 입력한 JSON을 실제 ROS2 Request 또는 Goal 객체로 변환합니다.
 
 타입이 다르거나 import할 수 없으면 필드 구조와 직렬화 형식이 맞지 않아 통신할 수 없습니다.
 
@@ -254,24 +254,24 @@ Frontend는 full type을 기준으로 입력 schema를 만들고, Backend는 사
 
 원본 패키지명, `package.xml`의 의존성, `CMakeLists.txt`의 빌드 설정이 함께 필요했고, 다른 Message 타입을 참조한다면 해당 의존 패키지도 필요했습니다.
 
-이를 해결하기 위해 장비별 Interface를 ZIP 또는 폴더 단위로 업로드하고, `colcon build`, install 환경 반영, import 확인을 거쳐 Backend가 실제 타입을 사용하도록 구성했습니다.
+이를 해결하기 위해 장비별 Interface를 ZIP 또는 폴더 단위로 업로드하고, `colcon build`, install 환경 반영, import 확인을 거쳐 Monitor가 실제 타입을 사용하도록 구성했습니다.
 
 결과적으로 Service와 Action 타입을 정확히 인식하고 Feedback과 Result를 해석하며, 새로운 장비 패키지도 확장할 수 있게 됐습니다.
 
 
 ---
 
-## 19페이지. 트러블슈팅 2 — FastAPI와 ROS2 spin 충돌
+## 19페이지. Monitor와 Web Backend 프로세스 분리
 
-두 번째 트러블슈팅은 FastAPI와 `rclpy.spin()`의 실행 충돌 문제입니다.
+현재 제품은 ROS2 Monitor와 Web Backend를 별도 프로세스로 분리합니다.
 
-FastAPI는 REST와 WebSocket 요청을 계속 처리해야 하고, `rclpy.spin()`은 ROS2의 timer와 각종 callback을 계속 처리해야 합니다.
+Monitor 안에서는 localhost FastAPI와 `rclpy.spin()`이 함께 실행되고, Web Backend는 rclpy를 import하지 않은 채 Monitor snapshot을 polling합니다.
 
-두 작업 모두 계속 대기하는 blocking 성격이 있어 같은 실행 흐름에서 순서대로 실행하면 먼저 실행된 작업이 다른 작업을 막을 수 있습니다.
+이 경계로 ROS2 Node 수명주기와 Browser API·MariaDB Alert 수명주기가 분리됩니다.
 
-이를 해결하기 위해 FastAPI는 Main Thread에서 실행하고, `rclpy.spin()`은 별도의 daemon thread로 분리했습니다.
+Monitor FastAPI lifespan은 RosMonitor를 시작하고 rclpy spin은 별도 daemon thread에서 callback을 처리합니다.
 
-FastAPI lifespan에서 RosMonitor를 시작하고, 서버 종료 시 ROS2 Node, Subscription, thread 자원도 함께 정리합니다.
+Monitor 종료 시 ROS2 Node, Subscription, observer와 thread 자원을 함께 정리하고, Backend는 Monitor 연결이 끊겨도 마지막 정상 cache를 유지합니다.
 
 그 결과 웹 요청 처리와 ROS2 메시지 수신, Graph 갱신을 동시에 유지할 수 있었습니다.
 
@@ -324,7 +324,7 @@ FastAPI lifespan에서 RosMonitor를 시작하고, 서버 종료 시 ROS2 Node, 
 6. Visualization은 Graph를 다시 조회하지 않고 기존 REST 데이터를 Frontend에서 nodes와 edges로 변환해 표시합니다.
 7. Interface Apply는 파일 저장이 아니라 패키지 build, install 반영, Python import 확인까지 포함합니다.
 8. `.msg`, `.srv`, `.action`만으로는 부족하며 원본 패키지명, `package.xml`, `CMakeLists.txt`, 의존 패키지가 필요합니다.
-9. FastAPI와 `rclpy.spin()`은 모두 계속 실행되는 작업이므로 thread를 분리해 동시에 동작시켰습니다.
+9. ROS2 Monitor와 Web Backend는 별도 프로세스이며, Monitor 내부에서 rclpy spin thread가 callback을 처리합니다.
 10. 최종 목표는 ROS2 상태 확인을 넘어 장애 원인과 점검 우선순위까지 제안하는 진단 플랫폼입니다.
 
 # 질문을 받았을 때 답변 원칙

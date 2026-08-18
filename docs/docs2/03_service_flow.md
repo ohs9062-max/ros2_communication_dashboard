@@ -1,116 +1,58 @@
 # Service 흐름
 
-## 한 문장으로 보기
-
-Service 목록은 Graph의 Server/Client 관계에서 Dashboard 내부 Node를 제외해 보여주고, 실제 request/response는 Interface Lab에서 사용자가 실행할 때만 별도 `ServiceCallRuntime`이 전송하고 이력으로 저장한다.
-
-## 쉬운 용어
-
-| 용어 | 뜻 |
-|---|---|
-| Service Server | 요청을 받고 응답을 만드는 Node 역할 |
-| Service Client | Server에 요청하고 응답을 기다리는 Node 역할 |
-| callable | Registry 타입과 Graph 타입이 같고 현재 Server가 있어 호출 가능한 상태 |
-| active check | Backend가 자동으로 요청해 확인하는 기능; 현재 timer 경로에서는 실행하지 않음 |
-| Call Activity | 사용자가 실제 요청을 보낸 실행 이력 |
-
-## 목록과 Topology
+## 수집과 목록
 
 ```text
-get_service_names_and_types()
-→ Server/Client endpoint 수
-→ Service Cache
-→ Node 관계를 반대로 집계
-→ Server/Client Node 수 병합
-→ GET /ros/services
+rclpy Service Graph
+→ ServiceRuntime.update()
+→ Service snapshot + Fast DDS server endpoint QoS
+→ Monitor transport
+→ Backend cache
+→ Services 화면
 ```
 
-1. **Service 발견:** Graph에서 현재 존재하는 Service 이름과 전체 타입을 가져온다.
+| 단계 | 현재 코드 위치 | 역할 |
+|---:|---|---|
+| 1 | `ros2_service/runtime.py ServiceRuntime.update()` L93-L157 | Graph Service/type/filter 수집, 상태와 disconnected debounce |
+| 2 | `ros2_service/discovery.py build_service_item()` L17-L57 | Server/Client count와 기본 상태 item |
+| 3 | `service_snapshot.py assemble_service_snapshot()` L16-L112 | 외부 Node 관계, Call 요약, Registry/primary, QoS 병합 |
+| 4 | `service_snapshot.py visible_service_snapshot()` L115-L131 | hidden 정책을 적용한 공개 목록 |
+| 5 | `transport/routers/monitoring.py get_ros_services()` L50-L63 | Monitor Service API |
+| 6 | `frontend/src/hooks/useServiceDashboard.js` L10-L87 | 목록·Alert·Node polling과 상세 선택 |
+| 7 | `frontend/src/pages/ServicesPage.jsx` L10-L130 | 주요/전체, 검색·상태 filter와 목록·상세 |
 
-2. **상태 계산:** 각 Service의 Server·Client endpoint 수로 active, waiting, inactive 상태를 만든다.
+유효한 type에서 Server가 있으면 `active`, Server 없이 Client만 있으면 `waiting_server`, 둘 다 없으면
+`inactive`다. type이 유효하지 않으면 `unknown`이다. Client 없음은 요청 대기형 Service의 정상 상태다.
+Graph Server 존재는 발견 사실이지 실제 Call 성공 증명이 아니다.
 
-3. **Service Cache:** 분류와 상태를 저장하고 이전에 보였지만 사라진 Service는 `disconnected`로 남긴다.
-
-4. **Topology 역집계:** Node Cache에서 Server·Client Node를 찾아 Dashboard 내부 Node를 제외한다.
-
-5. **실행 상태 병합:** Registry exact type, 최근 Call 결과와 Interface Lab Client 상태를 추가한다.
-
-6. **API와 화면:** `/ros/services`가 목록을 반환하고 Frontend가 주요·전체·내부/관리 필터를 적용한다.
-
-| 단계 | 파일·함수 | 함수 전체 L | 핵심 L | 먼저 볼 내용 |
-|---:|---|---:|---:|---|
-| 1 | `service/runtime.py` `update()` | `service/runtime.py` L90-L152 | `service/runtime.py` L96-L112 | Graph에서 Service 이름·타입을 읽고 include/exclude 설정을 적용한다. |
-| 2 | `service/runtime.py` `update()` | `service/runtime.py` L90-L152 | `service/runtime.py` L114-L131 | Server·Client endpoint 수와 category를 계산해 Service 상태 item을 만든다. |
-| 3 | `service/runtime.py` `update()` | `service/runtime.py` L90-L152 | `service/runtime.py` L133-L152 | 현재 사라진 기존 Service를 `disconnected`로 보존하고 Runtime Cache를 교체한다. |
-| 4 | `ros_monitor.py` `service_snapshot()` | `ros_monitor.py` L211-L299 | `ros_monitor.py` L217-L271 | Node 관계를 역집계하고 Dashboard 내부 Node를 제외한 Server/Client Node 수를 추가하며 endpoint 수는 원본 진단값으로 유지한다. |
-| 5 | `ros_monitor.py` `service_snapshot()` | `ros_monitor.py` L211-L299 | `ros_monitor.py` L272-L298 | Registry·최근 Call 결과와 Interface Lab Client 생성 상태를 `dashboard_communication`으로 병합한다. |
-| 6 | `monitoring.py` `get_ros_services()` | `monitoring.py` L43-L57 | `monitoring.py` L48-L56 | `include_hidden` 조건에 맞는 Service snapshot을 `/ros/services` 응답으로 반환한다. |
-| 7 | `rosApi.js` → `useServiceDashboard.js` | `rosApi.js` L61-L64, `useServiceDashboard.js` L7-L78 | `useServiceDashboard.js` L11-L20, L36-L42 | 내부 포함 여부를 query에 넣어 polling하고 상세 참여 Node에서는 `is_internal=true`인 Node를 제외한다. |
-| 8 | `ServicesPage.jsx` `ServicesPage()` | `ServicesPage.jsx` L50-L215 | `ServicesPage.jsx` L68-L110 | 주요·전체·내부/관리 집합을 선택하고 검색·대기/오류 필터를 적용해 최종 목록을 표시한다. |
-
-전체 목록 흐름은 1~8로 보고, 실제 요청·응답은 아래 사용자 Service Call 표에서 별도로 본다.
-
-화면의 `Server/Client Node 수 (Dashboard 제외)`는 해당 역할을 가진 외부 고유 Node 수다. Interface Lab Call을 위해 Dashboard가 만든 Client는 숫자에서 제외하고, `ServiceCallRuntime.dashboard_state_by_service()` L279-L287의 Client cache 상태를 메인 목록 `Dashboard 통신` 열의 `Lab Client` 또는 `미사용` 배지로 표시한다. Endpoint 수는 Dashboard 통신을 포함한 Graph 원본값을 유지한다.
+기본 목록은 상태, 이름, type, Server/Client Node 수, 호출 가능, 마지막 응답, 응답 시간, 마지막 호출을 표시한다.
+raw request/response, endpoint QoS와 DDS 채널은 우측 상세에 둔다.
 
 ## 사용자 Service Call
 
 ```text
-실행 버튼
-→ POST /ros/interfaces/service-call
-→ Router 입력 검사
-→ RosMonitor 위임
-→ 타입/Graph 검증
-→ call_async()
-→ 응답 또는 timeout
-→ history 저장
+POST /ros/interfaces/service-call
+→ transport router
+→ InterfaceLabFacade
+→ ServiceCallRuntime
+→ rclpy Client call_async
+→ response/error + history
 ```
 
-1. **사용자 실행:** Interface Lab에서 Service와 request 값을 선택하고 실행 버튼을 누른다.
+- route: `transport/routers/service_execution.py` L27-L67
+- runtime entry: `interface_lab/execution/service_call_runtime.py call_service()` L83-L129
+- callable 후보: 같은 파일 `callable_services()` L76-L81
+- history/reset: 같은 파일 L131-L154
 
-2. **조건 검사:** 등록·import 가능한 exact 타입이며 같은 이름·타입의 Graph Server가 있는지 확인한다.
+호출은 사용자가 명시할 때만 수행한다. 자동 active check는 기본 비활성화이며
+`RosMonitor._update_graph()` L351-L353에서 호출하지 않는다. 최근 Call 결과는 일반 Monitor Alert에
+`service_call_timeout` 또는 `service_call_failed`로 반영될 수 있다.
 
-3. **Request 변환:** 입력 JSON을 generated Service Request 객체로 변환하고 필드 타입을 검증한다.
+## QoS와 수
 
-4. **Call 전송:** Dashboard Client가 `call_async()`로 요청을 보내고 응답 또는 timeout을 기다린다.
+Service Request/Response QoS는 rclpy Service Graph가 아니라 Fast DDS observer의 원격 server
+Request DataReader와 Response DataWriter를 사용한다. observer 미사용은 `graph_unavailable`이며 장애가 아니다.
 
-5. **결과 저장:** 응답, 성공 여부, 경과 시간과 오류를 history에 저장한다.
-
-| 단계 | 파일·함수 | 함수 전체 L | 실제 핵심 L | 의미 |
-|---:|---|---:|---:|---|
-| 1 | `routers/service_execution.py` `call_registered_service()` | `routers/service_execution.py` L27-L64 | `routers/service_execution.py` L29-L45 | JSON과 name/type/request 입력 검사 |
-| 2 | `routers/service_execution.py` `call_registered_service()` | `routers/service_execution.py` L27-L64 | `routers/service_execution.py` L47-L55 | `ros_monitor.call_service()`에 전달 |
-| 3 | `ros_monitor.py` `call_service()` | `ros_monitor.py` L305-L319 | `ros_monitor.py` L314-L319 | `ServiceCallRuntime`으로 그대로 위임 |
-| 4 | `service_call_runtime.py` `call_service()` | `service_call_runtime.py` L85-L187 | `service_call_runtime.py` L94-L104 | timeout, 등록 타입, Graph Server, monitor Node 검사 |
-| 5 | `service_call_runtime.py` `call_service()` | `service_call_runtime.py` L85-L187 | `service_call_runtime.py` L109-L126 | Service class와 ROS request 생성, Client 준비 |
-| 6 | `service_call_runtime.py` `call_service()` | `service_call_runtime.py` L85-L187 | `service_call_runtime.py` L128-L136 | `call_async()`, timeout 대기, 응답 및 elapsed 계산 |
-| 7 | `service_call_runtime.py` `call_service()` | `service_call_runtime.py` L85-L187 | `service_call_runtime.py` L141-L159 | 성공 응답 item 조립 |
-| 8 | `service_call_runtime.py` `call_service()` | `service_call_runtime.py` L85-L187 | `service_call_runtime.py` L160-L184 | timeout/오류 item 조립 |
-| 9 | `service_call_runtime.py` `call_service()` | `service_call_runtime.py` L85-L187 | `service_call_runtime.py` L186-L187 | 최종 history 저장과 반환 |
-
-## active check와 사용자 Call
-
-1. **Graph 관찰:** Service 생존 상태는 자동 요청이 아니라 Server의 Graph 존재 여부로 확인한다.
-
-2. **자동 Call 비활성화:** 장비 동작이나 상태 변경을 피하기 위해 일반 Service를 주기적으로 호출하지 않는다.
-
-3. **명시적 Call:** 실제 request/response 확인은 사용자가 Interface Lab에서 실행한 경우에만 수행한다.
-
-- `ServiceActiveCheckRuntime` 클래스는 남아 있지만 `ros_monitor.py`의 `RosMonitor._update_graph()` L787-L793에서 호출하지 않는다.
-- 따라서 Graph에 보이는 Service를 Backend가 자동 호출하지 않는다.
-- 실제 요청은 위의 Interface Lab 사용자 Call 경로에서만 발생한다.
-
-## 주요/전체/내부 필터
-
-1. **주요 Service:** 등록 타입, 대기·오류 상태 또는 일반 사용자 Service를 주요 후보로 고른다.
-
-2. **전체 Service:** 기본 숨김 대상이 아닌 Service 전체로 범위를 넓힌다.
-
-3. **내부·관리 포함:** Parameter, Action 내부, ROS 관리 Service까지 다시 요청해 표시한다.
-
-4. **검색·상태 적용:** 선택한 범위에 이름 검색과 대기·오류 조건을 적용한다.
-
-- 주요: 내부·관리 Service가 아니면서 등록 타입, 대기/오류, 또는 숨김 아닌 사용자 Service.
-- 전체: 내부·Parameter·Action 내부·관리 Service를 제외한 목록.
-- 내부/관리 포함: `include_hidden=true`로 다시 요청한 모든 Service.
-
-핵심 판정은 `ServicesPage.jsx`의 `isPrimaryService()` L243-L252, 목록 선택은 `ServicesPage.jsx` L81-L110, 내부·관리 판정은 `ServicesPage.jsx` L300-L321이다.
+`server_count/client_count`는 raw Graph endpoint 수고 기본 목록의 `server_node_count/client_node_count`는
+Dashboard 내부 Node를 제외한 고유 Node 수다. Lab Client 생성 여부는
+`ServiceCallRuntime.dashboard_state_by_service()` L160-L164에 별도로 유지한다.

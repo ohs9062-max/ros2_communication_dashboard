@@ -13,20 +13,17 @@
    - [Alert](06_alert_flow.md)
    - [Interface Lab](07_interface_lab_flow.md)
    - [계산 로직 코드 대조표](08_calculation_reference.md)
-3. 표의 `핵심 L`만 먼저 읽는다.
-4. 이해가 안 되는 경우에만 `함수 전체 L`로 범위를 넓힌다.
+3. 표의 현재 코드 위치와 함수 범위를 먼저 읽는다.
+4. 세부 구현이 필요할 때 연결된 하위 모듈로 범위를 넓힌다.
 
 ## L 표기 읽는 법
 
 ```text
-`service_call_runtime.py` 함수 전체 L85-L187
+`service_call_runtime.py` 함수 전체 L83-L129
 = `service_call_runtime.py`의 `call_service()` 함수 시작부터 끝
-
-`service_call_runtime.py` 핵심 L128-L136
-= `service_call_runtime.py`에서 실제 ROS2 요청 전송, 대기, 응답 변환을 하는 부분
 ```
 
-라인 번호는 2026-07-31 현재 코드 기준이다. 코드가 수정되면 함수 이름을 먼저 검색하고 L 번호를 다시 맞춰야 한다.
+라인 번호는 2026-08-18 현재 코드 기준이다. 코드가 수정되면 함수 이름을 먼저 검색하고 L 번호를 다시 맞춰야 한다.
 
 ## 가장 먼저 알아둘 용어
 
@@ -41,7 +38,7 @@
 | Snapshot | Cache를 특정 시점에 복사해 API 응답용으로 만든 값 |
 | Endpoint | Publisher·Subscriber·Service Server 같은 실제 DDS 통신 끝점 하나 |
 | Node 관계 수 | endpoint 수가 아니라 해당 역할을 가진 고유 Node 수; Topic·Service·Action 기본 화면의 `(Dashboard 제외)` 값은 내부 Dashboard Node를 뺀 수 |
-| Router | HTTP 요청을 받고 실제 담당 Runtime으로 연결하는 입구 |
+| Router | HTTP 요청을 받고 Backend cache 또는 Monitor Runtime으로 연결하는 입구 |
 | Coordinator | `RosMonitor`; 여러 Runtime을 조립하고 결과를 합치는 중간 관리자 |
 | Registry | Interface Lab에 등록된 msg/srv/action 타입 목록 |
 | Activity | 실제 Publish·Receive·Call·Goal 실행 이력; Dashboard 내부 Node를 기본 관계 집계에서 제외해도 Interface Lab에 유지되는 값 |
@@ -74,8 +71,8 @@
 2. **Topic**: Topic 목록, 타입, publisher/subscriber 수를 읽고 필요한 subscription을 생성·제거한다.
 3. **Service**: Service 이름/타입과 server/client 수를 읽는다.
 4. **Action**: Action 이름/타입과 server/client 수를 읽고 status/feedback 관찰 subscription을 맞춘다.
-5. **Alert**: 별도 timer 단계가 아니다. `/ros/alerts` 또는 WebSocket snapshot 요청 시 각 Runtime alert를 모아 lifecycle cache에 반영한다.
-6. **WebSocket**: 연결마다 1초 간격으로 그 시점 cache의 경량 snapshot을 만든다.
+5. **Alert**: Monitor snapshot 조립 시 각 Runtime 후보를 모으고, Backend가 active/resolved 전이를 MariaDB와 동기화한다.
+6. **WebSocket**: Backend가 마지막 정상 Monitor cache의 경량 snapshot을 Browser에 전달한다.
 
 ## Qos
 **Reliability** = 메시지를 반드시 전달할지 정하는 정책 = Interface Lab Auto는 상대 endpoint와 호환되는 값을 선택하고 Manual은 사용자가 RELIABLE 또는 BEST_EFFORT를 지정합니다.
@@ -86,7 +83,7 @@
 
 **Depth** = KEEP_LAST일 때 최근 메시지를 몇 개 보관할지 정하는 값 = Interface Lab Manual에서 지정할 수 있고 Service Auto는 local 기본값을 사용합니다.
 
-**Sensor Data QoS** = 손실보다 최신성이 중요한 센서 통신용 QoS = LaserScan·Imu·JointState·Odometry 자동 감시에 BEST_EFFORT + VOLATILE + KEEP_LAST 5를 적용합니다.
+**Sensor Data QoS** = 손실보다 최신성이 중요한 센서 통신용 QoS = Image·CompressedImage·LaserScan·Imu·JointState·Odometry 자동 감시에 rclpy `qos_profile_sensor_data`를 적용합니다.
 
 **기본 Depth 10 QoS** = 일반 메시지를 안정적으로 전달하기 위한 기본 QoS = 일반/custom Topic과 Action status·feedback 관찰에 RELIABLE + VOLATILE + KEEP_LAST 10을 적용합니다.
 

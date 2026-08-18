@@ -1202,3 +1202,13 @@
   확인했다. 실제 DB는 전용 계정으로 Alert 11건과 schema 정상, `.env` 0600을 확인했고 잘못된 설정 실패 후 정상
   설정 복구도 통과했다. Backend 16 passed·2 skipped와 shell/Python 문법 검사가 통과했다. 현재 운영 계정의 기존
   과권한 축소는 다음 `sudo ./scripts/install.sh` 적용 시 반영된다.
+
+## 2026-08-18 - 전체 Markdown 실제 코드 동기화
+
+- Git 추적 Markdown 40개를 수집하고 요청대로 `start.md`는 내용 조회·수정에서 제외했다. 나머지 39개를 현재
+  source와 대조했으며 `.codex/archive` 3개는 과거 기록 보존 정책에 따라 수정하지 않았다.
+- `docs/docs2`의 구 `backend/` workspace, Backend/rclpy 일체형 구조, 제거된 함수·경로·line range를 현재
+  `ros2_ws` 독립 Monitor, localhost transport, 순수 Web Backend, feature별 Frontend 구조로 교정했다.
+  설치·venv·MariaDB·systemd·Nginx/HTTPS/WSS·ROS Domain/RMW 문구와 README 설정 반영 명령도 현재 script와 맞췄다.
+- 추적 문서 로컬 link, 남은 구 경로/API 표현과 line range를 재검사했다. Backend 16 passed·2 skipped,
+  Monitor 245 passed, Frontend unit script가 통과했고 `git diff --check`를 확인했다. 코드 파일은 수정하지 않았다.
