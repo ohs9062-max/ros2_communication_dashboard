@@ -18,10 +18,14 @@ sudo ./scripts/install.sh
 
 ```bash
 cd ~/rang/ros2_dashboard
+export ROS_DOMAIN_ID=<device-domain-id>
 ./scripts/start.sh
 ./scripts/status.sh
 ./scripts/stop.sh
 ```
+
+`start.sh`는 현재 터미널의 `ROS_DOMAIN_ID`가 제품 설정과 다를 때 해당 값을 반영하고 Monitor를 재시작한다.
+터미널에 값이 없으면 `/etc/ros2-dashboard/dashboard.env`의 기존 값을 유지한다.
 
 ```bash
 sudo systemctl start ros2-dashboard.target

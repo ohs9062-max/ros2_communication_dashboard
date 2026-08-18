@@ -20,6 +20,7 @@ from ros2_dashboard_monitor.ros2_topic.alerts import (
 )
 from ros2_dashboard_monitor.ros2_topic.runtime import TopicRuntime
 from ros2_dashboard_monitor.ros2_topic.preview import build_message_preview
+from ros2_dashboard_monitor.ros2_topic.snapshot import build_topic_snapshot
 from ros2_dashboard_monitor.ros_monitor import RosMonitor
 
 
@@ -332,6 +333,41 @@ def test_required_stream_topic_reports_missing_alert() -> None:
     assert [alert['code'] for alert in alerts] == [
         'topic_message_missing',
     ]
+
+
+def test_monitor_alerts_ignore_undiscovered_configured_topic_names() -> None:
+    monitor = RosMonitor.__new__(RosMonitor)
+    monitor._lock = Lock()
+    monitor._topic_runtime = SimpleNamespace(
+        alert_snapshot=lambda: ([], {}),
+    )
+    monitor._config = MonitorConfig(
+        topics_required_stream_names=('/scan',),
+        topics_command_names=('/cmd_vel',),
+    )
+    monitor._retained_alerts = {}
+    monitor._alert_history = []
+    monitor._dismissed_alert_ids = set()
+    monitor._visible_alert_ids = set()
+    monitor._qos_alert_confirmation_state = {}
+
+    topic_snapshot = build_topic_snapshot(
+        topics=[],
+        subscriptions={},
+        subscription_errors={},
+        last_updated=10.0,
+        required_stream_names=('/scan',),
+        command_names=('/cmd_vel',),
+    )
+    response = monitor.alerts(
+        action_snapshot={'actions': []},
+        node_snapshot={'nodes': []},
+        service_snapshot={'services': []},
+        topic_snapshot=topic_snapshot,
+    )
+
+    assert topic_snapshot['topics'] == []
+    assert response['data'] == []
 
 
 def test_missing_alert_includes_existing_qos_cause_and_related_alert() -> None:

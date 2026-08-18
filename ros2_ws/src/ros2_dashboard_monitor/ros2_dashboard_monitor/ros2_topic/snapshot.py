@@ -47,11 +47,6 @@ def build_topic_snapshot(
 ) -> dict[str, Any]:
     """Graph/cache 상태에 사용자 정책과 공개 상태 필드를 결합합니다."""
     items = [topic.copy() for topic in topics]
-    configured_names = dict.fromkeys((*required_stream_names, *command_names))
-    present_names = {str(topic.get('name') or '') for topic in items}
-    for name in configured_names:
-        if name not in present_names:
-            items.append(_missing_configured_topic(name, last_updated))
 
     for topic in items:
         _decorate_topic(
@@ -70,28 +65,6 @@ def build_topic_snapshot(
         'topics': items,
         'count': len(items),
         'last_updated': last_updated,
-    }
-
-
-def _missing_configured_topic(name: str, last_updated: float) -> dict[str, Any]:
-    return {
-        'name': name,
-        'types': [],
-        'publisher_count': 0,
-        'subscriber_count': 0,
-        'raw_subscriber_count': 0,
-        'monitor_subscriber_count': 0,
-        'external_subscriber_count': 0,
-        'status': 'not_discovered',
-        'reason': 'configured topic is not visible in ROS2 graph',
-        'last_updated': last_updated,
-        'supported_type': False,
-        'registered_interface_type': False,
-        'deep_monitoring': False,
-        'graph_present': False,
-        'ever_discovered': False,
-        'last_seen_at': None,
-        'disconnected_at': None,
     }
 
 

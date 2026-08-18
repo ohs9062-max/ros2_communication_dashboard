@@ -36,8 +36,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
       ? cameraPreview.data.data
       : null
   const effectiveStatus = topicEffectiveStatus(topic)
-  const neverReceived =
-    effectiveStatus === 'never_received' || latestData?.received === false
+  const neverReceived = effectiveStatus === 'never_received'
 
   return (
     <aside className="detail-panel">
@@ -217,9 +216,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
 }
 
 function ReceptionDiagnosis({ diagnosis }) {
-  if (!diagnosis) {
-    return <p className="notice-text warning">There is not enough information to determine the reception issue.</p>
-  }
+  if (!diagnosis) return null
   const confirmed = diagnosis.certainty === 'confirmed'
   const localReliability = diagnosis.local_qos?.reliability
   const remoteReliability = remoteReliabilities(diagnosis.remote_qos)

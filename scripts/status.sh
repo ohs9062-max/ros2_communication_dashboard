@@ -18,6 +18,12 @@ service_state "Backend" ros2-dashboard-backend.service
 service_state "MariaDB" mariadb.service
 service_state "Nginx/Frontend" nginx.service
 
+runtime_env=/etc/ros2-dashboard/dashboard.env
+if [[ -r "$runtime_env" ]]; then
+  runtime_domain="$(sed -n 's/^ROS_DOMAIN_ID=//p' "$runtime_env" | tail -n 1)"
+  printf '%-16s %s\n' "ROS domain" "${runtime_domain:-unset}"
+fi
+
 if curl --silent --fail http://127.0.0.1:8766/snapshot >/dev/null 2>&1; then
   printf '%-16s %s\n' "DDS observer" "active"
 else

@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-13
+마지막 갱신: 2026-08-18
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -68,6 +68,14 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- 제품 `start.sh`가 실행 터미널의 명시적 `ROS_DOMAIN_ID`와 `/etc/ros2-dashboard/dashboard.env`를 비교해
+  불일치 시 안전하게 동기화하고 Monitor만 재시작한다. `status.sh`는 제품 Domain을 함께 표시한다. 실제로
+  systemd Domain 0과 Demo Node Domain 99 불일치를 확인해 제품 설정을 99로 갱신한 뒤 Node 5개, Topic 3개와
+  `/demo_cleaning_schedule` 실데이터 수집 및 Backend 연결을 확인했다.
+- Topic 목록·Overview·Alert는 ROS2 Graph cache에서 수집된 Topic만 사용한다. `required_stream_names`와
+  `command_names`는 실제 발견된 Topic의 역할만 분류하며 설정 이름만으로 `not_discovered` placeholder를 만들지
+  않는다. 임시 Monitor 실제 Graph에서 Topic 5건만 노출되고 미발견 설정 이름 6건과 관련 Alert가 모두 0건임을
+  확인했다. 이전에 실제 발견된 뒤 Graph에서 사라진 Topic의 `disconnected` 보존 정책은 유지한다.
 - `docs/docs2/**`, `start.md`, `.codex/archive/**`와 수정 금지된 L 관련 내용을 제외한 현재 Markdown 문서를
   실제 코드·설정·검증 결과에 맞춰 동기화했다. 기능 설명은 현재 책임 경계와 UI 동작으로 직접 고쳤고,
   제거된 구조나 완료 전 표현은 현재 문서에서 정리했다.
@@ -283,7 +291,7 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 244 passed
+Monitor pytest: 245 passed
 Backend pytest: 15 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed

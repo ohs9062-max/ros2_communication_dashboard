@@ -8,6 +8,10 @@ Alert 대상이 되려면 아래 조건 중 하나를 만족해야 합니다:
 1. `monitor.yaml`의 `topics.required_stream_names`에 등록된 필수 스트림
 2. Interface Lab Registry에 등록되어 `registered_interface_type = true`인 Topic
 
+목록과 Alert의 resource 원천은 실제 ROS2 Graph다. 설정에 이름만 있고 Graph endpoint가 한 번도 발견되지 않은
+Topic은 목록이나 Alert용 placeholder로 만들지 않는다. `required_stream_names`는 발견된 Topic을 필수 스트림으로
+분류하며, 해당 Topic은 Graph에 Subscriber 등으로 남아 있지만 Publisher가 없을 때 `waiting_publisher`가 된다.
+
 `monitor.yaml`의 `topics.command_names`에 포함된 Topic (예: `/cmd_vel`)은 명령 채널로 분류되어 **Alert 대상에서 제외**됩니다.
 command Topic은 메시지를 한 번도 받지 않았더라도 목록 대표 `effective_status`를 `never_received` 오류로 올리지
 않고 Graph 상태인 `waiting_publisher` 또는 현재 연결 상태로 표시합니다. latest/Hz/수신 진단 데이터는 유지합니다.

@@ -1074,3 +1074,79 @@
 - `stop.sh`는 target과 Monitor/Backend unit을 명시적으로 `systemctl stop`한다. Monitor unit의
   `KillMode=control-group`이 parent, 실제 Monitor child와 DDS observer를 함께 종료하며, 09:19 journal에서 child
   PID 2085의 Uvicorn shutdown 완료와 service deactivation 후 8765 해제를 확인했다.
+- 설치형 제품은 프로젝트 루트의 `./scripts/start.sh`와 `./scripts/stop.sh`를 공식 lifecycle로 사용한다.
+  `ros2 run ros2_dashboard_monitor monitor`는 Monitor만 단독 확인하는 개발·진단용이며 제품 service와 동시에
+  실행하지 않는다.
+- 개발 모드는 제품 stack을 먼저 중지한 뒤 `run_dashboard_stack.sh`/`stop_dashboard_stack.sh`를 권장한다.
+  수동 실행 시에는 Monitor만 `ros2 run`, Backend는 `uvicorn`, Frontend는 `npm run dev`로 각각 실행한다.
+
+## 2026-08-18 - start.md 제품 lifecycle 명령 정리
+
+- 기존 수동 개발 실행, 통합 개발 stack, Demo·Gazebo 명령은 유지했다. 하단 새 Ubuntu 환경 명령을 최초 설치,
+  제품 실행, 상태 확인, 접속, 종료, 재실행과 로그 확인으로 구분하고 남아 있던 conflict marker를 제거했다.
+
+## 2026-08-18 - Overview Topic 상태 분포와 빈 Alert DB 대조
+
+- 코드 수정 없이 현재 Backend Topic/Alert API와 Overview 집계 코드를 대조했다. MariaDB Alert row와 API Alert는
+  모두 0건이지만 Overview 상태 분포는 DB가 아니라 실시간 Monitor snapshot의 주요 ROS2 resource를 집계한다.
+- 현재 주요 Topic 9개는 정상 0, `no_subscriber` 주의 3, `not_discovered` 비활성 6으로 정확히
+  `Topic 0 / 3 / 6 / 9`에 대응했다. 오류·비활성 열은 Alert 수가 아니므로 Alert 0건과 모순되지 않는다.
+- systemd Monitor/Backend는 inactive지만 수동 개발 Monitor PID 44223, Backend PID 44257과 DDS observer PID
+  44243이 각각 8765/8000/8766을 제공 중인 상태도 확인했다.
+
+## 2026-08-18 - Overview 상태와 Topic Alert 대상 불일치 확인
+
+- Overview의 주의/오류·비활성 집계와 실제 Topic Alert builder 입력을 추가 대조했다. `no_subscriber` 3개는
+  Subscriber 부재를 장애로 보지 않는 정책에 따라 Alert가 아니며, command `/cmd_vel`, `/cmd_vel_smoothed`도
+  명시적으로 Alert에서 제외된다.
+- 반면 `required_stream_names`의 `/imu`, `/joint_states`, `/odom`, `/scan`은 문서와 builder 조건상 Publisher가
+  없으면 `waiting_publisher` 대상이다. 공개 Topic snapshot은 이들을 `not_discovered` placeholder로 추가하지만,
+  `alert_snapshot()`은 Graph cache `_topics`만 전달해 한 번도 발견되지 않은 placeholder가 Alert 계산에 들어가지
+  않는다. 따라서 현재 Alert 0건에는 필수 스트림 4개의 구현 공백이 포함돼 있다.
+- 코드는 수정하지 않았다. Overview의 빨간 열도 실제 error뿐 아니라 Alert가 아닌 `inactive/not_discovered`를
+  함께 합산하므로 사용자에게 Alert 수처럼 보일 수 있음을 확인했다.
+
+## 2026-08-18 - 미발견 필수 Topic waiting_publisher Alert 연결
+
+- `RosMonitor.alerts()`가 raw Graph cache 대신 이미 생성된 공개 Topic snapshot을 Alert와 QoS 조립에 재사용하도록
+  수정했다. 따라서 snapshot이 추가한 미발견 `required_stream_names` placeholder도 기존 `waiting_publisher`
+  builder 조건을 통과하며 새 Alert code나 별도 판정 로직은 추가하지 않았다.
+- command Topic의 조기 제외와 일반 `no_subscriber` 비Alert 정책을 유지했다. 공개 snapshot 재사용 경로를 고정하는
+  회귀 테스트를 추가했고 관련 20건과 전체 Monitor pytest 245건이 통과했다.
+- 기존 수동 8765 Monitor는 건드리지 않고 최신 코드를 임시 8875에서 실제 Graph로 실행했다. `/imu`,
+  `/joint_states`, `/odom`, `/scan`의 `waiting_publisher` warning 4건만 생성되고 `/cmd_vel`,
+  `/cmd_vel_smoothed`는 제외됨을 확인한 뒤 임시 Monitor를 정상 종료했다.
+
+## 2026-08-18 - Gazebo 미실행 필수 Topic 주의 원인 확인
+
+- live 설정과 API를 대조한 결과 `/imu`, `/joint_states`, `/odom`, `/scan`은 실제 Graph 발견 여부와 무관하게
+  기본 `topics.required_stream_names`에 들어 있다. 따라서 Gazebo가 꺼져도 필수 Publisher 부재로
+  `waiting_publisher` warning 4건이 생성되는 것이 현재 설정 의미와 일치한다.
+- Topic 상세의 `There is not enough information to determine the reception issue.`는 별도 표시 문제다.
+  `effective_status=not_discovered`, `reception_diagnosis=null`이어도 latest API의 `received=false`만으로
+  `ReceptionDiagnosis` fallback을 렌더링해 Graph 미발견 상태를 수신 문제처럼 보이게 한다.
+- 코드와 설정은 수정하지 않았다. 이 네 이름이 Gazebo/demo에서만 필요한 경우 전역 기본 필수 목록에서 제거하고
+  실제 기기별 설정에서만 지정하는 것이 현재 단일 기기 진단 목적에 맞다.
+
+## 2026-08-18 - 실제 Graph 기반 Topic 목록·Alert로 정정
+
+- 직전 구현을 사용자 정책에 맞게 정정했다. `build_topic_snapshot()`이 `required_stream_names`와
+  `command_names`만 보고 미발견 Topic placeholder를 추가하던 경로를 제거해 목록·Overview·Alert가 실제 ROS2
+  Graph cache에서 수집된 Topic만 사용하도록 했다. 설정 이름은 발견된 Topic의 역할과 Alert 대상만 분류한다.
+- Topic 상세는 실제 `never_received` 상태일 때만 수신 원인 안내를 표시한다. Graph 미발견/null 진단에
+  `There is not enough information to determine the reception issue.` fallback을 표시하던 조건을 제거했다.
+- 관련 26건과 전체 Monitor pytest 245건, Frontend unit/lint/build가 통과했다. 최신 코드를 임시 8875 Monitor로
+  실행한 실제 Graph에서 Topic 5건만 반환됐고 `/imu`, `/joint_states`, `/odom`, `/scan`, `/cmd_vel`,
+  `/cmd_vel_smoothed` 미발견 설정 이름은 0건, Alert도 0건임을 확인했다. 기존 수동 8765 Monitor는 변경하지 않았다.
+
+## 2026-08-18 - 제품 start.sh ROS Domain 불일치 복구
+
+- `start.sh` 제품 Monitor가 비어 보인 원인은 Demo Node 터미널은 `ROS_DOMAIN_ID=99`, 설치된
+  `/etc/ros2-dashboard/dashboard.env`는 Domain 0이어서 서로 다른 DDS Graph를 본 것이었다. 변경 전 Monitor는
+  자기 Node 1개와 Topic 0개만, 같은 시점의 터미널은 Demo Node 4개를 확인했다.
+- `start.sh`는 실행 터미널에 유효한 `ROS_DOMAIN_ID`가 명시된 경우 제품 설정과 비교해 다를 때만 동기화하고
+  Monitor를 재시작한다. 값이 없으면 기존 설정을 보존한다. `status.sh`에는 실제 제품 Domain 표시를 추가했고,
+  최초 설치는 `ROS2_DASHBOARD_ROS_DOMAIN_ID`로 Domain을 명시할 수 있게 했다.
+- 실제 제품 설정을 Domain 99로 갱신하고 systemd Monitor/Backend를 재기동했다. 제품 API에서 Demo Node 4개와
+  Monitor Node, Topic 3개, `/demo_cleaning_schedule` payload/Hz를 수집했고 Backend health와 HTTPS, DDS observer,
+  기존 MariaDB schema 및 Alert row 11건이 유지됨을 확인했다. shell syntax와 `git diff --check`가 통과했다.

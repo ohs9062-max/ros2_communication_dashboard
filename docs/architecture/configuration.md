@@ -56,5 +56,9 @@ HTTPS 화면에서는 Frontend가 현재 protocol을 기준으로 `/ws/monitor`�
 기존 ROS domain/RMW 값을 보존하고 프로젝트 경로 key만 현재 checkout에 맞춘다. 설치 중에는 `C.UTF-8`을
 프로세스 환경으로만 사용하며 시스템 locale을 변경하지 않는다.
 
+`scripts/start.sh` 실행 환경에 `ROS_DOMAIN_ID`가 명시돼 있으면 제품 설정과 비교해 다른 경우 해당 값으로
+동기화하고 Monitor를 재시작한다. 값이 없으면 기존 제품 설정을 보존한다. 최초 설치에서 명시적으로 지정할 때는
+`sudo ROS2_DASHBOARD_ROS_DOMAIN_ID=<domain> ./scripts/install.sh` 형식을 사용할 수 있다.
+
 제품·개발 실행 명령은 루트 [`config.md`](../../config.md), HTTPS/WSS는
 [`docs/deployment/https_wss.md`](../deployment/https_wss.md)를 따른다.

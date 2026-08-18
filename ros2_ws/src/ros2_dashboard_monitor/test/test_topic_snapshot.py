@@ -3,7 +3,7 @@
 from ros2_dashboard_monitor.ros2_topic.snapshot import build_topic_snapshot
 
 
-def test_snapshot_adds_missing_configured_topics_without_duplicates() -> None:
+def test_snapshot_only_exposes_graph_topics_and_classifies_configured_roles() -> None:
     snapshot = build_topic_snapshot(
         topics=[{
             'name': '/command',
@@ -19,11 +19,9 @@ def test_snapshot_adds_missing_configured_topics_without_duplicates() -> None:
         command_names=('/command',),
     )
 
-    assert snapshot['count'] == 2
+    assert snapshot['count'] == 1
     items = {item['name']: item for item in snapshot['topics']}
-    assert items['/scan']['status'] == 'not_discovered'
-    assert items['/scan']['monitoring_role'] == 'required_stream'
-    assert items['/scan']['hz_monitoring_status'] == 'topic_not_discovered'
+    assert '/scan' not in items
     assert items['/command']['monitoring_role'] == 'command'
     assert items['/command']['primary_priority'] == 2
 

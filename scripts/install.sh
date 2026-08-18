@@ -191,7 +191,7 @@ runtime_env=/etc/ros2-dashboard/dashboard.env
 if [[ ! -f "$runtime_env" ]]; then
   install -m 0644 /dev/null "$runtime_env"
   cat > "$runtime_env" <<EOF
-ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+ROS_DOMAIN_ID=${ROS2_DASHBOARD_ROS_DOMAIN_ID:-${ROS_DOMAIN_ID:-0}}
 RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
 EOF
 fi

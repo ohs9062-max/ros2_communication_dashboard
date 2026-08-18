@@ -289,8 +289,9 @@ class RosMonitor(InterfaceLabFacade):
             service_snapshot or self.service_snapshot(include_hidden=True)
         )['services']
         actions = (action_snapshot or self.action_snapshot())['actions']
-        topics, subscriptions = self._topic_runtime.alert_snapshot()
-        qos_topics = (topic_snapshot or self.snapshot())['topics']
+        _, subscriptions = self._topic_runtime.alert_snapshot()
+        topics = (topic_snapshot or self.snapshot())['topics']
+        qos_topics = topics
         node_snapshot = node_snapshot or self.node_snapshot()
         nodes = node_snapshot['nodes']
 

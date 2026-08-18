@@ -24,7 +24,7 @@ netplan/NetworkManager 연결 설정은 변경하지 않는다.
 ```bash
 git clone <repository>
 cd ros2_dashboard
-sudo ./scripts/install.sh
+sudo ROS2_DASHBOARD_ROS_DOMAIN_ID=<device-domain-id> ./scripts/install.sh
 ```
 
 root shell에서 직접 실행할 때는 프로젝트를 소유할 일반 사용자를 명시한다.
@@ -42,10 +42,15 @@ runtime 환경 설정과 TLS 인증서는 삭제하거나 초기화하지 않는
 ## 실행, 상태 확인, 종료
 
 ```bash
+export ROS_DOMAIN_ID=<device-domain-id>
 ./scripts/start.sh
 ./scripts/status.sh
 ./scripts/stop.sh
 ```
+
+`start.sh`는 현재 터미널에 `ROS_DOMAIN_ID`가 설정돼 있고 제품 설정과 다를 때
+`/etc/ros2-dashboard/dashboard.env`를 동기화하고 Monitor를 재시작한다. 터미널 값이 없으면 기존 제품 설정을
+그대로 사용한다.
 
 동일한 작업을 systemd로 직접 수행할 수도 있다.
 

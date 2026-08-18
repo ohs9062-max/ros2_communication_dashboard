@@ -297,6 +297,8 @@ waiting       Publisher가 없는 감시 대상
 일반 Topic의 Subscriber 없음은 장애가 아니다. `command_names`는 정상 대기할 수 있어 수신 Alert에서 제외한다.
 수신 Alert는 `required_stream_names` 또는 등록 Interface type인 감시 대상에 한정한다. Publisher가 Graph에 있다는
 사실만으로 실제 데이터 수신이나 QoS 호환을 단정하지 않는다.
+설정에 이름만 있고 Graph에서 한 번도 발견되지 않은 Topic은 placeholder로 목록이나 Alert에 추가하지 않는다.
+`required_stream_names`와 `command_names`는 실제 발견된 Topic의 역할과 Alert 대상 여부를 분류할 때만 사용한다.
 
 ### Service
 
@@ -637,6 +639,8 @@ npm run dev
 `stop.sh`를 사용한다. 제품 모드는 `ros2-dashboard.target` 아래 Monitor와 Backend systemd service 및 Nginx
 production static Frontend를 사용한다. MariaDB와 Nginx는 공용 service로 간주해 `stop.sh`가 중지하지 않는다.
 설치기는 시스템 locale이나 NetworkManager/netplan 설정을 바꾸지 않고 설치 프로세스에만 `C.UTF-8`을 적용한다.
+`start.sh`를 실행한 터미널에 `ROS_DOMAIN_ID`가 명시돼 있으면 `/etc/ros2-dashboard/dashboard.env`와 동기화하고
+값이 바뀐 Monitor만 재시작한다. 터미널 값이 없으면 기존 제품 Domain 설정을 유지한다.
 
 개발 통합 실행은 `./scripts/run_dashboard_stack.sh`, 종료는 `./scripts/stop_dashboard_stack.sh`를 사용한다. Vite는
 5173 strict port를 사용하며 제품 서비스와 동시에 실행하지 않는다. ROS demo는 다음 package launch를 사용한다.
