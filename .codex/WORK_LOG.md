@@ -1150,3 +1150,18 @@
 - 실제 제품 설정을 Domain 99로 갱신하고 systemd Monitor/Backend를 재기동했다. 제품 API에서 Demo Node 4개와
   Monitor Node, Topic 3개, `/demo_cleaning_schedule` payload/Hz를 수집했고 Backend health와 HTTPS, DDS observer,
   기존 MariaDB schema 및 Alert row 11건이 유지됨을 확인했다. shell syntax와 `git diff --check`가 통과했다.
+
+## 2026-08-18 - Fresh clone Backend venv 이식성 수정
+
+- Fresh Ubuntu의 `/home/hs/ros2_dashboard`에서 Backend 설치가 실패한 원인은 `backend/.venv` 539개 파일이 Git에
+  추적돼 기존 `/home/hs/rang/ros2_dashboard` shebang과 `pyvenv.cfg`가 clone에 복원됐기 때문이다. `install.sh`는
+  동적 `PROJECT_DIR`을 이미 사용했지만 실행 가능한 `bin/python`만 보고 이식 불가능한 venv를 재사용했으며
+  절대경로 shebang의 `bin/pip`를 직접 실행했다.
+- `.gitignore`의 기존 `.venv/` 규칙은 유지하고 추적 중이던 venv 파일만 Git index에서 제거했다. ROS build/install/
+  log와 Frontend node_modules/dist도 Git 추적 0건임을 확인했다. 설치기는 checkout 경로, `/etc/machine-id`, Python
+  executable/ABI stamp와 venv prefix·pip shebang을 검증해 불일치 venv만 재생성하며 의존성은
+  `backend/.venv/bin/python -m pip`로 설치한다. 기존 `.env`, DB, Registry, 인증서는 건드리지 않는다.
+- 임시 venv를 다른 경로로 이동해 pip launcher 실패와 `installer_would_reuse=false`를 재현했다. 별도의 빈 임시
+  경로에서 venv 생성, Backend requirements 전체 설치와 FastAPI/httpx/uvicorn/dotenv/yaml/PyMySQL import가
+  성공했다. 현재 Backend pytest 15 passed·2 skipped, Frontend `npm ci`와 production build, install.sh
+  `bash -n`이 통과했다. 별도 Fresh Ubuntu VM에서 7~10단계를 포함한 installer 재실행은 아직 확인 전이다.

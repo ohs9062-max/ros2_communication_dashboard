@@ -76,8 +76,6 @@ cd ~/rang/ros2_dashboard/ros2_ws
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ros2 launch ros2_dashboard_demo_nodes demo_communication.launch.py
-/home/hs/rang/ros2_dashboard/ros2_ws
-면 그 자리에서 rm -rf build install log 하면 돼.
 ros2 run ros2_dashboard_demo_nodes cleaning_schedule
 ros2 run ros2_dashboard_demo_nodes robot_control_service
 ros2 run ros2_dashboard_demo_nodes schedule_crud_service

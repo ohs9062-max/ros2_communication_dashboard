@@ -162,10 +162,39 @@ run_as_user "source /opt/ros/jazzy/setup.bash && rosdep install --from-paths $(p
 run_as_user "cd $(printf '%q' "$PROJECT_DIR/ros2_ws") && source /opt/ros/jazzy/setup.bash && colcon build --symlink-install --packages-skip ros2_dashboard_demo_nodes"
 
 step 6 "Installing Backend and Frontend application dependencies"
-if [[ ! -x "$PROJECT_DIR/backend/.venv/bin/python" ]]; then
-  run_as_user "python3 -m venv $(printf '%q' "$PROJECT_DIR/backend/.venv")"
+VENV_DIR="$PROJECT_DIR/backend/.venv"
+venv_stamp="$VENV_DIR/.ros2-dashboard-venv"
+python_runtime="$(readlink -f "$(command -v python3)"):$(
+  python3 -c 'import sys; print(f"{sys.implementation.name}:{sys.version_info.major}.{sys.version_info.minor}")'
+)"
+venv_identity="$VENV_DIR|$(cat /etc/machine-id)|$python_runtime"
+venv_reusable=false
+
+if [[ -d "$VENV_DIR" && ! -L "$VENV_DIR" \
+    && -x "$VENV_DIR/bin/python" && -f "$VENV_DIR/bin/pip" ]]; then
+  venv_prefix="$("$VENV_DIR/bin/python" -c 'import sys; print(sys.prefix)' 2>/dev/null || true)"
+  pip_shebang="$(head -n 1 "$VENV_DIR/bin/pip" 2>/dev/null || true)"
+  if [[ "$(readlink -f "$venv_prefix" 2>/dev/null || true)" == "$(readlink -f "$VENV_DIR")" \
+      && ( "$pip_shebang" == "#!$VENV_DIR/bin/python" \
+        || "$pip_shebang" == "#!$VENV_DIR/bin/python3" ) \
+      && ( ! -f "$venv_stamp" \
+        || "$(cat "$venv_stamp")" == "$venv_identity" ) ]]; then
+    venv_reusable=true
+  fi
 fi
-run_as_user "$(printf '%q' "$PROJECT_DIR/backend/.venv/bin/pip") install -r $(printf '%q' "$PROJECT_DIR/backend/requirements.txt")"
+
+if [[ ( -e "$VENV_DIR" || -L "$VENV_DIR" ) && "$venv_reusable" != true ]]; then
+  echo "Recreating Backend virtual environment for this checkout."
+  run_as_user "rm -rf -- $(printf '%q' "$VENV_DIR")"
+fi
+if [[ ! -x "$VENV_DIR/bin/python" ]]; then
+  run_as_user "python3 -m venv $(printf '%q' "$VENV_DIR")"
+fi
+if [[ ! -f "$venv_stamp" || "$(cat "$venv_stamp")" != "$venv_identity" ]]; then
+  install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0644 /dev/null "$venv_stamp"
+  printf '%s\n' "$venv_identity" > "$venv_stamp"
+fi
+run_as_user "$(printf '%q' "$VENV_DIR/bin/python") -m pip install -r $(printf '%q' "$PROJECT_DIR/backend/requirements.txt")"
 run_as_user "cd $(printf '%q' "$PROJECT_DIR/frontend") && npm ci && VITE_API_BASE_URL= npm run build"
 install -d -m 0755 /var/lib/ros2-dashboard/frontend
 rsync -a --delete "$PROJECT_DIR/frontend/dist/" /var/lib/ros2-dashboard/frontend/

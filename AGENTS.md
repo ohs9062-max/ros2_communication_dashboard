@@ -126,8 +126,8 @@ ros2_dashboard/
 ROS package를 Web Backend 아래에 두던 구 구조는 사용하지 않는다. ROS package는 모두 `ros2_ws/src` 아래에
 두고 Web Backend는 `backend/app`, Frontend는 `frontend/src`에 둔다.
 
-생성물은 `ros2_ws/build`, `ros2_ws/install`, `ros2_ws/log`, `frontend/node_modules`,
-`frontend/dist`, `.runtime`이다. 소스처럼 직접 수정하거나 Git에 포함하지 않는다.
+생성물은 `ros2_ws/build`, `ros2_ws/install`, `ros2_ws/log`, `backend/.venv`,
+`frontend/node_modules`, `frontend/dist`, `.runtime`이다. 소스처럼 직접 수정하거나 Git에 포함하지 않는다.
 
 ## 4. 프로세스와 책임 경계
 
@@ -639,6 +639,9 @@ npm run dev
 `stop.sh`를 사용한다. 제품 모드는 `ros2-dashboard.target` 아래 Monitor와 Backend systemd service 및 Nginx
 production static Frontend를 사용한다. MariaDB와 Nginx는 공용 service로 간주해 `stop.sh`가 중지하지 않는다.
 설치기는 시스템 locale이나 NetworkManager/netplan 설정을 바꾸지 않고 설치 프로세스에만 `C.UTF-8`을 적용한다.
+Backend venv는 Git이나 다른 checkout에서 가져오지 않는다. 설치기는 checkout 경로·machine id·Python ABI stamp와
+venv prefix/pip launcher 경로를 검증하고 현재 환경과 다르면 `backend/.venv`만 재생성한 뒤
+`backend/.venv/bin/python -m pip`로 의존성을 설치한다.
 `start.sh`를 실행한 터미널에 `ROS_DOMAIN_ID`가 명시돼 있으면 `/etc/ros2-dashboard/dashboard.env`와 동기화하고
 값이 바뀐 Monitor만 재시작한다. 터미널 값이 없으면 기존 제품 Domain 설정을 유지한다.
 

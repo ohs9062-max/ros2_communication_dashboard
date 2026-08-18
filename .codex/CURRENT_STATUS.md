@@ -68,6 +68,11 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- Fresh clone 설치 실패 원인이 Git에 추적된 이식 불가능한 `backend/.venv` 539개 파일과 기존 venv의
+  절대경로 pip shebang 재사용임을 확인했다. venv를 Git index에서 제거했고 설치기는 checkout 경로·machine id·
+  Python ABI stamp와 prefix/pip 경로가 현재 환경과 다르면 venv만 재생성한 뒤 `python -m pip`를 사용한다.
+  이동된 venv 실패 재현·재생성 판정, 빈 임시 venv requirements 설치와 핵심 import, Backend 15 passed·2 skipped,
+  Frontend `npm ci`/build를 확인했다. 별도 Fresh Ubuntu VM의 installer 재실행 확인은 사용자 환경에서 남아 있다.
 - 제품 `start.sh`가 실행 터미널의 명시적 `ROS_DOMAIN_ID`와 `/etc/ros2-dashboard/dashboard.env`를 비교해
   불일치 시 안전하게 동기화하고 Monitor만 재시작한다. `status.sh`는 제품 Domain을 함께 표시한다. 실제로
   systemd Domain 0과 Demo Node Domain 99 불일치를 확인해 제품 설정을 99로 갱신한 뒤 Node 5개, Topic 3개와

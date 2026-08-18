@@ -39,6 +39,10 @@ runtime 환경 설정과 TLS 인증서는 삭제하거나 초기화하지 않는
 `/var/backups/ros2-dashboard/<시각>/`에 백업한다. 제품 unit을 정지한 뒤에도 `8000` 또는 `8765`가 점유돼 있으면
 다른 프로세스를 정상 설치로 오인하지 않고 중단한다.
 
+`backend/.venv`, ROS workspace build/install/log와 Frontend node_modules/dist는 Git에 포함하지 않는 생성물이다.
+설치기는 Backend venv가 현재 checkout·machine·Python과 일치하지 않으면 venv만 새로 만들고
+`backend/.venv/bin/python -m pip`로 의존성을 설치한다.
+
 ## 실행, 상태 확인, 종료
 
 ```bash
