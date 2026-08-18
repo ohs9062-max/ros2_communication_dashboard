@@ -2,8 +2,8 @@
 
 ## 개요
 
-Topic Alert는 **자동 감시 대상 Topic**의 메시지 수신 상태를 기반으로 생성됩니다.
-Alert 대상이 되려면 아래 조건 중 하나를 만족해야 합니다:
+Topic Alert는 실제 ROS2 Graph에서 발견된 Topic 중 지속적인 수신이 필요한 항목의 상태를 알립니다.
+판정 대상으로 분류되는 코드 조건은 아래와 같습니다.
 
 1. `monitor.yaml`의 `topics.required_stream_names`에 등록된 필수 스트림
 2. Interface Lab Registry에 등록되어 `registered_interface_type = true`인 Topic
@@ -22,10 +22,13 @@ command Topic은 메시지를 한 번도 받지 않았더라도 목록 대표 `e
 
 ### `topic_qos_incompatible`
 
-주요/등록/감시 Topic에서 이미 계산된 QoS가 `incompatible`로 서로 다른 Graph 갱신 3회(설정 가능)
-연속 확인될 때 생성합니다. 일부 endpoint 조합 불일치는 `warning`, RMW incompatible 이벤트 또는 Dashboard
-적용 QoS가 모든 상대 endpoint와 불가능하면 `error`입니다. `partial`, `unknown`, 미수신 추정은 제외하며
-compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:topic_qos_incompatible`입니다.
+사용자 상태명은 `QoS 불일치`입니다. QoS 조건 일부가 맞지 않아 통신 문제가 생길 가능성이 있으면
+`warning`, QoS 불일치로 실제 통신이 불가능한 것이 확인되면 `error`입니다.
+
+코드상으로는 판정 대상 Topic의 QoS가 `incompatible`로 서로 다른 Graph 갱신 3회(설정 가능) 연속 확인될 때
+생성합니다. 일부 endpoint 조합 불일치와 실제 RMW incompatible 이벤트 또는 Dashboard 적용 QoS가 모든 상대
+endpoint와 불가능한 경우를 구분합니다. `partial`, `unknown`, 미수신 추정은 제외하며 compatible 복귀나 endpoint
+소멸 시 해결됩니다. ID는 `topic:<name>:topic_qos_incompatible`입니다.
 
 ### 1. `waiting_publisher`
 
@@ -34,6 +37,7 @@ compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:to
 | **Alert ID** | `topic:<topic_name>:waiting_publisher` |
 | **Level** | ⚠️ `warning` |
 | **대상 Kind** | Topic |
+| **사용자 상태명** | 발행자 없음 |
 | **발생 조건** | • 감시 대상 Topic이면서<br>• `publisher_count == 0` (Graph에 Publisher가 없음) |
 | **판정 데이터** | `topic.publisher_count`, `topic.name` |
 | **사용자 메시지** | `Subscriber exists but no publisher is available.` |
@@ -50,6 +54,7 @@ compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:to
 | **Alert ID** | `topic:<topic_name>:topic_message_missing` |
 | **Level** | ⚠️ `warning` |
 | **대상 Kind** | Topic |
+| **사용자 상태명** | 메시지 미수신 |
 | **발생 조건** | • Publisher가 존재 (`publisher_count > 0`)<br>• Dashboard 감시 Subscription이 생성되었음<br>• **한 번도 메시지를 수신한 적 없음** (`last_received_at == None`)<br>• Subscription 생성 후 `stale_timeout_sec` 이상 경과<br>&nbsp;&nbsp;(`detected_at - first_observed_at > stale_timeout_sec`) |
 | **판정 데이터** | `subscription.last_received_at`, `subscription.created_at`, `config.stale_timeout_sec` |
 | **사용자 메시지** | `Topic publisher exists but no message has been received.` |
@@ -79,6 +84,7 @@ incompatible는 원인 후보로 구분합니다. QoS compatible이면 실제 Pu
 | **Alert ID** | `topic:<topic_name>:topic_stale` |
 | **Level** | ⚠️ `warning` |
 | **대상 Kind** | Topic |
+| **사용자 상태명** | 메시지 수신 지연 |
 | **발생 조건** | • Publisher가 존재 (`publisher_count > 0`)<br>• Dashboard 감시 Subscription이 생성되었음<br>• 이전에 메시지를 수신한 적 있음 (`last_received_at != None`)<br>• 마지막 수신 이후 `stale_timeout_sec` 초과<br>&nbsp;&nbsp;(`detected_at - last_received_at > stale_timeout_sec`) |
 | **판정 데이터** | `subscription.last_received_at`, `config.stale_timeout_sec`, 현재 시각 |
 | **사용자 메시지** | `Topic message has not been received within stale timeout.` |
@@ -100,6 +106,7 @@ incompatible는 원인 후보로 구분합니다. QoS compatible이면 실제 Pu
 | **Alert ID** | `topic:<topic_name>:topic_disconnected` |
 | **Level** | 🔴 `error` |
 | **대상 Kind** | Topic |
+| **사용자 상태명** | Topic 연결 끊김 |
 | **발생 조건** | • 감시 대상 Topic이면서<br>• `topic.status == 'disconnected'`<br>&nbsp;&nbsp;(이전에 Graph에 존재했으나 현재 사라진 상태) |
 | **판정 데이터** | `topic.status`, `topic.last_seen_at` |
 | **사용자 메시지** | `Topic connection lost; it is no longer visible in the ROS2 graph.` |

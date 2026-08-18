@@ -4,7 +4,10 @@
 
 ## `service_qos_incompatible`
 
-숨김이 아닌 주요 Service의 이미 계산된 QoS가 `incompatible`로 설정 횟수 연속 확인될 때 생성합니다.
+사용자 상태명은 `QoS 불일치`입니다. QoS 조건 일부가 맞지 않아 통신 문제가 생길 가능성이 있으면
+`warning`, QoS 불일치로 실제 통신이 불가능한 것이 확인되면 `error`입니다.
+
+코드상으로는 판정 대상 Service의 QoS가 `incompatible`로 설정 횟수 연속 확인될 때 생성합니다.
 ID는 `service:<name>:service_qos_incompatible`이며 partial/unknown/graph_unavailable, observer 미사용,
 fallback 자체와 Call timeout만으로는 생성하지 않습니다. compatible 복귀 또는 endpoint 소멸 시 해결됩니다.
 
@@ -16,31 +19,34 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 
 | 항목 | 내용 |
 |---|---|
+| 사용자 상태명 | Service 연결 끊김 |
 | level | `error` |
 | alert_key 형식 | `service:<service_name>:service_disconnected` |
 | 발생 조건 | 사용자 범주의 주요 등록 Service가 이전에 발견됐지만 현재 Graph에서 사라짐 |
 | 정상화 조건 | 같은 Service가 Graph에 다시 나타남 |
-| 메시지 의미 | 등록 Service 연결 종료 감지 |
+| 메시지 의미 | 이전에 연결된 Service를 더 이상 확인할 수 없음 |
 
 ## `service_call_timeout`
 
 | 항목 | 내용 |
 |---|---|
+| 사용자 상태명 | Service 응답 지연 |
 | level | `warning` |
 | alert_key 형식 | `service:<service_name>:service_call_timeout` |
 | 발생 조건 | Interface Lab에서 사용자가 명시한 Call이 서버로 전송됐고 최근 호출 상태가 `timeout`임 |
 | 정상화 조건 | 같은 Service의 새 호출이 성공하거나 최근 호출 상태가 변경됨 |
-| 메시지 의미 | 최근 사용자 Service Call 응답 제한 시간 초과 |
+| 메시지 의미 | Service 응답이 제한 시간 안에 오지 않음 |
 
 ## `service_call_failed`
 
 | 항목 | 내용 |
 |---|---|
+| 사용자 상태명 | Service 호출 실패 |
 | level | `error` |
 | alert_key 형식 | `service:<service_name>:service_call_failed` |
 | 발생 조건 | 서버로 전송된 최근 사용자 Call 상태가 `failed`, `response_failed`, `service_call_error` 중 하나임 |
 | 정상화 조건 | 같은 Service의 새 호출이 성공함 |
-| 메시지 의미 | 최근 사용자 Service Call 실패 원인 |
+| 메시지 의미 | Service 요청을 보냈지만 호출 또는 응답 처리에 실패함 |
 
 ## Alert에서 제외되는 상태
 

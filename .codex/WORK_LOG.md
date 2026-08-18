@@ -1212,3 +1212,11 @@
   설치·venv·MariaDB·systemd·Nginx/HTTPS/WSS·ROS Domain/RMW 문구와 README 설정 반영 명령도 현재 script와 맞췄다.
 - 추적 문서 로컬 link, 남은 구 경로/API 표현과 line range를 재검사했다. Backend 16 passed·2 skipped,
   Monitor 245 passed, Frontend unit script가 통과했고 `git diff --check`를 확인했다. 코드 파일은 수정하지 않았다.
+
+## 2026-08-18 - Alert 전체 목록 사용자 표현 정리
+
+- `docs/alert_policy/00_total_alert.md`의 21개 실제 code와 level을 source별 Alert builder에 다시 대조했다.
+- warning은 지연·일부 조건 불일치, error는 연결·실행·통신 실패 확인으로 짧게 구분하고 Topic/Service/Action/
+  Node 항목을 사용자 현상명으로 교체했다. source별 01~04 정책 문서에도 같은 사용자 상태명을 추가하고 기술적
+  판정 조건은 별도 설명으로 유지했다. 내부 code, level, alert_key와 판정 로직은 변경하지 않았다.
+- warning/error가 모두 가능한 QoS 3종과 단일 level Alert 목록, Alert가 아닌 정상·확인 불가 상태를 분리했다.

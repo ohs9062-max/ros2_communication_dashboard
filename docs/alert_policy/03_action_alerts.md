@@ -18,7 +18,11 @@ fallback으로 사용합니다.
 
 ### `action_qos_incompatible`
 
-주요 Action의 Goal Service, Result Service, Cancel Service, Feedback Topic, Status Topic을 각각 판정합니다.
+사용자 상태명은 `QoS 불일치`이며 Goal, Result, Cancel, Feedback, Status 중 문제가 있는 통신을 함께 표시합니다.
+QoS 조건 일부가 맞지 않아 통신 문제가 생길 가능성이 있으면 `warning`, QoS 불일치로 실제 통신이 불가능한
+것이 확인되면 `error`입니다.
+
+코드상으로는 Goal Service, Result Service, Cancel Service, Feedback Topic, Status Topic을 각각 판정합니다.
 확정 incompatible 채널만 설정 횟수 연속 확인 후 생성하고 ID는
 `action:<name>:action_qos_incompatible:<goal|result|cancel|feedback|status>`입니다. 여러 채널이 문제면
 동시에 별도 Alert로 표시·해결되며 partial/unknown/graph_unavailable은 Alert가 아닙니다.
@@ -34,6 +38,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **Alert ID** | `action:<action_name>:action_disconnected` |
 | **Level** | 🔴 `error` |
 | **대상 Kind** | Action |
+| **사용자 상태명** | Action 연결 끊김 |
 | **발생 조건** | • `action.status == 'disconnected'` (이전에 Graph에 존재했다가 사라짐)<br>• `action.allowlisted == true` (Interface Registry에 등록됨) |
 | **판정 데이터** | `action.status`, `action.allowlisted`, `action.last_seen_at` |
 | **사용자 메시지** | `Action connection lost; it is no longer visible in the ROS2 graph.` |
@@ -49,6 +54,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **Alert ID** | `action:<action_name>:action_goal_aborted` |
 | **Level** | 🔴 `error` |
 | **대상 Kind** | Action |
+| **사용자 상태명** | Action 실행 중단 |
 | **발생 조건** | • 최근 Goal 상태가 `aborted` (ROS2 Goal Status 코드 `6`)<br>&nbsp;&nbsp;(`last_goal_status == 'aborted'`) |
 | **판정 데이터** | `last_goal_summary.last_goal_status` 또는 `action.runtime.last_goal_status` |
 | **사용자 메시지** | `Action goal aborted.` |
@@ -68,6 +74,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **Alert ID** | `action:<action_name>:action_goal_canceled` |
 | **Level** | ⚠️ `warning` |
 | **대상 Kind** | Action |
+| **사용자 상태명** | Action 취소 |
 | **발생 조건** | • 최근 Goal 상태가 `canceled` (ROS2 Goal Status 코드 `5`)<br>&nbsp;&nbsp;(`last_goal_status == 'canceled'`) |
 | **판정 데이터** | `last_goal_summary.last_goal_status` 또는 `action.runtime.last_goal_status` |
 | **사용자 메시지** | `Action goal canceled.` |
@@ -83,6 +90,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **Alert ID** | `action:<action_name>:action_goal_rejected` |
 | **Level** | ⚠️ `warning` |
 | **대상 Kind** | Action |
+| **사용자 상태명** | Action 요청 거부 |
 | **발생 조건** | • 최근 Goal 상태가 `goal_rejected`<br>&nbsp;&nbsp;(Action Server가 Goal Accept를 거부) |
 | **판정 데이터** | `last_goal_status == 'goal_rejected'` |
 | **사용자 메시지** | `Action goal was rejected.` |
@@ -98,6 +106,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **Alert ID** | `action:<action_name>:action_goal_send_failed` |
 | **Level** | 🔴 `error` |
 | **대상 Kind** | Action |
+| **사용자 상태명** | Action 요청 실패 |
 | **발생 조건** | • 최근 Goal 상태가 다음 중 하나:<br>&nbsp;&nbsp;- `goal_send_failed`: Goal 전송 자체가 실패<br>&nbsp;&nbsp;- `goal_accept_timeout`: Goal Accept 응답 대기 시간 초과 |
 | **판정 데이터** | `last_goal_status ∈ {'goal_send_failed', 'goal_accept_timeout'}` |
 | **사용자 메시지** | • `goal_accept_timeout`: `Action goal acceptance timed out.`<br>• `goal_send_failed`: `Action goal transmission failed.` |
@@ -113,6 +122,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **Alert ID** | `action:<action_name>:action_result_timeout` |
 | **Level** | ⚠️ `warning` |
 | **대상 Kind** | Action |
+| **사용자 상태명** | Action 결과 지연 |
 | **발생 조건** | • Goal이 수락(accepted)된 후<br>• Result 응답 대기 시간 초과 (`last_goal_status == 'result_timeout'`) |
 | **판정 데이터** | `last_goal_status == 'result_timeout'` |
 | **사용자 메시지** | `Action result timed out.` |
@@ -129,6 +139,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **Alert ID** | `action:<action_name>:action_result_unavailable` |
 | **Level** | 🔴 `error` |
 | **대상 Kind** | Action |
+| **사용자 상태명** | Action 결과 수신 실패 |
 | **발생 조건** | 다음 중 하나:<br>• 사용자 Goal의 Result 수신 중 예외 발생 (`last_goal_status == 'result_receive_failed'`)<br>• 자동 감시에서 Result lookup 실패 (`runtime.result_error` 존재, `last_goal_summary` 없음) |
 | **판정 데이터** | `last_goal_status == 'result_receive_failed'` 또는 `runtime.result_error` |
 | **사용자 메시지** | `Action result reception failed.` 또는 `Action result lookup failed.` |
