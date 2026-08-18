@@ -46,7 +46,7 @@
 
 | code | level | 발생 조건 요약 |
 |---|---|---|
-| `node_stale` | error | Backend 실행 이후 발견됐던 Node가 현재 Graph에서 사라짐 |
+| `node_stale` | error | Monitor runtime에서 이전에 발견됐던 주요 Node가 Graph missing timeout 이후에도 보이지 않음 |
 
 ## 목록에서 제외한 상태
 

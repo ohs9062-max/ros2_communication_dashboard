@@ -22,7 +22,7 @@ export DASHBOARD_HTTPS_PORT="${DASHBOARD_HTTPS_PORT:-443}"
 export DASHBOARD_SERVER_NAME="${DASHBOARD_SERVER_NAME:-localhost $LOCAL_IP}"
 export DASHBOARD_TLS_CERTIFICATE="${DASHBOARD_TLS_CERTIFICATE:-/etc/nginx/ssl/ros2-dashboard.crt}"
 export DASHBOARD_TLS_PRIVATE_KEY="${DASHBOARD_TLS_PRIVATE_KEY:-/etc/nginx/ssl/ros2-dashboard.key}"
-export DASHBOARD_FRONTEND_UPSTREAM="${DASHBOARD_FRONTEND_UPSTREAM:-http://127.0.0.1:5173}"
+export DASHBOARD_FRONTEND_ROOT="${DASHBOARD_FRONTEND_ROOT:-/var/lib/ros2-dashboard/frontend}"
 export DASHBOARD_BACKEND_UPSTREAM="${DASHBOARD_BACKEND_UPSTREAM:-http://127.0.0.1:8000}"
 
 [[ -n "$LOCAL_IP" ]] || {
@@ -46,9 +46,9 @@ trap 'rm -f -- "$rendered"' EXIT
 install -m 0644 "$rendered" /etc/nginx/conf.d/ros2-dashboard.conf
 
 nginx -t
+systemctl enable --now nginx >/dev/null
 systemctl reload nginx
-systemctl enable nginx >/dev/null
 
 echo "[ros2_dashboard] local HTTPS: https://localhost:$DASHBOARD_HTTPS_PORT/"
 echo "[ros2_dashboard] LAN HTTPS:   https://$LOCAL_IP:$DASHBOARD_HTTPS_PORT/"
-echo "[ros2_dashboard] frontend:    $DASHBOARD_FRONTEND_UPSTREAM (Vite must be running)"
+echo "[ros2_dashboard] frontend:    $DASHBOARD_FRONTEND_ROOT (Nginx static files)"

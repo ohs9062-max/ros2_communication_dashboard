@@ -978,3 +978,99 @@
 - 최종 Monitor pytest 244건, Backend 15 passed·2 skipped, ROS workspace 262 tests·0 failures·1 skipped,
   Frontend 전체 unit test·oxlint·production build와 `git diff --check`를 통과했다. 최종 스택은 Monitor 361363,
   Backend 361435, Frontend 361468 기준으로 실행 상태를 유지했다.
+
+## 2026-08-13 - Ubuntu 설치형 제품 경로 구현 및 비파괴 검수
+
+- `scripts/install.sh`에 Ubuntu 24.04/amd64·arm64 확인, 공식 ROS2 Jazzy apt source, rosdep/colcon,
+  Node.js 지원 버전, Backend venv, Frontend production build, MariaDB, Nginx/TLS와 systemd 설치를 구성했다.
+  제품 build는 demo node dependency를 제외하고 실제 build·runtime 작업은 sudo 호출 사용자의 권한으로 수행한다.
+- `backend/schema/001_alert.sql`과 DB init/status 검사를 추가했다. 최초 DB/user/table 생성과 최소 CRUD 권한,
+  exact 9-column/`id` primary key를 검증하며 재실행 시 Alert row를 삭제하지 않는다. 기존 `.env`, Registry,
+  runtime의 사용자 ROS 설정과 인증서를 보존한다.
+- Monitor와 Backend만 `ros2-dashboard.target`의 PartOf service로 두고 observer는 기존 Monitor 자식으로 유지했다.
+  MariaDB/Nginx는 공용 service라 `stop.sh`가 중지하지 않는다. Nginx는 Vite 대신
+  `/var/lib/ros2-dashboard/frontend` production build를 제공하고 REST/WSS/user-preferences만 Backend로 proxy한다.
+- systemd unit 정적 검증, shell/Python 문법, 실제 MariaDB read-only schema 검사, Frontend unit/oxlint/build,
+  Backend 15 passed·2 skipped, Monitor 244 passed, workspace 262 tests·0 failures·1 skipped와 `git diff --check`를
+  통과했다. 이후 현재 Ubuntu 24.04 host에 installer 최초 실행과 재실행을 실제 적용해 idempotency를 확인했다.
+- 설치 전후 Alert history 116건, `.env`, 사용자 설정, Interface Registry/Package/Apply 상태와 TLS 인증서 해시가
+  동일했다. 기존 systemd/Nginx 설정은 `/var/backups/ros2-dashboard`에 두 실행 모두 백업됐고 프로젝트 영속 파일은
+  계속 `hs:hs` 소유다. production HTTPS는 200, WSS는 101 Upgrade를 반환했다.
+- 첫 적용에서 기존 개발 스택이 8000/8765를 점유해 product unit이 실패했지만 기존 프로세스 health를 성공으로
+  오인하는 결함을 발견했다. product unit을 먼저 정지한 뒤 충돌 포트를 거부하고 systemd active까지 검사하도록
+  수정했으며, 개발 스택 정상 종료 후 Monitor/Backend/observer가 product systemd PID로 실행되는 것을 확인했다.
+- pip 자체 upgrade가 Git 추적 venv를 변경하는 문제를 제거하고 pip 26.1.2를 완전 복구했다. `stop.sh`도 target만
+  정지할 때 Monitor가 남는 실제 전이를 확인해 Monitor/Backend를 명시 정지하고 inactive를 검증하도록 수정했다.
+  최종 `stop/start` 로그에서 두 서비스가 모두 정지 후 새 PID로 재기동됐고 DB 116건과 WSS가 유지됐다. OS 재부팅
+  후 자동 복구와 별도 Fresh Ubuntu 신규 설치는 아직 수행하지 않았다.
+- 최신 개발 스택에서 Topic Publish, Service Call, Action Goal, Camera PNG Preview, Alert 발생/resolve를 확인했다.
+  Gazebo `/cmd_vel` TwistStamped 전진·회전은 odom 변화로 확인하고 각 단계와 종료 trap에서 zero velocity를 보냈다.
+  7개 주요 화면을 Chrome 1440×1000으로 검수한 뒤 스택을 clean 재시작해 active Alert 0으로 마감했다.
+- 중복 개발 스택 시작이 기존 PID 파일을 덮고 orphan process를 남길 수 있던 문제를 발견해, 5173/8000/8765/8766
+  점유 시 build·PID 기록 전에 즉시 중단하는 preflight를 추가하고 실제 이중 시작 거부를 확인했다.
+
+## 2026-08-13 - 제품 완료 잔여 항목 대조
+
+- 설치 acceptance 35개 항목을 실제 실행 결과와 다시 대조해 현재 host 기준 31건의 근거를 확인했다. systemd
+  target과 Monitor/Backend, Nginx,
+  MariaDB는 모두 enabled이며 product stack은 active 상태다.
+- 완료 판정을 위해 실제로 남은 검증은 ROS2/Node/MariaDB가 없는 별도 Fresh Ubuntu 최초 설치, OS 재부팅 후 자동
+  복구, Monitor 단독 장애 중 Backend last-snapshot 유지, MariaDB 장애 후 memory fallback/reconnect 네 항목이다.
+  현재 장비 설치·재설치·start/stop/status·DB 보존·HTTPS/WSS와 전체 기능/E2E/자동 테스트는 완료 근거가 있다.
+- 비차단 정리로 `docs/deployment/acceptance_checklist.md`의 체크 상태가 실제 결과를 반영하지 않고 전부 비어 있으며,
+  `ros2_dashboard_interfaces/package.xml`에 `TODO: License declaration`이 남아 있음을 확인했다. 라이선스는 사용자
+  정책 확인 없이 임의 변경하지 않는다.
+
+## 2026-08-13 - Monitor·MariaDB 장애 복구 acceptance
+
+- product Monitor API 프로세스를 SIGSTOP으로 35초 정지해 Backend Monitor timeout을 실제 재현했다. Backend PID는
+  유지됐고 `/health`는 `monitor_connected=false`와 timeout을 표시하면서 기존 Topic snapshot 6건을 계속 반환했다.
+  SIGCONT 후 같은 Backend가 자동으로 `monitor_connected=true`로 복귀했다.
+- 공용 MariaDB service는 중단하지 않고 localhost 13306 TCP proxy와 별도 Backend 8012로 장애를 격리했다. proxy
+  차단 중 임시 Backend는 정상 응답과 memory fallback을 유지했고, 복구 3초 뒤 같은 프로세스가 MariaDB 이력
+  116건을 다시 조회했다. 임시 프로세스 종료 후 product stack과 실제 DB 116건이 정상임을 확인했다.
+- acceptance checklist의 실제 완료 33개 항목을 체크했다. 남은 미검증은 별도 Fresh Ubuntu 최초 설치와 실제 OS
+  재부팅 후 systemd 자동 복구 2건뿐이다. `git diff --check`를 통과했다.
+
+## 2026-08-13 - 재부팅 복구와 locale 회귀 확인
+
+- 실제 호스트를 재부팅해 부팅 6초 후 Monitor/Backend/MariaDB, 10초 후 Nginx와 Dashboard target이 enabled
+  systemd unit으로 자동 복구되는 것을 확인했다. DDS observer, Backend API, HTTPS와 Alert DB 116건도 정상이었다.
+- 설치기가 `update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`를 실행해 기존 한국어 사용자 환경을 전역
+  `LC_ALL`로 덮는 회귀를 확인했다. 설치기에서 전역 locale 생성·변경을 제거하고 설치 프로세스에만
+  `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`을 적용하도록 수정했다.
+- netplan과 NetworkManager 연결 설정은 설치기가 수정하지 않았다. 재부팅 로그에서 NetworkManager가 부팅 약
+  10초 뒤 `CONNECTED_GLOBAL`로 전환됐고, 진단 시 gateway·8.8.8.8·DNS·외부 HTTPS가 모두 정상이었다.
+
+## 2026-08-13 - Fresh Ubuntu 시작 명령 정리
+
+- `start.md`를 새 Ubuntu 환경의 clone·install, start/status, HTTPS 접속, stop/restart와 journal 확인 명령만
+  남긴 짧은 실행 문서로 교체했다. 기존 개발·Demo·Gazebo 수동 실행 절차는 이 제품 시작 문서에서 제거했다.
+
+## 2026-08-13 - 현재 문서 전체 동기화
+
+- `docs/docs2/**`, `start.md`, `.codex/archive/**`와 수정 금지된 L 관련 내용을 제외한 Markdown 문서를 실제
+  코드·설정·검증 결과와 대조했다. 오래된 설치·DB·책임 경계 설명은 덧붙이지 않고 현재 내용으로 직접 교체했다.
+- 제품 installer/systemd/Nginx/MariaDB의 비파괴 정책과 현재 host 재부팅 검증, Monitor cache·DB fallback,
+  Topic/Service/Action 표시 모델, payload 전체 보기, Camera Preview, QoS endpoint 그룹화와 Interface Lab 공통
+  JSON 입력 확대 동작을 관련 문서에 반영했다.
+- 문서 내부 경로와 설정 기본값을 소스에 대조하고 제외 범위 밖 Markdown의 whitespace 검사를 수행했다.
+  기능 코드와 실행 설정은 변경하지 않았다.
+
+## 2026-08-18 - 8월 13일 작업 상태 재확인
+
+- `CURRENT_STATUS.md`와 8월 13일 `WORK_LOG.md`를 대조했다. 13일에는 UI 마감, Interface Lab 안정화 리팩토링,
+  상태 파생 단일화, QoS endpoint 표시, 전체 회귀 검수와 현재 host 제품 설치·재설치·장애 복구·재부팅 검증까지
+  완료했으며 마지막 작업은 제외 범위 밖 Markdown의 현재 기능 동기화였다.
+- 기능 완료를 막는 잔여 항목은 없고, 설치 acceptance에서 별도 Fresh Ubuntu의 완전 신규 설치 검증만 남아 있다.
+
+## 2026-08-18 - Monitor Ctrl+C 이후 8765 점유 원인 조사
+
+- 코드 수정 없이 `stop.sh`, 설치된/source systemd unit, `run_monitor.sh`, ROS2 `ros2 run` 구현, Monitor FastAPI
+  lifespan과 DDS observer child lifecycle, 실제 systemd journal·PID를 대조했다.
+- 재부팅 직후 08:50:35부터 systemd Monitor가 실행 중이었고 `ros2 run` parent PID 1638 아래 실제 Uvicorn Monitor
+  child PID 2085가 8765를 계속 소유했다. 수동 터미널의 Ctrl+C는 이 별도 systemd cgroup에 전달되지 않으므로,
+  당시 남아 있던 listener는 수동 실행의 orphan이 아니라 기존 제품 service였다.
+- `stop.sh`는 target과 Monitor/Backend unit을 명시적으로 `systemctl stop`한다. Monitor unit의
+  `KillMode=control-group`이 parent, 실제 Monitor child와 DDS observer를 함께 종료하며, 09:19 journal에서 child
+  PID 2085의 Uvicorn shutdown 완료와 service deactivation 후 8765 해제를 확인했다.

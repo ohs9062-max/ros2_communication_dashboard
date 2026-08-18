@@ -24,6 +24,7 @@
 - Interface Lab/Camera 요청의 Monitor proxy
 - Alert active/resolved 전이와 MariaDB 저장·조회
 - 사용자 주요 리소스 설정 보존·동기화
+- DB 장애 시 Alert 메모리 fallback과 주기적 재연결
 
 Backend는 `rclpy`를 import하거나 ROS2 Node를 만들지 않는다. Router는 SQL, YAML 처리 또는 ROS2 실행을 직접
 수행하지 않는다.
@@ -48,3 +49,14 @@ ROS2 Graph / Fast DDS discovery
 
 MariaDB는 snapshot transport가 아니며 Alert 이력만 저장한다. 생성물은 `ros2_ws/build`, `install`, `log`,
 `frontend/dist`, `node_modules`, `.runtime`이고 소스처럼 수정하지 않는다.
+
+## 제품 실행 경계
+
+- `scripts/install.sh`: dependency, build, DB schema 검증, systemd, Nginx/TLS 설치
+- `ros2-dashboard-monitor.service`: Monitor와 자식 Fast DDS observer
+- `ros2-dashboard-backend.service`: 순수 FastAPI Backend
+- `ros2-dashboard.target`: Monitor/Backend 수명주기와 공용 MariaDB/Nginx dependency
+- Nginx: `/var/lib/ros2-dashboard/frontend` 정적 제공과 Backend REST/WSS proxy
+
+`stop.sh`는 Dashboard 전용 두 service만 중지하며 MariaDB와 Nginx는 유지한다. 제품 systemd 경로와 Vite 개발
+스택은 같은 포트를 공유하므로 동시에 실행하지 않는다.

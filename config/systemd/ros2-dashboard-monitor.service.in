@@ -1,0 +1,20 @@
+[Unit]
+Description=ROS2 Dashboard Monitor
+After=network.target
+PartOf=ros2-dashboard.target
+
+[Service]
+Type=simple
+User=@DASHBOARD_USER@
+Group=@DASHBOARD_GROUP@
+WorkingDirectory=@PROJECT_DIR@/ros2_ws
+EnvironmentFile=-/etc/ros2-dashboard/dashboard.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@PROJECT_DIR@/scripts/systemd/run_monitor.sh
+Restart=on-failure
+RestartSec=3
+KillMode=control-group
+TimeoutStopSec=20
+
+[Install]
+WantedBy=ros2-dashboard.target

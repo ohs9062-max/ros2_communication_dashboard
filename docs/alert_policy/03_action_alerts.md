@@ -8,6 +8,10 @@ Action Alert는 **Interface Lab에서 사용자가 명시적으로 Goal을 전�
 자동 감시로 관찰된 Goal Status/Feedback/Result 정보와 사용자 실행 이력(`last_goal_summary`)
 양쪽 모두에서 Alert를 판정합니다.
 
+목록과 상세의 Goal 상태, Feedback/Result, 실행 시간과 최근 응답 시각은 공통 Action 표시 모델을 사용합니다.
+Feedback은 callback 시각, Result는 future 완료 시각을 우선하며 해당 시각이 없는 과거 이력만 Goal 전송 시각을
+fallback으로 사용합니다.
+
 ---
 
 ## Alert 코드 목록
@@ -34,7 +38,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **판정 데이터** | `action.status`, `action.allowlisted`, `action.last_seen_at` |
 | **사용자 메시지** | `Action connection lost; it is no longer visible in the ROS2 graph.` |
 | **해제 조건** | Action이 Graph에 다시 나타남 |
-| **소스 코드** | [ros2_action/alerts.py:29-46](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py#L29-L46) |
+| **소스 코드** | [`ros2_action/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py) |
 
 ---
 
@@ -49,7 +53,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **판정 데이터** | `last_goal_summary.last_goal_status` 또는 `action.runtime.last_goal_status` |
 | **사용자 메시지** | `Action goal aborted.` |
 | **해제 조건** | 동일 Action에 대해 새로운 Goal이 성공(`succeeded`) 또는 다른 상태로 변경 |
-| **소스 코드** | [ros2_action/alerts.py:61-72](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py#L61-L72) |
+| **소스 코드** | [`ros2_action/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py) |
 
 > [!NOTE]
 > `aborted`는 Action Server가 Goal 실행 중 **서버 측 판단으로 중단**한 것입니다.
@@ -68,7 +72,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **판정 데이터** | `last_goal_summary.last_goal_status` 또는 `action.runtime.last_goal_status` |
 | **사용자 메시지** | `Action goal canceled.` |
 | **해제 조건** | 동일 Action에 대해 새로운 Goal이 성공 또는 다른 상태로 변경 |
-| **소스 코드** | [ros2_action/alerts.py:73-84](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py#L73-L84) |
+| **소스 코드** | [`ros2_action/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py) |
 
 ---
 
@@ -83,7 +87,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **판정 데이터** | `last_goal_status == 'goal_rejected'` |
 | **사용자 메시지** | `Action goal was rejected.` |
 | **해제 조건** | 동일 Action에 대해 새로운 Goal이 수락(`accepted`) 또는 성공 |
-| **소스 코드** | [ros2_action/alerts.py:85-96](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py#L85-L96) |
+| **소스 코드** | [`ros2_action/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py) |
 
 ---
 
@@ -98,7 +102,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **판정 데이터** | `last_goal_status ∈ {'goal_send_failed', 'goal_accept_timeout'}` |
 | **사용자 메시지** | • `goal_accept_timeout`: `Action goal acceptance timed out.`<br>• `goal_send_failed`: `Action goal transmission failed.` |
 | **해제 조건** | 동일 Action에 대해 새로운 Goal이 정상 전송·수락 |
-| **소스 코드** | [ros2_action/alerts.py:97-112](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py#L97-L112) |
+| **소스 코드** | [`ros2_action/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py) |
 
 ---
 
@@ -114,7 +118,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **사용자 메시지** | `Action result timed out.` |
 | **해제 조건** | 동일 Action에 대해 새로운 Goal의 Result가 정상 수신 |
 | **설정 가능 여부** | Interface Lab Action Goal의 `DEFAULT_TIMEOUT_SEC = 10.0초`, `MAX_TIMEOUT_SEC = 60.0초` |
-| **소스 코드** | [ros2_action/alerts.py:113-124](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py#L113-L124) |
+| **소스 코드** | [`ros2_action/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py) |
 
 ---
 
@@ -129,7 +133,7 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
 | **판정 데이터** | `last_goal_status == 'result_receive_failed'` 또는 `runtime.result_error` |
 | **사용자 메시지** | `Action result reception failed.` 또는 `Action result lookup failed.` |
 | **해제 조건** | 동일 Action에 대해 새로운 Goal의 Result가 정상 수신 |
-| **소스 코드** | [ros2_action/alerts.py:125-149](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py#L125-L149) |
+| **소스 코드** | [`ros2_action/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/alerts.py) |
 
 ---
 

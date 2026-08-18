@@ -1,3 +1,4 @@
+<<<<<<< ours
 ```bash
 cd ~/rang/ros2_dashboard/ros2_ws
 source /opt/ros/jazzy/setup.bash
@@ -195,4 +196,52 @@ SELECT
     resolved_at
 FROM alert
 ORDER BY id DESC;
+```
+
+# 새 Ubuntu 환경 설치
+
+```bash
+git clone <repository-url> ~/rang/ros2_dashboard
+cd ~/rang/ros2_dashboard
+sudo ./scripts/install.sh
+```
+
+# 실행
+
+```bash
+cd ~/rang/ros2_dashboard
+./scripts/start.sh
+```
+
+# 상태 확인
+
+```bash
+cd ~/rang/ros2_dashboard
+./scripts/status.sh
+```
+
+# Dashboard 접속
+
+```bash
+xdg-open https://localhost/
+```
+
+# 종료
+
+```bash
+cd ~/rang/ros2_dashboard
+./scripts/stop.sh
+```
+
+# 재실행
+
+```bash
+cd ~/rang/ros2_dashboard
+./scripts/start.sh
+```
+
+# 로그 확인
+
+```bash
+journalctl -u ros2-dashboard-monitor.service -u ros2-dashboard-backend.service -n 100 --no-pager
 ```

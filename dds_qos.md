@@ -8,6 +8,8 @@ endpoint를 관찰하고, Service와 Action Goal/Result/Cancel은 선택적으�
 - Interface Lab은 사용자가 명시적으로 실행한 Publish, Receive, Call, Goal에 Auto/Manual QoS를 적용한다.
 - `partial`, `unknown`, `observed`, observer 미사용과 fallback 자체는 오류가 아니다.
 - 확정된 `incompatible`만 설정된 연속 확인 횟수를 거쳐 QoS Alert가 된다.
+- 화면은 같은 role/scope와 QoS fingerprint의 실제 endpoint를 `× N`으로 묶지만 GUID/GID가 다른 endpoint 데이터는
+  삭제하지 않는다. identity는 접힌 Endpoint 상세에서 확인한다.
 - Fast DDS observer는 `rmw_fastrtps_cpp` endpoint naming에 종속되며 다른 RMW에서는 Service/Action Service 채널이
   `graph_unavailable`일 수 있다.
 

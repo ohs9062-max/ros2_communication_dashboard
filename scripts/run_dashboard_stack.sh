@@ -12,6 +12,14 @@ ROS_LOG_DIR_VALUE="${ROS_LOG_DIR:-$RUNTIME_DIR/ros_logs}"
 mkdir -p "$RUNTIME_DIR"
 mkdir -p "$ROS_LOG_DIR_VALUE"
 
+for required_port in 5173 8000 8765 8766; do
+  if ss -H -ltn "sport = :$required_port" 2>/dev/null | grep -q .; then
+    echo "[ros2_dashboard] ERROR: localhost port $required_port is already in use." >&2
+    echo "[ros2_dashboard] Stop the existing development or product stack before starting another one." >&2
+    exit 1
+  fi
+done
+
 fail() {
   echo "[ros2_dashboard] ERROR: $*" >&2
   "$SCRIPT_DIR/stop_dashboard_stack.sh" || true

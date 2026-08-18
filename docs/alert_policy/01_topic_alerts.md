@@ -9,6 +9,8 @@ Alert 대상이 되려면 아래 조건 중 하나를 만족해야 합니다:
 2. Interface Lab Registry에 등록되어 `registered_interface_type = true`인 Topic
 
 `monitor.yaml`의 `topics.command_names`에 포함된 Topic (예: `/cmd_vel`)은 명령 채널로 분류되어 **Alert 대상에서 제외**됩니다.
+command Topic은 메시지를 한 번도 받지 않았더라도 목록 대표 `effective_status`를 `never_received` 오류로 올리지
+않고 Graph 상태인 `waiting_publisher` 또는 현재 연결 상태로 표시합니다. latest/Hz/수신 진단 데이터는 유지합니다.
 
 ---
 
@@ -33,7 +35,7 @@ compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:to
 | **사용자 메시지** | `Subscriber exists but no publisher is available.` |
 | **해제 조건** | Publisher가 Graph에 다시 나타남 (`publisher_count > 0`) |
 | **설정 가능 여부** | `required_stream_names` 또는 Interface Registry 등록으로 대상 결정 |
-| **소스 코드** | [ros2_topic/alerts.py:210-223](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py#L210-L223) |
+| **소스 코드** | [`ros2_topic/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py) |
 
 ---
 
@@ -51,7 +53,7 @@ compatible 복귀나 endpoint 소멸 시 해결됩니다. ID는 `topic:<name>:to
 | **해제 조건** | 첫 메시지 수신 (`last_received_at`에 값이 기록됨) |
 | **정상 예외** | Subscription 생성 직후 `stale_timeout_sec` 이내이면 아직 Alert를 생성하지 않음 (유예 구간) |
 | **설정 가능 여부** | `monitor.yaml` → `monitor.stale_timeout_sec` (기본값: `3.0초`) |
-| **소스 코드** | [ros2_topic/alerts.py:228-258](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py#L228-L258) |
+| **소스 코드** | [`ros2_topic/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py) |
 
 > [!IMPORTANT]
 > `missing`과 `stale`의 핵심 차이:
@@ -80,7 +82,7 @@ incompatible는 원인 후보로 구분합니다. QoS compatible이면 실제 Pu
 | **age_sec** | `detected_at - last_received_at` (경과 시간을 함께 기록) |
 | **해제 조건** | 새 메시지 수신 (`age_sec ≤ stale_timeout_sec`) |
 | **설정 가능 여부** | `monitor.yaml` → `monitor.stale_timeout_sec` (기본값: `3.0초`) |
-| **소스 코드** | [ros2_topic/alerts.py:260-278](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py#L260-L278) |
+| **소스 코드** | [`ros2_topic/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py) |
 
 상세 진단에서는 Publisher가 계속 Graph에 있으면 `데이터 중단`, Publisher가 없으면 `Publisher 이탈/중단
 가능성`으로 구분합니다. 기존 required/등록 대상 Alert 조건과 command 예외는 그대로입니다.
@@ -99,7 +101,7 @@ incompatible는 원인 후보로 구분합니다. QoS compatible이면 실제 Pu
 | **사용자 메시지** | `Topic connection lost; it is no longer visible in the ROS2 graph.` |
 | **해제 조건** | Topic이 Graph에 다시 나타남 (`graph_present = true`) |
 | **설정 가능 여부** | 대상 Topic 결정은 `required_stream_names` 또는 Interface Registry |
-| **소스 코드** | [ros2_topic/alerts.py:183-199](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py#L183-L199) |
+| **소스 코드** | [`ros2_topic/alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py) |
 
 ---
 
@@ -118,7 +120,7 @@ incompatible는 원인 후보로 구분합니다. QoS compatible이면 실제 Pu
 | **사용자 메시지** | 메시지의 `message` 필드 값 (없으면 `MonitorStatus reported <level>.`) |
 | **해제 조건** | 해당 Topic에서 더 낮은 level의 메시지 수신 또는 메시지 미수신 |
 | **설정 가능 여부** | `topics.supported_types`에 MonitorStatus 포함 필요 |
-| **소스 코드** | [ros2_topic/alerts.py:282-359](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/alerts.py#L282-L359) |
+| **소스 코드** | [`ros2_topic/monitor_status_alerts.py`](../../ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/monitor_status_alerts.py) |
 
 ---
 

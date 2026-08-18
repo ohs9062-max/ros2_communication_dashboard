@@ -10,8 +10,12 @@
 - ROS2 직접 접근은 `ros2_dashboard_monitor`, 공개 REST/Browser WebSocket과 cache는 순수 FastAPI
   `backend`, 화면은 React `frontend`가 담당하는 분리 구조다.
 - 구조 리팩토링은 완료됐다. 이후 분리는 줄 수가 아니라 실제 복수 책임이나 기능 변경이 생길 때만 진행한다.
-- 로컬/LAN HTTPS/WSS는 Nginx TLS 종료 방식이다. Browser 구간은 HTTPS/WSS이고 Nginx는 localhost의
-  Vite와 FastAPI에 HTTP/WS로 전달하며 인증서/private key는 Git에 포함하지 않는다.
+- 제품 설치 경로는 `scripts/install.sh`와 Monitor/Backend systemd unit, MariaDB schema init, Nginx production
+  static serving으로 구현됐다. 평상시 `start.sh`/`stop.sh`/`status.sh`가 target 수명주기와 API·DB 상태를 확인한다.
+  demo/Gazebo dependency는 기본 제품 rosdep/build에서 제외한다.
+- 로컬/LAN 제품 HTTPS/WSS는 Nginx TLS 종료 방식이다. Nginx가 `/var/lib/ros2-dashboard/frontend`의 production
+  build를 정적으로 제공하고 FastAPI REST/WSS만 localhost로 proxy한다. Vite는 개발 모드에만 사용하며
+  인증서/private key는 Git에 포함하지 않는다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Service와 Action 내부 Service QoS는 Fast DDS passive observer가 제공한다. QoS 확인을 위해 Service Call,
@@ -40,7 +44,7 @@ ROS2 Graph / Fast DDS Discovery
 └─ ros2_dashboard_monitor (rclpy, 127.0.0.1:8765)
    → FastAPI Backend Runtime Cache (127.0.0.1:8000)
 Browser → Nginx HTTPS/WSS (local PC)
-        ├─ `/` → Vite/React (127.0.0.1:5173 HTTP/HMR WS)
+        ├─ `/` → React production static build
         └─ REST·`/ws/monitor` → FastAPI (127.0.0.1:8000 HTTP/WS)
 ```
 
@@ -63,6 +67,26 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- `docs/docs2/**`, `start.md`, `.codex/archive/**`와 수정 금지된 L 관련 내용을 제외한 현재 Markdown 문서를
+  실제 코드·설정·검증 결과에 맞춰 동기화했다. 기능 설명은 현재 책임 경계와 UI 동작으로 직접 고쳤고,
+  제거된 구조나 완료 전 표현은 현재 문서에서 정리했다.
+- Ubuntu 24.04 amd64/arm64용 멱등 설치기를 추가했다. 공식 ROS2 Jazzy apt source, rosdep/colcon, 지원 Node.js,
+  Backend venv, Frontend production build, MariaDB schema, self-signed TLS, Nginx와 systemd를 한 진입점에서 준비한다.
+  DB·Registry·기존 `.env`·runtime 설정·인증서는 재설치 시 보존하며 schema가 다르면 파괴적 migration 없이
+  실패한다. 현재 Ubuntu 24.04 host에 최초 설치와 재설치를 실제 적용해 idempotency를 확인했다.
+- product Monitor/Backend/observer, MariaDB, Nginx static HTTPS와 WSS를 systemd 경로로 실행 중이다. 설치 전후
+  Alert 116건, Registry/Package/Apply 파일, `.env`, 사용자 설정과 TLS 인증서 해시가 동일했고 기존 systemd/Nginx
+  설정 백업 두 건을 확인했다. `start/status/stop/start`에서 Monitor와 Backend가 모두 정지 후 새 PID로 재기동됐다.
+- 실제 적용 중 기존 개발 스택의 8000/8765 응답을 설치 성공으로 오인하는 문제를 발견해 product unit 정지 후
+  포트 소유 충돌을 거부하고 unit active와 health를 함께 검증하도록 설치기를 보강했다. 설치기가 Git 추적 venv의
+  pip 자체를 변경하지 않도록 pip upgrade도 제거했다.
+- 최신 개발 스택에서 Interface Lab Topic Publish, `/RobotControl` Service Call, `/CanControl` Action Goal,
+  Camera raw PNG Preview와 Alert 발생→resolve를 확인했다. Gazebo `/cmd_vel` TwistStamped를 10Hz로 전진·회전한 뒤
+  매 단계 zero velocity를 보냈으며 odom position/orientation 변화와 최종 지속 발행 inactive를 확인했다.
+- Overview/Topics/Services/Actions/Nodes/Alerts/Interface Lab을 실제 Chrome 1440×1000으로 렌더링해 완료를 막는
+  overflow나 헤더 겹침이 없음을 확인했다. E2E entity 정리를 위해 전체 스택을 다시 재시작했고 active Alert 0,
+  `/cmd_vel` command `waiting_publisher`, Backend-Monitor 연결 정상으로 마감했다.
 
 - 최종 통합 검수에서 command Topic `/cmd_vel`이 수신 stream처럼 `never_received` 오류로 승격되는 표시 공백을
   수정했다. `monitoring_role=command`는 Graph의 `waiting_publisher`를 대표 상태로 유지하고, latest·Hz·수신 진단은
@@ -259,7 +283,7 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 243 passed
+Monitor pytest: 244 passed
 Backend pytest: 15 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
@@ -289,6 +313,8 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 ## 현재 문제와 제한
 
 - 작업 트리가 dirty 상태다. 기존 변경을 reset하거나 덮어쓰지 말고 작업별 diff를 구분해야 한다.
+- 현재 host의 제품 설치, 재설치, lifecycle, production HTTPS/WSS와 실제 OS 재부팅 후 systemd 자동 복구를
+  검증했다. 아무 구성도 없는 별도 Fresh Ubuntu 장비의 최초 설치만 acceptance 미검증 항목으로 남아 있다.
 - Topic 수신 원인 진단에서 실제 RMW incompatible event와 Subscription 생성 실패만 확정 원인이다. Graph QoS
   비교, Publisher 존재 여부와 compatible 상태 기반 안내는 기존 관찰값을 조합한 원인 후보이며 실제 장비의
   발행 callback/transport 오류를 직접 증명하지 않는다.
@@ -298,8 +324,9 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
   Lifespan은 관찰 가능한 원격 Response Writer 값을 단일 Client profile에 전달하며 Request Reader 요구값으로
   해석하지 않는다.
 - fallback으로 만든 Topic entity는 이후 Graph QoS 변화에 따라 자동 재생성되지 않는다.
-- 다른 배포 환경에서는 각 환경의 MariaDB 접속 정보와 확정 `alert` 테이블을 별도로 준비해야 한다. Backend는
-  테이블을 자동 생성하거나 변경하지 않으며, DB 연결 실패 중 생성된 메모리 fallback 이력은 재시작 시 사라질 수 있다.
+- 제품 설치기는 `backend/.env`의 MariaDB credential을 최초 준비하고 확정 `alert` schema를 멱등 적용한다.
+  Backend runtime 자체는 테이블을 변경하지 않으며, DB 연결 실패 중 생성된 메모리 fallback 이력은 재시작 시
+  사라질 수 있다.
 - `nextstep.md`의 핵심 범위는 현재 요구 기준으로 완료했다. 원문에 있던 TurtleBot 전용 preset,
   Alert ACK/발생 횟수와 같은 후속 후보는 현재 진단 목적에 불필요한 추가 범위로 분류한다.
 - 현재 검증 범위는 단일 기기의 Gazebo/demo와 연결된 ROS2 Graph다. 이 범위의 Browser에서는 Overview, Topic,
@@ -312,11 +339,11 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 - Action QoS UI는 기본 상태에서 Service(Goal/Result/Cancel)와 Topic(Feedback/Status) 두 요약만 표시하고,
   그룹과 개별 채널을 단계적으로 펼치는 구조다. 상태 badge와 세부 QoS 값은 정상/발견/일부/불일치/확인 불가
   색상을 사용하며 항목명 typography를 통일했다.
-- 실제 시스템 Nginx는 저장소 템플릿과 일치하며 `/`를 Vite 5173으로,
-  `/health`·`/ros`·`/ws/monitor`를 FastAPI 8000으로 proxy한다. HTTPS Vite 자산,
-  Backend WSS `monitor_snapshot`, Vite HMR WSS upgrade를 2026-08-12에 재검증했다.
+- 제품 Nginx template은 `/`와 `/assets`를 production static Frontend에서 제공하고
+  `/health`·`/ros`·`/user-preferences`·`/ws/monitor`만 FastAPI 8000으로 proxy한다. 개발용 Vite/HMR은
+  별도의 개발 스택 경로에 남아 있다.
 - 현재 self-signed Nginx 구성의 지원 범위는 localhost와 같은 LAN의 로컬 IP 접속이다. 인터넷 공개용 인증,
-  방화벽/라우터 포트 개방, 접근 제어와 운영 정적 배포 구성은 포함하지 않는다.
+  방화벽/라우터 포트 개방과 접근 제어는 포함하지 않는다.
 - demo outcome server 종료 시 중복 shutdown traceback이 발생할 수 있다.
 - 동일 PC의 격리 Graph 벤치마크에서 Monitor CPU는 최소 2 Nodes/7 Topics/14 Services에서 평균 4.83%,
   중간 14/19/114/4 Actions에서 6.57%, Gazebo/Nav2 25/120/313/17에서 78.43%였다. 큰 Graph의 80%대는
@@ -327,8 +354,10 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 
 ## 다음 우선 작업
 
-현재 단일 기기 진단 목적의 필수 수정과 최종 통합 검수는 완료됐다. 이후에는 실제 장비별 ROS2 Graph와
-카메라 driver에서 배포 환경 검증이 필요할 때만 추가한다.
+기능 구현, 개발 스택 통합 검수와 현재 Ubuntu 24.04 host의 최초 설치·재설치·lifecycle·HTTPS/WSS 검증은
+완료됐다. Monitor 장애 시 Backend last-snapshot 유지와 격리 MariaDB 장애 후 memory fallback/reconnect도 실제
+프로세스로 확인했다. 실제 OS 재부팅 후 Monitor, Backend, MariaDB, Nginx와 target 자동 복구도 확인했다.
+설치 acceptance에서 남은 단계는 별도 Fresh Ubuntu 장비의 완전 신규 설치 확인이다.
 
 Alert 행 focus helper, shared DetailLine, `QosDetails` 표시 파일 분리는 현재 기능 완료를 막지 않는 선택적
 유지보수로 분류한다.

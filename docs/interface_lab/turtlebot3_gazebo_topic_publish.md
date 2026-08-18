@@ -50,6 +50,9 @@ ros2 node info /ros_gz_bridge
 5. QoS는 `Auto`를 우선 사용한다. 현재 Graph의 RELIABLE/VOLATILE 구독자와 호환됨을
    확인했다.
 
+`TwistStamped`의 `header`, `twist`처럼 object JSON 입력은 필드별 `크게 보기/줄이기`를 사용할 수 있다. 확대해도
+입력값과 validation 상태는 유지되며 Topic/Service/Action 공통 schema 입력 동작이다.
+
 `turtlebot3_teleop`, Nav2 controller 등 다른 Publisher가 동시에 `/cmd_vel`을 보내면 명령이
 서로 덮어쓰여 검증 결과가 섞일 수 있다. 검증 중에는 다른 속도 명령 Publisher를 정지한다.
 

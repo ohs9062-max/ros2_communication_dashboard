@@ -52,6 +52,8 @@ ros2_dashboard/
 ├─ backend/
 │  ├─ .env.example
 │  ├─ requirements.txt
+│  ├─ schema/
+│  │  └─ 001_alert.sql
 │  ├─ config/
 │  │  └─ user_preferences.yaml
 │  ├─ app/
@@ -66,7 +68,8 @@ ros2_dashboard/
 │  │  └─ user_preferences/
 │  └─ tests/
 ├─ config/
-│  └─ nginx/
+│  ├─ nginx/
+│  └─ systemd/
 ├─ docs/
 │  ├─ alert_policy/
 │  ├─ architecture/
@@ -113,6 +116,11 @@ ros2_dashboard/
 │        ├─ generated_interfaces/
 │        └─ packages/
 └─ scripts/
+   ├─ install.sh
+   ├─ start.sh
+   ├─ status.sh
+   ├─ stop.sh
+   └─ systemd/
 ```
 
 ROS package를 Web Backend 아래에 두던 구 구조는 사용하지 않는다. ROS package는 모두 `ros2_ws/src` 아래에
@@ -442,9 +450,9 @@ MariaDB는 ROS2 실시간 transport가 아니라 Backend 소유 Alert 이력 저
 설정에 따라 `MariaDbConnectionFactory`와 `MariaDbAlertRepository`를 조립하고,
 `backend/app/alerts/service.py`만 저장·조회 진입점으로 사용한다. Router에서 SQL을 실행하지 않는다.
 
-현재 DB 테이블은 `alert` 하나뿐이다. Backend는 시작 시 `SELECT 1 FROM alert`로 존재를 확인하지만 테이블을
-자동 생성하거나 migration하지 않는다. 저장소에 migration 파일도 현재 없다. 운영자가
-`docs/alert_policy/05_alert_lifecycle.md`의 확정 DDL로 준비해야 한다.
+현재 DB 테이블은 `alert` 하나뿐이다. Backend는 시작 시 `SELECT 1 FROM alert`로 존재를 확인하고 DB 장애 시
+fallback하지만 runtime 중 schema를 변경하지 않는다. 제품 설치기는 `backend/schema/001_alert.sql`을 멱등 적용하고
+필수 9개 컬럼의 이름·타입·NULL 제약을 검증한다. 기존 schema가 다르면 데이터를 변경하지 않고 설치를 실패시킨다.
 
 | 컬럼 | 타입/제약 | 목적 |
 |---|---|---|
@@ -572,12 +580,13 @@ Topic Publish, Service Request, Action Goal 모두 공통 입력 컴포넌트를
 ```text
 Browser HTTPS / WSS
 → Nginx :443
-  /                    → Vite 127.0.0.1:5173
+  /                    → production static Frontend `/var/lib/ros2-dashboard/frontend`
   /health, /ros        → FastAPI 127.0.0.1:8000
+  /user-preferences    → FastAPI 127.0.0.1:8000
   /ws/monitor          → FastAPI WebSocket 127.0.0.1:8000
 ```
 
-FastAPI, Vite, Monitor에 인증서를 직접 넣지 않는다. 현재 로컬 설치 스크립트는 self-signed 인증서를 만들 수
+FastAPI, Frontend build, Monitor에 인증서를 직접 넣지 않는다. 제품 설치 스크립트는 self-signed 인증서를 만들 수
 있으나 Browser가 인증서를 신뢰하지 않으면 HTTPS/WSS가 거부될 수 있다. Nginx 설정과 실행 기준은
 `docs/deployment/https_wss.md`, `config/nginx`, `scripts/install_local_https.sh`를 따른다.
 
@@ -624,8 +633,13 @@ cd frontend
 npm run dev
 ```
 
-통합 실행은 `./scripts/run_dashboard_stack.sh`, 종료는 `./scripts/stop_dashboard_stack.sh`를 사용한다. Vite는
-5173 strict port를 사용한다. ROS demo는 다음 package launch를 사용한다.
+제품 최초 설치는 `sudo ./scripts/install.sh`, 평상시 실행·상태·종료는 각각 `scripts/start.sh`, `status.sh`,
+`stop.sh`를 사용한다. 제품 모드는 `ros2-dashboard.target` 아래 Monitor와 Backend systemd service 및 Nginx
+production static Frontend를 사용한다. MariaDB와 Nginx는 공용 service로 간주해 `stop.sh`가 중지하지 않는다.
+설치기는 시스템 locale이나 NetworkManager/netplan 설정을 바꾸지 않고 설치 프로세스에만 `C.UTF-8`을 적용한다.
+
+개발 통합 실행은 `./scripts/run_dashboard_stack.sh`, 종료는 `./scripts/stop_dashboard_stack.sh`를 사용한다. Vite는
+5173 strict port를 사용하며 제품 서비스와 동시에 실행하지 않는다. ROS demo는 다음 package launch를 사용한다.
 
 ```bash
 ros2 launch ros2_dashboard_monitor dashboard_monitor.launch.py
@@ -694,7 +708,8 @@ docs/docs2/                                     resource별 실제 흐름
 
 현재 구현 제한을 완료 기능처럼 쓰지 않는다.
 
-- MariaDB migration/자동 schema 생성은 없다.
+- Backend runtime migration은 없다. 제품 설치기만 `backend/schema/001_alert.sql`을 멱등 적용하고 기존 필수
+  schema가 다르면 데이터를 변경하지 않고 실패한다.
 - Alert DB에는 acknowledgement, occurrence count, last detected, JSON detail 컬럼이 없다.
 - Fast DDS observer는 History/Depth를 발견하지 못하고 다른 RMW adapter가 없다.
 - QoS compatible인데 미수신이면 Publisher 실제 발행과 callback/type 경로를 점검하도록 안내하지만 그 원인을
@@ -702,6 +717,8 @@ docs/docs2/                                     resource별 실제 흐름
 - Camera는 rgb8/bgr8/mono8와 JPEG/PNG만 지원한다.
 - Dashboard는 물리 카메라 driver가 아니며 ROS2 camera publisher가 별도로 필요하다.
 - MariaDB는 Alert 이력만 저장하며 Interface Lab 실행 history의 영속 DB가 아니다.
+- 현재 Ubuntu 24.04 host의 설치·재설치·장애 fallback/reconnect와 재부팅 자동 복구는 검증했다. dependency가
+  전혀 없는 별도 Fresh Ubuntu 최초 설치만 acceptance 미검증 항목이다.
 
 문서와 코드가 충돌하면 코드를 먼저 확인하고 같은 작업에서 기존 문구를 직접 수정한다. “최신 내용”을 문서
 끝에 덧붙여 구 구조와 신 구조를 병렬로 남기지 않는다.

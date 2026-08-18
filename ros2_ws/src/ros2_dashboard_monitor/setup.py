@@ -19,8 +19,8 @@ setup(
     zip_safe=True,
     maintainer='hs',
     maintainer_email='ohs9062@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Standalone ROS2 graph monitor and Interface Lab runtime.',
+    license='Apache-2.0',
     extras_require={
         'test': [
             'pytest',

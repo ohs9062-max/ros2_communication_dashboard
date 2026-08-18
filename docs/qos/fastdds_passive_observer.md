@@ -20,6 +20,8 @@ localhost HTTP endpoint는 Browser나 FastAPI Backend에 공개하지 않고 Mon
 - Service와 Action Goal/Result/Cancel: Fast DDS의 `rq/...Request`, `rr/...Reply` endpoint를 observer가 수집한다.
 - Service server 측 request DataReader와 response DataWriter만 Remote DDS QoS로 공개한다.
 - Interface Lab이 실제 Client를 만든 경우에만 별도의 Dashboard 적용 `local_qos`를 표시한다.
+- Service/Action endpoint는 실제 GUID와 GUID에서 얻은 participant identity를 공개한다. 같은 QoS endpoint가
+  여러 개여도 identity가 다르면 데이터를 제거하지 않고 Frontend 표시에서만 profile별로 그룹화한다.
 
 ## QoS 가시성
 

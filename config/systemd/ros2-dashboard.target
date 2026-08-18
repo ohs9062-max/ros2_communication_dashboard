@@ -1,0 +1,7 @@
+[Unit]
+Description=ROS2 Dashboard
+Wants=ros2-dashboard-monitor.service ros2-dashboard-backend.service nginx.service mariadb.service
+After=ros2-dashboard-monitor.service ros2-dashboard-backend.service nginx.service mariadb.service
+
+[Install]
+WantedBy=multi-user.target

@@ -51,5 +51,10 @@ HTTPS 화면에서는 Frontend가 현재 protocol을 기준으로 `/ws/monitor`�
 `RMW_IMPLEMENTATION`, discovery 범위는 Dashboard가 강제하지 않고 실행 환경 값을 따른다. Fast DDS observer를
 사용할 때 Monitor와 같은 domain 및 `rmw_fastrtps_cpp` naming 환경이 필요하다.
 
-전체 실행 명령은 루트 [`config.md`](../../config.md), HTTPS/WSS는
+제품 Monitor는 `/etc/ros2-dashboard/dashboard.env`의 `ROS_DOMAIN_ID`, `RMW_IMPLEMENTATION`, workspace/config
+경로와 `ROS_LOG_DIR`을 읽고 `scripts/systemd/run_monitor.sh`가 ROS2 base와 workspace setup을 적용한다. 설치기는
+기존 ROS domain/RMW 값을 보존하고 프로젝트 경로 key만 현재 checkout에 맞춘다. 설치 중에는 `C.UTF-8`을
+프로세스 환경으로만 사용하며 시스템 locale을 변경하지 않는다.
+
+제품·개발 실행 명령은 루트 [`config.md`](../../config.md), HTTPS/WSS는
 [`docs/deployment/https_wss.md`](../deployment/https_wss.md)를 따른다.

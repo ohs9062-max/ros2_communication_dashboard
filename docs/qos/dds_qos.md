@@ -141,6 +141,13 @@ Topic, Service, Action 상세는 공통 `QosDetails` 정책을 사용한다.
 `BEST_EFFORT`, `RELIABLE`, `VOLATILE` 같은 값 자체는 오류색으로 표시하지 않는다. DDS Topic/Type 같은
 메타데이터는 흰색 또는 연한 회색으로 낮춘다.
 
+동일 role과 ROS/DDS 통신 scope, 동일 QoS fingerprint를 가진 endpoint는 `Subscriber × N`처럼 UI에서만
+그룹화하고 공통 QoS를 한 번 표시한다. fingerprint는 Reliability, Durability, History, Depth, Deadline,
+Lifespan, Liveliness, Lease Duration을 모두 구분하며 `unknown`, `null`, `infinite`, 실제 수치를 합치지 않는다.
+QoS가 다르면 별도 profile 그룹으로 유지하고 Action의 Goal/Result/Cancel/Feedback/Status 채널은 서로 합치지
+않는다. 접힌 Endpoint 상세에는 Node/Namespace, GUID/GID, participant, Dashboard 소유 여부와 endpoint kind를
+실제 endpoint별로 표시한다.
+
 목록의 기존 상태 셀에는 `QoS 호환`(초록), `QoS 일부 호환`(노랑), `QoS 불일치`(빨강),
 `QoS 발견`(파랑), `QoS 확인 불가`(회색) 소형 배지를 함께 표시한다. `observed`는 Fast DDS/Graph에서
 상대 endpoint profile을 발견했지만 Dashboard 적용 profile과의 호환성 판정 전인 상태이므로

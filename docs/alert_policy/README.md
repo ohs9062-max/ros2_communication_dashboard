@@ -35,9 +35,13 @@ Topic/Service/Action Alert에 포함하며 `partial`, `unknown`, `observed`, `gr
 
 - lifecycle 상태는 `발생 중` 또는 `해결됨`입니다.
 - level은 `warning`, `error`, `critical`이며 상태와 별도로 유지합니다.
+- 상태·레벨 배지는 한국어로 표시하고 사용자 오류·경고 message 본문은 짧은 영어 문장을 유지합니다. 내부
+  `code`, `status`, `level` 값과 외부 장비가 보낸 MonitorStatus 원문은 번역하지 않습니다.
 - 현재 Alert는 `resolved_at IS NULL`, 이전 Alert는 `resolved_at IS NOT NULL`로 구분합니다.
 - DB에는 전체 이력을 보존하고, 이전 Alert 화면만 최신 해결 순으로 50개씩 조회합니다.
 - 이전 Alert 검색은 Node에 한정하지 않고 Topic, Service, Action, Node의 `name` 전체를 대상으로 합니다.
+- Alert 클릭은 해당 resource의 목록 행과 우측 상세로 이동하며 QoS Alert는 QoS 상세과 Action 문제 채널을
+  자동으로 펼칩니다.
 
 ## 정상 대기 상태
 

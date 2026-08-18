@@ -1,183 +1,127 @@
-# ROS2 Dashboard 실행 방법
+# ROS2 Dashboard 실행과 설정
 
-리팩토링 이후 ROS2 Monitor, FastAPI Backend, React Frontend는 서로 다른 프로세스로 실행한다.
+## 제품 설치
+
+```bash
+cd ~/rang/ros2_dashboard
+sudo ./scripts/install.sh
+```
+
+설치기는 Ubuntu 24.04의 `amd64`/`arm64`에서 ROS2 Jazzy, ROS 개발 도구, 지원 Node.js, Backend Python
+의존성, MariaDB, Nginx를 준비하고 ROS workspace와 production Frontend를 빌드한다. Demo/Gazebo 의존성은
+제품 설치에서 제외한다. 설치 과정은 `C.UTF-8`을 사용하지만 시스템 locale과 사용자 언어는 변경하지 않는다.
+
+기존 `.env`, Interface Registry/Package/Apply 상태, MariaDB Alert 이력과 TLS 인증서는 재설치 시 보존한다.
+기존 systemd/Nginx 설정은 `/var/backups/ros2-dashboard/<시각>/`에 백업한다.
+
+## 제품 실행
+
+```bash
+cd ~/rang/ros2_dashboard
+./scripts/start.sh
+./scripts/status.sh
+./scripts/stop.sh
+```
+
+```bash
+sudo systemctl start ros2-dashboard.target
+sudo systemctl stop ros2-dashboard.target
+systemctl status ros2-dashboard.target
+```
+
+제품 모드는 다음 경로를 사용한다.
 
 ```text
 ROS2 Graph
-→ ROS2 Monitor : 127.0.0.1:8765
-→ FastAPI Backend : 127.0.0.1:8000
-→ React Frontend : 127.0.0.1:5173
+→ Monitor + Fast DDS observer 127.0.0.1:8765 / 8766
+→ FastAPI Backend             127.0.0.1:8000
+→ Nginx HTTPS/WSS             :443
+→ React production build      /var/lib/ros2-dashboard/frontend
 ```
 
-## Server
+`stop.sh`는 Dashboard 전용 Monitor와 Backend만 중지한다. 공용 MariaDB와 Nginx는 유지한다.
 
-### 최초 1회 준비
-
-```bash
-cd ~/rang/ros2_dashboard/backend
-python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install -r requirements.txt
-deactivate
-
-cd ~/rang/ros2_dashboard/frontend
-npm install
-```
-
-환경값을 변경해야 할 때만 예제 파일을 복사한다. 실제 `.env`는 Git에 포함하지 않는다.
-
-```bash
-cd ~/rang/ros2_dashboard
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-```
-
-### 1. ROS2 Workspace 빌드
-
-```bash
-cd ~/rang/ros2_dashboard/ros2_ws
-source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install
-source install/setup.bash
-```
-
-ROS2 빌드는 `backend/`가 아니라 `ros2_ws/`에서 실행한다.
-
-### 2. ROS2 Monitor 실행
-
-터미널 1:
-
-```bash
-cd ~/rang/ros2_dashboard/ros2_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-ros2 run ros2_dashboard_monitor monitor
-```
-
-launch 파일로 실행하려면:
-
-```bash
-ros2 launch ros2_dashboard_monitor dashboard_monitor.launch.py
-```
-
-확인:
-
-```bash
-curl http://127.0.0.1:8765/health
-```
-
-### 3. FastAPI Backend 실행
-
-터미널 2:
-
-```bash
-cd ~/rang/ros2_dashboard/backend
-source .venv/bin/activate
-python3 -m uvicorn app.main:app \
-  --host 127.0.0.1 \
-  --port 8000 \
-  --reload
-```
-
-Backend는 ROS2 workspace가 아니므로 `backend/install/setup.bash`를 source하지 않는다.
-
-확인:
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-### 4. Frontend 실행
-
-터미널 3:
-
-```bash
-cd ~/rang/ros2_dashboard/frontend
-npm run dev
-```
-
-브라우저:
+## 제품 설정
 
 ```text
-http://127.0.0.1:5173
+/etc/ros2-dashboard/dashboard.env
+  ROS_DOMAIN_ID
+  RMW_IMPLEMENTATION
+  ROS2_DASHBOARD_WS_ROOT
+  ROS2_DASHBOARD_MONITOR_CONFIG_DIR
+  ROS_LOG_DIR
+
+backend/.env
+  MONITOR_BASE_URL
+  MONITOR_TIMEOUT_SEC
+  MONITOR_POLL_INTERVAL_SEC
+  CORS_ORIGINS
+  USER_PREFERENCES_PATH
+  ALERT_DB_ENABLED
+  MARIADB_HOST / MARIADB_PORT / MARIADB_UNIX_SOCKET
+  MARIADB_DATABASE / MARIADB_USER / MARIADB_PASSWORD
+  MARIADB_CONNECT_TIMEOUT_SEC / MARIADB_RETRY_INTERVAL_SEC
+
+ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml
+  Graph polling, timeout, 주요/감시 대상, Topic filter
+  QoS confirmation, Fast DDS observer, Camera Preview 제한
+
+ros2_ws/src/ros2_dashboard_monitor/config/
+  interface_registry.yaml
+  interface_packages.yaml
+  interface_apply_status.yaml
+  interface_apply_last.log
+
+frontend/.env
+  VITE_API_BASE_URL
+  VITE_TOPIC_POLL_INTERVAL_MS
+  VITE_DASHBOARD_POLL_INTERVAL_MS
+  VITE_VISUALIZATION_POLL_INTERVAL_MS
 ```
 
-## 자동 실행
+제품 Frontend는 `VITE_API_BASE_URL`을 비운 same-origin build를 사용한다. HTTPS에서는 `/ws/monitor`가 자동으로
+WSS가 된다.
 
-Backend `.venv`와 Frontend dependency가 준비된 뒤 다음 명령으로 전체 Stack을 실행한다.
+## 개발 실행
+
+제품 서비스를 먼저 정지한다.
 
 ```bash
 cd ~/rang/ros2_dashboard
+./scripts/stop.sh
 ./scripts/run_dashboard_stack.sh
 ```
-
-실행 로그와 PID는 `.runtime/`에 저장된다.
-
-```text
-.runtime/monitor.log
-.runtime/backend.log
-.runtime/frontend.log
-```
-
-종료:
 
 ```bash
 cd ~/rang/ros2_dashboard
 ./scripts/stop_dashboard_stack.sh
 ```
 
-자동 실행 터미널에서 `Ctrl+C`를 눌러도 스크립트가 생성한 세 프로세스만 종료한다.
+개발 스택은 Vite `5173`, Backend `8000`, Monitor `8765`, observer `8766`을 사용한다. 네 포트 중 하나라도
+이미 점유됐으면 기존 PID 파일을 덮지 않고 시작을 거부한다.
 
-## 환경 설정
-
-Backend 설정:
-
-```text
-backend/.env
-MONITOR_BASE_URL=http://127.0.0.1:8765
-MONITOR_TIMEOUT_SEC=30
-MONITOR_POLL_INTERVAL_SEC=1
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-USER_PREFERENCES_PATH=config/user_preferences.yaml
-ALERT_DB_ENABLED=true
-MARIADB_HOST=127.0.0.1
-MARIADB_PORT=3306
-MARIADB_DATABASE=ros2_dashboard
-MARIADB_USER=ros2_dashboard
-MARIADB_PASSWORD=<secret>
-MARIADB_CONNECT_TIMEOUT_SEC=2
-MARIADB_RETRY_INTERVAL_SEC=5
-```
-
-Frontend 설정:
-
-```text
-frontend/.env
-VITE_API_BASE_URL=
-VITE_TOPIC_POLL_INTERVAL_MS=1000
-VITE_DASHBOARD_POLL_INTERVAL_MS=3000
-VITE_VISUALIZATION_POLL_INTERVAL_MS=5000
-```
-
-Monitor host 또는 port를 변경할 때는 Monitor 환경과 Backend의 `MONITOR_BASE_URL`을 함께 맞춘다.
+## 개별 개발 실행
 
 ```bash
-export ROS2_MONITOR_HOST=127.0.0.1
-export ROS2_MONITOR_PORT=8765
+cd ~/rang/ros2_dashboard/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+ros2 run ros2_dashboard_monitor monitor
 ```
 
-ROS2 감시 정책과 Interface Registry는 다음 위치에서 관리한다.
+```bash
+cd ~/rang/ros2_dashboard/backend
+source .venv/bin/activate
+python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-```text
-ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml
-ros2_ws/src/ros2_dashboard_monitor/config/interface_registry.yaml
-ros2_ws/src/ros2_dashboard_monitor/config/interface_packages.yaml
-ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_status.yaml
+```bash
+cd ~/rang/ros2_dashboard/frontend
+npm run dev
 ```
 
 ## Demo Nodes
-
-ROS2 Dashboard용 Topic, Service, Action demo를 한 번에 실행한다.
 
 ```bash
 cd ~/rang/ros2_dashboard/ros2_ws
@@ -186,160 +130,57 @@ source install/setup.bash
 ros2 launch ros2_dashboard_demo_nodes demo_communication.launch.py
 ```
 
-개별 실행 예시:
+Camera demo는 `/demo_camera/image_raw`와 `/demo_camera/image_compressed`에 코드 생성 패턴을 1 Hz로 발행한다.
+Preview는 Camera Topic 상세에서 요청할 때만 생성된다.
 
-```bash
-ros2 run ros2_dashboard_demo_nodes cleaning_schedule
-ros2 run ros2_dashboard_demo_nodes robot_control_service
-ros2 run ros2_dashboard_demo_nodes schedule_crud_service
-ros2 run ros2_dashboard_demo_nodes can_control_server
-ros2 run ros2_dashboard_demo_nodes can_control_outcome_server
-ros2 run ros2_dashboard_demo_nodes demo_camera_publisher
-```
-
-Camera demo는 외부 이미지 없이 생성한 패턴을 `/demo_camera/image_raw`와
-`/demo_camera/image_compressed`에 1 Hz로 발행한다. Preview는 Topic 상세을 열었을 때만 요청형으로 생성된다.
-
-## Gazebo
+## Gazebo / Nav2
 
 ```bash
 source /opt/ros/jazzy/setup.bash
+source ~/rang/ros2_dashboard/ros2_ws/install/setup.bash
 export TURTLEBOT3_MODEL=burger
-ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
+ros2 launch ros2_dashboard_demo_nodes turtlebot3_sim_nav.launch.py
 ```
 
-키보드 제어가 필요하면 다른 터미널에서 실행한다.
+현재 검증 환경의 이동 명령은 `/cmd_vel` `geometry_msgs/msg/TwistStamped`다. Interface Lab 사용 절차는
+[`docs/interface_lab/turtlebot3_gazebo_topic_publish.md`](docs/interface_lab/turtlebot3_gazebo_topic_publish.md)를
+따른다.
 
-```bash
-source /opt/ros/jazzy/setup.bash
-export TURTLEBOT3_MODEL=burger
-ros2 run turtlebot3_teleop teleop_keyboard
-```
-
-## Nav2
-
-Gazebo가 실행된 상태에서 다른 터미널을 사용한다.
-
-```bash
-source /opt/ros/jazzy/setup.bash
-export TURTLEBOT3_MODEL=burger
-ros2 launch turtlebot3_navigation2 navigation2.launch.py use_sim_time:=True
-```
-
-## Test Service Server
-
-ROS2 기본 Service 테스트:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-ros2 run demo_nodes_cpp add_two_ints_server
-```
-
-다른 터미널:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-ros2 service call /add_two_ints example_interfaces/srv/AddTwoInts "{a: 2, b: 3}"
-```
-
-Dashboard Monitor package의 introspection 테스트:
-
-```bash
-cd ~/rang/ros2_dashboard/ros2_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-ros2 run ros2_dashboard_monitor introspection_add_two_ints_server
-```
-
-다른 터미널:
-
-```bash
-cd ~/rang/ros2_dashboard/ros2_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-ros2 run ros2_dashboard_monitor introspection_add_two_ints_client --a 2 --b 3
-```
-
-## Build
-
-ROS2만 다시 빌드:
-
-```bash
-cd ~/rang/ros2_dashboard
-./scripts/build_ros2_ws.sh
-```
-
-또는 직접 빌드:
-
-```bash
-cd ~/rang/ros2_dashboard/ros2_ws
-source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install
-source install/setup.bash
-```
-
-Frontend 배포 빌드:
-
-```bash
-cd ~/rang/ros2_dashboard/frontend
-npm run build
-```
-
-## Test
-
-전체 정적 검사와 테스트:
+## Build / Test
 
 ```bash
 cd ~/rang/ros2_dashboard
 python3 -m compileall backend/app
 python3 -m compileall ros2_ws/src/ros2_dashboard_monitor
 
-cd ~/rang/ros2_dashboard/ros2_ws
+cd ros2_ws
 source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install
 source install/setup.bash
-colcon list
 colcon test
 colcon test-result --verbose
 
-cd ~/rang/ros2_dashboard/backend
+cd ../backend
 .venv/bin/python -m pytest -q tests
 
-cd ~/rang/ros2_dashboard/frontend
+cd ../frontend
 npm run test:unit
 npm run lint
 npm run build
 ```
 
-## 자주 발생하는 실행 오류
-
-### package not found
-
-새 터미널에서 ROS2 환경을 다시 적용한다.
+## 상태와 로그
 
 ```bash
-cd ~/rang/ros2_dashboard/ros2_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-ros2 pkg list | grep ros2_dashboard
+cd ~/rang/ros2_dashboard
+./scripts/status.sh
+journalctl -u ros2-dashboard-monitor.service -u ros2-dashboard-backend.service -n 100 --no-pager
+sudo nginx -t
+systemctl status mariadb.service nginx.service
 ```
-
-### Monitor 연결 실패
-
-다음 순서로 확인한다.
 
 ```bash
 curl http://127.0.0.1:8765/health
 curl http://127.0.0.1:8000/health
-```
-
-`backend/.env`의 `MONITOR_BASE_URL`과 Monitor port가 같아야 한다.
-
-### Frontend API 연결 실패
-
-Vite 개발 proxy나 Nginx same-origin 구성이면 `VITE_API_BASE_URL`은 비워둔다. 별도 Backend origin을
-사용할 때만 URL을 지정하고 Frontend를 다시 실행한다.
-
-```text
-VITE_API_BASE_URL=
+curl -k https://localhost/health
 ```

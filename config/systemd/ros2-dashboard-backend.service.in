@@ -1,0 +1,21 @@
+[Unit]
+Description=ROS2 Dashboard Web Backend
+After=network.target mariadb.service ros2-dashboard-monitor.service
+Wants=mariadb.service ros2-dashboard-monitor.service
+PartOf=ros2-dashboard.target
+
+[Service]
+Type=simple
+User=@DASHBOARD_USER@
+Group=@DASHBOARD_GROUP@
+WorkingDirectory=@PROJECT_DIR@/backend
+EnvironmentFile=-/etc/ros2-dashboard/dashboard.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@PROJECT_DIR@/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+KillMode=control-group
+TimeoutStopSec=20
+
+[Install]
+WantedBy=ros2-dashboard.target

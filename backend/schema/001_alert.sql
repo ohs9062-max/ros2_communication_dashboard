@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS alert (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    alert_key VARCHAR(768) NOT NULL,
+    source VARCHAR(64) NOT NULL,
+    name VARCHAR(512) NOT NULL,
+    code VARCHAR(64) NOT NULL,
+    level VARCHAR(16) NOT NULL,
+    message TEXT NOT NULL,
+    detected_at DATETIME(6) NOT NULL,
+    resolved_at DATETIME(6) NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

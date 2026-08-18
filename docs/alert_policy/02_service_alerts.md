@@ -51,6 +51,10 @@ Graph에서 처음 누락된 시점에는 기존 상태를 유지한 confirmatio
   `build_service_alerts()`가 `service_active_check_*` Alert code를 생성하지 않으므로 실제 code 목록과 DB 저장
   대상 code 목록에 포함하지 않습니다.
 
+목록과 상세의 최근 Request/Response, 응답 시간과 마지막 호출은 사용자가 Interface Lab에서 실행한 실제 Call
+summary를 사용합니다. 호출 이력이 없는 활성 Service는 `서버 있음`으로 표시하며 validation 실패는 Graph 서버
+장애로 재분류하지 않습니다.
+
 ## 판정 흐름
 
 ```text

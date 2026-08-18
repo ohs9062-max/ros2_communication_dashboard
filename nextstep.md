@@ -12,6 +12,7 @@
 | Camera Topic | `Image`와 `CompressedImage`를 기존 Topic 감시 흐름으로 구독하고 상세 화면에서 요청형 Preview를 제공한다. |
 | Interface Lab | Topic Publish/Receive, Service Call, Action Goal/Feedback/Result/Cancel과 실행 이력을 제공한다. |
 | TurtleBot3 검증 | 외부 Gazebo Burger의 `/cmd_vel` `TwistStamped`에 전진·회전·정지 명령을 보내 실제 이동을 검증했다. |
+| 제품 설치 | Ubuntu 24.04 설치기, MariaDB schema, systemd, Nginx production Frontend, start/stop/status를 제공한다. 현재 host에서 재설치·보존·장애 복구·재부팅 자동 시작까지 확인했다. |
 
 ## 현재 범위에서 제외한 항목
 
@@ -20,5 +21,8 @@
 - 물리 카메라를 ROS2 Topic으로 변환하는 camera driver
 - RViz2 전체 기능을 Browser에 복제하는 기능
 - 다중 기기 관제와 인터넷 공개 배포 기능
+
+별도 Fresh Ubuntu에서 dependency가 전혀 없는 최초 설치 검증은 기능 미구현이 아니라 설치 acceptance의 남은
+환경 검증 항목이다.
 
 현재 작업 우선순위와 검증 상태는 `.codex/CURRENT_STATUS.md`, 작업 기준은 `AGENTS.md`를 따른다.

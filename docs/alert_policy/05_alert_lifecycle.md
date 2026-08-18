@@ -7,6 +7,8 @@ Alert는 Monitor가 계산하는 현재 ROS2 상태와 사용자 실행 결과�
 
 Backend는 `AlertHistoryService`를 단일 저장 진입점으로 사용해 MariaDB와 동기화합니다.
 DB 연결 실패 시 ROS2 Monitoring을 중단하지 않고 메모리 최대 50건 fallback을 사용하며 주기적으로 재연결합니다.
+격리 TCP proxy 검증에서 DB 연결 중단 중 Backend 응답과 메모리 fallback이 유지되고 복구 뒤 같은 Backend가 기존
+MariaDB 이력을 다시 조회하는 것을 확인했습니다.
 
 ## 현재 구현 생명주기
 
@@ -28,11 +30,12 @@ source별 Alert builder
 
 ## 확정 MariaDB 스키마
 
-MariaDB에는 아래 단일 `alert` 테이블을 사용합니다. Backend는 시작 시 테이블 존재 여부를 확인하지만 자동 생성하거나
-스키마를 변경하지 않습니다.
+MariaDB에는 아래 단일 `alert` 테이블을 사용합니다. Backend runtime은 시작 시 테이블 존재 여부만 확인하고
+스키마를 변경하지 않습니다. 제품의 `scripts/install.sh`가 `backend/schema/001_alert.sql`을 멱등 적용하며,
+기존 테이블의 필수 컬럼 구조가 다르면 데이터를 변경하지 않고 실패합니다.
 
 ```sql
-CREATE TABLE alert (
+CREATE TABLE IF NOT EXISTS alert (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
 
     alert_key VARCHAR(768) NOT NULL,
@@ -111,8 +114,9 @@ Backend worker에서도 확인과 INSERT를 직렬화합니다. 스키마에 명
 - Action QoS는 `action:<name>:action_qos_incompatible:<channel>`을 `alert_key`로 사용해 채널별 발생·해결을 분리합니다.
 - DB에는 50건 제한을 두지 않고 전체 이력을 보존합니다.
 - DB 장애가 Monitor의 ROS2 상태 계산과 수집을 중단시키면 안 됩니다.
-- credential과 연결 문자열은 Backend `.env`, DB 처리는 Repository 계층에서 관리합니다. 현재 저장소에는
-  자동 migration이 없으므로 이 문서의 확정 DDL로 `alert` 테이블을 외부에서 준비합니다.
+- credential과 연결 문자열은 Backend `.env`, DB 처리는 Repository 계층에서 관리합니다. Backend runtime에는
+  migration이 없고 제품 설치기만 `backend/schema/001_alert.sql`을 멱등 적용합니다. 기존 필수 schema가 다르면
+  데이터를 변경하지 않고 설치를 실패시킵니다.
 - Router에서 직접 SQL을 실행하지 않습니다.
 
 ## Alert 화면 정책

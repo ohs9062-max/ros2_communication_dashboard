@@ -45,6 +45,11 @@ ROS2 Graph
 Backend는 1초 기본 주기로 이를 polling합니다. 실패 시 마지막 cache를 유지하고
 `/health`의 `monitor_connected`, `monitor_error`에 장애 원인을 노출합니다.
 
+Topic payload는 Graph 원본 `status`와 목록·요약에 사용하는 `effective_status`를 함께 보존합니다. Service와
+Action의 최근 사용자 실행 결과도 각 resource snapshot에 합쳐지며 Frontend는 같은 snapshot을 공통 presentation
+selector로 표시합니다. Camera binary/data URL은 정기 snapshot과 WebSocket에 포함하지 않고 상세 화면의
+`/ros/topics/image-preview` 요청 경로로만 전달합니다.
+
 ## Commands
 
 기존 `/ros/interfaces/*` request body와 response key를 유지한 채 Backend가 raw body,
@@ -61,3 +66,7 @@ Service Call, Action Goal/Cancel, interface upload/apply/import-check가 동일 
 - Backend 중단: Monitor의 ROS2 수집은 계속 실행됩니다.
 - command 전달 실패: Backend가 HTTP 503과 구체적인 연결 오류를 반환합니다.
 - polling 실패: 마지막 성공 snapshot을 보존합니다.
+
+실제 30초 Monitor timeout 동안 Backend PID와 마지막 Topic snapshot이 유지되고 Monitor 복구 후 같은 Backend가
+자동 재연결되는 것을 확인했습니다. DB 장애도 snapshot transport와 분리돼 Alert 조회만 메모리 fallback으로
+전환됩니다.

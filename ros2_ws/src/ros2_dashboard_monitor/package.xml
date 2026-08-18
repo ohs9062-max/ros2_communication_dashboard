@@ -11,6 +11,9 @@
   <depend>std_msgs</depend>
   <depend>example_interfaces</depend>
   <depend>action_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>rosidl_runtime_py</depend>
   <depend>ros2_dashboard_interfaces</depend>
   <exec_depend>ament_index_python</exec_depend>
