@@ -34,6 +34,12 @@ def main() -> int:
     if not settings.alert_db_enabled:
         print('disabled')
         return 0
+    if not settings.mariadb_password:
+        print(
+            'unavailable: MARIADB_PASSWORD is empty in backend/.env',
+            file=sys.stderr,
+        )
+        return 1
     factory = MariaDbConnectionFactory(
         host=settings.mariadb_host,
         port=settings.mariadb_port,
@@ -68,7 +74,7 @@ def main() -> int:
             primary_columns = [row['column_name'] for row in cursor.fetchall()]
         connection.close()
     except Exception as exc:
-        print(f'unavailable: {exc}', file=sys.stderr)
+        print(f'unavailable: MariaDB connection failed: {exc}', file=sys.stderr)
         return 1
     if columns != EXPECTED_COLUMNS or primary_columns != ['id']:
         print('connected, but the alert schema is incompatible', file=sys.stderr)

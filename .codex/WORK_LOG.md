@@ -1165,3 +1165,40 @@
   경로에서 venv 생성, Backend requirements 전체 설치와 FastAPI/httpx/uvicorn/dotenv/yaml/PyMySQL import가
   성공했다. 현재 Backend pytest 15 passed·2 skipped, Frontend `npm ci`와 production build, install.sh
   `bash -n`이 통과했다. 별도 Fresh Ubuntu VM에서 7~10단계를 포함한 installer 재실행은 아직 확인 전이다.
+
+## 2026-08-18 - 커밋 HEAD Fresh clone 재검증
+
+- `46adc19`와 `new-origin/main`이 동일함을 확인하고 `/tmp`의 다른 절대경로에 `--no-local` clone했다. 새 clone에는
+  Backend `.venv`, ROS build/install/log, Frontend node_modules/dist가 없었고 작업 트리도 clean이었다.
+- 새 clone에서 Backend venv를 생성한 뒤 requirements 설치와 필수 모듈 import가 성공했다. pip shebang과
+  `sys.prefix`는 모두 새 clone 경로를 가리켰으며 개발환경 `/home/hs/rang/ros2_dashboard` 경로는 설치·애플리케이션
+  대상 파일에서 발견되지 않았다.
+- Frontend `npm ci`, lint, production build와 Python compileall, `install.sh` shell syntax가 통과했다. 실제 Fresh
+  Ubuntu VM의 apt/rosdep/colcon/systemd/MariaDB/Nginx를 포함한 전체 installer 재실행은 환경에서 계속 확인해야 한다.
+
+## 2026-08-18 - ROS Domain/RMW 프로젝트 .env 단일화
+
+- 전체 검색 결과 실행 코드에 Domain 99 하드코딩은 없었고, 기존 제품 흐름은 설치 전용/현재 shell 값을 최초
+  `/etc/ros2-dashboard/dashboard.env`에만 기록한 뒤 `start.sh`가 shell Domain으로 덮는 구조였다. Monitor는 rclpy
+  context 환경값을 사용하고 Fast DDS observer도 그 context Domain을 전달받는 구조임을 확인했다.
+- 기존 `backend/.env`를 ROS runtime 기준으로 확장하고 공통 shell helper에서 설치 전용 변수, 프로젝트 `.env`,
+  현재 shell, 기본값 순으로 Domain/RMW를 해석한다. `install.sh`는 최종값을 프로젝트와 systemd env에 기록하고,
+  `start.sh` 및 개발 통합 실행도 프로젝트 값을 사용한다. 기존 `.env`에 key가 없으면 설치된 runtime 값을 한 번
+  이관해 기존 Domain/RMW를 보존한다.
+- 우선순위, 잘못된 Domain 거부, 기존값 migration, 99→42 격리 동기화, shell syntax를 확인했다. Backend
+  15 passed·2 skipped, Monitor 245 passed가 통과했다. 실제 systemd unit은 EnvironmentFile을 사용하며 실행 중
+  Monitor PID 환경이 `ROS_DOMAIN_ID=99`, `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`임을 확인했다. 비대화형 sudo 제약으로
+  실제 시스템의 42 전환·복구는 수행하지 않고 temp runtime env에서 동일 동기화 경로를 검증했다.
+
+## 2026-08-18 - MariaDB 무인증이 아닌 무인 설치 경로 확정
+
+- 기존 설치기는 이미 MariaDB 설치/시작, `backend/.env` 랜덤 비밀번호 생성, root unix_socket 기반 DB·계정 생성,
+  schema 적용과 검증을 자동 수행했고 Backend/status도 `.env`로 연결해 사용자 DB 로그인이 필요 없었다. 실제 로컬
+  계정은 과거 설정 때문에 대상 DB에 ALL PRIVILEGES가 남아 있어 최소 권한 유지 공백을 확인했다.
+- 초기화 스크립트는 관리·시스템 계정/DB를 거부하고 지정된 전용 계정의 기존 권한을 정리한 뒤 대상 DB의 SELECT,
+  INSERT, UPDATE, DELETE만 부여한다. 기존 `.env` 비밀번호는 유지하고 비어 있을 때만 48자리 hex secret을 생성한다.
+  root socket 접근 불가와 Backend 빈/잘못된 비밀번호 오류도 비밀번호를 노출하지 않고 명확히 보고한다.
+- 네트워크를 끈 `/tmp` 독립 MariaDB에서 계정/DB/schema를 두 번 적용해 기존 Alert 행 1건 보존과 CRUD-only grant를
+  확인했다. 실제 DB는 전용 계정으로 Alert 11건과 schema 정상, `.env` 0600을 확인했고 잘못된 설정 실패 후 정상
+  설정 복구도 통과했다. Backend 16 passed·2 skipped와 shell/Python 문법 검사가 통과했다. 현재 운영 계정의 기존
+  과권한 축소는 다음 `sudo ./scripts/install.sh` 적용 시 반영된다.

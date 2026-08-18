@@ -2,31 +2,38 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ENV="$PROJECT_DIR/backend/.env"
 RUNTIME_ENV=/etc/ros2-dashboard/dashboard.env
 runtime_env_changed=false
+source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
 
 [[ -f /etc/systemd/system/ros2-dashboard.target ]] || {
   echo "[ros2_dashboard] Not installed. Run: sudo ./scripts/install.sh" >&2
   exit 1
 }
 
-if [[ -n "${ROS_DOMAIN_ID:-}" ]]; then
-  if [[ ! "$ROS_DOMAIN_ID" =~ ^[0-9]+$ ]] || (( 10#$ROS_DOMAIN_ID > 232 )); then
-    echo "[ros2_dashboard] ROS_DOMAIN_ID must be an integer from 0 to 232." >&2
-    exit 1
-  fi
+ros_dashboard_migrate_runtime_env "$PROJECT_ENV" "$RUNTIME_ENV"
+ros_dashboard_resolve_runtime_env "$PROJECT_ENV"
 
-  installed_domain="$(sed -n 's/^ROS_DOMAIN_ID=//p' "$RUNTIME_ENV" | tail -n 1)"
-  if [[ "$installed_domain" != "$ROS_DOMAIN_ID" ]]; then
+sync_runtime_value() {
+  local key="$1" value="$2" installed
+  installed="$(ros_dashboard_read_env_value "$RUNTIME_ENV" "$key" || true)"
+  if [[ "$installed" != "$value" ]]; then
     if [[ "$EUID" -eq 0 ]]; then
-      sed -i "s/^ROS_DOMAIN_ID=.*/ROS_DOMAIN_ID=${ROS_DOMAIN_ID}/" "$RUNTIME_ENV"
+      ros_dashboard_set_env_value "$RUNTIME_ENV" "$key" "$value"
+    elif grep -q "^${key}=" "$RUNTIME_ENV"; then
+      sudo sed -i "s|^${key}=.*|${key}=${value}|" "$RUNTIME_ENV"
     else
-      sudo sed -i "s/^ROS_DOMAIN_ID=.*/ROS_DOMAIN_ID=${ROS_DOMAIN_ID}/" "$RUNTIME_ENV"
+      printf '%s=%s\n' "$key" "$value" | sudo tee -a "$RUNTIME_ENV" >/dev/null
     fi
     runtime_env_changed=true
-    echo "[ros2_dashboard] ROS domain updated: ${installed_domain:-unset} -> ${ROS_DOMAIN_ID}"
+    echo "[ros2_dashboard] ${key} updated: ${installed:-unset} -> ${value}"
   fi
-fi
+}
+
+sync_runtime_value ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
+sync_runtime_value RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
 
 if [[ "$EUID" -eq 0 ]]; then
   systemctl start mariadb.service nginx.service \

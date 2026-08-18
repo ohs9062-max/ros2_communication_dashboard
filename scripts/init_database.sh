@@ -10,10 +10,11 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="${DASHBOARD_BACKEND_ENV:-$PROJECT_DIR/backend/.env}"
 SCHEMA_FILE="$PROJECT_DIR/backend/schema/001_alert.sql"
+source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
 
 env_value() {
   local key="$1" default_value="$2" value
-  value="$(sed -n "s/^${key}=//p" "$ENV_FILE" | tail -n 1)"
+  value="$(ros_dashboard_read_env_value "$ENV_FILE" "$key" || true)"
   printf '%s' "${value:-$default_value}"
 }
 
@@ -30,22 +31,44 @@ db_password="$(env_value MARIADB_PASSWORD '')"
   echo "[ros2_dashboard] Invalid MARIADB_DATABASE identifier." >&2
   exit 1
 }
+case "${database,,}" in
+  mysql|information_schema|performance_schema|sys)
+    echo "[ros2_dashboard] MARIADB_DATABASE must not use a MariaDB system schema." >&2
+    exit 1
+    ;;
+esac
 [[ "$db_user" =~ ^[A-Za-z0-9_]+$ ]] || {
   echo "[ros2_dashboard] Invalid MARIADB_USER identifier." >&2
   exit 1
 }
+case "${db_user,,}" in
+  root|mysql|mariadb.sys|mariadb.session|mariadb.system)
+    echo "[ros2_dashboard] MARIADB_USER must be a dedicated non-administrator account." >&2
+    exit 1
+    ;;
+esac
 [[ -n "$db_password" ]] || {
   echo "[ros2_dashboard] MARIADB_PASSWORD is empty." >&2
   exit 1
 }
 
-escaped_password="${db_password//\'/\'\'}"
+if ! mariadb --batch --skip-column-names --protocol=socket -uroot \
+    -e 'SELECT 1' >/dev/null 2>&1; then
+  echo "[ros2_dashboard] MariaDB root socket administration is unavailable." >&2
+  echo "[ros2_dashboard] Fresh Ubuntu installs must keep the default local unix_socket root authentication." >&2
+  exit 1
+fi
+
+escaped_password="${db_password//\\/\\\\}"
+escaped_password="${escaped_password//\'/\'\'}"
 mariadb --protocol=socket -uroot <<SQL
 CREATE DATABASE IF NOT EXISTS \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${db_user}'@'localhost' IDENTIFIED BY '${escaped_password}';
 ALTER USER '${db_user}'@'localhost' IDENTIFIED BY '${escaped_password}';
 CREATE USER IF NOT EXISTS '${db_user}'@'127.0.0.1' IDENTIFIED BY '${escaped_password}';
 ALTER USER '${db_user}'@'127.0.0.1' IDENTIFIED BY '${escaped_password}';
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM '${db_user}'@'localhost';
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM '${db_user}'@'127.0.0.1';
 GRANT SELECT, INSERT, UPDATE, DELETE ON \`${database}\`.* TO '${db_user}'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE ON \`${database}\`.* TO '${db_user}'@'127.0.0.1';
 FLUSH PRIVILEGES;

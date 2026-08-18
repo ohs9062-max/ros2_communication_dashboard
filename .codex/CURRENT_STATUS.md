@@ -34,7 +34,11 @@
   KST로 해석해 기존 API epoch timestamp로 반환한다.
 - 로컬 Backend의 `backend/.env`에 Monitor와 MariaDB 실행 설정이 구성됐고 실제 `ros2_dashboard.alert` 접근과
   DB 기반 Alert API를 확인했다. 실제 credential은 Git에서 제외되며 `.env.example`에는 placeholder만 둔다.
-- 현재 작업 트리는 기존 사용자 변경과 최근 기능 변경이 함께 있는 dirty 상태이며 commit/push되지 않았다.
+- Fresh 설치는 MariaDB root unix_socket으로 전용 DB/계정, 랜덤 비밀번호와 schema를 자동 준비한다. 기존
+  `.env` 비밀번호와 Alert 행은 재설치에서 유지하며 Backend 계정은 대상 DB의 CRUD 권한만 사용한다.
+- Fresh clone venv 이식성 수정은 `46adc19`에 반영됐고 `new-origin/main`과 동일하다. 다른 절대경로의 로컬
+  clone에서 생성물 미포함, 새 Backend venv/의존성 설치, Frontend clean install/lint/build를 확인했다.
+  별도 Fresh Ubuntu VM에서 전체 `sudo ./scripts/install.sh` 재실행과 systemd/HTTPS 검증은 아직 남아 있다.
 
 ## 현재 핵심 구조
 
@@ -73,10 +77,10 @@ docs/                            설계·운영 문서
   Python ABI stamp와 prefix/pip 경로가 현재 환경과 다르면 venv만 재생성한 뒤 `python -m pip`를 사용한다.
   이동된 venv 실패 재현·재생성 판정, 빈 임시 venv requirements 설치와 핵심 import, Backend 15 passed·2 skipped,
   Frontend `npm ci`/build를 확인했다. 별도 Fresh Ubuntu VM의 installer 재실행 확인은 사용자 환경에서 남아 있다.
-- 제품 `start.sh`가 실행 터미널의 명시적 `ROS_DOMAIN_ID`와 `/etc/ros2-dashboard/dashboard.env`를 비교해
-  불일치 시 안전하게 동기화하고 Monitor만 재시작한다. `status.sh`는 제품 Domain을 함께 표시한다. 실제로
-  systemd Domain 0과 Demo Node Domain 99 불일치를 확인해 제품 설정을 99로 갱신한 뒤 Node 5개, Topic 3개와
-  `/demo_cleaning_schedule` 실데이터 수집 및 Backend 연결을 확인했다.
+- `backend/.env`의 `ROS_DOMAIN_ID`와 `RMW_IMPLEMENTATION`이 제품 기준값이다. `install.sh`와 `start.sh`가
+  `/etc/ros2-dashboard/dashboard.env`에 동기화하고 값이 바뀌면 Monitor를 재시작한다. 기존 설치는 runtime 값을
+  프로젝트 `.env`로 한 번 이관해 기존 설정을 보존한다. 현재 systemd Monitor 프로세스는 Domain 99와
+  `rmw_fastrtps_cpp`를 실제 환경으로 받고 있다.
 - Topic 목록·Overview·Alert는 ROS2 Graph cache에서 수집된 Topic만 사용한다. `required_stream_names`와
   `command_names`는 실제 발견된 Topic의 역할만 분류하며 설정 이름만으로 `not_discovered` placeholder를 만들지
   않는다. 임시 Monitor 실제 Graph에서 Topic 5건만 노출되고 미발견 설정 이름 6건과 관련 Alert가 모두 0건임을

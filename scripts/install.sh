@@ -8,6 +8,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
 LOG_DIR=/var/log/ros2-dashboard
 LOG_FILE="$LOG_DIR/install.log"
 BACKUP_ROOT=/var/backups/ros2-dashboard
@@ -46,16 +47,6 @@ INSTALL_HOME="$(getent passwd "$INSTALL_USER" | cut -d: -f6)"
 
 run_as_user() {
   sudo -u "$INSTALL_USER" -H env HOME="$INSTALL_HOME" bash -lc "$1"
-}
-
-set_env_value() {
-  local file="$1" key="$2" value="$3" escaped
-  escaped="${value//&/\\&}"
-  if grep -q "^${key}=" "$file"; then
-    sed -i "s|^${key}=.*|${key}=${escaped}|" "$file"
-  else
-    printf '%s=%s\n' "$key" "$value" >> "$file"
-  fi
 }
 
 backup_system_file() {
@@ -203,31 +194,33 @@ find /var/lib/ros2-dashboard/frontend -type f -exec chmod 0644 {} +
 
 step 7 "Preparing persistent configuration and MariaDB schema"
 backend_env="$PROJECT_DIR/backend/.env"
+runtime_env=/etc/ros2-dashboard/dashboard.env
 if [[ ! -f "$backend_env" ]]; then
   install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0600 \
     "$PROJECT_DIR/backend/.env.example" "$backend_env"
 fi
-if ! grep -q '^MARIADB_PASSWORD=.' "$backend_env"; then
-  set_env_value "$backend_env" MARIADB_PASSWORD "$(openssl rand -hex 24)"
+if [[ -z "$(ros_dashboard_read_env_value "$backend_env" MARIADB_PASSWORD || true)" ]]; then
+  ros_dashboard_set_env_value "$backend_env" MARIADB_PASSWORD "$(openssl rand -hex 24)"
 fi
+ros_dashboard_migrate_runtime_env "$backend_env" "$runtime_env"
+ros_dashboard_resolve_runtime_env "$backend_env" true
+ros_dashboard_set_env_value "$backend_env" ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
+ros_dashboard_set_env_value "$backend_env" RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
 chown "$INSTALL_USER:$INSTALL_GROUP" "$backend_env"
 chmod 0600 "$backend_env"
 systemctl enable --now mariadb.service
 "$SCRIPT_DIR/init_database.sh"
 
 install -d -m 0755 /etc/ros2-dashboard
-runtime_env=/etc/ros2-dashboard/dashboard.env
 if [[ ! -f "$runtime_env" ]]; then
   install -m 0644 /dev/null "$runtime_env"
-  cat > "$runtime_env" <<EOF
-ROS_DOMAIN_ID=${ROS2_DASHBOARD_ROS_DOMAIN_ID:-${ROS_DOMAIN_ID:-0}}
-RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
-EOF
 fi
-set_env_value "$runtime_env" ROS2_DASHBOARD_WS_ROOT "$PROJECT_DIR/ros2_ws"
-set_env_value "$runtime_env" ROS2_DASHBOARD_MONITOR_CONFIG_DIR \
+ros_dashboard_set_env_value "$runtime_env" ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
+ros_dashboard_set_env_value "$runtime_env" RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
+ros_dashboard_set_env_value "$runtime_env" ROS2_DASHBOARD_WS_ROOT "$PROJECT_DIR/ros2_ws"
+ros_dashboard_set_env_value "$runtime_env" ROS2_DASHBOARD_MONITOR_CONFIG_DIR \
   "$PROJECT_DIR/ros2_ws/src/ros2_dashboard_monitor/config"
-set_env_value "$runtime_env" ROS_LOG_DIR "$PROJECT_DIR/.runtime/ros_logs"
+ros_dashboard_set_env_value "$runtime_env" ROS_LOG_DIR "$PROJECT_DIR/.runtime/ros_logs"
 install -d -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0755 "$PROJECT_DIR/.runtime/ros_logs"
 
 step 8 "Installing systemd units and production HTTPS/WSS"

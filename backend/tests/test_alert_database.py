@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+from time import sleep
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -248,6 +249,35 @@ def test_database_failure_keeps_memory_alert_monitoring_available() -> None:
     snapshot = service.snapshot()
     assert snapshot['data'][0]['code'] == 'topic_stale'
     assert snapshot['meta']['active_count'] == 1
+
+
+def test_database_connection_is_retried_after_interval() -> None:
+    class RecoveringRepository(MemoryAlertRepository):
+        def __init__(self) -> None:
+            super().__init__()
+            self.ping_calls = 0
+            self.synchronize_calls = 0
+
+        def ping(self) -> None:
+            self.ping_calls += 1
+            if self.ping_calls == 1:
+                raise ConnectionError('database unavailable')
+
+        def synchronize(self, *args, **kwargs) -> None:
+            self.synchronize_calls += 1
+            super().synchronize(*args, **kwargs)
+
+    repository = RecoveringRepository()
+    service = AlertHistoryService(repository, database_retry_interval_sec=0.1)
+
+    service.start()
+    assert repository.ping_calls == 1
+    service.consume({'data': [alert()], 'meta': {'count': 1}})
+    assert repository.synchronize_calls == 0
+    sleep(0.11)
+    service.consume({'data': [alert()], 'meta': {'count': 1}})
+
+    assert repository.synchronize_calls == 1
 
 
 class SqlCursor:

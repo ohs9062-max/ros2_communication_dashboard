@@ -21,7 +21,9 @@ service_state "Nginx/Frontend" nginx.service
 runtime_env=/etc/ros2-dashboard/dashboard.env
 if [[ -r "$runtime_env" ]]; then
   runtime_domain="$(sed -n 's/^ROS_DOMAIN_ID=//p' "$runtime_env" | tail -n 1)"
+  runtime_rmw="$(sed -n 's/^RMW_IMPLEMENTATION=//p' "$runtime_env" | tail -n 1)"
   printf '%-16s %s\n' "ROS domain" "${runtime_domain:-unset}"
+  printf '%-16s %s\n' "ROS RMW" "${runtime_rmw:-unset}"
 fi
 
 if curl --silent --fail http://127.0.0.1:8766/snapshot >/dev/null 2>&1; then

@@ -6,6 +6,7 @@
 ## 설치와 보존
 
 - [ ] ROS2, Node.js, MariaDB가 없는 Fresh Ubuntu에서 `sudo ./scripts/install.sh` 성공
+- [ ] MariaDB 수동 로그인 없이 전용 DB/계정/랜덤 비밀번호/schema 자동 준비
 - [x] 설치 직후 `./scripts/status.sh`의 필수 항목 정상
 - [x] `install.sh` 두 번째 실행 성공
 - [x] 재설치 전후 Alert row와 해결 이력 보존

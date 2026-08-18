@@ -202,6 +202,8 @@ Frontend는 Backend REST와 `/ws/monitor`만 사용한다. Monitor 8765, observe
 `backend/app/settings.py`가 `backend/.env`를 읽는다.
 
 ```text
+ROS_DOMAIN_ID                    제품 ROS Domain 기준값, 기본 0
+RMW_IMPLEMENTATION              제품 RMW 기준값, 기본 rmw_fastrtps_cpp
 MONITOR_BASE_URL                 http://127.0.0.1:8765
 MONITOR_TIMEOUT_SEC              30
 MONITOR_POLL_INTERVAL_SEC        1
@@ -455,6 +457,9 @@ MariaDB는 ROS2 실시간 transport가 아니라 Backend 소유 Alert 이력 저
 현재 DB 테이블은 `alert` 하나뿐이다. Backend는 시작 시 `SELECT 1 FROM alert`로 존재를 확인하고 DB 장애 시
 fallback하지만 runtime 중 schema를 변경하지 않는다. 제품 설치기는 `backend/schema/001_alert.sql`을 멱등 적용하고
 필수 9개 컬럼의 이름·타입·NULL 제약을 검증한다. 기존 schema가 다르면 데이터를 변경하지 않고 설치를 실패시킨다.
+Fresh 설치에서는 로컬 root unix_socket 관리 권한으로 전용 DB와 localhost/127.0.0.1 계정을 자동 생성한다.
+`backend/.env`에 비밀번호가 없을 때만 48자리 hex secret을 만들며 재설치에서는 기존 값을 유지한다. Backend 계정은
+관리·DDL 권한 없이 해당 DB의 SELECT, INSERT, UPDATE, DELETE만 가진다. 사용자의 MariaDB 수동 로그인은 필요 없다.
 
 | 컬럼 | 타입/제약 | 목적 |
 |---|---|---|
@@ -642,8 +647,8 @@ production static Frontend를 사용한다. MariaDB와 Nginx는 공용 service�
 Backend venv는 Git이나 다른 checkout에서 가져오지 않는다. 설치기는 checkout 경로·machine id·Python ABI stamp와
 venv prefix/pip launcher 경로를 검증하고 현재 환경과 다르면 `backend/.venv`만 재생성한 뒤
 `backend/.venv/bin/python -m pip`로 의존성을 설치한다.
-`start.sh`를 실행한 터미널에 `ROS_DOMAIN_ID`가 명시돼 있으면 `/etc/ros2-dashboard/dashboard.env`와 동기화하고
-값이 바뀐 Monitor만 재시작한다. 터미널 값이 없으면 기존 제품 Domain 설정을 유지한다.
+`backend/.env`의 `ROS_DOMAIN_ID`와 `RMW_IMPLEMENTATION`이 제품 기준값이다. `install.sh`와 `start.sh`는 이를
+`/etc/ros2-dashboard/dashboard.env`에 동기화하고 값이 바뀐 Monitor만 재시작한다.
 
 개발 통합 실행은 `./scripts/run_dashboard_stack.sh`, 종료는 `./scripts/stop_dashboard_stack.sh`를 사용한다. Vite는
 5173 strict port를 사용하며 제품 서비스와 동시에 실행하지 않는다. ROS demo는 다음 package launch를 사용한다.

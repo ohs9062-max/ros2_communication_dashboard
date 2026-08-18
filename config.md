@@ -18,14 +18,13 @@ sudo ./scripts/install.sh
 
 ```bash
 cd ~/rang/ros2_dashboard
-export ROS_DOMAIN_ID=<device-domain-id>
 ./scripts/start.sh
 ./scripts/status.sh
 ./scripts/stop.sh
 ```
 
-`start.sh`는 현재 터미널의 `ROS_DOMAIN_ID`가 제품 설정과 다를 때 해당 값을 반영하고 Monitor를 재시작한다.
-터미널에 값이 없으면 `/etc/ros2-dashboard/dashboard.env`의 기존 값을 유지한다.
+`backend/.env`의 `ROS_DOMAIN_ID`와 `RMW_IMPLEMENTATION`이 프로젝트 기준값이다. `install.sh`와 `start.sh`가
+이를 `/etc/ros2-dashboard/dashboard.env`에 반영하고 값이 바뀌면 Monitor를 재시작한다.
 
 ```bash
 sudo systemctl start ros2-dashboard.target
@@ -48,14 +47,9 @@ ROS2 Graph
 ## 제품 설정
 
 ```text
-/etc/ros2-dashboard/dashboard.env
+backend/.env
   ROS_DOMAIN_ID
   RMW_IMPLEMENTATION
-  ROS2_DASHBOARD_WS_ROOT
-  ROS2_DASHBOARD_MONITOR_CONFIG_DIR
-  ROS_LOG_DIR
-
-backend/.env
   MONITOR_BASE_URL
   MONITOR_TIMEOUT_SEC
   MONITOR_POLL_INTERVAL_SEC
@@ -65,6 +59,12 @@ backend/.env
   MARIADB_HOST / MARIADB_PORT / MARIADB_UNIX_SOCKET
   MARIADB_DATABASE / MARIADB_USER / MARIADB_PASSWORD
   MARIADB_CONNECT_TIMEOUT_SEC / MARIADB_RETRY_INTERVAL_SEC
+
+/etc/ros2-dashboard/dashboard.env
+  위 ROS runtime 값의 systemd 반영본
+  ROS2_DASHBOARD_WS_ROOT
+  ROS2_DASHBOARD_MONITOR_CONFIG_DIR
+  ROS_LOG_DIR
 
 ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml
   Graph polling, timeout, 주요/감시 대상, Topic filter

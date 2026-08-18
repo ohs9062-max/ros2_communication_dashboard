@@ -184,3 +184,7 @@ Backend `.env`에서 `ALERT_DB_ENABLED`, `MARIADB_HOST`, `MARIADB_PORT`, `MARIAD
 `MARIADB_USER`, `MARIADB_PASSWORD`를 설정합니다. 로컬 Unix socket은 `MARIADB_UNIX_SOCKET`으로 선택할 수
 있고, timeout/retry는 `MARIADB_CONNECT_TIMEOUT_SEC`, `MARIADB_RETRY_INTERVAL_SEC`로 관리합니다.
 비밀번호는 코드, 문서, 로그에 기록하지 않습니다.
+
+제품 설치기는 Fresh Ubuntu의 MariaDB root unix_socket 인증으로 전용 DB와 계정을 자동 준비합니다. 비밀번호가
+비어 있을 때만 랜덤 secret을 생성하고 기존 `.env` 값은 재설치에서도 유지합니다. Schema/검증은 설치기 root
+경로가 담당하며 Backend 계정에는 해당 DB의 SELECT, INSERT, UPDATE, DELETE만 부여합니다.

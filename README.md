@@ -24,7 +24,9 @@ netplan/NetworkManager 연결 설정은 변경하지 않는다.
 ```bash
 git clone <repository>
 cd ros2_dashboard
-sudo ROS2_DASHBOARD_ROS_DOMAIN_ID=<device-domain-id> ./scripts/install.sh
+cp -n backend/.env.example backend/.env
+# backend/.env의 ROS_DOMAIN_ID와 RMW_IMPLEMENTATION을 장비에 맞게 설정
+sudo ./scripts/install.sh
 ```
 
 root shell에서 직접 실행할 때는 프로젝트를 소유할 일반 사용자를 명시한다.
@@ -46,15 +48,13 @@ runtime 환경 설정과 TLS 인증서는 삭제하거나 초기화하지 않는
 ## 실행, 상태 확인, 종료
 
 ```bash
-export ROS_DOMAIN_ID=<device-domain-id>
 ./scripts/start.sh
 ./scripts/status.sh
 ./scripts/stop.sh
 ```
 
-`start.sh`는 현재 터미널에 `ROS_DOMAIN_ID`가 설정돼 있고 제품 설정과 다를 때
-`/etc/ros2-dashboard/dashboard.env`를 동기화하고 Monitor를 재시작한다. 터미널 값이 없으면 기존 제품 설정을
-그대로 사용한다.
+`start.sh`는 `backend/.env`의 ROS runtime 값을 `/etc/ros2-dashboard/dashboard.env`와 동기화하고 값이 바뀌면
+Monitor를 재시작한다.
 
 동일한 작업을 systemd로 직접 수행할 수도 있다.
 
@@ -80,9 +80,10 @@ https://<장비 LAN IP>/
 
 ## 설정
 
-- ROS runtime: `/etc/ros2-dashboard/dashboard.env`
+- ROS runtime 기준값: `backend/.env`
   - `ROS_DOMAIN_ID`
   - `RMW_IMPLEMENTATION` (기본 `rmw_fastrtps_cpp`)
+- systemd 반영 파일: `/etc/ros2-dashboard/dashboard.env` (직접 수정하지 않음)
 - Monitor 정책: `ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml`
 - Interface Registry: 같은 Monitor config 디렉터리의 registry/apply YAML
 - Backend/DB: `backend/.env` (설치 시 최초 생성, 권한 `0600`)
@@ -119,7 +120,8 @@ payload를 pretty JSON으로 확인할 수 있고, 상세 QoS는 같은 role/sco
 접힌 상세에 모두 보존한다.
 
 MariaDB에는 현재/해결 Alert 이력만 저장한다. ROS2 snapshot과 Interface Lab 실행 이력은 DB 전달 수단이 아니다.
-설치 시 `backend/schema/001_alert.sql`을 멱등 적용하고 기존 테이블의 필수 schema를 검증한다.
+설치 시 전용 DB·계정과 랜덤 비밀번호를 자동 준비하고 `backend/schema/001_alert.sql`을 멱등 적용한다. 사용자가
+MariaDB에 직접 로그인할 필요는 없으며 기존 비밀번호와 Alert 이력은 재설치해도 유지한다.
 
 ## 개발 모드
 

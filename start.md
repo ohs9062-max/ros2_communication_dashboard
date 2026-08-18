@@ -181,18 +181,6 @@ ros2 run rqt_image_view rqt_image_view
   }
 }
 
-
-# DB
-mariadb -u ohs -p ros2_dashboard
-
-SELECT
-    id,
-    source,
-    code,
-    detected_at,
-    resolved_at
-FROM alert
-ORDER BY id DESC;
 ```
 
 # 새 Ubuntu 환경 최초 설치
@@ -200,14 +188,15 @@ ORDER BY id DESC;
 ```bash
 git clone <repository-url> ~/rang/ros2_dashboard
 cd ~/rang/ros2_dashboard
-sudo ROS2_DASHBOARD_ROS_DOMAIN_ID=99 ./scripts/install.sh
+cp -n backend/.env.example backend/.env
+sed -i 's/^ROS_DOMAIN_ID=.*/ROS_DOMAIN_ID=<device-domain-id>/' backend/.env
+sudo ./scripts/install.sh
 ```
 
 # 제품 실행
 
 ```bash
 cd ~/rang/ros2_dashboard
-export ROS_DOMAIN_ID=99
 ./scripts/start.sh
 ```
 
@@ -235,7 +224,6 @@ cd ~/rang/ros2_dashboard
 
 ```bash
 cd ~/rang/ros2_dashboard
-export ROS_DOMAIN_ID=99
 ./scripts/start.sh
 ```
 
