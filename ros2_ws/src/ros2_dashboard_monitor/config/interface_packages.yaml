@@ -1,7 +1,6 @@
 packages:
 - name: rths_interfaces
   path: ros2_ws/src/uploaded_interfaces/packages/rths_interfaces
-  absolute_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/uploaded_interfaces/packages/rths_interfaces
   source: uploaded_package
   uploaded_at: '2026-07-28T04:16:05.528456+00:00'
   last_build_status: success
@@ -18,7 +17,6 @@ packages:
       type: rths_interfaces/msg/CleaningSchedule
       relative_path: msg/CleaningSchedule.msg
       saved_path: ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/msg/CleaningSchedule.msg
-      absolute_saved_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/msg/CleaningSchedule.msg
       raw_text: 'uint32 scheduling_id
 
         string scheduling_dt
@@ -55,7 +53,6 @@ packages:
       type: rths_interfaces/srv/RobotControl
       relative_path: srv/RobotControl.srv
       saved_path: ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/srv/RobotControl.srv
-      absolute_saved_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/srv/RobotControl.srv
       raw_text: '# Goal
 
 
@@ -100,7 +97,6 @@ packages:
       type: rths_interfaces/srv/ScheduleCrud
       relative_path: srv/ScheduleCrud.srv
       saved_path: ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/srv/ScheduleCrud.srv
-      absolute_saved_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/srv/ScheduleCrud.srv
       raw_text: '# cmd: 1=CREATE, 2=READ, 3=UPDATE, 4=DELETE, 5=LIST
 
         uint8 cmd
@@ -179,7 +175,6 @@ packages:
       type: rths_interfaces/action/CanControl
       relative_path: action/CanControl.action
       saved_path: ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/action/CanControl.action
-      absolute_saved_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/uploaded_interfaces/packages/rths_interfaces/action/CanControl.action
       raw_text: '# Goal
 
         uint8 node_id

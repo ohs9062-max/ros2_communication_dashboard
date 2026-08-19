@@ -202,7 +202,7 @@ ORDER BY id DESC;
 # 새 Ubuntu 환경 최초 설치
 
 ```bash
-git clone <repository-url> ~/rang/ros2_dashboard
+git clone https://github.com/ohs9062-max/ros2_communication_dashboard~/rang/ros2_dashboard
 cd ~/rang/ros2_dashboard
 cp -n backend/.env.example backend/.env
 sed -i 's/^ROS_DOMAIN_ID=.*/ROS_DOMAIN_ID=<device-domain-id>/' backend/.env

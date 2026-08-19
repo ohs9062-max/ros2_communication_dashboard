@@ -7,6 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
+from ros2_dashboard_monitor.interface_lab.paths import (
+    resolve_stored_workspace_path,
+)
 from ros2_dashboard_monitor.interface_lab.management.registry_storage import iter_registry_items
 
 
@@ -94,11 +97,15 @@ def apply_summary(
             continue
 
         item_package_path = (
-            build.get('absolute_interface_package_path')
-            or build.get('interface_package_path')
+            build.get('interface_package_path')
+            or build.get('absolute_interface_package_path')
         )
         active_package_path = (
-            Path(str(item_package_path)).resolve() if item_package_path else package_path
+            resolve_stored_workspace_path(
+                str(item_package_path),
+                workspace_root=workspace_root,
+            )
+            if item_package_path else package_path
         )
         active_package_name = str(build.get('interface_package') or package_name)
         interface_path = f'{kind}/{file_name}' if kind and file_name else ''
@@ -124,9 +131,8 @@ def apply_summary(
             build['interface_package'] = active_package_name
             build['interface_package_path'] = display_path(active_package_path)
             build['saved_path'] = display_path(actual_path) if file_saved else build.get('saved_path')
-            build['absolute_saved_path'] = (
-                str(actual_path) if file_saved else build.get('absolute_saved_path')
-            )
+            build.pop('absolute_interface_package_path', None)
+            build.pop('absolute_saved_path', None)
             build['file_saved'] = file_saved
             build['cmake_registered'] = cmake_registered
             build['package_xml_checked'] = package_xml_checked
@@ -209,16 +215,13 @@ def registered_interface_path(
     *,
     workspace_root: Path,
 ) -> Path:
-    saved = build.get('absolute_saved_path') or build.get('saved_path')
+    saved = build.get('saved_path') or build.get('absolute_saved_path')
     if not saved:
         return package_path / interface_path
-    saved_path = Path(str(saved))
-    if saved_path.is_absolute():
-        return saved_path
-    project_root = workspace_root.parent
-    if saved_path.parts and saved_path.parts[0] == workspace_root.name:
-        return project_root / saved_path
-    return workspace_root / saved_path
+    return resolve_stored_workspace_path(
+        str(saved),
+        workspace_root=workspace_root,
+    )
 
 
 def package_xml_satisfies(package_text: str, package_name: str, dependencies: Any) -> bool:

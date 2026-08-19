@@ -66,3 +66,32 @@ def test_duplicate_package_status_preserves_cleanup_details(tmp_path: Path):
     assert status['status'] == 'failed'
     assert status['build_status'] == 'skipped'
     assert status['cleanup']['duplicates'] == {'demo': ['src/a', 'src/b']}
+
+
+def test_completed_apply_status_serializes_workspace_paths_portably(tmp_path: Path):
+    workspace = tmp_path / 'checkout' / 'ros2_ws'
+    site_packages = workspace / 'install' / 'demo' / 'lib' / 'python3.12' / 'site-packages'
+    status = result_builder.completed(
+        started_at='start',
+        finished_at='finish',
+        workspace=workspace,
+        log_path=workspace / 'src' / 'monitor' / 'config' / 'apply.log',
+        returncode=0,
+        summary={'real_apply_success': True, 'not_applied': []},
+        path_refresh={'site_packages': [str(site_packages)], 'added': []},
+        import_check={
+            'status': 'success',
+            'install_python_paths': [str(site_packages)],
+            'install_python_paths_added': [],
+        },
+        cleanup={'package_names': [], 'removed': [], 'duplicates': {}},
+    )
+
+    assert status['workspace_path'] == 'ros2_ws'
+    assert status['log_path'] == 'ros2_ws/src/monitor/config/apply.log'
+    assert status['install_python_paths'] == [
+        'ros2_ws/install/demo/lib/python3.12/site-packages',
+    ]
+    assert status['import_check']['install_python_paths'] == [
+        'ros2_ws/install/demo/lib/python3.12/site-packages',
+    ]

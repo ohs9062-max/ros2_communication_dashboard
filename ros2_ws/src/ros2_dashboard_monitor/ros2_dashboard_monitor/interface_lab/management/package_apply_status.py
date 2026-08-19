@@ -6,6 +6,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
+from ros2_dashboard_monitor.interface_lab.paths import (
+    resolve_stored_workspace_path,
+)
+
 
 ImportChecker = Callable[[str, str, str], tuple[bool, str | None]]
 
@@ -72,7 +76,11 @@ def apply_summary(
     total = 0
     for package in registry['packages']:
         package_name = str(package.get('name') or '')
-        package_path = Path(str(package.get('absolute_path') or ''))
+        stored_package_path = package.get('path') or package.get('absolute_path')
+        package_path = (
+            resolve_stored_workspace_path(str(stored_package_path))
+            if stored_package_path else uploaded_packages_path / package_name
+        )
         package_reasons: list[str] = []
         if not package_path.is_dir():
             package_reasons.append('package path missing')

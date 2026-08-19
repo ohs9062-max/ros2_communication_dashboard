@@ -60,5 +60,48 @@ def persistent_monitor_config_dir() -> Path:
     return monitor_config_dir()
 
 
+def portable_workspace_path(
+    path: Path,
+    *,
+    workspace_root: Path | None = None,
+) -> str:
+    """프로젝트 내부 경로는 checkout 위치와 무관한 상대경로로 직렬화합니다."""
+    workspace = (workspace_root or ros_workspace_root()).resolve()
+    resolved = path.expanduser().resolve()
+    try:
+        return resolved.relative_to(workspace.parent).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def resolve_stored_workspace_path(
+    value: str | Path,
+    *,
+    workspace_root: Path | None = None,
+) -> Path:
+    """저장된 상대경로와 이전 checkout의 절대경로를 현재 workspace로 복원합니다."""
+    workspace = (workspace_root or ros_workspace_root()).resolve()
+    stored = Path(value).expanduser()
+    if not stored.is_absolute():
+        if stored.parts and stored.parts[0] == workspace.name:
+            return (workspace.parent / stored).resolve()
+        return (workspace / stored).resolve()
+
+    try:
+        stored.relative_to(workspace)
+        return stored.resolve()
+    except ValueError:
+        pass
+
+    matching_indexes = [
+        index for index, part in enumerate(stored.parts)
+        if part == workspace.name
+    ]
+    if matching_indexes:
+        suffix = stored.parts[matching_indexes[-1] + 1:]
+        return workspace.joinpath(*suffix).resolve()
+    return stored.resolve()
+
+
 def generated_interface_package_root() -> Path:
     return ros_workspace_root() / 'src' / 'uploaded_interfaces' / 'generated_interfaces'

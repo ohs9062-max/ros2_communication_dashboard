@@ -1222,3 +1222,24 @@
 - warning/error가 모두 가능한 QoS 3종과 단일 level Alert 목록, Alert가 아닌 정상·확인 불가 상태를 분리했다.
 - 전체 문서에 DB 생명주기 요약을 추가해 최초 발생은 행 추가, 지속 중에는 기존 행 유지, 해결 시 해결 시각 기록,
   해결 후 재발 시 새 행 추가라는 동작과 해결 행의 이력 보존을 명시했다.
+
+## 2026-08-19 - MonitorStatus Alert 판정·필터 조사
+
+- `MonitorStatus`는 Dashboard가 수치 임계값을 계산하는 상태가 아니라, 실제 Graph에서 발견하고 자동 구독한
+  `ros2_dashboard_interfaces/msg/MonitorStatus`의 최신 payload `level`을 trim/lowercase한 뒤
+  warning/error/critical만 그대로 Alert로 변환하는 구조임을 확인했다.
+- Topic include/exclude/type 및 supported type·자동 구독 조건은 적용되지만 required/등록/primary/command,
+  device/status allowlist와 confirmation 필터는 적용되지 않는다. info·빈 값·기타 level은 제외된다.
+- `last_received_at`과 `age_sec`은 기록만 하며 최신 MonitorStatus의 만료 판단에는 사용하지 않는다. 새 정상
+  메시지가 없으면 과거 warning/error/critical preview가 subscription 정리 전까지 Alert로 남을 수 있는 정책
+  공백을 확인했으며 코드는 수정하지 않았다.
+
+## 2026-08-19 - 사내 압축 배포의 개발환경 잔존 위험 조사
+
+- 현재 개발 폴더를 그대로 압축하면 Git에서 제외되는 Backend `.env`/`.venv`, Frontend `node_modules`/`dist`,
+  ROS `build`/`install`/`log`, `.runtime` 약 188MB와 편집기 임시 파일까지 함께 전달되는 것을 확인했다.
+- 설치기는 다른 머신의 `.venv`를 판별해 재생성하고 Frontend를 다시 빌드하지만 기존 `.env`는 보존하며 ROS
+  생성물을 사전에 제거하지 않으므로, 전체 폴더 압축은 비밀값 전달·Domain 설정 상속·절대경로 build 실패 위험이 있다.
+- Git 추적 Interface Registry/Apply 상태에도 현재 개발 경로의 `absolute_path`, `workspace_path`, install Python
+  path가 남아 있고 일부 상태 판정이 이를 읽는다. 사내 전달 전에는 Git 추적 소스만 담는 별도 배포 archive와
+  Registry의 이식 가능한 상태 정리가 필요함을 확인했으며 코드는 수정하지 않았다.

@@ -60,7 +60,6 @@ def install_interface(
     return {
         'interface_package': package_name,
         'saved_path': display_path(destination),
-        'absolute_saved_path': str(destination),
         'file_saved': True,
         'cmake_registered': True,
         'cmake_updated': cmake_changed,

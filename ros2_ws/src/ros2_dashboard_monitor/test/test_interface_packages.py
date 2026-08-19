@@ -4,6 +4,7 @@ from zipfile import ZipFile
 import yaml
 
 from ros2_dashboard_monitor.interface_lab.management.packages import (
+    package_apply_summary,
     ros_workspace_root,
     default_packages_registry_path,
     default_uploaded_packages_root,
@@ -109,6 +110,12 @@ def test_package_upload_stays_independent_from_dashboard_interfaces(
     assert saved['packages'][0]['path'].endswith(
         'src/uploaded_interfaces/packages/rths_interfaces',
     )
+    assert 'absolute_path' not in saved['packages'][0]
+    assert all(
+        'absolute_saved_path' not in item
+        for items in saved['packages'][0]['interfaces'].values()
+        for item in items
+    )
 
 
 def test_default_package_paths_stay_ros_workspace_relative(monkeypatch):
@@ -121,6 +128,41 @@ def test_default_package_paths_stay_ros_workspace_relative(monkeypatch):
     assert default_packages_registry_path().name == 'interface_packages.yaml'
     assert default_packages_registry_path().parent.name == 'config'
     assert default_uploaded_packages_root() == workspace / 'src' / 'uploaded_interfaces' / 'packages'
+
+
+def test_package_summary_prefers_portable_path_over_legacy_absolute_path(
+    tmp_path: Path,
+    monkeypatch,
+):
+    workspace = tmp_path / 'checkout' / 'ros2_ws'
+    package = workspace / 'src' / 'uploaded_interfaces' / 'packages' / 'demo_interfaces'
+    (package / 'msg').mkdir(parents=True)
+    (package / 'package.xml').write_text(
+        '<package format="3"><name>demo_interfaces</name></package>\n',
+        encoding='utf-8',
+    )
+    (package / 'CMakeLists.txt').write_text(
+        'project(demo_interfaces)\n'
+        'rosidl_generate_interfaces(${PROJECT_NAME} "msg/Status.msg")\n',
+        encoding='utf-8',
+    )
+    (package / 'msg' / 'Status.msg').write_text('bool ok\n', encoding='utf-8')
+    monkeypatch.setenv('ROS2_DASHBOARD_WS_ROOT', str(workspace))
+
+    summary = package_apply_summary(registry={'packages': [{
+        'name': 'demo_interfaces',
+        'path': 'ros2_ws/src/uploaded_interfaces/packages/demo_interfaces',
+        'absolute_path': '/home/legacy/project/ros2_ws/src/uploaded_interfaces/packages/demo_interfaces',
+        'interfaces': {'msg': [{
+            'file_name': 'Status.msg',
+            'relative_path': 'msg/Status.msg',
+            'saved_path': 'ros2_ws/src/uploaded_interfaces/packages/demo_interfaces/msg/Status.msg',
+            'import_available': False,
+        }]},
+    }]})
+
+    assert summary['real_apply_success'] is True
+    assert summary['not_applied'] == []
 
 
 def test_package_folder_upload_restores_tree_without_single_registry(
@@ -208,3 +250,4 @@ def test_package_folder_upload_restores_tree_without_single_registry(
     assert saved['packages'][0]['path'].endswith(
         'src/uploaded_interfaces/packages/rths_interfaces',
     )
+    assert 'absolute_path' not in saved['packages'][0]

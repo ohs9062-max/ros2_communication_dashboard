@@ -12,6 +12,9 @@ import yaml
 from ros2_dashboard_monitor.interface_lab.management.errors import InterfacePackageError
 
 
+LEGACY_ABSOLUTE_PATH_FIELDS = {'absolute_path', 'absolute_saved_path'}
+
+
 def load_packages_registry(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {'packages': []}
@@ -24,6 +27,7 @@ def load_packages_registry(path: Path) -> dict[str, Any]:
 
 
 def write_packages_registry(path: Path, registry: dict[str, Any]) -> None:
+    _remove_legacy_absolute_paths(registry)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_name = ''
     try:
@@ -38,3 +42,14 @@ def write_packages_registry(path: Path, registry: dict[str, Any]) -> None:
         if temporary_name:
             Path(temporary_name).unlink(missing_ok=True)
         raise InterfacePackageError(f'The package registry could not be saved: {exc}') from exc
+
+
+def _remove_legacy_absolute_paths(value: Any) -> None:
+    if isinstance(value, dict):
+        for field in LEGACY_ABSOLUTE_PATH_FIELDS:
+            value.pop(field, None)
+        for nested in value.values():
+            _remove_legacy_absolute_paths(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            _remove_legacy_absolute_paths(nested)

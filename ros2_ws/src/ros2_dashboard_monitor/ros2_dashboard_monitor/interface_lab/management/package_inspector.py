@@ -69,7 +69,6 @@ def collect_interfaces(
                 'type': f'{package_name}/{kind}/{type_name}',
                 'relative_path': relative.as_posix(),
                 'saved_path': display_path(path),
-                'absolute_saved_path': str(path.resolve()),
                 'raw_text': raw_text,
                 'parsed': parsed,
                 'parsed_error': parsed_error,

@@ -72,9 +72,7 @@ def manual_definition_entry(
         'build': {
             'interface_package': package_name,
             'interface_package_path': display_path(package_root),
-            'absolute_interface_package_path': str(package_root),
             'saved_path': display_path(destination),
-            'absolute_saved_path': str(destination),
             'file_saved': True,
             'cmake_registered': True,
             'package_xml_checked': True,

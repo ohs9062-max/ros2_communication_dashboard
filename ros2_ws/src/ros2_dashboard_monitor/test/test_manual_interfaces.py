@@ -51,6 +51,8 @@ def test_manual_definition_creates_uploaded_interfaces_package(tmp_path, monkeyp
     assert (package_root / 'srv' / 'MyControl.srv').read_text() == 'uint8 cmd\n---\nbool success\n'
     assert 'srv/MyControl.srv' in (package_root / 'CMakeLists.txt').read_text()
     assert not (tmp_path / 'src' / 'ros2_dashboard_interfaces').exists()
+    assert 'absolute_interface_package_path' not in entry['build']
+    assert 'absolute_saved_path' not in entry['build']
 
 
 def test_invalid_msg_separator_does_not_create_files(tmp_path, monkeypatch):

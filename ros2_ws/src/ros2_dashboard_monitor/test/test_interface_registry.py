@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
 from ros2_dashboard_monitor.interface_lab.management.registry import (
     InterfaceUploadError,
@@ -128,6 +129,9 @@ def test_registers_file_cmake_package_and_dependencies(
     assert entry['build']['dependency_candidates'] == ['rths_interfaces']
     assert entry['build']['rebuild_required'] is True
     assert entry['build']['import_available'] is False
+    saved = yaml.safe_load((tmp_path / 'registry.yaml').read_text())
+    build = saved['interface_registry']['services'][0]['build']
+    assert 'absolute_saved_path' not in build
 
 
 def test_existing_interface_is_updated_without_duplicate_cmake(

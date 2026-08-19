@@ -61,7 +61,6 @@ def install_package_root(
     entry = {
         'name': package_name,
         'path': display_path(destination),
-        'absolute_path': str(destination.resolve()),
         'source': 'uploaded_package',
         'uploaded_at': datetime.now(timezone.utc).isoformat(),
         'last_build_status': 'pending',
@@ -119,4 +118,3 @@ def _rebase_interface_paths(
             relative = Path(str(item.get('relative_path') or ''))
             absolute = package_root / relative
             item['saved_path'] = display_path(absolute)
-            item['absolute_saved_path'] = str(absolute.resolve())

@@ -5,8 +5,8 @@ real_apply_success: true
 started_at: '2026-08-13T01:41:57.581726+00:00'
 finished_at: '2026-08-13T01:42:03.662025+00:00'
 returncode: 0
-workspace_path: /home/hs/rang/ros2_dashboard/ros2_ws
-log_path: /home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
+workspace_path: ros2_ws
+log_path: ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
 reload_scheduled: true
 restart_scheduled: true
 reload_trigger_path: null
@@ -49,11 +49,11 @@ summary: &id002
   requires_import_available: true
 not_applied: *id001
 install_python_paths:
-- /home/hs/rang/ros2_dashboard/ros2_ws/install/ros2_dashboard_demo_nodes/lib/python3.12/site-packages
-- /home/hs/rang/ros2_dashboard/ros2_ws/install/ros2_dashboard_interfaces/lib/python3.12/site-packages
-- /home/hs/rang/ros2_dashboard/ros2_ws/install/ros2_dashboard_monitor/lib/python3.12/site-packages
-- /home/hs/rang/ros2_dashboard/ros2_ws/install/rths_interfaces/lib/python3.12/site-packages
-- /home/hs/rang/ros2_dashboard/ros2_ws/install/uploaded_interfaces/lib/python3.12/site-packages
+- ros2_ws/install/ros2_dashboard_demo_nodes/lib/python3.12/site-packages
+- ros2_ws/install/ros2_dashboard_interfaces/lib/python3.12/site-packages
+- ros2_ws/install/ros2_dashboard_monitor/lib/python3.12/site-packages
+- ros2_ws/install/rths_interfaces/lib/python3.12/site-packages
+- ros2_ws/install/uploaded_interfaces/lib/python3.12/site-packages
 install_python_paths_added: []
 import_check:
   real_apply_success: true
@@ -61,11 +61,11 @@ import_check:
   summary: *id002
   not_applied: *id001
   install_python_paths:
-  - /home/hs/rang/ros2_dashboard/ros2_ws/install/ros2_dashboard_demo_nodes/lib/python3.12/site-packages
-  - /home/hs/rang/ros2_dashboard/ros2_ws/install/ros2_dashboard_interfaces/lib/python3.12/site-packages
-  - /home/hs/rang/ros2_dashboard/ros2_ws/install/ros2_dashboard_monitor/lib/python3.12/site-packages
-  - /home/hs/rang/ros2_dashboard/ros2_ws/install/rths_interfaces/lib/python3.12/site-packages
-  - /home/hs/rang/ros2_dashboard/ros2_ws/install/uploaded_interfaces/lib/python3.12/site-packages
+  - ros2_ws/install/ros2_dashboard_demo_nodes/lib/python3.12/site-packages
+  - ros2_ws/install/ros2_dashboard_interfaces/lib/python3.12/site-packages
+  - ros2_ws/install/ros2_dashboard_monitor/lib/python3.12/site-packages
+  - ros2_ws/install/rths_interfaces/lib/python3.12/site-packages
+  - ros2_ws/install/uploaded_interfaces/lib/python3.12/site-packages
   install_python_paths_added: []
 cleanup:
   package_names:

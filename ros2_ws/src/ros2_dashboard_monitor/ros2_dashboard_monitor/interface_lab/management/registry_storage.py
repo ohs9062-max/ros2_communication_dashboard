@@ -15,6 +15,10 @@ from ros2_dashboard_monitor.interface_lab.management.errors import InterfaceUplo
 
 REGISTRY_COLLECTIONS = ('messages', 'services', 'actions')
 REGISTRY_LOCK = threading.Lock()
+LEGACY_ABSOLUTE_PATH_FIELDS = {
+    'absolute_interface_package_path',
+    'absolute_saved_path',
+}
 
 
 def empty_registry() -> dict[str, Any]:
@@ -54,6 +58,7 @@ def iter_registry_items(registry: dict[str, Any]) -> Iterator[dict[str, Any]]:
 
 def write_registry(path: Path, registry: dict[str, Any]) -> None:
     """같은 디렉터리의 임시 파일을 교체해 Registry를 원자적으로 저장합니다."""
+    _remove_legacy_absolute_paths(registry)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_name = ''
     try:
@@ -70,3 +75,14 @@ def write_registry(path: Path, registry: dict[str, Any]) -> None:
         if temporary_name:
             Path(temporary_name).unlink(missing_ok=True)
         raise InterfaceUploadError(f'The type registry could not be saved: {exc}') from exc
+
+
+def _remove_legacy_absolute_paths(value: Any) -> None:
+    if isinstance(value, dict):
+        for field in LEGACY_ABSOLUTE_PATH_FIELDS:
+            value.pop(field, None)
+        for nested in value.values():
+            _remove_legacy_absolute_paths(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            _remove_legacy_absolute_paths(nested)

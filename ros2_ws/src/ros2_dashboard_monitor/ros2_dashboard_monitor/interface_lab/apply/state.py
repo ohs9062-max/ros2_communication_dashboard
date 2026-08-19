@@ -14,6 +14,8 @@ from ros2_dashboard_monitor.interface_lab.apply.status_storage import (
 )
 from ros2_dashboard_monitor.interface_lab.paths import (
     persistent_monitor_config_dir,
+    portable_workspace_path,
+    resolve_stored_workspace_path,
     ros_workspace_root,
 )
 
@@ -48,7 +50,7 @@ def apply_status(*, running: bool) -> dict[str, Any]:
     status = read_apply_status()
     status['running'] = running
     status['log_tail'] = read_log_tail(
-        Path(status.get('log_path') or default_apply_log_path()),
+        _status_log_path(status),
     )
     return status
 
@@ -67,6 +69,7 @@ def mark_interface_change_pending(message: str) -> dict[str, Any]:
         'reload_scheduled': False,
         'restart_scheduled': False,
     })
+    _portable_status_paths(status)
     write_status(default_apply_status_path(), status)
     return status
 
@@ -84,12 +87,14 @@ def record_import_check_status(result: dict[str, Any]) -> dict[str, Any]:
         )
     status['summary'] = result.get('summary')
     status['not_applied'] = result.get('not_applied', [])
-    status['install_python_paths'] = result.get('install_python_paths', [])
-    status['install_python_paths_added'] = result.get('install_python_paths_added', [])
-    status['import_check'] = result
+    portable_result = _portable_import_check(result)
+    status['install_python_paths'] = portable_result.get('install_python_paths', [])
+    status['install_python_paths_added'] = portable_result.get('install_python_paths_added', [])
+    status['import_check'] = portable_result
+    _portable_status_paths(status)
     write_status(default_apply_status_path(), status)
     status['log_tail'] = read_log_tail(
-        Path(status.get('log_path') or default_apply_log_path()),
+        _status_log_path(status),
     )
     return status
 
@@ -111,8 +116,14 @@ def empty_status() -> dict[str, Any]:
         'started_at': None,
         'finished_at': None,
         'returncode': None,
-        'workspace_path': str(workspace),
-        'log_path': str(log_path),
+        'workspace_path': portable_workspace_path(
+            workspace,
+            workspace_root=workspace,
+        ),
+        'log_path': portable_workspace_path(
+            log_path,
+            workspace_root=workspace,
+        ),
         'reload_scheduled': False,
         'restart_scheduled': False,
         'reload_trigger_path': None,
@@ -123,3 +134,40 @@ def empty_status() -> dict[str, Any]:
         'install_python_paths_added': [],
         'import_check': None,
     }
+
+
+def _status_log_path(status: dict[str, Any]) -> Path:
+    value = status.get('log_path')
+    if not value:
+        return default_apply_log_path()
+    return resolve_stored_workspace_path(str(value))
+
+
+def _portable_import_check(result: dict[str, Any]) -> dict[str, Any]:
+    workspace = ros_workspace_path()
+    portable = result.copy()
+    for key in ('install_python_paths', 'install_python_paths_added'):
+        portable[key] = [
+            portable_workspace_path(Path(value), workspace_root=workspace)
+            for value in result.get(key, [])
+        ]
+    return portable
+
+
+def _portable_status_paths(status: dict[str, Any]) -> None:
+    workspace = ros_workspace_path()
+    for key in ('workspace_path', 'log_path'):
+        value = status.get(key)
+        if value:
+            status[key] = portable_workspace_path(
+                resolve_stored_workspace_path(str(value), workspace_root=workspace),
+                workspace_root=workspace,
+            )
+    for key in ('install_python_paths', 'install_python_paths_added'):
+        status[key] = [
+            portable_workspace_path(
+                resolve_stored_workspace_path(str(value), workspace_root=workspace),
+                workspace_root=workspace,
+            )
+            for value in status.get(key, [])
+        ]

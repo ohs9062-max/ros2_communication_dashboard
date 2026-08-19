@@ -5,7 +5,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from ros2_dashboard_monitor.interface_lab.paths import persistent_monitor_config_dir, ros_workspace_root
+from ros2_dashboard_monitor.interface_lab.paths import (
+    persistent_monitor_config_dir,
+    portable_workspace_path,
+    ros_workspace_root,
+)
 
 
 def default_registry_path() -> Path:
@@ -26,9 +30,4 @@ def default_interface_package() -> tuple[str, Path]:
 
 
 def display_path(path: Path) -> str:
-    resolved = path.resolve()
-    root = ros_workspace_root().parent
-    try:
-        return resolved.relative_to(root).as_posix()
-    except ValueError:
-        return str(resolved)
+    return portable_workspace_path(path)

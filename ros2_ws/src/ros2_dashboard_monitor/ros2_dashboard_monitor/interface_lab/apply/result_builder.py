@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ros2_dashboard_monitor.interface_lab.paths import portable_workspace_path
+
 
 def running(*, started_at: str, workspace: Path, log_path: Path) -> dict[str, Any]:
     return _base(started_at=started_at, workspace=workspace, log_path=log_path) | {
@@ -79,6 +81,14 @@ def completed(
         status_name = 'failed'
     elif not path_refresh['site_packages'] or not real_apply_success:
         status_name = 'import_failed'
+    portable_path_refresh = {
+        key: [
+            portable_workspace_path(Path(value), workspace_root=workspace)
+            for value in path_refresh.get(key, [])
+        ]
+        for key in ('site_packages', 'added')
+    }
+    portable_import_check = _portable_import_check(import_check, workspace)
     return _base(started_at=started_at, workspace=workspace, log_path=log_path) | {
         'status': status_name,
         'build_status': 'success' if build_success else 'failed',
@@ -93,9 +103,9 @@ def completed(
         ),
         'summary': summary,
         'not_applied': summary['not_applied'],
-        'install_python_paths': path_refresh['site_packages'],
-        'install_python_paths_added': path_refresh['added'],
-        'import_check': import_check,
+        'install_python_paths': portable_path_refresh['site_packages'],
+        'install_python_paths_added': portable_path_refresh['added'],
+        'import_check': portable_import_check,
         'cleanup': cleanup,
     }
 
@@ -128,8 +138,14 @@ def _base(*, started_at: str, workspace: Path, log_path: Path) -> dict[str, Any]
         'started_at': started_at,
         'finished_at': None,
         'returncode': None,
-        'workspace_path': str(workspace),
-        'log_path': str(log_path),
+        'workspace_path': portable_workspace_path(
+            workspace,
+            workspace_root=workspace,
+        ),
+        'log_path': portable_workspace_path(
+            log_path,
+            workspace_root=workspace,
+        ),
         'reload_scheduled': False,
         'restart_scheduled': False,
         'reload_trigger_path': None,
@@ -140,3 +156,18 @@ def _base(*, started_at: str, workspace: Path, log_path: Path) -> dict[str, Any]
         'install_python_paths_added': [],
         'import_check': None,
     }
+
+
+def _portable_import_check(
+    result: dict[str, Any] | None,
+    workspace: Path,
+) -> dict[str, Any] | None:
+    if result is None:
+        return None
+    portable = result.copy()
+    for key in ('install_python_paths', 'install_python_paths_added'):
+        portable[key] = [
+            portable_workspace_path(Path(value), workspace_root=workspace)
+            for value in result.get(key, [])
+        ]
+    return portable
