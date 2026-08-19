@@ -146,9 +146,7 @@ v4l2-ctl -d /dev/video0 \
   --list-formats-ext
 
 # 3. ROS2 카메라 드라이버 실행
-ros2 run v4l2_camera v4l2_camera_node \
-  --ros-args \
-  -p video_device:=/dev/video0
+ros2 run v4l2_camera v4l2_camera_node --ros-args -p video_device:=/dev/video0
 
 # 4. ROS2 카메라 Topic 확인
 ros2 topic list -t | grep -Ei 'image|camera'
@@ -202,8 +200,9 @@ ORDER BY id DESC;
 # 새 Ubuntu 환경 최초 설치
 
 ```bash
-git clone https://github.com/ohs9062-max/ros2_communication_dashboard~/rang/ros2_dashboard
-cd ~/rang/ros2_dashboard
+git clone \
+  https://github.com/ohs9062-max/ros2_communication_dashboard.git \
+  ros2_dashboard
 cp -n backend/.env.example backend/.env
 sed -i 's/^ROS_DOMAIN_ID=.*/ROS_DOMAIN_ID=<device-domain-id>/' backend/.env
 sudo ./scripts/install.sh
