@@ -81,10 +81,12 @@ docs/                            설계·운영 문서
   Python ABI stamp와 prefix/pip 경로가 현재 환경과 다르면 venv만 재생성한 뒤 `python -m pip`를 사용한다.
   이동된 venv 실패 재현·재생성 판정, 빈 임시 venv requirements 설치와 핵심 import, Backend 15 passed·2 skipped,
   Frontend `npm ci`/build를 확인했다. 별도 Fresh Ubuntu VM의 installer 재실행 확인은 사용자 환경에서 남아 있다.
-- `backend/.env`의 `ROS_DOMAIN_ID`와 `RMW_IMPLEMENTATION`이 제품 기준값이다. `install.sh`와 `start.sh`가
-  `/etc/ros2-dashboard/dashboard.env`에 동기화하고 값이 바뀌면 Monitor를 재시작한다. 기존 설치는 runtime 값을
-  프로젝트 `.env`로 한 번 이관해 기존 설정을 보존한다. 현재 systemd Monitor 프로세스는 Domain 99와
-  `rmw_fastrtps_cpp`를 실제 환경으로 받고 있다.
+- ROS Domain과 RMW는 현재 shell의 `ROS_DOMAIN_ID`/`RMW_IMPLEMENTATION`, 프로젝트 `backend/.env`,
+  runtime env(`/etc/ros2-dashboard/dashboard.env`), 기본값(`0`/`rmw_fastrtps_cpp`) 순으로 우선순위가 결정된다.
+  `scripts/start.sh`는 shell에 명시된 값이 있으면 이를 최우선으로 적용해 `backend/.env`와
+  `/etc/ros2-dashboard/dashboard.env`에 동기화하고 값이 변경되면 Monitor를 재시작한다. shell에 값이 없으면
+  `backend/.env`의 마지막 저장값을 유지하며 재부팅 후에도 systemd는 마지막 저장값을 사용한다.
+  `.env` 파서의 주석·공백·따옴표 정제와 정수 범위(0~232) 검증도 강화했다.
 - Topic 목록·Overview·Alert는 ROS2 Graph cache에서 수집된 Topic만 사용한다. `required_stream_names`와
   `command_names`는 실제 발견된 Topic의 역할만 분류하며 설정 이름만으로 `not_discovered` placeholder를 만들지
   않는다. 임시 Monitor 실제 Graph에서 Topic 5건만 노출되고 미발견 설정 이름 6건과 관련 Alert가 모두 0건임을

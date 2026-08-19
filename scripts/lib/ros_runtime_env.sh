@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 
-ros_dashboard_read_env_value() {
-  local file="$1" key="$2" value
-  [[ -f "$file" ]] || return 1
-  value="$(sed -n -E "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*(.*)$/\\1/p" "$file" | tail -n 1)"
-  value="${value%$'\r'}"
-  if [[ "$value" == \"*\" && "$value" == *\" ]]; then
-    value="${value:1:${#value}-2}"
-  elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
-    value="${value:1:${#value}-2}"
+ros_dashboard_trim_env_value() {
+  local raw="${1:-}" val
+  raw="${raw%$'\r'}"
+  raw="$(printf '%s' "$raw" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+  if [[ "$raw" =~ ^\"([^\"]*)\"([[:space:]]*#.*)?$ ]]; then
+    val="${BASH_REMATCH[1]}"
+  elif [[ "$raw" =~ ^\'([^\']*)\'([[:space:]]*#.*)?$ ]]; then
+    val="${BASH_REMATCH[1]}"
+  else
+    val="$(printf '%s' "$raw" | sed -E 's/[[:space:]]*#.*$//' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
   fi
+  printf '%s' "$val"
+}
+
+ros_dashboard_read_env_value() {
+  local file="$1" key="$2" raw value
+  [[ -f "$file" ]] || return 1
+  raw="$(sed -n -E "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*(.*)$/\\1/p" "$file" | tail -n 1)"
+  value="$(ros_dashboard_trim_env_value "$raw")"
   [[ -n "$value" ]] || return 1
   printf '%s' "$value"
 }
@@ -17,8 +26,8 @@ ros_dashboard_read_env_value() {
 ros_dashboard_set_env_value() {
   local file="$1" key="$2" value="$3" escaped
   escaped="${value//&/\\&}"
-  if grep -q "^${key}=" "$file"; then
-    sed -i "s|^${key}=.*|${key}=${escaped}|" "$file"
+  if grep -q "^[[:space:]]*${key}=" "$file" 2>/dev/null; then
+    sed -i -E "s|^[[:space:]]*${key}=.*|${key}=${escaped}|" "$file"
   else
     printf '%s=%s\n' "$key" "$value" >> "$file"
   fi
@@ -38,16 +47,26 @@ ros_dashboard_migrate_runtime_env() {
 }
 
 ros_dashboard_resolve_runtime_env() {
-  local project_env="$1" allow_install_override="${2:-false}" project_domain="" project_rmw=""
+  local project_env="$1" allow_install_override="${2:-false}"
+  local project_domain="" project_rmw=""
+  local shell_domain="" shell_rmw=""
+  local install_override_domain="" install_override_rmw=""
+
   project_domain="$(ros_dashboard_read_env_value "$project_env" ROS_DOMAIN_ID || true)"
   project_rmw="$(ros_dashboard_read_env_value "$project_env" RMW_IMPLEMENTATION || true)"
 
+  shell_domain="$(ros_dashboard_trim_env_value "${ROS_DOMAIN_ID:-}")"
+  shell_rmw="$(ros_dashboard_trim_env_value "${RMW_IMPLEMENTATION:-}")"
+
+  install_override_domain="$(ros_dashboard_trim_env_value "${ROS2_DASHBOARD_ROS_DOMAIN_ID:-}")"
+  install_override_rmw="$(ros_dashboard_trim_env_value "${ROS2_DASHBOARD_RMW_IMPLEMENTATION:-}")"
+
   if [[ "$allow_install_override" == true ]]; then
-    ROS_DASHBOARD_DOMAIN_ID="${ROS2_DASHBOARD_ROS_DOMAIN_ID:-${project_domain:-${ROS_DOMAIN_ID:-0}}}"
-    ROS_DASHBOARD_RMW_IMPLEMENTATION="${ROS2_DASHBOARD_RMW_IMPLEMENTATION:-${project_rmw:-${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}}}"
+    ROS_DASHBOARD_DOMAIN_ID="${install_override_domain:-${shell_domain:-${project_domain:-0}}}"
+    ROS_DASHBOARD_RMW_IMPLEMENTATION="${install_override_rmw:-${shell_rmw:-${project_rmw:-rmw_fastrtps_cpp}}}"
   else
-    ROS_DASHBOARD_DOMAIN_ID="${project_domain:-${ROS_DOMAIN_ID:-0}}"
-    ROS_DASHBOARD_RMW_IMPLEMENTATION="${project_rmw:-${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}}"
+    ROS_DASHBOARD_DOMAIN_ID="${shell_domain:-${project_domain:-0}}"
+    ROS_DASHBOARD_RMW_IMPLEMENTATION="${shell_rmw:-${project_rmw:-rmw_fastrtps_cpp}}"
   fi
 
   if [[ ! "$ROS_DASHBOARD_DOMAIN_ID" =~ ^[0-9]+$ \

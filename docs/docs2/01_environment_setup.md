@@ -56,16 +56,17 @@ ROS_DOMAIN_ID=0
 RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 ```
 
-설치 시 우선순위:
+실행 및 설치 시 우선순위:
 
 ```text
-ROS2_DASHBOARD_ROS_DOMAIN_ID / ROS2_DASHBOARD_RMW_IMPLEMENTATION
-→ backend/.env
-→ 현재 shell의 ROS_DOMAIN_ID / RMW_IMPLEMENTATION
-→ 0 / rmw_fastrtps_cpp
+1. 설치 전용 override (ROS2_DASHBOARD_ROS_DOMAIN_ID / ROS2_DASHBOARD_RMW_IMPLEMENTATION, 설치 시)
+2. 현재 shell의 ROS_DOMAIN_ID / RMW_IMPLEMENTATION
+3. backend/.env (마지막 저장값)
+4. runtime env (/etc/ros2-dashboard/dashboard.env)
+5. 기본값 (0 / rmw_fastrtps_cpp)
 ```
 
-`install.sh`와 `start.sh`는 선택한 값을 `/etc/ros2-dashboard/dashboard.env`에 반영한다. systemd
+`install.sh`와 `start.sh`는 선택한 값을 `backend/.env` 및 `/etc/ros2-dashboard/dashboard.env`에 반영한다. systemd
 Monitor와 DDS observer는 같은 Domain/RMW를 사용한다. `scripts/systemd/run_monitor.sh`는 값을 자체 결정하지
 않고 ROS2 base와 workspace setup만 source한다.
 

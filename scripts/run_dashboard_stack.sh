@@ -13,6 +13,17 @@ ros_dashboard_resolve_runtime_env "$BACKEND_DIR/.env"
 export ROS_DOMAIN_ID="$ROS_DASHBOARD_DOMAIN_ID"
 export RMW_IMPLEMENTATION="$ROS_DASHBOARD_RMW_IMPLEMENTATION"
 
+if [[ -f "$BACKEND_DIR/.env" ]]; then
+  project_domain="$(ros_dashboard_read_env_value "$BACKEND_DIR/.env" ROS_DOMAIN_ID || true)"
+  if [[ "$project_domain" != "$ROS_DASHBOARD_DOMAIN_ID" ]]; then
+    ros_dashboard_set_env_value "$BACKEND_DIR/.env" ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
+  fi
+  project_rmw="$(ros_dashboard_read_env_value "$BACKEND_DIR/.env" RMW_IMPLEMENTATION || true)"
+  if [[ "$project_rmw" != "$ROS_DASHBOARD_RMW_IMPLEMENTATION" ]]; then
+    ros_dashboard_set_env_value "$BACKEND_DIR/.env" RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
+  fi
+fi
+
 mkdir -p "$RUNTIME_DIR"
 mkdir -p "$ROS_LOG_DIR_VALUE"
 

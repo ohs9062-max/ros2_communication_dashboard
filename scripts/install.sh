@@ -195,6 +195,18 @@ find /var/lib/ros2-dashboard/frontend -type f -exec chmod 0644 {} +
 step 7 "Preparing persistent configuration and MariaDB schema"
 backend_env="$PROJECT_DIR/backend/.env"
 runtime_env=/etc/ros2-dashboard/dashboard.env
+if [[ -z "${ROS_DOMAIN_ID:-}" && -n "${INSTALL_USER:-}" ]]; then
+  user_domain="$(run_as_user 'printf "%s" "${ROS_DOMAIN_ID:-}"' 2>/dev/null || true)"
+  if [[ -n "$user_domain" ]]; then
+    export ROS_DOMAIN_ID="$user_domain"
+  fi
+fi
+if [[ -z "${RMW_IMPLEMENTATION:-}" && -n "${INSTALL_USER:-}" ]]; then
+  user_rmw="$(run_as_user 'printf "%s" "${RMW_IMPLEMENTATION:-}"' 2>/dev/null || true)"
+  if [[ -n "$user_rmw" ]]; then
+    export RMW_IMPLEMENTATION="$user_rmw"
+  fi
+fi
 if [[ ! -f "$backend_env" ]]; then
   install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0600 \
     "$PROJECT_DIR/backend/.env.example" "$backend_env"

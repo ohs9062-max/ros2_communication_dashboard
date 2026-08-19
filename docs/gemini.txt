@@ -1,0 +1,192 @@
+# ROS2 Dashboard: ROS_DOMAIN_ID 처리 및 start.sh 실행 실패 원인 조사 보고서
+
+---
+
+### 1. 가장 가능성 높은 원인
+
+1. **직접 원인 (정수 검증 실패)**
+   - `scripts/lib/ros_runtime_env.sh`의 `ros_dashboard_read_env_value()` 함수가 `.env` 파일을 읽을 때 **인라인 주석(` # ...`), 뒤따르는 공백(trailing whitespace), 불완전한 따옴표 처리**를 정제(trim/strip)하지 못하고 그대로 가져옵니다.
+   - 또한, `backend/.env`에 값이 없거나 비어 있어서 현재 shell의 `ROS_DOMAIN_ID` 환경변수로 fallback될 때도, shell 환경변수 값에 **따옴표(`"99"`), 숨은 공백(`99 `), 캐리지 리턴(`\r`)** 등이 포함되어 있으면 아무런 정제 없이 대입되어 정규식 검증(`^[0-9]+$`)을 실패합니다.
+
+2. **구조적 원인 (우선순위 역전 및 사용자 Shell 환경변수 무시)**
+   - `scripts/start.sh`는 `backend/.env`의 값을 1순위로 읽습니다.
+   - Fresh Ubuntu 환경에서 `scripts/install.sh`를 실행하면 `backend/.env.example`이 복사되면서 `backend/.env`에 `ROS_DOMAIN_ID=0`이 기록됩니다.
+   - 따라서 사용자가 이후 터미널에서 `export ROS_DOMAIN_ID=99`를 하더라도, `start.sh`는 shell 변수를 완전히 무시하고 `backend/.env`의 값(또는 `.env` 내 잘못된 포맷의 값)을 우선 참조합니다.
+
+---
+
+### 2. 실제 코드 흐름
+
+`scripts/start.sh` 실행 시 다음과 같은 순서로 진행됩니다.
+
+```text
+User Shell (ROS_DOMAIN_ID=99)
+  ↓ ./scripts/start.sh 실행
+scripts/start.sh
+  ↓ source scripts/lib/ros_runtime_env.sh
+ros_dashboard_migrate_runtime_env(PROJECT_ENV, RUNTIME_ENV)
+  ↓ (backend/.env에 키가 없으면 /etc/ros2-dashboard/dashboard.env에서 가져옴)
+ros_dashboard_resolve_runtime_env(PROJECT_ENV, false)
+  ↓ ros_dashboard_read_env_value(PROJECT_ENV, "ROS_DOMAIN_ID")
+  ↓ ROS_DASHBOARD_DOMAIN_ID="${project_domain:-${ROS_DOMAIN_ID:-0}}"
+  ↓ 정수 정규식 및 범위 검증 (0~232) -> 실패 시 exit 1
+sync_runtime_value ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
+  ↓ /etc/ros2-dashboard/dashboard.env 업데이트
+systemctl start/restart 서비스 기동
+```
+
+1. **`scripts/start.sh`**:
+   - `PROJECT_ENV=".../backend/.env"`
+   - `RUNTIME_ENV="/etc/ros2-dashboard/dashboard.env"`
+   - `source "$SCRIPT_DIR/lib/ros_runtime_env.sh"`
+2. **`ros_dashboard_migrate_runtime_env "$PROJECT_ENV" "$RUNTIME_ENV"`**:
+   - `backend/.env`에 `ROS_DOMAIN_ID`가 정의되어 있지 않은 경우에만 `/etc/ros2-dashboard/dashboard.env`의 값을 읽어 `backend/.env`에 기록합니다.
+3. **`ros_dashboard_resolve_runtime_env "$PROJECT_ENV"`**:
+   - `allow_install_override`의 기본값은 `false`입니다.
+   - `project_domain="$(ros_dashboard_read_env_value "$project_env" ROS_DOMAIN_ID || true)"`
+   - `ROS_DASHBOARD_DOMAIN_ID="${project_domain:-${ROS_DOMAIN_ID:-0}}"`
+   - 값 검증 단계에서 실패 시 에러 출력 후 종료합니다.
+4. **`sync_runtime_value ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"`**:
+   - 계산된 값을 `/etc/ros2-dashboard/dashboard.env`에 동기화하고 변경 시 `runtime_env_changed=true` 플래그를 설정합니다.
+
+---
+
+### 3. 어떤 값이 최종 `ROS_DASHBOARD_DOMAIN_ID`가 되는지 (우선순위)
+
+#### A. `start.sh` 실행 시 (`allow_install_override=false`)
+```bash
+ROS_DASHBOARD_DOMAIN_ID="${project_domain:-${ROS_DOMAIN_ID:-0}}"
+```
+- **1순위**: `backend/.env`의 `ROS_DOMAIN_ID` (`project_domain`)
+- **2순위**: 현재 shell의 `ROS_DOMAIN_ID` (단, `backend/.env`에 키가 없거나 비어 있을 때만 동작)
+- **3순위**: 기본값 `0`
+*(참고: `start.sh`에서는 `ROS2_DASHBOARD_ROS_DOMAIN_ID` 환경변수는 아예 참조되지 않습니다.)*
+
+#### B. `install.sh` 실행 시 (`allow_install_override=true`)
+```bash
+ROS_DASHBOARD_DOMAIN_ID="${ROS2_DASHBOARD_ROS_DOMAIN_ID:-${project_domain:-${ROS_DOMAIN_ID:-0}}}"
+```
+- **1순위**: `ROS2_DASHBOARD_ROS_DOMAIN_ID`
+- **2순위**: `backend/.env`의 `ROS_DOMAIN_ID` (`project_domain`)
+- **3순위**: 현재 shell의 `ROS_DOMAIN_ID`
+- **4순위**: 기본값 `0`
+
+---
+
+### 4. 왜 정수 검증에서 실패하는지
+
+검증 코드 (`scripts/lib/ros_runtime_env.sh`):
+```bash
+if [[ ! "$ROS_DASHBOARD_DOMAIN_ID" =~ ^[0-9]+$ \
+    || ${#ROS_DASHBOARD_DOMAIN_ID} -gt 3 ]] \
+    || (( 10#$ROS_DASHBOARD_DOMAIN_ID > 232 )); then
+  echo "[ros2_dashboard] ROS_DOMAIN_ID must be an integer from 0 to 232." >&2
+  return 1
+fi
+```
+
+파싱 코드 (`scripts/lib/ros_runtime_env.sh`):
+```bash
+value="$(sed -n -E "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*(.*)$/\\1/p" "$file" | tail -n 1)"
+value="${value%$'\r'}"
+if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+  value="${value:1:${#value}-2}"
+elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+  value="${value:1:${#value}-2}"
+fi
+```
+
+#### 파싱 취약점 세부 원인:
+1. **인라인 주석 미제거**:
+   `backend/.env`에 `ROS_DOMAIN_ID=99 # turtlebot` 형태로 작성되면 `value="99 # turtlebot"`이 되어 `^[0-9]+$` 정규식을 통과하지 못합니다.
+2. **Trailing space(공백) 미제거**:
+   `ROS_DOMAIN_ID=99 ` (끝에 공백 1칸 이상)인 경우 `value="99 "`가 되어 `^[0-9]+$` 매칭에 실패합니다.
+3. **따옴표 + 주석/공백 조합 시 따옴표 파싱 실패**:
+   `ROS_DOMAIN_ID="99" ` 또는 `ROS_DOMAIN_ID="99" # comment`인 경우, `[[ "$value" == *\" ]]` 조건이 거짓이 되어 따옴표가 제거되지 않고 `"\"99\" "` 형태로 남아 정규식 검증에 실패합니다.
+4. **Shell 환경변수 파싱 미수행**:
+   `backend/.env`에 값이 없어서 shell의 `ROS_DOMAIN_ID`를 읽어올 때, 사용자의 환경변수에 `export ROS_DOMAIN_ID="99"`(따옴표 포함)나 Windows 줄바꿈이 섞인 `export ROS_DOMAIN_ID=$'99\r'` 등이 설정되어 있으면 정제 과정 없이 `$ROS_DASHBOARD_DOMAIN_ID`로 전달되어 실패합니다.
+
+---
+
+### 5. 재부팅 후 Domain 0 문제와의 관계
+
+- **별개 문제가 아니라 동일한 설정 동기화 아키텍처에서 발생하는 연관 문제입니다.**
+- **동작 원리**:
+  1. systemd 서비스(`config/systemd/ros2-dashboard-monitor.service.in`)는 `EnvironmentFile=-/etc/ros2-dashboard/dashboard.env`를 읽어 Monitor를 기동합니다.
+  2. 설치 시점(`scripts/install.sh`)에 `backend/.env.example`을 복사하면서 `backend/.env`와 `/etc/ros2-dashboard/dashboard.env`에 `ROS_DOMAIN_ID=0`이 저장됩니다.
+  3. 재부팅 시 systemd는 `/etc/ros2-dashboard/dashboard.env`에 저장된 `0`을 읽어 자동 실행하므로 항상 Domain 0으로 동작합니다.
+  4. 사용자가 로그인 후 터미널에서 `export ROS_DOMAIN_ID=99`를 하고 `start.sh`를 실행해 변경하려 해도, `backend/.env`의 `0`이 우선시되거나 파싱 에러로 인해 값이 동기화되지 못하는 현상으로 이어집니다.
+
+---
+
+### 6. 저장소별 ROS_DOMAIN_ID 위치 정리
+
+| 저장소 위치 | 파일 경로 | 설명 |
+|---|---|---|
+| **project env** | `backend/.env` | 프로젝트 기준값 (Single Source of Truth) |
+| **backend env** | `backend/.env` | project env와 동일 파일 |
+| **runtime env** | `/etc/ros2-dashboard/dashboard.env` | systemd Monitor/Backend가 실제로 읽는 파일 |
+| **systemd EnvironmentFile** | `EnvironmentFile=-/etc/ros2-dashboard/dashboard.env` | systemd unit 파일에 정의된 runtime env 참조 경로 |
+
+---
+
+### 7. 현재 설계 의도 판단
+
+문서(`docs/architecture/configuration.md`, `AGENTS.md`)에 정의된 의도는 다음과 같습니다:
+- **`backend/.env`가 제품 ROS runtime의 기준값(Source of Truth)**입니다.
+- `start.sh`와 `install.sh`가 `backend/.env`의 값을 읽어 `/etc/ros2-dashboard/dashboard.env`로 동기화하고, 값이 변경되면 systemd Monitor를 재시작하는 구조입니다.
+- **실제 동작상의 문제**:
+  - 설치 시 `backend/.env.example`이 복사되면서 `ROS_DOMAIN_ID=0`이 무조건 생겨버려 shell의 환경변수가 반영될 기회가 차단됩니다.
+  - 사용자가 일상적으로 쉘에서 `export ROS_DOMAIN_ID=99` 후 `start.sh`를 실행했을 때 이를 감지하여 반영해주는 옵션이나 흐름이 부족하고, `.env` 파서의 결함으로 인해 정수 검증 에러가 발생합니다.
+
+---
+
+### 8. 수정이 필요한 파일 및 최소 수정 방향
+
+#### 수정 대상 파일
+1. `scripts/lib/ros_runtime_env.sh` (핵심)
+2. `scripts/install.sh` (설치 시 쉘 변수 우선순위 보정)
+
+#### 최소 수정 방향
+1. **`ros_dashboard_read_env_value()` 파싱 정제 보강**:
+   - 인라인 주석 제거 (`sed -E 's/[[:space:]]+#.*$//'` 또는 bash parameter expansion).
+   - 앞뒤 공백(leading/trailing whitespace) 및 `\r` 완벽한 trim.
+   - 따옴표(`"..."`, `'...'`) 완벽 제거.
+2. **Shell 환경변수 sanitize**:
+   - `ROS_DASHBOARD_DOMAIN_ID` 및 `ROS_DASHBOARD_RMW_IMPLEMENTATION`에 shell 변수가 들어갈 때도 앞뒤 공백/따옴표/`\r`을 trim 처리.
+3. **설치 시 `backend/.env` 초기화 순서 개선**:
+   - `install.sh`에서 `backend/.env.example`을 복사하기 전에 shell의 `ROS_DOMAIN_ID`를 먼저 resolve하거나, 이미 shell에 설정된 값이 있다면 우선 반영되도록 보정.
+
+---
+
+### 9. 수정 시 부작용 가능성
+
+- `backend/.env`에는 MariaDB 비밀번호 등 특수문자(`!`, `#`, `$` 등)가 포함될 수 있는 키도 존재합니다.
+- 따라서 **인라인 주석 제거 및 trim 로직**은 `ros_dashboard_read_env_value`에서 공통으로 적용할 때 따옴표로 감싸진 값 내부의 `#`는 보존되도록 하거나, `ROS_DOMAIN_ID` / `RMW_IMPLEMENTATION` 같은 전용 키 검증 단계에서 안전하게 sanitize하도록 분리해야 합니다.
+
+---
+
+### 10. 재현 및 검증 방법
+
+현재 쉘에서 정수 검증 실패 원인을 즉시 재현해볼 수 있는 명령어:
+
+```bash
+# 1. Trailing whitespace 또는 인라인 주석이 있는 경우 테스트
+TEST_VAL="99 # comment"
+[[ ! "$TEST_VAL" =~ ^[0-9]+$ ]] && echo "정규식 검증 실패: '$TEST_VAL'"
+
+# 2. 따옴표가 포함된 경우 테스트
+TEST_VAL='"99"'
+[[ ! "$TEST_VAL" =~ ^[0-9]+$ ]] && echo "정규식 검증 실패: '$TEST_VAL'"
+
+# 3. 실제 backend/.env 및 /etc/ros2-dashboard/dashboard.env의 raw representation 확인
+xxd /home/hs/rang/ros2_dashboard/backend/.env | grep -i domain || cat -A /home/hs/rang/ros2_dashboard/backend/.env
+```
+
+---
+
+### 해당 코드 작업에서 내가 알아야 할 것 3줄 요약
+
+1. `start.sh`는 shell의 `export ROS_DOMAIN_ID`보다 `backend/.env` 파일의 값을 항상 우선시합니다.
+2. `ros_runtime_env.sh` 파서가 주석/공백/따옴표/`\r`을 걸러내지 못해 정수 검증(`^[0-9]+$`) 에러가 발생합니다.
+3. 재부팅 시 Domain 0이 되는 현상과 start.sh 거부 현상 모두 `backend/.env`와 `/etc/ros2-dashboard/dashboard.env`의 동기화 구조 및 파싱 결함에서 비롯됩니다.

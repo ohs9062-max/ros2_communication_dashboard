@@ -58,10 +58,13 @@ HTTPS 화면에서는 Frontend가 현재 protocol을 기준으로 `/ws/monitor`�
 `scripts/systemd/run_monitor.sh`는 ROS2 base와 workspace setup만 적용하며 Domain/RMW를 자체 결정하지 않는다.
 설치 중에는 `C.UTF-8`을 프로세스 환경으로만 사용하며 시스템 locale을 변경하지 않는다.
 
-설치 시 우선순위는 설치 전용 `ROS2_DASHBOARD_ROS_DOMAIN_ID`/`ROS2_DASHBOARD_RMW_IMPLEMENTATION`, 프로젝트
-`backend/.env`, 현재 shell의 ROS runtime 값, 기본값 순이다. 최종값은 프로젝트 `.env`에도 저장한다.
-`scripts/start.sh`는 프로젝트 값과 systemd 반영값이 다를 때 동기화하고 Monitor를 재시작한다.
-기존 설치의 프로젝트 `.env`에 두 key가 아직 없으면 현재 systemd 반영값을 한 번 이관해 기존 Domain/RMW를 보존한다.
+실행 시 우선순위는 현재 shell의 `ROS_DOMAIN_ID`/`RMW_IMPLEMENTATION`, 프로젝트 `backend/.env`,
+설치된 runtime env(`/etc/ros2-dashboard/dashboard.env`), 기본값(`0`/`rmw_fastrtps_cpp`) 순이다.
+`scripts/start.sh`는 shell에 명시된 값이 있으면 이를 최우선으로 적용하여 프로젝트 `backend/.env` 및
+`/etc/ros2-dashboard/dashboard.env`에 저장·동기화하고 값이 변경되면 Monitor를 재시작한다.
+shell 값이 없으면 `backend/.env`의 마지막 저장값을 유지하며 재부팅 후에도 systemd는 마지막 저장값을 사용한다.
+설치 시에는 설치 전용 `ROS2_DASHBOARD_ROS_DOMAIN_ID`/`ROS2_DASHBOARD_RMW_IMPLEMENTATION`, 현재 shell 값,
+프로젝트 `.env`, 기본값 순으로 적용한다.
 
 제품·개발 실행 명령은 루트 [`config.md`](../../config.md), HTTPS/WSS는
 [`docs/deployment/https_wss.md`](../deployment/https_wss.md)를 따른다.

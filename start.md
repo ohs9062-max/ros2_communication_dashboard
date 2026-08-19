@@ -203,8 +203,7 @@ ORDER BY id DESC;
 git clone \
   https://github.com/ohs9062-max/ros2_communication_dashboard.git \
   ros2_dashboard
-cp -n backend/.env.example backend/.env
-sed -i 's/^ROS_DOMAIN_ID=.*/ROS_DOMAIN_ID=<device-domain-id>/' backend/.env
+
 sudo ./scripts/install.sh
 ```
 

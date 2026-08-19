@@ -1243,3 +1243,18 @@
 - Git 추적 Interface Registry/Apply 상태에도 현재 개발 경로의 `absolute_path`, `workspace_path`, install Python
   path가 남아 있고 일부 상태 판정이 이를 읽는다. 사내 전달 전에는 Git 추적 소스만 담는 별도 배포 archive와
   Registry의 이식 가능한 상태 정리가 필요함을 확인했으며 코드는 수정하지 않았다.
+
+## 2026-08-19 - ROS_DOMAIN_ID 처리 우선순위 및 파싱 취약점 개선
+
+- Fresh 설치 및 일상 실행 환경에서 사용자 shell의 `export ROS_DOMAIN_ID=...` 설정이 `backend/.env`의 이전
+  저장값에 의해 무시되던 우선순위 역전 문제와, `.env` 값의 인라인 주석/공백/따옴표 미정제로 인한 정수 검증(0~232)
+  실패 문제를 해결했다.
+- `scripts/lib/ros_runtime_env.sh`에 `ros_dashboard_trim_env_value()`를 추가하여 주석, 앞뒤 공백, 따옴표(`"`, `'`),
+  `\r`을 안전하게 정제하도록 파서를 개선하고, 우선순위를 shell 환경변수 → `backend/.env` → runtime env → `0` 순으로
+  교정했다.
+- `scripts/start.sh` 및 `scripts/run_dashboard_stack.sh`에서 shell에 명시된 값이 결정되면 `backend/.env`에도
+  동기화 저장하도록 하여 영속성을 보장했으며, 값이 변경되면 systemd Monitor가 자동으로 재시작되도록 연결했다.
+- `scripts/install.sh` step 7에서 sudo 실행 시 `INSTALL_USER`의 shell 환경변수 fallback을 보강했다.
+- 시나리오 1~6(쉘 우선 반영, 미설정 시 기존값 유지, 새 값 변경, 재부팅 후 영속성, 정수 범위 초과 거부, 기본값 0)
+  테스트 스크립트를 작성하여 전체 통과를 확인했고, Backend pytest 16 passed, Monitor pytest 249 passed,
+  Frontend test/lint/build 통과를 검증했다.

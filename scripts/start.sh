@@ -16,14 +16,25 @@ source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
 ros_dashboard_migrate_runtime_env "$PROJECT_ENV" "$RUNTIME_ENV"
 ros_dashboard_resolve_runtime_env "$PROJECT_ENV"
 
+if [[ -f "$PROJECT_ENV" ]]; then
+  project_domain="$(ros_dashboard_read_env_value "$PROJECT_ENV" ROS_DOMAIN_ID || true)"
+  if [[ "$project_domain" != "$ROS_DASHBOARD_DOMAIN_ID" ]]; then
+    ros_dashboard_set_env_value "$PROJECT_ENV" ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
+  fi
+  project_rmw="$(ros_dashboard_read_env_value "$PROJECT_ENV" RMW_IMPLEMENTATION || true)"
+  if [[ "$project_rmw" != "$ROS_DASHBOARD_RMW_IMPLEMENTATION" ]]; then
+    ros_dashboard_set_env_value "$PROJECT_ENV" RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
+  fi
+fi
+
 sync_runtime_value() {
   local key="$1" value="$2" installed
   installed="$(ros_dashboard_read_env_value "$RUNTIME_ENV" "$key" || true)"
   if [[ "$installed" != "$value" ]]; then
     if [[ "$EUID" -eq 0 ]]; then
       ros_dashboard_set_env_value "$RUNTIME_ENV" "$key" "$value"
-    elif grep -q "^${key}=" "$RUNTIME_ENV"; then
-      sudo sed -i "s|^${key}=.*|${key}=${value}|" "$RUNTIME_ENV"
+    elif grep -q "^[[:space:]]*${key}=" "$RUNTIME_ENV" 2>/dev/null; then
+      sudo sed -i -E "s|^[[:space:]]*${key}=.*|${key}=${value}|" "$RUNTIME_ENV"
     else
       printf '%s=%s\n' "$key" "$value" | sudo tee -a "$RUNTIME_ENV" >/dev/null
     fi
