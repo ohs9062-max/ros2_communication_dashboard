@@ -188,6 +188,9 @@ class ActionGoalRuntime:
         """Action별 Interface Lab Client 생성 상태를 반환합니다."""
         return self._client_pool.dashboard_state()
 
+    def refresh_dashboard_qos(self) -> None:
+        self._client_pool.refresh_service_qos()
+
     def _allowed_action(
         self,
         action_name: str,

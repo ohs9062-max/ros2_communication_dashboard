@@ -1,208 +1,112 @@
-# ROS2 Dashboard Service QoS `QoS 발견(observed)` 표시 원인 분석 보고서
+# Topic / Service / Action QoS Incompatibility Alert 복구 후 해제(Resolve) 생명주기 보고서
 
-## 1. 한 문장 결론
-
-> **Fast DDS Observer 수집 단계에서 Client 엔드포인트를 의도적으로 필터링(무시)하고 Server만 수집하도록 되어 있으며, Interface Lab에서 Client를 생성할 때 호환 프로파일을 계산하더라도 `service_snapshot.py`에서 `qos_status`를 `compatible`로 승격하지 않고 `observed` 상태를 그대로 유지하기 때문입니다.**
+## 1. 개요 및 목적
+`/home/hs/rang/ros2_dashboard` 코드베이스를 기준으로 Topic, Service, Action 3개 통신에서 QoS 불일치(`*_qos_incompatible`) 발생 후 정상 QoS로 복구되었을 때, 기존 active Alert가 현재 Alert 목록에서 정상적으로 해제(resolve)되고 DB의 `resolved_at`이 갱신되며, 재발 시 새 row가 생성되는지 생명주기를 전수 조사하고 최소 수정을 적용한 보고서입니다.
 
 ---
 
-## 2. 현재 `QoS 발견`이 나오는 실제 이유
+## 2. 조사 및 수정 10개 핵심 항목
 
-Frontend에서 `QoS 발견` 배지가 출력되는 과정은 다음과 같습니다:
+### 1) Topic 문제 원인
+- **Subscription 캐시 조기 반환으로 인한 QoS 미갱신**:
+  - `ros2_topic/subscription_lifecycle.py`의 `ensure_subscription`에서 이미 동일 type의 subscription이 존재할 때(`has_subscription`이 참) 즉시 `return` 처리되었습니다.
+  - 이로 인해 외부 Publisher의 QoS가 변경·복구되거나 RMW incompatible event가 발생한 이후, Graph 상으로 호환 상태로 복구되었음에도 `entry['qos']`와 Subscription의 QoS 프로파일이 갱신되지 않았습니다.
+- **RMW Event Callback의 Incompatible Latch**:
+  - RMW incompatible event가 한 번 발생하면 `incompatible_qos_callback`이 `entry['qos']`를 `{qos_status: 'incompatible', qos_detection_source: 'incompatible_qos_event'}`로 설정한 뒤 영구 유지(latch)되었습니다.
+  - `build_topic_snapshot`에서 `topic.update(latest['qos'])`를 수행하면서 stale한 `incompatible` 상태가 계속 덮어써져 snapshot의 `topic.qos_status`가 `incompatible`로 고정되었습니다.
+- **Alert Candidate 지속 생성**:
+  - `build_qos_alert_candidates`가 매 주기마다 `topic_qos_incompatible` candidate를 생성하여 Alert가 절대 resolve되지 않았습니다.
+
+### 2) Service 조사 결과
+- **ServiceClientPool의 캐시 고정**:
+  - `ServiceClientPool.dashboard_state()`가 초기 생성 시점의 `_last_state`를 캐싱하고 있어, 원격 Service Server의 Fast DDS discovery QoS가 변경되거나 정상 호환 상태로 복구되었을 때 최신 `dds_qos_getter` 결과를 재평가하지 않았습니다.
+- **Observation Token 누락 취약점**:
+  - `qos_alerts.py`의 `_alert()`에서 확인 횟수(confirmation count) 토큰으로 Topic 전용인 `last_updated`만 참조하여 Service의 `updated_at`이 누락되던 취약점이 있었습니다.
+
+### 3) Action 조사 결과
+- **Feedback / Status Subscription 조기 반환**:
+  - `ActionSubscriptionFacade._ensure_subscriptions`에서 동일 type entry가 존재하면 조기 반환되어 `feedback` 및 `status` subscription의 QoS 갱신이 누락되었습니다.
+  - RMW incompatible event나 초기 불일치가 발생하면 `entry['qos']['feedback']` / `status`가 `incompatible`로 고정되었고, `merge_action_topic_local_qos`가 이 stale한 불일치 정보를 `action['qos'][channel]`에 계속 덮어써 `action_qos_incompatible:{channel}`이 영구 유지되었습니다.
+- **ActionClientPool의 캐시 고정**:
+  - `ActionClientPool.dashboard_state()` 역시 최신 Fast DDS discovery 및 Topic QoS를 재평가하지 않고 초기 생성 시점의 `_qos_by_key`를 반환하고 있었습니다.
+
+### 4) stale/latch 상태 여부
+- **네, 3개 통신 영역 모두에서 stale/latch 상태가 확인되었습니다.**
+  - **Topic**: `entry['qos']`가 RMW event callback에 의해 `incompatible`로 latch된 후 Graph 복구 시 갱신되지 않음.
+  - **Action**: `feedback`/`status` subscription의 `entry['qos']` 및 `ActionClientPool`의 `_qos_by_key`가 불일치 상태로 latch됨.
+  - **Service**: `ServiceClientPool`의 `_last_state`가 원격 서버 QoS 복구 시 갱신되지 않고 초기 불일치 상태로 유지됨.
+
+### 5) alert_key 및 레벨(warning/error) 조사 결과
+- **`alert_key` 자체는 발생 시와 해제 시 완전히 동일하여 문제가 없었습니다.**
+  - Topic: `topic:{name}:topic_qos_incompatible`
+  - Service: `service:{name}:service_qos_incompatible`
+  - Action: `action:{name}:action_qos_incompatible:{channel}`
+- **warning / error level 변화**:
+  - level 변화는 `alert_key`에 영향을 주지 않으므로 level 변화로 인해 resolve가 막히는 문제는 없었습니다.
+- **Backend 및 DB 동기화**:
+  - Backend `AlertHistoryService` 및 MariaDB Repository는 snapshot의 candidate에서 빠지면 즉시 `resolved_at`을 기록하도록 정상 구현되어 있었으며, 근본 원인은 Monitor의 snapshot에서 불일치 상태가 제거되지 않았던 것이었습니다.
+
+### 6) 수정한 파일
+1. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/subscriptions.py`:
+   - `build_subscription_entry`에 `qos_profile` 보존 필드 추가.
+2. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_topic/subscription_lifecycle.py`:
+   - `ensure_subscription`에서 QoS 프로파일 변경 시 subscription 재생성 및 동일 프로파일에서 호환 복구 시 `entry['qos']` in-place 갱신.
+3. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/subscription_lifecycle.py`:
+   - `update_action_topic_subscriptions` 추가로 feedback/status subscription QoS 갱신 및 재생성 지원.
+4. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/ros2_action/subscription_facade.py`:
+   - `_ensure_subscriptions`에서 기존 entry가 매칭될 때 `update_action_topic_subscriptions` 호출.
+5. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/interface_lab/execution/service_client_pool.py`:
+   - `dashboard_state()`에서 최신 Fast DDS discovery를 재평가하여 `_last_state` 갱신.
+6. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/interface_lab/execution/service_call_runtime.py`:
+   - `ServiceClientPool`에 `dds_qos_getter` 연결 및 `selection` 전달.
+7. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/interface_lab/execution/action_client_pool.py`:
+   - `dashboard_state()`에서 최신 5채널 QoS를 재평가하여 `_qos_by_key` 갱신.
+8. `ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/qos_alerts.py`:
+   - `_qos_observation_token`에 `updated_at` 및 `detected_at` fallback 추가.
+9. `ros2_ws/src/ros2_dashboard_monitor/test/test_topic_subscription_lifecycle.py`:
+   - `ensure_subscription` 프로파일 변경 시 재생성 및 호환 복구 in-place 갱신 단위 테스트 추가.
+10. `ros2_ws/src/ros2_dashboard_monitor/test/test_action_subscription_lifecycle.py`:
+    - `update_action_topic_subscriptions` 프로파일 변경 시 재생성 및 호환 복구 단위 테스트 추가.
+11. `ros2_ws/src/ros2_dashboard_monitor/test/test_qos_alerts.py`:
+    - Service QoS alert recovery lifecycle 테스트 추가.
+    - Action 5개 채널 독립 recovery lifecycle 테스트 추가.
+    - Action 다중 채널 부분 복구 및 전체 복구 lifecycle 테스트 추가.
+12. `.codex/WORK_LOG.md` & `.codex/CURRENT_STATUS.md`:
+    - 작업 이력 및 검증 상태 갱신.
+
+### 7) Topic 검증 결과
+- `incompatible` 발생 시 3회 연속 확인 후 `topic_qos_incompatible` Alert 정상 생성 (active).
+- 외부 Publisher가 호환 QoS로 변경되면 Subscription이 안전하게 교체되고, `entry['qos']`가 `compatible`로 갱신됨.
+- 후보 목록에서 제외되어 기존 active Alert가 `resolved` 상태로 전이되고 DB `resolved_at` 기록 및 현재 Alert 목록에서 정상 제거됨을 검증.
+
+### 8) Service 검증 결과
+- Fast DDS Discovery 상 불일치 발생 시 3회 연속 확인 후 `service_qos_incompatible` Alert 정상 생성 (active).
+- 원격 Service Server가 호환 QoS로 변경되거나 호환 Client 프로파일 적용 시 `dashboard_state()`가 최신 상태를 반영해 `compatible`로 복귀.
+- `service_qos_incompatible` Alert가 정상 `resolved`로 전이되고 현재 Alert 목록에서 제거됨을 검증.
+
+### 9) Action 5채널 검증 결과
+- 5개 개별 채널(`goal`, `result`, `cancel`, `feedback`, `status`) 각각에 대해 독립적으로 `action_qos_incompatible:{channel}` Alert 생성 및 개별 resolve 검증 완료.
+- **다중 채널 부분 복구 시나리오 검증**:
+  - `goal`과 `feedback`이 동시 불일치 상태에서 `feedback`만 먼저 정상 복구된 경우: `action_qos_incompatible:feedback`은 즉시 `resolved` 처리되고, `action_qos_incompatible:goal`은 `active` 상태를 유지.
+  - 이후 `goal`까지 정상 복구되면 남은 `goal` Alert도 `resolved` 처리됨.
+
+### 10) 재발 시 새 row 생성 검증
+- Alert가 `resolved` 처리되어 DB에 `resolved_at` 타임스탬프가 기록된 후, 다시 QoS 불일치가 발생하면 `AlertHistoryService` 및 MariaDB Repository가 기존 해결된 행을 보존하면서 새로운 `resolved_at = NULL`인 미해결 행(`INSERT`)을 생성함을 검증 완료.
+
+---
+
+## 3. 전체 테스트 검증 결과
 
 ```text
-FastDdsQosObserver.service_qos()
-→ status='observed', source='fastdds_discovery' 반환
-→ ServiceRuntime.update()에서 service['qos_status'] = 'observed' 저장
-→ service_snapshot.py에서 client_created 시 local_qos만 넣고 qos_status는 미갱신
-→ Backend /ros/services 응답의 qos_status = 'observed'
-→ Frontend QosSummary.jsx: qosDisplayStatus() → 'observed'
-→ QosStatusBadge: display['observed'] → ['QoS 발견', 'observed']
-```
-
-### 관련 코드 위치:
-1. **Monitor QoS 상태 반환**:
-   - 파일: [ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/dds_observer.py:L115-125](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/dds_observer.py#L115-L125)
-   - `FastDdsQosObserver.service_qos()`는 Server 엔드포인트를 발견하면 **`status='observed'`를 고정 반환**합니다.
-2. **Frontend 배지 렌더링**:
-   - 파일: [frontend/src/components/QosSummary.jsx:L11-21, L64-73](file:///home/hs/rang/ros2_dashboard/frontend/src/components/QosSummary.jsx#L11-L21)
-   - `qos.qos_status === 'observed'`일 때 `['QoS 발견', 'observed']` (정보색 파란 배지)로 렌더링됩니다.
-3. **Frontend 상세 패널 문구**:
-   - 파일: [frontend/src/components/QosDetails.jsx:L357-367](file:///home/hs/rang/ros2_dashboard/frontend/src/components/QosDetails.jsx#L357-L367)
-   - `qos_detection_source === 'fastdds_discovery' && qos_status === 'observed'`일 때 **`"DDS Discovery 관찰됨"`** 으로 표시됩니다.
-
----
-
-## 3. Dashboard Client 생성 후 실제 DDS endpoint 상태
-
-### 1) C++ Observer 레벨 (`:8766`)
-[fastdds_qos_observer.cpp:L198-201](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_dds_observer/src/fastdds_qos_observer.cpp#L198-L201)에서 DDS Discovery를 통해 다음 4개 엔드포인트를 모두 감지할 수 있습니다:
-- Server Request Reader (`service_role = "server"`, `channel = "request"`)
-- Server Response Writer (`service_role = "server"`, `channel = "response"`)
-- Client Request Writer (`service_role = "client"`, `channel = "request"`)
-- Client Response Reader (`service_role = "client"`, `channel = "response"`)
-
-### 2) Monitor Python 레벨에서의 필터링 (핵심!)
-[ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/dds_observer.py:L155-164](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/dds_observer.py#L155-L164):
-```python
-def _replace_snapshot(self, snapshot: dict[str, Any]) -> None:
-    endpoints_by_service: dict[str, list[dict[str, Any]]] = {}
-    for endpoint in snapshot.get('endpoints', []):
-        service_name = endpoint.get('service_name')
-        if not service_name or endpoint.get('service_role') != 'server':
-            continue  # <-- service_role == 'client'는 여기서 전부 버려집니다!
-        endpoints_by_service.setdefault(str(service_name), []).append(endpoint)
-```
-- **`dds_observer.py`가 `service_role != 'server'`인 엔드포인트(Dashboard Client 포함 모든 Client)를 명시적으로 무시하고 버립니다.**
-- 따라서 Monitor 내부의 `_server_endpoints_by_service`에는 Server의 Request Reader와 Response Writer만 남게 됩니다.
-
----
-
-## 4. Client가 있는데도 `compatible`이 안 되는 근본 원인 (A~H 판정)
-
-제시해주신 가능성 중 **B, C, F, H가 결합된 코드상의 구조적 원인**입니다:
-
-| 항목 | 판정 | 실제 코드 근거 |
-|---|---|---|
-| **A. 호환성 계산 부재** | ❌ (계산 함수는 있음) | `qos_profiles.py`의 `_compatible_service_profile()`이 양방향 호환 프로파일을 계산함 |
-| **B. Client ↔ Server 짝 매칭 안 함** |  **원인 일치** | `dds_observer.py:L158`에서 Client 엔드포인트를 버려 DDS 레벨에서 Client ↔ Server를 짝지어 비교하는 로직이 없음 |
-| **C. Observer가 Server만 수집해 `observed`에 머묾** |  **원인 일치** | `dds_observer.py:L115`의 `FastDdsQosObserver.service_qos()`가 `status='observed'`를 고정 반환함 |
-| **D. 내부 self endpoint 제외** | ❌ (DDS 레벨 버림) | 내부 노드 제외 이전에 DDS Observer 단계에서 모든 Client가 필터링됨 |
-| **E. Service ↔ DDS 이름 매핑 실패** | ❌ (정상 매핑됨) | `rq/...Request`, `rr/...Reply` 파싱은 정상 작동함 |
-| **F. Snapshot 조립 시 호환성 갱신 누락** |  **결정적 원인** | `service_snapshot.py:L89`에서 `incompatible`일 때만 `qos_status`를 갱신하고, 정상 호환 시 `observed`를 그대로 방치함 |
-| **G. Frontend 표시 버그** | ❌ (정상 동작) | Frontend는 Backend가 내려준 `qos_status: 'observed'`를 그대로 렌더링하고 있음 |
-
-### 결정적 코드 증거 (`service_snapshot.py:L85-102`):
-```python
-client_created = dashboard_states.get(key, {}).get('interface_client_created') is True
-if client_created:
-    applied_qos = dashboard_states[key]
-    service['local_qos'] = applied_qos.get('local_qos')  # local_qos만 복사됨!
-    if applied_qos.get('qos_status') == 'incompatible':    # <-- incompatible일 때만 업데이트!
-        service.update({
-            field: applied_qos.get(field)
-            for field in ('qos_status', 'qos_detection_source', ...)
-        })
-```
-1. Interface Lab에서 Client가 생성되면 `service['local_qos']`에는 Client의 QoS 프로파일이 들어갑니다.
-2. 하지만 `applied_qos`(`_execution_state`)에는 `qos_status: 'compatible'` 필드가 없으며, `service_snapshot.py`도 `incompatible`일 때만 분기하므로 `service['qos_status']`는 여전히 `observed`로 남습니다.
-
----
-
-## 5. Service compatibility 계산 함수 존재 여부
-
-Service에는 다음과 같은 compatibility 관련 로직이 존재합니다:
-
-1. **Client 프로파일 자동 산출 함수**:
-   - 파일: [ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/interface_lab/execution/qos_profiles.py:L271-352](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/interface_lab/execution/qos_profiles.py#L271-L352)
-   - 함수: `_compatible_service_profile(remote)`
-   - 입력: Server의 Request Reader QoS 목록, Response Writer QoS 목록
-   - 동작:
-     - `_select_service_policy()`: Request(요구)와 Response(제공)의 Reliability, Durability, Liveliness 교집합 계산.
-     - `_select_service_duration()`: Deadline, Lease Duration 교집합 계산.
-     - 양방향을 동시에 만족하는 단일 Client `QoSProfile`을 반환.
-     - 양방향 만족 불가 시 fallback 반환 (`fallback_reason = "A single Client profile cannot satisfy..."`).
-2. **Topic과의 차이점**:
-   - Topic: Graph 상의 모든 Pub × Sub를 `qos_check_compatible()`로 상시 비교하여 `qos_status`를 `compatible / partial / incompatible`로 계산.
-   - Service: Graph/DDS 상시 전수 비교 함수는 없으며, Interface Lab에서 Client를 생성할 때만 `_compatible_service_profile()`을 호출합니다.
-
----
-
-## 6. Service snapshot 조립 흐름
-
-```text
-1. Fast DDS Observer (C++ :8766)
-   └─ Discovery로 Server Request Reader, Response Writer 수집
-
-2. Monitor dds_observer.py
-   └─ _replace_snapshot(): service_role == 'server'만 저장 (Client 무시)
-   └─ service_qos(): status='observed', source='fastdds_discovery' 고정 반환
-
-3. Monitor ServiceRuntime.update()
-   └─ service.update(self._service_qos(name)) → service['qos_status'] = 'observed'
-
-4. service_snapshot.py (assemble_service_snapshot)
-   └─ client_created == True 확인
-   └─ service['local_qos']에 Client 프로파일 저장
-   └─ qos_status는 incompatible 조건문 미충족으로 'observed' 유지 (고정되는 지점!)
-
-5. Backend /ros/services API
-   └─ qos_status: 'observed', local_qos: {...}, publisher_qos: [...], subscriber_qos: [...]
-
-6. Frontend (ServiceTable.jsx & QosSummary.jsx)
-   └─ stateOf(service) → 'observed'
-   └─ QosStatusBadge → ['QoS 발견', 'observed'] 렌더링
+Monitor pytest: 258 passed (7개 신규 테스트 추가, 0 failure)
+Backend pytest: 16 passed, 2 skipped (실시간 MariaDB 미연결 시 자동 skip)
+Frontend build: pass (Vite production build 정상 완료)
 ```
 
 ---
 
-## 7. Client 생성 전/후 비교
+## 4. 해당 코드 작업에서 내가 알아야 할 것 3줄 요약
 
-| 구분 | Server만 존재 (생성 전) | Dashboard Client 생성 후 |
-|---|---|---|
-| **DDS Observer (:8766)** | Server Request Reader, Response Writer | + Client Request Writer, Response Reader |
-| **dds_observer.py 수집** | Server Request Reader, Response Writer | Server Request Reader, Response Writer (Client 버려짐) |
-| **service.local_qos** | `None` | `{reliability: 'reliable', durability: 'volatile', ...}` |
-| **service.publisher_qos** | `[Server Response Writer]` | `[Server Response Writer]` |
-| **service.subscriber_qos** | `[Server Request Reader]` | `[Server Request Reader]` |
-| **현재 qos_status** | `observed` | **`observed` (그대로 유지됨)** |
-| **현재 화면 표시** | `QoS 발견` (파랑 배지) | **`QoS 발견` (파랑 배지)** |
-| **기대 status/화면** | `observed` (`QoS 발견`) | **`compatible` (`QoS 호환` - 초록 배지)** |
-
----
-
-## 8. 실제 호출(Service Call)이 필요한지
-
-- **호출 여부와 무관합니다.**
-- Client 생성 시점(`get_or_create`)과 실제 Service Call 호출 시점 모두 `resolve_split_service_execution_qos()`를 거쳐 동일한 Client 엔티티를 사용합니다.
-- 실제 Service Call을 수행하더라도 `last_call_summary`와 응답 시간만 기록될 뿐, `service_snapshot.py`의 `qos_status` 갱신 로직은 동일하므로 화면은 여전히 `QoS 발견`으로 유지됩니다.
-
----
-
-## 9. Fast DDS Observer 데이터 원본 확인 방법 (CLI)
-
-현재 실행 중인 장비에서 코드 수정 없이 터미널 명령어로 실제 데이터를 확인할 수 있습니다:
-
-### 1) Fast DDS Observer raw snapshot 조회 (`:8766`)
-```bash
-curl -s http://127.0.0.1:8766/snapshot | jq '.endpoints[] | select(.service_name == "/RobotControl" or .service_name == "/ScheduleCrud")'
-```
-*(여기서는 `service_role: "server"`와 `service_role: "client"`가 모두 출력되는지 확인 가능)*
-
-### 2) Monitor가 조립한 Service snapshot 조회 (`:8000`)
-```bash
-curl -s http://127.0.0.1:8000/ros/services | jq '.services[] | select(.name == "/RobotControl" or .name == "/ScheduleCrud") | {name, qos_status, local_qos, publisher_qos, subscriber_qos}'
-```
-*(여기서는 `local_qos`가 채워져 있음에도 `qos_status`가 여전히 `"observed"`로 나오는 것을 확인 가능)*
-
----
-
-## 10. 버그 여부 판정
-
-### **판정: 구현 누락 및 불완전 연동 (Snapshot 조립 누락 버그)**
-
-- **이유**:
-  1. Dashboard가 Interface Lab을 통해 Service Client를 생성했고, Server의 Request/Response QoS에 호환되는 `local_qos` 프로파일을 정상 산출하여 적용했습니다.
-  2. 상세 패널(`QosDetails`)을 열어보면 적용 Profile(`local_qos`)과 Server의 Response/Request QoS가 모두 정상 표시됩니다.
-  3. 그럼에도 불구하고 목록 배지가 `QoS 호환`이 아닌 `QoS 발견`으로 남아있는 것은 **Interface Lab의 Client 호환 상태가 `service_snapshot.py`의 `qos_status`로 승격되지 않고 누락되었기 때문**입니다.
-
----
-
-## 11. 최소 수정 방향 (코드 수정 없이 제안만)
-
-불필요한 리팩터링 없이 단 2곳의 코드 보완으로 완벽히 해결 가능합니다:
-
-1. **`qos_profiles.py`의 `_execution_state()`**:
-   - 파일: [ros2_dashboard_monitor/interface_lab/execution/qos_profiles.py:L417-432](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/interface_lab/execution/qos_profiles.py#L417-L432)
-   - 호환 프로파일 산출 성공 시 `qos_status: 'compatible'`, fallback 실패 시 `qos_status: 'partial'` 또는 `'incompatible'` 필드를 `_execution_state` 반환 딕셔너리에 추가.
-2. **`service_snapshot.py`의 상태 병합**:
-   - 파일: [ros2_dashboard_monitor/service_snapshot.py:L89-102](file:///home/hs/rang/ros2_dashboard/ros2_ws/src/ros2_dashboard_monitor/ros2_dashboard_monitor/service_snapshot.py#L89-L102)
-   - `if client_created:` 블록에서 `applied_qos`의 `qos_status`가 존재하면 `service['qos_status'] = applied_qos['qos_status']`를 업데이트하도록 조건 보완.
-
----
-
-## 해당 코드 작업에서 내가 알아야 할 것 3줄 요약
-
-1. **현재 Service의 `QoS 발견(observed)`은 Fast DDS Observer가 Server 엔드포인트만 수집하고 `dds_observer.py`가 `status='observed'`를 고정 반환하기 때문이다.**
-2. **Dashboard Client가 생성되어 호환되는 `local_qos` 프로파일이 적용되었음에도 `service_snapshot.py`에서 `qos_status`를 `compatible`로 갱신해주는 로직이 누락되어 있다.**
-3. **실제 호환 상태(`compatible`)로 표시되게 하려면 Interface Lab의 Client 실행 상태(`applied_qos`)가 Snapshot 조립 시 `service['qos_status']`로 전달되도록 연동되어야 한다.**
+1. Topic 및 Action의 내부 Subscription이 생성된 후에도 매 주기마다 외부 엔드포인트의 최신 QoS를 재평가하여, 호환 복구 시 이전 불일치 증거(stale latch)를 즉시 제거하고 Subscription을 안전하게 갱신하도록 수정했습니다.
+2. Service 및 Action의 Client Pool이 Fast DDS discovery의 최신 상태를 매 주기 다시 확인하므로, 원격 서버의 QoS가 복구되면 대시보드 snapshot도 즉시 `compatible`로 전환됩니다.
+3. QoS 불일치 해제 시 기존 Alert는 DB의 `resolved_at`을 갱신하며 현재 Alert 목록에서 사라지고, Action 5개 채널은 서로 간섭 없이 독립적으로 생성·유지·해제됩니다.

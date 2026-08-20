@@ -93,3 +93,85 @@ def test_count_capabilities_and_destroy_preserve_entry_contract() -> None:
 
     lifecycle.destroy_entry_subscriptions(node, entry)
     assert node.destroyed == [status, feedback]
+
+
+def test_update_action_topic_subscriptions_recreates_on_profile_change(monkeypatch) -> None:
+    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+
+    node = _Node()
+    entry = {
+        'status_subscription': ('msg_cls', '/work/_action/status'),
+        'status_qos_profile': QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT),
+        'feedback_subscription': ('msg_cls', '/work/_action/feedback'),
+        'feedback_qos_profile': QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT),
+        'qos': {
+            'status': {'qos_status': 'incompatible'},
+            'feedback': {'qos_status': 'incompatible'},
+        },
+    }
+
+    monkeypatch.setattr(lifecycle, 'load_status_message_class', lambda: object)
+    monkeypatch.setattr(lifecycle, 'load_feedback_message_class', lambda _t: object)
+
+    new_profile = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+    compat_qos = {'qos_status': 'compatible', 'qos_detection_source': 'graph_profile_comparison'}
+    monkeypatch.setattr(
+        lifecycle,
+        'choose_topic_qos',
+        lambda _n, topic, **_kwargs: (new_profile, dict(compat_qos)),
+    )
+
+    lifecycle.update_action_topic_subscriptions(
+        node=node,
+        name='/work',
+        action_type='demo_interfaces/action/Work',
+        entry=entry,
+        status_enabled=True,
+        feedback_enabled=True,
+        status_callback=lambda _m: None,
+        feedback_callback=lambda _m: None,
+    )
+
+    assert len(node.destroyed) == 2
+    assert len(node.created) == 2
+    assert entry['qos']['status']['qos_status'] == 'compatible'
+    assert entry['qos']['feedback']['qos_status'] == 'compatible'
+
+def test_update_action_topic_subscriptions_updates_incompatible_qos_in_place_when_compatible(monkeypatch) -> None:
+    from rclpy.qos import QoSProfile, ReliabilityPolicy
+
+    node = _Node()
+    same_profile = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+    entry = {
+        'status_subscription': ('msg_cls', '/work/_action/status'),
+        'status_qos_profile': same_profile,
+        'feedback_subscription': ('msg_cls', '/work/_action/feedback'),
+        'feedback_qos_profile': same_profile,
+        'qos': {
+            'status': {'qos_status': 'incompatible'},
+            'feedback': {'qos_status': 'incompatible'},
+        },
+    }
+
+    compat_qos = {'qos_status': 'compatible', 'qos_detection_source': 'graph_profile_comparison'}
+    monkeypatch.setattr(
+        lifecycle,
+        'choose_topic_qos',
+        lambda _n, topic, **_kwargs: (same_profile, dict(compat_qos)),
+    )
+
+    lifecycle.update_action_topic_subscriptions(
+        node=node,
+        name='/work',
+        action_type='demo_interfaces/action/Work',
+        entry=entry,
+        status_enabled=True,
+        feedback_enabled=True,
+        status_callback=lambda _m: None,
+        feedback_callback=lambda _m: None,
+    )
+
+    assert len(node.destroyed) == 0
+    assert len(node.created) == 0
+    assert entry['qos']['status']['qos_status'] == 'compatible'
+    assert entry['qos']['feedback']['qos_status'] == 'compatible'

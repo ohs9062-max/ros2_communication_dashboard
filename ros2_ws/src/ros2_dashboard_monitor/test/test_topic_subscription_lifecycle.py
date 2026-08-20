@@ -88,3 +88,106 @@ def test_cleanup_removes_only_after_disappearance_grace_period() -> None:
     )
     assert subscriptions == {}
     assert node.destroyed == [subscription]
+
+
+def test_ensure_subscription_recreates_on_profile_change() -> None:
+    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+    from ros2_dashboard_monitor.ros2_topic.subscription_lifecycle import ensure_subscription
+
+    class _CreateDestroyNode:
+        def __init__(self) -> None:
+            self.created = []
+            self.destroyed = []
+
+        def create_subscription(self, msg_class, name, callback, qos_profile, **kwargs):
+            sub = (name, qos_profile.reliability)
+            self.created.append(sub)
+            return sub
+
+        def destroy_subscription(self, subscription) -> None:
+            self.destroyed.append(subscription)
+
+    node = _CreateDestroyNode()
+    subscriptions = {}
+    lock = Lock()
+
+    profile1 = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
+    qos1 = {'qos_status': 'incompatible', 'qos_detection_source': 'graph_profile_comparison'}
+
+    ensure_subscription(
+        node=node,
+        lock=lock,
+        subscriptions=subscriptions,
+        name='/scan',
+        topic_type='sensor_msgs/msg/LaserScan',
+        message_class=object,
+        callback=lambda _m: None,
+        qos_resolver=lambda _n, _t: (profile1, qos1),
+    )
+
+    assert len(node.created) == 1
+    assert subscriptions['/scan']['qos']['qos_status'] == 'incompatible'
+
+    profile2 = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+    qos2 = {'qos_status': 'compatible', 'qos_detection_source': 'graph_profile_comparison'}
+
+    ensure_subscription(
+        node=node,
+        lock=lock,
+        subscriptions=subscriptions,
+        name='/scan',
+        topic_type='sensor_msgs/msg/LaserScan',
+        message_class=object,
+        callback=lambda _m: None,
+        qos_resolver=lambda _n, _t: (profile2, qos2),
+    )
+
+    assert len(node.destroyed) == 1
+    assert len(node.created) == 2
+    assert subscriptions['/scan']['qos']['qos_status'] == 'compatible'
+
+def test_ensure_subscription_updates_incompatible_qos_in_place_when_compatible() -> None:
+    from rclpy.qos import QoSProfile, ReliabilityPolicy
+    from ros2_dashboard_monitor.ros2_topic.subscription_lifecycle import ensure_subscription
+
+    class _MockNode:
+        def create_subscription(self, msg_class, name, callback, qos_profile, **kwargs):
+            return 'sub1'
+
+        def destroy_subscription(self, subscription) -> None:
+            pass
+
+    node = _MockNode()
+    subscriptions = {}
+    lock = Lock()
+
+    profile = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+    qos_incompat = {'qos_status': 'incompatible', 'qos_detection_source': 'incompatible_qos_event'}
+
+    ensure_subscription(
+        node=node,
+        lock=lock,
+        subscriptions=subscriptions,
+        name='/scan',
+        topic_type='sensor_msgs/msg/LaserScan',
+        message_class=object,
+        callback=lambda _m: None,
+        qos_resolver=lambda _n, _t: (profile, qos_incompat),
+    )
+
+    assert subscriptions['/scan']['qos']['qos_status'] == 'incompatible'
+
+    qos_compat = {'qos_status': 'compatible', 'qos_detection_source': 'graph_profile_comparison'}
+
+    ensure_subscription(
+        node=node,
+        lock=lock,
+        subscriptions=subscriptions,
+        name='/scan',
+        topic_type='sensor_msgs/msg/LaserScan',
+        message_class=object,
+        callback=lambda _m: None,
+        qos_resolver=lambda _n, _t: (profile, qos_compat),
+    )
+
+    assert subscriptions['/scan']['qos']['qos_status'] == 'compatible'

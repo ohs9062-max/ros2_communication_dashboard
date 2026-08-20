@@ -35,11 +35,15 @@ class ActionClientPool:
         self._clients: RuntimeClientPool[tuple[str, str, tuple[Any, ...]], Any] = RuntimeClientPool(lock)
         self._qos_by_key: dict[tuple[str, str, tuple[Any, ...]], dict[str, Any]] = {}
         self._last_key_by_resource: dict[tuple[str, str], tuple[str, str, tuple[Any, ...]]] = {}
+        self._last_selection: dict[tuple[str, str], dict[str, Any] | None] = {}
+        self._remote_signature: dict[tuple[str, str, str], str] = {}
 
     def clear(self) -> None:
         with self._lock:
             self._qos_by_key = {}
             self._last_key_by_resource = {}
+            self._last_selection = {}
+            self._remote_signature = {}
         self._clients.clear()
 
     def get_or_create(
@@ -56,6 +60,7 @@ class ActionClientPool:
             with self._lock:
                 self._qos_by_key[key] = profiles['state']
                 self._last_key_by_resource[(name, action_type)] = key
+                self._last_selection[(name, action_type)] = qos_selection
             return self._client_factory(
                 node,
                 action_class,
@@ -71,16 +76,52 @@ class ActionClientPool:
         with self._lock:
             self._qos_by_key[key] = profiles['state']
             self._last_key_by_resource[(name, action_type)] = key
+            self._last_selection[(name, action_type)] = qos_selection
         return client
 
+    def refresh_service_qos(self) -> None:
+        if self._dds_qos_getter is None:
+            return
+        with self._lock:
+            keys = list(self._last_key_by_resource.values())
+        for key in keys:
+            resource_key = (key[0], key[1])
+            selection = self._last_selection.get(resource_key)
+            for part, suffix in (
+                ('goal', 'send_goal'), ('result', 'get_result'), ('cancel', 'cancel_goal'),
+            ):
+                try:
+                    service_name = f'{key[0]}/_action/{suffix}'
+                    remote = self._dds_qos_getter(service_name)
+                    signature = repr((
+                        remote.get('qos_detection_source'),
+                        remote.get('publisher_qos'),
+                        remote.get('subscriber_qos'),
+                    ))
+                    signature_key = (*resource_key, part)
+                    if self._remote_signature.get(signature_key) == signature:
+                        continue
+                    _profile, state = resolve_service_execution_qos(
+                        service_name,
+                        selection=action_channel_selection(selection, part, 'service'),
+                        remote_qos_getter=lambda _name, value=remote: value,
+                    )
+                    with self._lock:
+                        self._qos_by_key[key][part] = state
+                        self._remote_signature[signature_key] = signature
+                except Exception:
+                    pass
+
     def dashboard_state(self) -> dict[tuple[str, str], dict[str, Any]]:
-        return {
-            (key[0], key[1]): {
-                'interface_client_created': True,
-                'qos': self._qos_by_key.get(key, self.qos_state(key[0])),
+        with self._lock:
+            return {
+                resource_key: {
+                    'interface_client_created': True,
+                    'qos': self._qos_by_key[key],
+                }
+                for resource_key, key in self._last_key_by_resource.items()
+                if key in self._qos_by_key
             }
-            for key in self._clients.keys()
-        }
 
     def qos_profiles(
         self, node: Any, name: str,

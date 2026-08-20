@@ -1258,3 +1258,95 @@
 - 시나리오 1~6(쉘 우선 반영, 미설정 시 기존값 유지, 새 값 변경, 재부팅 후 영속성, 정수 범위 초과 거부, 기본값 0)
   테스트 스크립트를 작성하여 전체 통과를 확인했고, Backend pytest 16 passed, Monitor pytest 249 passed,
   Frontend test/lint/build 통과를 검증했다.
+
+## 2026-08-20 - Service 및 Action Client 생성 시 QoS 호환(compatible) 상태 반영
+
+- Interface Lab에서 Service Client 또는 Action Client가 생성되어 호환되는 `local_qos` 프로파일이 적용되었음에도
+  Service 및 Action 목록 배지가 `QoS 발견(observed)`에 머물던 문제를 해결했다.
+- `qos_profiles.py`의 `_execution_state()` 및 `_split_service_state()`에 `_is_service_profile_compatible()` 헬퍼를
+  연결하여 Auto 및 Manual 모드에서 Server 엔드포인트와 호환되는 경우 `qos_status: 'compatible'` 및
+  `qos_detection_source: 'fastdds_discovery'`를 정상 산출하도록 보완했다.
+- `service_snapshot.py`, `action_snapshot.py`, `subscription_lifecycle.py`에서 `client_created == True`일 때
+  `applied_qos`의 `qos_status`(`compatible`/`partial`/`incompatible`)를 snapshot에 정상 병합하도록 조건을 보완했다.
+- Client 미생성 상태에서는 기존대로 `observed`(`QoS 발견`)를 유지하여 불필요한 Alert를 유발하지 않으며, 기존
+  Frontend의 `QosStatusBadge` `['QoS 호환', 'good']` 배지를 100% 재사용했다.
+- 검증: Monitor pytest 251 passed (0 failure), Frontend unit test (Node test runner) 14개 suite 전체 통과,
+  Frontend oxlint 및 production build 통과를 확인했다.
+
+## 2026-08-20 - Topic / Service / Action QoS Incompatibility Alert 복구 후 해제(resolve) 생명주기 보완
+
+- Topic, Service, Action 3개 통신에서 QoS 불일치(`*_qos_incompatible`) 발생 후 정상 QoS로 복구되었음에도
+  이전 불일치 근거(stale incompatible evidence / latch)가 잔존하여 Alert가 영구 active 상태로 남던 문제를
+  전수 조사하고 최소 수정으로 해결했다.
+- **원인 분석**:
+  1. Topic: `ensure_subscription`에서 동일 type subscription 존재 시 조기 반환되어, 외부 Publisher의 QoS가
+     변경/복구되거나 RMW incompatible event가 발생한 후 `entry['qos']` 및 `subscription`의 QoS profile이
+     갱신되지 않아 snapshot의 `topic.qos_status`가 `incompatible`로 고정됨.
+  2. Action: `ActionSubscriptionFacade._ensure_subscriptions`에서 동일 type 존재 시 조기 반환되어 feedback/status
+     subscription의 `entry['qos']`가 갱신되지 않아 stale incompatible 상태가 `action.qos[channel]`에 계속 병합됨.
+  3. Service/Action Client Pool: `dashboard_state()` 호출 시 최신 DDS observer 결과를 반영하지 않아 remote
+     서버 QoS 변경/복구 상태가 `_last_state` / `_qos_by_key`에 즉시 반영되지 않음.
+- **수정 내용**:
+  1. `ros2_topic/subscriptions.py` & `subscription_lifecycle.py`: `ensure_subscription`에서 `qos_profile` 변경 시
+     subscription을 재생성하고, 동일 profile 유지 상태에서 호환성 복구 시 `entry['qos']`를 in-place 갱신.
+  2. `ros2_action/subscription_lifecycle.py` & `subscription_facade.py`: `update_action_topic_subscriptions`를 추가해
+     feedback/status subscription의 QoS 변경 시 재생성 및 호환 복구 시 `entry['qos']` 갱신.
+  3. `service_client_pool.py`, `service_call_runtime.py`, `action_client_pool.py`: `dashboard_state()`에서 최신
+     DDS discovery 및 Topic QoS를 재평가하여 remote 서버 복구 시 `qos_status`가 `compatible`로 갱신되도록 보완.
+  4. `qos_alerts.py`: `_qos_observation_token`에 `updated_at` 및 `detected_at` fallback을 추가하여 Service/Action
+     QoS confirmation count가 매 갱신 주기마다 정상 동작하도록 보완.
+- **검증 결과**:
+  - Topic: incompatible 발생 → active Alert 확인 → compatible 복구 시 Alert 자동 resolve → 재발 시 새 row 생성 확인.
+  - Service: Fast DDS observer incompatible → active Alert 확인 → compatible 복구 시 Alert 자동 resolve 확인.
+  - Action: 5개 채널(goal, result, cancel, feedback, status) 각각 독립 Alert 생성/해제, 다중 채널 부분 복구 및 전체 복구 확인.
+  - Monitor pytest 258 passed (7개 신규 테스트 추가), Backend pytest 16 passed (2 skipped), Frontend build 통과.
+
+## 2026-08-20 - Service/Action QoS 수정 후 snapshot 교착 및 반복 계산 제거
+
+- 최근 QoS resolve 보완에서 `ActionClientPool.dashboard_state()`가 non-reentrant Monitor lock을 잡은 채
+  `RuntimeClientPool.keys()`와 `qos_state()`를 통해 같은 lock을 다시 획득해, Action Client 생성 뒤
+  `/transport/snapshot`이 무기한 대기하는 직접 원인을 확인했다. 실제 기존 프로세스는 30초 timeout을 재현했다.
+- snapshot hot path의 Client QoS 재평가를 제거했다. Service/Action Service 채널은 정기 Graph update에서 Fast DDS
+  endpoint signature가 바뀐 경우에만 재계산하고, Action Feedback/Status는 기존 Action Graph/subscription cache를
+  사용한다. Fast DDS Observer HTTP polling은 기존 별도 thread 1개만 유지하고 Backend cache/WebSocket 구조는 바꾸지 않았다.
+- 실제 `/RobotControl` Service Call과 `/CanControl` Action Goal이 성공했고 Service 및 Action 5채널 모두
+  `compatible`을 확인했다. 수정 후 `/transport/snapshot` 5회는 17.5~30.3ms, Backend `/ros/*`는 1.0~4.3ms,
+  5초 CPU 표본은 Monitor 4.4%, Backend 10.2%였다. Backend CPU는 기존 1초 cache polling/Alert consume을 포함한다.
+- 회귀 검증: ROS workspace build/test 278 tests, 0 failures, 1 skipped; Backend 16 passed, 2 skipped. non-reentrant
+  lock 교착 및 동일 QoS snapshot 무조회 회귀 테스트 2건을 추가했다.
+
+## 2026-08-20 - Action QoS 정상 실행 후 incompatible Alert 잔존 원인 진단
+
+- 실제 `/CanControl` 최신 실행 History는 Goal/Result/Cancel 모두 `compatible`이고 Goal local QoS도 원격과 같은
+  RELIABLE/VOLATILE였지만, 공개 Action snapshot은 과거 BEST_EFFORT/TRANSIENT_LOCAL Goal Client 상태를 선택해
+  `action_qos_incompatible:goal` warning을 계속 생성하는 것을 확인했다.
+- 원인은 `ActionClientPool.dashboard_state()`가 profile별 Client key 전체를 resource key 하나로 dict 변환하면서
+  삽입 순서상 마지막 key를 선택하는 데 있다. 과거 incompatible profile이 나중에 처음 생성된 뒤 기존 compatible
+  Client를 재사용하면 compatible key의 삽입 순서는 갱신되지 않아 `_last_key_by_resource`와 무관하게 과거
+  incompatible state가 snapshot을 덮어쓴다. Alert/Backend resolve 로직은 해당 snapshot을 정상적으로 따르고 있다.
+- 이번 요청은 로직 확인으로 진단만 수행했으며 코드는 변경하지 않았다. 최소 수정 지점은 `dashboard_state()`가
+  전체 Client key를 순회하지 않고 이미 관리 중인 `_last_key_by_resource`의 최신 실행 key만 반환하도록 하는 것이다.
+
+## 2026-08-20 - Action 최신 실행 QoS 선택 및 incompatible Alert 해제 수정
+
+- `ActionClientPool.dashboard_state()`와 Service 채널 QoS refresh가 profile별 전체 Client 삽입 순서를 사용하지 않고
+  `_last_key_by_resource`가 가리키는 최신 실행 Client만 사용하도록 수정했다. compatible Client 최초 생성 후
+  incompatible Client 생성, 다시 기존 compatible Client 재사용 순서에서도 과거 incompatible state가 snapshot을
+  덮어쓰지 않는다.
+- 해당 순서를 non-reentrant lock 회귀 테스트와 함께 추가했고 Interface QoS 관련 21 tests가 통과했다. 전체 ROS
+  workspace는 280 tests, 0 failures, 1 skipped를 확인했다.
+- 실제 `/CanControl`에서 compatible→incompatible→기존 compatible Client 재사용을 실행했다. Goal snapshot이
+  `compatible`로 복귀했고 Monitor Alert는 `active=false`, Backend 현재 Alert 0건, DB history의 `resolved_at`
+  기록을 확인했다.
+
+## 2026-08-20 - Topic/Service/Action QoS 불일치 시 전송 의미 확인
+
+- Interface Lab 실행기는 계산된 `qos_status=incompatible` 자체를 공통 사전 차단 조건으로 사용하지 않는다.
+  Topic은 `Publisher.publish()`가 로컬 writer에 샘플을 넘기면 `sent_to_topic=true`로 기록하므로 호환 Subscriber가
+  실제 수신했다는 뜻이 아니다. QoS 불일치면 DDS matching이 되지 않아 상대 callback에는 전달되지 않는다.
+- Service는 `client.service_is_ready()`가 false이면 `call_async()` 전에 종료해 `sent_to_server=false`가 된다.
+  Action도 Goal Service가 불일치하면 `client.server_is_ready()`가 false여서 실제 이력에서
+  `sent_to_server=false`, `goal_send_failed`, `Action server is not available`을 확인했다.
+- Action은 5채널이 독립이므로 Goal Service가 compatible이면 Result/Cancel/Feedback/Status 중 다른 채널이
+  incompatible이어도 Goal 요청 자체는 전송될 수 있다. 이후 accept/result timeout, feedback 미수신 또는 cancel
+  실패로 나타나며, 이는 Goal 전송과 다른 채널의 전달 성공을 구분하는 정상적인 Action 구조다. 코드 변경은 없었다.

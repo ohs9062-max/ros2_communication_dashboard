@@ -161,7 +161,7 @@ def _alert(
         'age_sec': None,
         'detected_at': detected_at,
         'mismatch_policies': list(state.get('mismatch_policies') or []),
-        '_qos_observation_token': resource.get('last_updated'),
+        '_qos_observation_token': resource.get('last_updated') or resource.get('updated_at') or detected_at,
     }
     if channel:
         alert['channel'] = channel

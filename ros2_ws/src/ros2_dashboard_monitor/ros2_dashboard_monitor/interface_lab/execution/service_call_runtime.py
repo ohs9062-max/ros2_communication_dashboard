@@ -65,6 +65,7 @@ class ServiceCallRuntime:
             unavailable_error=lambda: ServiceCallError(
                 'The ROS2 monitor node is not running.',
             ),
+            dds_qos_getter=dds_qos_getter,
         )
         self._history = ServiceCallHistory(lock, MAX_HISTORY_ITEMS)
 
@@ -117,7 +118,7 @@ class ServiceCallRuntime:
             timeout=timeout,
             service_class_loader=load_service_class,
             client_getter=lambda name, type_name, service_class: self._client(
-                name, type_name, service_class, qos_profile, execution_qos,
+                name, type_name, service_class, qos_profile, execution_qos, qos_selection,
             ),
             validation_result_builder=self._validation_result,
             record_history=lambda item: self._record_history_with_qos(item, execution_qos),
@@ -163,6 +164,9 @@ class ServiceCallRuntime:
         """Service별 Interface Lab Client 생성 상태를 반환합니다."""
         return self._client_pool.dashboard_state()
 
+    def refresh_dashboard_qos(self) -> None:
+        self._client_pool.refresh_qos()
+
     def _allowed_service(
         self,
         service_name: str,
@@ -189,13 +193,15 @@ class ServiceCallRuntime:
     def _client(
         self, name: str, service_type: str, service_class: type,
         qos_profile: Any = None, execution_qos: dict[str, Any] | None = None,
+        selection: dict[str, Any] | None = None,
     ):
         if qos_profile is None or execution_qos is None:
             qos_profile, execution_qos = resolve_split_service_execution_qos(
-                name, selection=None, remote_qos_getter=self._dds_qos_getter,
+                name, selection=selection, remote_qos_getter=self._dds_qos_getter,
             )
         return self._client_pool.get_or_create(
             name, service_type, service_class, qos_profile, execution_qos,
+            selection=selection,
         )
 
     def _client_count(self, name: str) -> int:

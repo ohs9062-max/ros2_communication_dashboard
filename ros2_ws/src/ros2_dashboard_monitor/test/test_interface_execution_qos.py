@@ -1,4 +1,4 @@
-from threading import RLock
+from threading import Lock, RLock, Thread
 from types import SimpleNamespace
 
 import pytest
@@ -420,6 +420,101 @@ def test_action_auto_uses_discovery_for_services_and_graph_for_topics():
     assert profiles['status_sub_qos_profile'].depth == 1
 
 
+def test_dashboard_state_reads_cached_qos_without_graph_or_dds_recalculation():
+    dds_calls = []
+    node = TopicExecutionNode()
+    pool = ActionClientPool(
+        lock=RLock(), node_getter=lambda: node,
+        client_factory=lambda *_args, **_kwargs: object(),
+        dds_qos_getter=lambda name: dds_calls.append(name) or discovered_service_qos(),
+    )
+    pool.get_or_create('/work', 'pkg/action/Work', object, {'mode': 'auto'})
+    initial_dds_calls = len(dds_calls)
+
+    for _ in range(5):
+        state = pool.dashboard_state()
+
+    assert state[('/work', 'pkg/action/Work')]['interface_client_created'] is True
+    assert len(dds_calls) == initial_dds_calls
+
+
+def test_action_dashboard_state_does_not_reenter_non_reentrant_lock():
+    node = TopicExecutionNode()
+    pool = ActionClientPool(
+        lock=Lock(), node_getter=lambda: node,
+        client_factory=lambda *_args, **_kwargs: object(),
+        dds_qos_getter=lambda _name: discovered_service_qos(),
+    )
+    pool.get_or_create('/work', 'pkg/action/Work', object, {'mode': 'auto'})
+    completed = []
+    thread = Thread(target=lambda: completed.append(pool.dashboard_state()), daemon=True)
+
+    thread.start()
+    thread.join(timeout=0.5)
+
+    assert not thread.is_alive()
+    assert completed[0][('/work', 'pkg/action/Work')]['interface_client_created'] is True
+
+
+def test_action_dashboard_state_uses_latest_reused_client_profile():
+    node = TopicExecutionNode()
+    pool = ActionClientPool(
+        lock=RLock(), node_getter=lambda: node,
+        client_factory=lambda *_args, **_kwargs: object(),
+        dds_qos_getter=lambda _name: discovered_service_qos(),
+    )
+    compatible = {
+        part: manual_profile(reliability='reliable')
+        for part in ('goal', 'result', 'cancel')
+    }
+    incompatible = {
+        **compatible,
+        'goal': manual_profile(reliability='best_effort'),
+    }
+
+    first_compatible = pool.get_or_create(
+        '/work', 'pkg/action/Work', object, compatible,
+    )
+    pool.get_or_create('/work', 'pkg/action/Work', object, incompatible)
+    reused_compatible = pool.get_or_create(
+        '/work', 'pkg/action/Work', object, compatible,
+    )
+    state = pool.dashboard_state()[('/work', 'pkg/action/Work')]['qos']
+
+    assert reused_compatible is first_compatible
+    assert state['goal']['qos_status'] == 'compatible'
+    assert state['goal']['local_qos']['reliability'] == 'reliable'
+
+
+def test_service_qos_refresh_recalculates_only_when_remote_qos_changes():
+    remote = discovered_service_qos(reliability='best_effort')
+    dds_calls = []
+    node = SimpleNamespace(create_client=lambda *_args, **_kwargs: object())
+    pool = ServiceClientPool(
+        lock=RLock(), node_getter=lambda: node,
+        unavailable_error=lambda: RuntimeError('unavailable'),
+        dds_qos_getter=lambda name: dds_calls.append(name) or remote,
+    )
+    profile, state = resolve_split_service_execution_qos(
+        '/add', selection={'mode': 'auto'}, remote_qos_getter=lambda _name: remote,
+    )
+    pool.get_or_create('/add', 'pkg/srv/Add', object, profile, state, selection={'mode': 'auto'})
+
+    pool.refresh_qos()
+    first_state = pool.dashboard_state()[('/add', 'pkg/srv/Add')]
+    pool.refresh_qos()
+    unchanged_state = pool.dashboard_state()[('/add', 'pkg/srv/Add')]
+    remote = discovered_service_qos(reliability='reliable')
+    pool.refresh_qos()
+    changed_state = pool.dashboard_state()[('/add', 'pkg/srv/Add')]
+
+    assert len(dds_calls) == 3
+    assert first_state['qos_status'] == 'compatible'
+    assert unchanged_state == first_state
+    assert changed_state['qos_status'] == 'compatible'
+    assert changed_state['dashboard_qos']['reliability'] == 'reliable'
+
+
 def test_action_accepts_five_independent_channel_profiles():
     captured = []
     node = TopicExecutionNode()
@@ -614,4 +709,3 @@ def test_service_and_action_snapshot_updates_compatible_qos():
     action = act_snapshot['actions'][0]
     for channel in ('goal', 'result', 'cancel', 'feedback', 'status'):
         assert action['qos'][channel]['qos_status'] == 'compatible'
-

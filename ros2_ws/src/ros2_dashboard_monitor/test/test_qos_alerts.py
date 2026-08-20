@@ -128,6 +128,225 @@ def test_non_primary_resources_do_not_build_qos_alerts() -> None:
     ) == []
 
 
+def test_service_qos_alert_recovery_lifecycle() -> None:
+    confirmation = {}
+    retained = {}
+    history = []
+    confirmed = []
+
+    # 1. Incompatible detected for 3 ticks -> Active alert confirmed
+    for token in (1.0, 2.0, 3.0):
+        confirmed = confirm_qos_alerts(
+            build_qos_alert_candidates(
+                topics=[],
+                services=[_service('/RobotControl', 'incompatible', token)],
+                actions=[],
+                detected_at=token,
+            ),
+            confirmation_state=confirmation,
+            required_count=3,
+        )
+    assert len(confirmed) == 1
+    assert confirmed[0]['id'] == 'service:/RobotControl:service_qos_incompatible'
+
+    active, _, _ = reconcile_alert_state(
+        current_alerts=confirmed,
+        dismissed_alert_ids=set(),
+        alert_history=history,
+        retained_alerts=retained,
+        detected_at=3.0,
+    )
+    assert len(active) == 1
+    assert active[0]['alert_state'] == 'active'
+
+    # 2. QoS recovers to compatible -> Candidate list empty -> Alert resolves
+    candidates = build_qos_alert_candidates(
+        topics=[],
+        services=[_service('/RobotControl', 'compatible', 4.0)],
+        actions=[],
+        detected_at=4.0,
+    )
+    assert candidates == []
+
+    confirmed = confirm_qos_alerts(
+        candidates, confirmation_state=confirmation, required_count=3,
+    )
+    assert confirmed == []
+
+    resolved, _, _ = reconcile_alert_state(
+        current_alerts=[],
+        dismissed_alert_ids=set(),
+        alert_history=history,
+        retained_alerts=retained,
+        detected_at=4.0,
+    )
+    assert len(resolved) == 1
+    assert resolved[0]['id'] == 'service:/RobotControl:service_qos_incompatible'
+    assert resolved[0]['alert_state'] == 'resolved'
+    assert resolved[0]['resolved_at'] == 4.0
+
+
+def test_action_5_channel_qos_alert_independent_recovery_lifecycle() -> None:
+    for channel in ('goal', 'result', 'cancel', 'feedback', 'status'):
+        confirmation = {}
+        retained = {}
+        history = []
+        confirmed = []
+
+        # 1. Incompatible on this specific channel for 3 ticks -> Alert confirmed
+        for token in (1.0, 2.0, 3.0):
+            qos_map = {c: {'qos_status': 'compatible'} for c in ('goal', 'result', 'cancel', 'feedback', 'status')}
+            qos_map[channel] = {'qos_status': 'incompatible'}
+            confirmed = confirm_qos_alerts(
+                build_qos_alert_candidates(
+                    topics=[],
+                    services=[],
+                    actions=[_action('/navigate_to_pose', qos_map, token)],
+                    detected_at=token,
+                ),
+                confirmation_state=confirmation,
+                required_count=3,
+            )
+        assert len(confirmed) == 1
+        assert confirmed[0]['id'] == f'action:/navigate_to_pose:action_qos_incompatible:{channel}'
+        assert confirmed[0]['channel'] == channel
+
+        active, _, _ = reconcile_alert_state(
+            current_alerts=confirmed,
+            dismissed_alert_ids=set(),
+            alert_history=history,
+            retained_alerts=retained,
+            detected_at=3.0,
+        )
+        assert len(active) == 1
+        assert active[0]['alert_state'] == 'active'
+
+        # 2. Channel recovers to compatible -> Alert resolves
+        qos_map[channel] = {'qos_status': 'compatible'}
+        candidates = build_qos_alert_candidates(
+            topics=[],
+            services=[],
+            actions=[_action('/navigate_to_pose', qos_map, 4.0)],
+            detected_at=4.0,
+        )
+        assert candidates == []
+
+        confirmed = confirm_qos_alerts(
+            candidates, confirmation_state=confirmation, required_count=3,
+        )
+        assert confirmed == []
+
+        resolved, _, _ = reconcile_alert_state(
+            current_alerts=[],
+            dismissed_alert_ids=set(),
+            alert_history=history,
+            retained_alerts=retained,
+            detected_at=4.0,
+        )
+        assert len(resolved) == 1
+        assert resolved[0]['id'] == f'action:/navigate_to_pose:action_qos_incompatible:{channel}'
+        assert resolved[0]['alert_state'] == 'resolved'
+
+
+def test_action_multi_channel_partial_recovery_lifecycle() -> None:
+    confirmation = {}
+    retained = {}
+    history = []
+    confirmed = []
+
+    # Both goal and feedback are incompatible
+    for token in (1.0, 2.0, 3.0):
+        qos_map = {
+            'goal': {'qos_status': 'incompatible'},
+            'result': {'qos_status': 'compatible'},
+            'cancel': {'qos_status': 'compatible'},
+            'feedback': {'qos_status': 'incompatible'},
+            'status': {'qos_status': 'compatible'},
+        }
+        confirmed = confirm_qos_alerts(
+            build_qos_alert_candidates(
+                topics=[],
+                services=[],
+                actions=[_action('/navigate_to_pose', qos_map, token)],
+                detected_at=token,
+            ),
+            confirmation_state=confirmation,
+            required_count=3,
+        )
+    assert len(confirmed) == 2
+    assert {c['id'] for c in confirmed} == {
+        'action:/navigate_to_pose:action_qos_incompatible:goal',
+        'action:/navigate_to_pose:action_qos_incompatible:feedback',
+    }
+    active, _, _ = reconcile_alert_state(
+        current_alerts=confirmed,
+        dismissed_alert_ids=set(),
+        alert_history=history,
+        retained_alerts=retained,
+        detected_at=3.0,
+    )
+    assert len(active) == 2
+
+    # Feedback recovers, goal remains incompatible
+    qos_map['feedback'] = {'qos_status': 'compatible'}
+    candidates = build_qos_alert_candidates(
+        topics=[],
+        services=[],
+        actions=[_action('/navigate_to_pose', qos_map, 4.0)],
+        detected_at=4.0,
+    )
+    assert len(candidates) == 1
+    assert candidates[0]['id'] == 'action:/navigate_to_pose:action_qos_incompatible:goal'
+
+    confirmed = confirm_qos_alerts(
+        candidates, confirmation_state=confirmation, required_count=3,
+    )
+    assert len(confirmed) == 1
+    assert confirmed[0]['id'] == 'action:/navigate_to_pose:action_qos_incompatible:goal'
+
+    current_alerts, _, _ = reconcile_alert_state(
+        current_alerts=confirmed,
+        dismissed_alert_ids=set(),
+        alert_history=history,
+        retained_alerts=retained,
+        detected_at=4.0,
+    )
+    # Goal is active, feedback is resolved
+    active_ids = {a['id'] for a in current_alerts if a['alert_state'] == 'active'}
+    resolved_ids = {a['id'] for a in current_alerts if a['alert_state'] == 'resolved'}
+    assert active_ids == {'action:/navigate_to_pose:action_qos_incompatible:goal'}
+    assert resolved_ids == {'action:/navigate_to_pose:action_qos_incompatible:feedback'}
+
+    # Goal also recovers -> All resolved
+    qos_map['goal'] = {'qos_status': 'compatible'}
+    candidates = build_qos_alert_candidates(
+        topics=[],
+        services=[],
+        actions=[_action('/navigate_to_pose', qos_map, 5.0)],
+        detected_at=5.0,
+    )
+    assert candidates == []
+
+    confirmed = confirm_qos_alerts(
+        candidates, confirmation_state=confirmation, required_count=3,
+    )
+    assert confirmed == []
+
+    current_alerts, _, _ = reconcile_alert_state(
+        current_alerts=[],
+        dismissed_alert_ids=set(),
+        alert_history=history,
+        retained_alerts=retained,
+        detected_at=5.0,
+    )
+    assert len(current_alerts) == 2
+    assert {a['id'] for a in current_alerts} == {
+        'action:/navigate_to_pose:action_qos_incompatible:goal',
+        'action:/navigate_to_pose:action_qos_incompatible:feedback',
+    }
+    assert all(a['alert_state'] == 'resolved' for a in current_alerts)
+
+
 def _topic(
     name: str,
     status: str,
@@ -148,4 +367,34 @@ def _topic(
         'endpoint_pair_count': 2,
         'incompatible_endpoint_pair_count': 1,
         'mismatch_policies': ['reliability'],
+    }
+
+
+def _service(
+    name: str,
+    status: str,
+    updated_at: float,
+) -> dict:
+    return {
+        'name': name,
+        'primary': True,
+        'graph_present': True,
+        'updated_at': updated_at,
+        'qos_status': status,
+        'qos_detection_source': 'fastdds_discovery',
+        'mismatch_policies': ['reliability'],
+    }
+
+
+def _action(
+    name: str,
+    qos: dict,
+    updated_at: float,
+) -> dict:
+    return {
+        'name': name,
+        'primary': True,
+        'graph_present': True,
+        'updated_at': updated_at,
+        'qos': qos,
     }

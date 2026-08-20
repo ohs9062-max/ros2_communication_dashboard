@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-18
+마지막 갱신: 2026-08-20
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -71,6 +71,15 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- Action Client Pool은 QoS profile별 Client의 삽입 순서가 아니라 `_last_key_by_resource`의 최신 실행 Client QoS를
+  snapshot에 반영한다. compatible→incompatible→기존 compatible Client 재사용 시 Goal snapshot이 compatible로
+  복귀하고 `action_qos_incompatible:goal`이 Monitor/Backend/DB에서 resolved 되는 것을 실제 `/CanControl`로 확인했다.
+
+- 최근 Service/Action QoS resolve 보완 뒤 Action Client가 생성되면 snapshot이 non-reentrant lock을 재획득해
+  무기한 대기하던 교착을 제거했다. snapshot은 저장된 Client QoS를 읽고, Service 계열 QoS는 정기 Graph update에서
+  Fast DDS endpoint signature가 바뀔 때만 재계산하며 Action Feedback/Status는 기존 Graph cache를 사용한다.
+  실제 `/transport/snapshot`은 17.5~30.3ms, Service Call/Action Goal과 Action 5채널 compatible을 확인했다.
 
 - 전체 Git 추적 Markdown 40개 중 `start.md`를 완전히 제외한 39개를 실제 코드와 대조했다.
   구 `backend/` ROS workspace·Backend/rclpy 일체형 설명을 현재 `ros2_ws` Monitor → localhost transport →
@@ -306,7 +315,7 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 245 passed
+Monitor pytest: 258 passed
 Backend pytest: 16 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed

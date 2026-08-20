@@ -16,12 +16,14 @@ def build_subscription_entry(
     topic_type: str,
     subscription: Any,
     qos: dict[str, Any] | None = None,
+    qos_profile: Any = None,
 ) -> dict[str, Any]:
     """새 subscription과 latest·timestamp 초기값을 하나의 Cache entry로 만듭니다."""
     return {
         'type': topic_type,
         'subscription': subscription,
         'qos': qos,
+        'qos_profile': qos_profile,
         'message_preview': None,
         'created_at': time(),
         'last_received_at': None,

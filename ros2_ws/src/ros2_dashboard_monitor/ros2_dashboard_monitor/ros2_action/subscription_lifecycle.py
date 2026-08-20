@@ -160,6 +160,7 @@ def create_status_subscription(
         return False
 
     entry['status_subscription'] = subscription
+    entry['status_qos_profile'] = qos_profile
     entry.setdefault('qos', default_action_qos())['status'] = qos
     return True
 
@@ -211,9 +212,126 @@ def create_feedback_subscription(
         return False
 
     entry['feedback_subscription'] = subscription
+    entry['feedback_qos_profile'] = qos_profile
     entry.setdefault('qos', default_action_qos())['feedback'] = qos
     entry['feedback_reason'] = None
     return True
+
+
+def update_action_topic_subscriptions(
+    *,
+    node: Any,
+    name: str,
+    action_type: str | None,
+    entry: dict[str, Any],
+    status_enabled: bool,
+    feedback_enabled: bool,
+    status_callback: Callable[[Any], None],
+    feedback_callback: Callable[[Any], None],
+) -> None:
+    """Action status/feedback subscription의 QoS를 재평가하고 필요시 갱신/재생성합니다."""
+    if node is None:
+        return
+
+    # Status
+    if status_enabled and entry.get('status_subscription') is not None:
+        topic_name = f'{name}/_action/status'
+        qos_profile, qos = choose_topic_qos(
+            node,
+            topic_name,
+            local_role='subscription',
+            default_profile=qos_profile_action_status_default,
+        )
+        if qos.get('qos_status') == 'incompatible':
+            qos['qos_error_type'] = 'action_status_qos_incompatible'
+        current_profile = entry.get('status_qos_profile')
+        profile_changed = (
+            current_profile is not None
+            and (
+                getattr(current_profile, 'reliability', None) != getattr(qos_profile, 'reliability', None)
+                or getattr(current_profile, 'durability', None) != getattr(qos_profile, 'durability', None)
+            )
+        )
+        if profile_changed:
+            node.destroy_subscription(entry['status_subscription'])
+            message_class = load_status_message_class()
+            if message_class is not None:
+                subscription = node.create_subscription(
+                    message_class,
+                    topic_name,
+                    status_callback,
+                    qos_profile,
+                    event_callbacks=subscription_events(
+                        qos, 'action_status_qos_incompatible',
+                    ),
+                )
+                entry['status_subscription'] = subscription
+                entry['status_qos_profile'] = qos_profile
+                entry.setdefault('qos', default_action_qos())['status'] = qos
+        else:
+            current_qos = entry.setdefault('qos', default_action_qos()).get('status')
+            if isinstance(current_qos, dict):
+                if qos.get('qos_status') != 'incompatible' and current_qos.get('qos_status') == 'incompatible':
+                    current_qos.clear()
+                    current_qos.update(qos)
+                elif qos.get('qos_status') == 'incompatible':
+                    current_qos.clear()
+                    current_qos.update(qos)
+                elif not current_qos or current_qos.get('qos_status') in {'unknown', 'observed'}:
+                    current_qos.clear()
+                    current_qos.update(qos)
+            else:
+                entry['qos']['status'] = qos
+
+    # Feedback
+    if feedback_enabled and entry.get('feedback_subscription') is not None:
+        topic_name = f'{name}/_action/feedback'
+        qos_profile, qos = choose_topic_qos(
+            node,
+            topic_name,
+            local_role='subscription',
+            default_profile=QoSProfile(depth=10),
+        )
+        if qos.get('qos_status') == 'incompatible':
+            qos['qos_error_type'] = 'action_feedback_qos_incompatible'
+        current_profile = entry.get('feedback_qos_profile')
+        profile_changed = (
+            current_profile is not None
+            and (
+                getattr(current_profile, 'reliability', None) != getattr(qos_profile, 'reliability', None)
+                or getattr(current_profile, 'durability', None) != getattr(qos_profile, 'durability', None)
+            )
+        )
+        if profile_changed:
+            node.destroy_subscription(entry['feedback_subscription'])
+            message_class = load_feedback_message_class(action_type)
+            if message_class is not None:
+                subscription = node.create_subscription(
+                    message_class,
+                    topic_name,
+                    feedback_callback,
+                    qos_profile,
+                    event_callbacks=subscription_events(
+                        qos, 'action_feedback_qos_incompatible',
+                    ),
+                )
+                entry['feedback_subscription'] = subscription
+                entry['feedback_qos_profile'] = qos_profile
+                entry.setdefault('qos', default_action_qos())['feedback'] = qos
+        else:
+            current_qos = entry.setdefault('qos', default_action_qos()).get('feedback')
+            if isinstance(current_qos, dict):
+                if qos.get('qos_status') != 'incompatible' and current_qos.get('qos_status') == 'incompatible':
+                    current_qos.clear()
+                    current_qos.update(qos)
+                elif qos.get('qos_status') == 'incompatible':
+                    current_qos.clear()
+                    current_qos.update(qos)
+                elif not current_qos or current_qos.get('qos_status') in {'unknown', 'observed'}:
+                    current_qos.clear()
+                    current_qos.update(qos)
+            else:
+                entry['qos']['feedback'] = qos
 
 
 def monitor_subscription_count(

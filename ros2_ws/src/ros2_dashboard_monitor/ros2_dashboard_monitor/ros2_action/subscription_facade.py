@@ -12,6 +12,7 @@ from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import (
     default_action_qos,
     destroy_entry_subscriptions,
     monitor_subscription_count,
+    update_action_topic_subscriptions,
 )
 from ros2_dashboard_monitor.ros2_action.subscriptions import (
     action_entry_matches,
@@ -37,12 +38,23 @@ class ActionSubscriptionFacade:
         name: str,
         action_type: str | None,
     ) -> dict[str, Any]:
-        if self._node_getter() is None:
+        node = self._node_getter()
+        if node is None:
             return self._capabilities(None)
 
         with self._lock:
             entry = self._subscriptions.get(name)
             if action_entry_matches(entry, action_type=action_type):
+                update_action_topic_subscriptions(
+                    node=node,
+                    name=name,
+                    action_type=action_type,
+                    entry=entry,
+                    status_enabled=self._config.actions_auto_monitor_status,
+                    feedback_enabled=self._config.actions_auto_monitor_feedback,
+                    status_callback=self._status_callback(name),
+                    feedback_callback=self._feedback_callback(name),
+                )
                 return self._capabilities(entry)
 
             if entry is not None:

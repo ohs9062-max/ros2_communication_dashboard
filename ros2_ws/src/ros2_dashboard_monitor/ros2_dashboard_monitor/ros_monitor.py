@@ -350,6 +350,8 @@ class RosMonitor(InterfaceLabFacade):
         self._topic_runtime.update()
         self._service_runtime.update()
         self._action_runtime.update()
+        self._service_call_runtime.refresh_dashboard_qos()
+        self._action_goal_runtime.refresh_dashboard_qos()
         # Service 자동 호출은 의도적으로 비활성화합니다.
         # 생존 상태는 Graph로 관찰하고 실제 요청/응답은 Interface Lab의
         # 사용자 명시 Call 기록으로만 확인합니다.

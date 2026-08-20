@@ -28,13 +28,53 @@ def ensure_subscription(
     callback: Callable[[Any], None],
     qos_resolver: Callable[[str, str], tuple[Any, dict[str, Any]]],
 ) -> None:
-    """동일 type subscription을 재사용하고 type 변경 시 안전하게 교체합니다."""
+    """동일 type subscription을 재사용하고 type/QoS 변경 시 안전하게 교체합니다."""
     if node is None:
         return
 
     with lock:
         entry = subscriptions.get(name)
         if has_subscription(entry, topic_type=topic_type):
+            qos_profile, qos = qos_resolver(name, topic_type)
+            current_profile = entry.get('qos_profile')
+            current_sub = entry.get('subscription')
+            profile_changed = (
+                current_profile is not None
+                and (
+                    getattr(current_profile, 'reliability', None) != getattr(qos_profile, 'reliability', None)
+                    or getattr(current_profile, 'durability', None) != getattr(qos_profile, 'durability', None)
+                )
+            )
+            if profile_changed:
+                if current_sub is not None:
+                    node.destroy_subscription(current_sub)
+                subscription = node.create_subscription(
+                    message_class,
+                    name,
+                    callback,
+                    qos_profile,
+                    event_callbacks=subscription_events(
+                        qos,
+                        'topic_qos_incompatible',
+                    ),
+                )
+                entry['subscription'] = subscription
+                entry['qos'] = qos
+                entry['qos_profile'] = qos_profile
+            else:
+                current_qos = entry.get('qos')
+                if isinstance(current_qos, dict):
+                    if qos.get('qos_status') != 'incompatible' and current_qos.get('qos_status') == 'incompatible':
+                        current_qos.clear()
+                        current_qos.update(qos)
+                    elif qos.get('qos_status') == 'incompatible':
+                        current_qos.clear()
+                        current_qos.update(qos)
+                    elif not current_qos or current_qos.get('qos_status') in {'unknown', 'observed'}:
+                        current_qos.clear()
+                        current_qos.update(qos)
+                else:
+                    entry['qos'] = qos
             return
 
         if entry is not None:
@@ -55,6 +95,7 @@ def ensure_subscription(
             topic_type=topic_type,
             subscription=subscription,
             qos=qos,
+            qos_profile=qos_profile,
         )
 
 

@@ -246,3 +246,6 @@ cd ~/rang/ros2_dashboard
 ```bash
 journalctl -u ros2-dashboard-monitor.service -u ros2-dashboard-backend.service -n 100 --no-pager
 ```
+
+# 가상
+gnome-boxes

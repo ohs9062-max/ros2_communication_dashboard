@@ -95,7 +95,16 @@ def assemble_action_snapshot(monitor) -> dict[str, Any]:
                 local_state = applied_qos.get(part) or {}
                 if isinstance(state, dict):
                     state['local_qos'] = local_state.get('local_qos')
-                    if local_state.get('qos_status') in {'compatible', 'partial', 'incompatible'}:
+                    local_status = local_state.get('qos_status')
+                    observed_status = state.get('qos_status')
+                    if (
+                        part in {'goal', 'result', 'cancel'}
+                        and local_status in {'compatible', 'partial', 'incompatible'}
+                    ) or (
+                        part in {'feedback', 'status'}
+                        and observed_status in {'unknown', 'observed'}
+                        and local_status == 'compatible'
+                    ):
                         state.update({
                             field: local_state.get(field)
                             for field in (
