@@ -315,3 +315,20 @@
 - 최근 WORK_LOG 25개만 남기고 이전 112개를 날짜별 archive 4개로 원문 이동했다. Markdown 로컬 링크와 코드블록
   균형 검사, stale 문구/경로 검색, `git diff --check`가 통과했다. 기능 코드는 변경하지 않아 전체 build/test는
   실행하지 않았다.
+
+## 2026-08-20 - 문서 디렉터리 재배치 방향 검토
+
+- 루트에는 `README.md`, `AGENTS.md`와 package-local `frontend/README.md`만 진입 문서로 유지하고, 나머지 루트
+  설명·운영·발표 문서는 `docs/`의 역할별 하위 디렉터리로 옮기는 구성을 권장했다. 실제 파일 이동은 수행하지 않았다.
+
+## 2026-08-20 - 슬라이드 9 `/cmd_vel` Topic QoS 표시 경로 검수
+
+- Topic 상세의 Publisher/Subscriber QoS 카드는 Monitor의 rclpy Graph endpoint API 결과를
+  `publisher_qos`/`subscriber_qos`로 직렬화한 값이며, Backend는 이를 변환하지 않고 cache/REST/WebSocket으로
+  전달하고 Frontend `QosDetails`가 endpoint의 `qos.history`와 `qos.depth`를 직접 표시함을 확인했다.
+- 현재 실행 중인 `/cmd_vel` Graph를 같은 API로 조회한 결과 `ros_gz_bridge`를 포함한 endpoint의 원본
+  `TopicEndpointInfo.qos_profile`이 이미 `history=UNKNOWN`, `depth=0`이었다. Fast DDS observer는 Service 계열
+  Request/Response endpoint만 다루므로 이 Topic 표시에는 관여하지 않으며, 알려진 값이 전달 중 유실되는 버그도
+  관련 snapshot 회귀 테스트로 부정했다.
+- 현재 compatibility 경로의 rclpy `qos_check_compatible()`와 프로젝트 mismatch 요약은 History/Depth 차이를
+  incompatible로 판정하지 않는다. Topic QoS 관련 21 tests가 통과했으며 이번 검수에서는 코드 변경을 하지 않았다.
