@@ -102,7 +102,7 @@ def merge_action_topic_local_qos(
             target['qos_fallback_policies'] = source.get(
                 'qos_fallback_policies', [],
             )
-        if source.get('qos_status') == 'incompatible':
+        if source.get('qos_status') in {'compatible', 'partial', 'incompatible'}:
             target.update({
                 key: source.get(key)
                 for key in (

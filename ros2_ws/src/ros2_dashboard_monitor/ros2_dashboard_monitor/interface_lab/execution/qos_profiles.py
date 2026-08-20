@@ -188,7 +188,9 @@ def resolve_split_service_execution_qos(
     if request_mode == 'auto' and response_mode == 'auto':
         profile, fallback_reason = _compatible_service_profile(remote)
         states = {
-            channel: _execution_state('auto', remote, profile, fallback_reason=fallback_reason)
+            channel: _execution_state(
+                'auto', remote, profile, channel=channel, fallback_reason=fallback_reason,
+            )
             for channel in ('request', 'response')
         }
         return profile, _split_service_state(remote, profile, states)
@@ -201,10 +203,12 @@ def resolve_split_service_execution_qos(
     ):
         if mode == 'manual':
             profile = manual_qos_profile(channel_selection)
-            state = _execution_state(mode, remote, profile)
+            state = _execution_state(mode, remote, profile, channel=channel)
         else:
             profile, fallback_reason = _compatible_service_profile(remote, channel=channel)
-            state = _execution_state(mode, remote, profile, fallback_reason=fallback_reason)
+            state = _execution_state(
+                mode, remote, profile, channel=channel, fallback_reason=fallback_reason,
+            )
         profiles[channel] = profile
         states[channel] = state
     if profile_fingerprint(profiles['request']) != profile_fingerprint(profiles['response']):
@@ -221,8 +225,27 @@ def _split_service_state(
     profile: QoSProfile,
     states: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
+    channel_statuses = [
+        states.get('request', {}).get('qos_status'),
+        states.get('response', {}).get('qos_status'),
+    ]
+    if 'incompatible' in channel_statuses:
+        qos_status = 'incompatible'
+    elif all(s == 'compatible' for s in channel_statuses):
+        qos_status = 'compatible'
+    elif 'partial' in channel_statuses:
+        qos_status = 'partial'
+    elif any(s == 'observed' for s in channel_statuses):
+        qos_status = 'observed'
+    else:
+        qos_status = states.get('request', {}).get('qos_status') or 'unknown'
+
     return {
         'qos_mode': 'split',
+        'qos_status': qos_status,
+        'qos_detection_source': (
+            states.get('request', {}).get('qos_detection_source') or 'fastdds_discovery'
+        ),
         'request': states['request'],
         'response': states['response'],
         'remote_qos': deepcopy(remote),
@@ -414,21 +437,129 @@ def _discovered_duration_ns(qos: dict[str, Any], field: str) -> int | None:
     return None
 
 
+def _is_service_profile_compatible(
+    remote: dict[str, Any],
+    profile: QoSProfile,
+    *,
+    channel: str | None = None,
+) -> bool:
+    request_readers = [
+        item.get('qos') or {} for item in remote.get('subscriber_qos', [])
+        if item.get('service_channel') == 'request'
+    ]
+    response_writers = [
+        item.get('qos') or {} for item in remote.get('publisher_qos', [])
+        if item.get('service_channel') == 'response'
+    ]
+    use_request = channel in {None, 'request'}
+    use_response = channel in {None, 'response'}
+    req_qos = request_readers if use_request else []
+    res_qos = response_writers if use_response else []
+    if not req_qos and not res_qos:
+        return False
+
+    rel_rank = {'best_effort': 0, 'reliable': 1}
+    dur_rank = {'volatile': 0, 'transient_local': 1}
+    live_rank = {'automatic': 0, 'manual_by_participant': 1, 'manual_by_topic': 2}
+
+    client_rel = str(getattr(profile.reliability, 'name', profile.reliability)).lower()
+    client_dur = str(getattr(profile.durability, 'name', profile.durability)).lower()
+    client_live = str(getattr(profile.liveliness, 'name', profile.liveliness)).lower()
+    client_deadline = (
+        profile.deadline.nanoseconds
+        if hasattr(profile, 'deadline') and profile.deadline
+        else 0
+    )
+    client_lease = (
+        profile.liveliness_lease_duration.nanoseconds
+        if hasattr(profile, 'liveliness_lease_duration') and profile.liveliness_lease_duration
+        else 0
+    )
+
+    # Client Request Writer vs Server Request Reader
+    for item in req_qos:
+        req_rel = str(item.get('reliability') or '').lower()
+        if req_rel in rel_rank and client_rel in rel_rank and rel_rank[client_rel] < rel_rank[req_rel]:
+            return False
+        req_dur = str(item.get('durability') or '').lower()
+        if req_dur in dur_rank and client_dur in dur_rank and dur_rank[client_dur] < dur_rank[req_dur]:
+            return False
+        req_live = str(item.get('liveliness') or '').lower()
+        if req_live in live_rank and client_live in live_rank and live_rank[client_live] < live_rank[req_live]:
+            return False
+        req_deadline = _discovered_duration_ns(item, 'deadline')
+        if req_deadline is not None and client_deadline > 0 and req_deadline > 0 and client_deadline > req_deadline:
+            return False
+        req_lease = _discovered_duration_ns(item, 'liveliness_lease_duration')
+        if req_lease is not None and client_lease > 0 and req_lease > 0 and client_lease > req_lease:
+            return False
+
+    # Client Response Reader vs Server Response Writer
+    for item in res_qos:
+        res_rel = str(item.get('reliability') or '').lower()
+        if res_rel in rel_rank and client_rel in rel_rank and rel_rank[client_rel] > rel_rank[res_rel]:
+            return False
+        res_dur = str(item.get('durability') or '').lower()
+        if res_dur in dur_rank and client_dur in dur_rank and dur_rank[client_dur] > dur_rank[res_dur]:
+            return False
+        res_live = str(item.get('liveliness') or '').lower()
+        if res_live in live_rank and client_live in live_rank and live_rank[client_live] > live_rank[res_live]:
+            return False
+        res_deadline = _discovered_duration_ns(item, 'deadline')
+        if res_deadline is not None and client_deadline > 0 and res_deadline > 0 and client_deadline < res_deadline:
+            return False
+        res_lease = _discovered_duration_ns(item, 'liveliness_lease_duration')
+        if res_lease is not None and client_lease > 0 and res_lease > 0 and client_lease < res_lease:
+            return False
+
+    return True
+
+
 def _execution_state(
     mode: str,
     remote: dict[str, Any],
     profile: QoSProfile,
     *,
+    channel: str | None = None,
     fallback_reason: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    is_discovered = remote.get('qos_detection_source') == 'fastdds_discovery'
+    mismatch_reason = None
+    if is_discovered:
+        if fallback_reason is None:
+            if mode == 'manual':
+                if _is_service_profile_compatible(remote, profile, channel=channel):
+                    qos_status = 'compatible'
+                else:
+                    qos_status = 'incompatible'
+                    mismatch_reason = 'Manual QoS profile is incompatible with remote Service QoS.'
+            else:
+                qos_status = 'compatible'
+            qos_detection_source = 'fastdds_discovery'
+        elif fallback_reason == 'Remote QoS is unavailable. The default ROS2 QoS is used.':
+            qos_status = 'unknown'
+            qos_detection_source = 'graph_unavailable'
+        else:
+            qos_status = 'incompatible'
+            qos_detection_source = 'fastdds_discovery'
+            mismatch_reason = fallback_reason
+    else:
+        qos_status = 'unknown'
+        qos_detection_source = remote.get('qos_detection_source') or 'graph_unavailable'
+
+    state = {
         'qos_mode': mode,
+        'qos_status': qos_status,
+        'qos_detection_source': qos_detection_source,
         'remote_qos': deepcopy(remote),
         'dashboard_qos': qos_profile_dict(profile),
         'local_qos': qos_profile_dict(profile),
         'fallback_used': fallback_reason is not None,
         'fallback_reason': fallback_reason,
     }
+    if mismatch_reason is not None:
+        state['mismatch_reason'] = mismatch_reason
+    return state
 
 
 def _clone_service_default() -> QoSProfile:

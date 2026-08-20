@@ -86,7 +86,7 @@ def assemble_service_snapshot(monitor, *, include_hidden: bool = False) -> dict[
         if client_created:
             applied_qos = dashboard_states[key]
             service['local_qos'] = applied_qos.get('local_qos')
-            if applied_qos.get('qos_status') == 'incompatible':
+            if applied_qos.get('qos_status') in {'compatible', 'partial', 'incompatible'}:
                 service.update({
                     field: applied_qos.get(field)
                     for field in (

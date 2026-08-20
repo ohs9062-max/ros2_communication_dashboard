@@ -472,3 +472,146 @@ def test_action_accepts_five_independent_channel_profiles():
     assert first is repeated
     assert changed is not first
     assert len(captured) == 2
+
+
+def test_service_auto_and_manual_qos_status():
+    remote = discovered_service_qos(reliability='best_effort')
+
+    # Auto mode with compatible remote
+    _profile, auto_state = resolve_service_execution_qos(
+        '/add', selection={'mode': 'auto'}, remote_qos_getter=lambda _name: remote,
+    )
+    assert auto_state['qos_status'] == 'compatible'
+    assert auto_state['qos_detection_source'] == 'fastdds_discovery'
+
+    # Manual mode with compatible profile (best_effort writer can satisfy best_effort reader)
+    _profile, manual_ok = resolve_service_execution_qos(
+        '/add',
+        selection=manual_profile(reliability='best_effort'),
+        remote_qos_getter=lambda _name: remote,
+    )
+    assert manual_ok['qos_status'] == 'compatible'
+    assert manual_ok['qos_detection_source'] == 'fastdds_discovery'
+
+    # Manual mode with incompatible profile (client response reader reliable cannot receive from server best_effort writer)
+    _profile, manual_incompat = resolve_service_execution_qos(
+        '/add',
+        selection=manual_profile(reliability='reliable'),
+        remote_qos_getter=lambda _name: remote,
+    )
+    assert manual_incompat['qos_status'] == 'incompatible'
+    assert manual_incompat['qos_detection_source'] == 'fastdds_discovery'
+
+    # Remote unavailable
+    _profile, unavailable_state = resolve_service_execution_qos(
+        '/add', selection={'mode': 'auto'}, remote_qos_getter=None,
+    )
+    assert unavailable_state['qos_status'] == 'unknown'
+
+
+def test_service_and_action_snapshot_updates_compatible_qos():
+    from ros2_dashboard_monitor.action_snapshot import assemble_action_snapshot
+    from ros2_dashboard_monitor.service_snapshot import assemble_service_snapshot
+
+    class FakeServiceRuntime:
+        def snapshot(self, **_kwargs):
+            return {
+                'services': [{
+                    'name': '/add',
+                    'type': 'pkg/srv/Add',
+                    'qos_status': 'observed',
+                    'qos_detection_source': 'fastdds_discovery',
+                    'server_count': 1,
+                    'client_count': 1,
+                }],
+                'meta': {'count': 1},
+            }
+
+    class FakeServiceCallRuntime:
+        def summary_by_service(self):
+            return {}
+
+        def callable_services(self):
+            return {'services': [{'service_name': '/add', 'service_type': 'pkg/srv/Add', 'callable': True}]}
+
+        def dashboard_state_by_service(self):
+            return {
+                ('/add', 'pkg/srv/Add'): {
+                    'interface_client_created': True,
+                    'qos_status': 'compatible',
+                    'qos_detection_source': 'fastdds_discovery',
+                    'local_qos': {'reliability': 'best_effort'},
+                },
+            }
+
+    class FakeActionRuntime:
+        def snapshot(self):
+            return {
+                'actions': [{
+                    'name': '/work',
+                    'type': 'pkg/action/Work',
+                    'server_count': 1,
+                    'client_count': 1,
+                    'qos': {
+                        'goal': {'qos_status': 'observed'},
+                        'result': {'qos_status': 'observed'},
+                        'cancel': {'qos_status': 'observed'},
+                        'feedback': {'qos_status': 'observed'},
+                        'status': {'qos_status': 'observed'},
+                    },
+                }],
+                'meta': {'count': 1},
+            }
+
+    class FakeActionGoalRuntime:
+        def summary_by_action(self):
+            return {}
+
+        def callable_actions(self):
+            return {'actions': [{'action_name': '/work', 'action_type': 'pkg/action/Work', 'callable': True}]}
+
+        def dashboard_state_by_action(self):
+            return {
+                ('/work', 'pkg/action/Work'): {
+                    'interface_client_created': True,
+                    'qos': {
+                        'goal': {'qos_status': 'compatible', 'local_qos': {'reliability': 'reliable'}},
+                        'result': {'qos_status': 'compatible', 'local_qos': {'reliability': 'reliable'}},
+                        'cancel': {'qos_status': 'compatible', 'local_qos': {'reliability': 'reliable'}},
+                        'feedback': {'qos_status': 'compatible', 'local_qos': {'reliability': 'best_effort'}},
+                        'status': {'qos_status': 'compatible', 'local_qos': {'reliability': 'reliable'}},
+                    },
+                },
+            }
+
+    class FakeMonitor:
+        def __init__(self):
+            self._service_runtime = FakeServiceRuntime()
+            self._service_call_runtime = FakeServiceCallRuntime()
+            self._action_runtime = FakeActionRuntime()
+            self._action_goal_runtime = FakeActionGoalRuntime()
+            self._config = SimpleNamespace(services_primary_names=[], actions_primary_names=[])
+
+        def _role_node_index(self):
+            return {}
+
+        def _monitor_node_full_name(self):
+            return '/monitor'
+
+        def _apply_primary_state(self, item, **_kwargs):
+            item['is_primary'] = False
+
+    monitor = FakeMonitor()
+
+    # Service snapshot verification
+    srv_snapshot = assemble_service_snapshot(monitor, include_hidden=True)
+    service = srv_snapshot['services'][0]
+    assert service['qos_status'] == 'compatible'
+    assert service['local_qos'] == {'reliability': 'best_effort'}
+
+    # Action snapshot verification
+    act_snapshot = assemble_action_snapshot(monitor)
+    action = act_snapshot['actions'][0]
+    for channel in ('goal', 'result', 'cancel', 'feedback', 'status'):
+        assert action['qos'][channel]['qos_status'] == 'compatible'
+

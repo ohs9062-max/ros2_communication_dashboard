@@ -177,6 +177,18 @@ Auto 또는 Manual 방식으로 실행 QoS를 선택할 수 있습니다.
 실제로 메시지 수신에 성공하는 것은 다르기 때문에,
 발행 여부와 QoS 호환성을 함께 확인하는 구조입니다.
 
+
+Fast DDS Discovery는 쉽게 말하면 ROS2 노드들이 서로를 찾고, “누가 어떤 Topic/Service/Action을 가지고 있는지” 알아내는 DDS의 발견 기능이야.
+
+Fast DDS Discovery
+= ROS2 통신 참여자와 endpoint를 DDS 레벨에서 찾아내는 기능
+
+우리가 쓴 이유
+= 실제 Publisher/Subscriber QoS를 자세히 보기 위해
+
+C++를 쓴 이유
+= 필요한 Fast DDS Discovery API가 C++ 레벨에 직접 노출돼 있고
+  rclpy만으로는 같은 수준의 정보를 얻기 어렵기 때문
 ---
 
 ## 9페이지. QoS 항목 의미
