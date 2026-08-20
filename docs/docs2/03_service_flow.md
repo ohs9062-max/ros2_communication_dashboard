@@ -45,13 +45,15 @@ POST /ros/interfaces/service-call
 - history/reset: 같은 파일 L131-L154
 
 호출은 사용자가 명시할 때만 수행한다. 자동 active check는 기본 비활성화이며
-`RosMonitor._update_graph()` L351-L353에서 호출하지 않는다. 최근 Call 결과는 일반 Monitor Alert에
+`RosMonitor._update_graph()` L355-L357에서 호출하지 않는다. 최근 Call 결과는 일반 Monitor Alert에
 `service_call_timeout` 또는 `service_call_failed`로 반영될 수 있다.
 
 ## QoS와 수
 
 Service Request/Response QoS는 rclpy Service Graph가 아니라 Fast DDS observer의 원격 server
 Request DataReader와 Response DataWriter를 사용한다. observer 미사용은 `graph_unavailable`이며 장애가 아니다.
+Client 생성 뒤에는 상대 DDS endpoint signature가 변경된 Graph 갱신에서만 호환 상태를 다시 계산하고,
+Service snapshot은 저장된 Client QoS 상태를 병합한다.
 
 `server_count/client_count`는 raw Graph endpoint 수고 기본 목록의 `server_node_count/client_node_count`는
 Dashboard 내부 Node를 제외한 고유 Node 수다. Lab Client 생성 여부는

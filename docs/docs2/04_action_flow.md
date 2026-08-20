@@ -65,3 +65,7 @@ Status Topic
 Goal/Result/Cancel은 Fast DDS server endpoint, Feedback/Status는 rclpy Topic endpoint를 사용한다.
 Alert와 상세도 문제 채널을 분리한다. 같은 채널·role·QoS의 endpoint만 UI에서 그룹화하고 실제 GUID/GID
 endpoint 데이터는 유지한다.
+
+Client 생성 뒤 Goal/Result/Cancel은 상대 DDS endpoint signature 변경 시, Feedback/Status는 기존 Graph 및
+Subscription cache가 갱신될 때 호환 상태를 바꾼다. snapshot은 리소스별 마지막 실행 Client의 저장된 5채널
+상태를 사용하며 profile별 Client pool의 과거 삽입 순서로 최신 상태를 덮어쓰지 않는다.

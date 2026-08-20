@@ -20,15 +20,16 @@ ROS2 Graph / data
 |---:|---|---|
 | 1 | `transport/api.py lifespan()` L22-L29 | Monitor FastAPI 시작·종료에 `RosMonitor.start/stop` 연결 |
 | 2 | `ros_monitor.py RosMonitor.start()` L125-L139 | rclpy Node, observer, 최초 Graph update, spin thread 시작 |
-| 3 | `ros_monitor.py RosMonitor._update_graph()` L346-L353 | Node → Topic → Service → Action Runtime 갱신 |
-| 4 | `ros_monitor.py RosMonitor.snapshot()` L165-L178 | Topic runtime 결과에 topology·primary·Lab 상태 병합 |
+| 3 | `ros_monitor.py RosMonitor._update_graph()` L348-L357 | Node → Topic → Service → Action Runtime 갱신 후 Service/Action Client QoS cache refresh |
+| 4 | `ros_monitor.py RosMonitor.snapshot()` L165-L180 | Topic runtime 결과에 topology·primary·Lab 상태 병합 |
 | 5 | `service_snapshot.py assemble_service_snapshot()` L16-L112 | Service topology·Call·QoS 병합 |
 | 6 | `action_snapshot.py assemble_action_snapshot()` L15-L127 | Action topology·Goal·채널 QoS 병합 |
 | 7 | `node_snapshot.py assemble_node_snapshot()` L13-L65 | Node 목록과 리소스 snapshot 연결 |
 | 8 | `transport/api.py transport_snapshot()` L64-L99 | 한 시점의 Topic/Service/Action/Node/Alert/WebSocket payload 조립 |
 
 `timer`는 Graph cache를 갱신하고 rclpy spin thread는 Topic, Action status/feedback 등 실제 callback을 처리한다.
-Service 자동 호출은 `RosMonitor._update_graph()` L351-L353에서 의도적으로 수행하지 않는다.
+Service/Action Client QoS는 이 Graph 갱신에서 상대 endpoint signature가 바뀔 때만 다시 계산하며 snapshot은 저장된
+상태를 읽는다. Service 자동 호출은 `RosMonitor._update_graph()` L355-L357에서 의도적으로 수행하지 않는다.
 
 ## Backend 경계
 

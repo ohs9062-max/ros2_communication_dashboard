@@ -56,6 +56,9 @@ workspace build, log, install 경로와 Python import 검사를 관리한다. �
 
 자동 감시 Subscription은 latest/Hz/stale 계산용이고 Lab Receive는 사용자가 payload를 확인하는 명시적
 Subscription이다. Topic Publisher/Subscription은 name/type과 QoS fingerprint가 같을 때만 재사용한다.
+Publish History의 `ok`와 `sent_to_topic=true`는 로컬 `Publisher.publish()` 호출이 성공했다는 뜻이며,
+Subscriber callback 수신 확인이 아니다. QoS가 불일치한 Subscriber는 수신하지 못하지만 지속 Publish 호출과
+History 기록은 계속될 수 있다.
 
 ## Service와 Action
 
@@ -70,6 +73,10 @@ Subscription이다. Topic Publisher/Subscription은 name/type과 QoS fingerprint
 Message/Request/Goal은 schema 기반 JSON을 generated ROS object로 변환한다. Topic Publish, Service Request,
 Action Goal의 object/array JSON 필드는 공통 `frontend/src/features/interface-lab/SchemaRequestField.jsx`를
 사용하고 필드별 크게 보기/줄이기를 제공한다.
+
+Service는 `service_is_ready()`가 false면 요청을 보내기 전에 실패하고, Action은 Goal Service가 준비되지 않으면
+Goal을 보내지 않는다. Action의 5채널은 독립이므로 Goal Service가 준비돼 있으면 Result/Cancel/Feedback/Status
+중 다른 채널이 incompatible이어도 Goal 전송 자체는 가능하다.
 
 ## QoS와 History
 

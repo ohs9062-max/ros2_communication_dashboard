@@ -53,8 +53,8 @@ runtime 환경 설정과 TLS 인증서는 삭제하거나 초기화하지 않는
 ./scripts/stop.sh
 ```
 
-`start.sh`는 `backend/.env`의 ROS runtime 값을 `/etc/ros2-dashboard/dashboard.env`와 동기화하고 값이 바뀌면
-Monitor를 재시작한다.
+`start.sh`는 현재 shell에 명시된 ROS runtime 값을 우선하고, 없으면 `backend/.env`의 마지막 저장값을 사용한다.
+결정된 값을 `backend/.env`와 `/etc/ros2-dashboard/dashboard.env`에 동기화하고 값이 바뀌면 Monitor를 재시작한다.
 
 동일한 작업을 systemd로 직접 수행할 수도 있다.
 
@@ -87,7 +87,7 @@ https://<장비 LAN IP>/
 - Monitor 정책: `ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml`
 - Interface Registry: 같은 Monitor config 디렉터리의 registry/apply YAML
 - Backend/DB: `backend/.env` (설치 시 최초 생성, 권한 `0600`)
-- Nginx/TLS: `config/nginx/dashboard.env`, `/etc/nginx/ssl/`
+- Nginx/TLS: `config/nginx/dashboard.env.example`, `/etc/nginx/ssl/`
 
 `backend/.env`의 ROS Domain/RMW 변경은 runtime env 동기화가 필요하므로 `start.sh`로 반영한다.
 Backend/DB 설정만 바꾼 경우에는 Backend service를 재시작한다.

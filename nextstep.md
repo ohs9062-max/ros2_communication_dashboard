@@ -5,21 +5,14 @@
 | 항목 | 현재 구현 |
 |---|---|
 | HTTPS/WSS | Nginx에서 TLS를 종료하고 HTTPS 화면은 Backend `/ws/monitor`에 WSS로 연결한다. 개발 HTTP에서는 WS를 사용한다. |
- -wss 사용
 | 책임 분리 | ROS2 실행은 Monitor, REST·WebSocket·Alert DB는 FastAPI Backend, 표시는 React Frontend가 담당한다. |
- - 파일구조 캡쳐 프론트/백엔드/ros2 로 워크스페이스를 나눔
 | Alert 정책 | Topic, Service, Action, Node, QoS Alert의 발생·제외·해제 조건과 사용자 메시지를 문서화했다. |
- - 알러트 정책 문서화 , ppt 에서 알러트들 목록을 보여줌
 | MariaDB Alert | 현재/해결 Alert, 중복 방지, 해결 후 재발, KST 시각, DB 장애 fallback을 구현했다. |
- - db 테이블 구조, 알러트 정책 보여줌
 | QoS 진단 | Topic Graph QoS, Service/Action Fast DDS discovery, Auto/Manual QoS, 실제 RMW incompatible 이벤트를 구분한다. |
- - graph/fastdds discover 로 qos 식별, 인터페이스랩 qos 설정 캡쳐,설명
 | Camera Topic | `Image`와 `CompressedImage`를 기존 Topic 감시 흐름으로 구독하고 상세 화면에서 요청형 Preview를 제공한다. |
- - 토픽 이미지 출력 캡쳐
 | Interface Lab | Topic Publish/Receive, Service Call, Action Goal/Feedback/Result/Cancel과 실행 이력을 제공한다. |
 | TurtleBot3 검증 | 외부 Gazebo Burger의 `/cmd_vel` `TwistStamped`에 전진·회전·정지 명령을 보내 실제 이동을 검증했다. |
 | 제품 설치 | Ubuntu 24.04 설치기, MariaDB schema, systemd, Nginx production Frontend, start/stop/status를 제공한다. 현재 host에서 재설치·보존·장애 복구·재부팅 자동 시작까지 확인했다. |
-- 새환경 에서 설치 
 
 ## 현재 범위에서 제외한 항목
 

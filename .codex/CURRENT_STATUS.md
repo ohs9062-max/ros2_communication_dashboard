@@ -7,6 +7,9 @@
 
 ## 현재 프로젝트 상태
 
+- AI 인수인계 로그는 `.codex/WORK_LOG.md`에 최근 20~30개 작업만 유지하고, 초과한 오래된 항목은
+  `.codex/archive/WORK_LOG_YYYY-MM-DD.md`에 날짜별로 보관한다. 작업 시작에는 archive 전체를 읽지 않고 과거
+  근거가 필요한 경우에만 검색한다.
 - ROS2 직접 접근은 `ros2_dashboard_monitor`, 공개 REST/Browser WebSocket과 cache는 순수 FastAPI
   `backend`, 화면은 React `frontend`가 담당하는 분리 구조다.
 - 구조 리팩토링은 완료됐다. 이후 분리는 줄 수가 아니라 실제 복수 책임이나 기능 변경이 생길 때만 진행한다.
@@ -71,6 +74,11 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- `.codex`와 생성물 의존성 문서를 제외한 프로젝트 Markdown 38개를 현재 코드·설정·route·script와 다시 대조했다.
+  ROS runtime 우선순위, Nginx 설정 경로, Service/Action QoS cache 갱신과 snapshot read 경계, Topic Publish 성공과
+  Subscriber 수신의 구분, Action 5채널 전송 의미, Alert 재발 DB 정책, Camera/Fresh Ubuntu 실제 검증 범위를
+  원문 구조 안에서 교정했다. 로컬 링크, 코드블록 균형과 `git diff --check`를 확인했다.
 
 - Action Client Pool은 QoS profile별 Client의 삽입 순서가 아니라 `_last_key_by_resource`의 최신 실행 Client QoS를
   snapshot에 반영한다. compatible→incompatible→기존 compatible Client 재사용 시 Goal snapshot이 compatible로

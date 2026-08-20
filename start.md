@@ -24,11 +24,14 @@ ros2 launch ros2_dashboard_monitor dashboard_monitor.launch.py
 ```
 
 # Nginx 실행
+
+```bash
 cd ~/rang/ros2_dashboard
 sudo ./scripts/install_local_https.sh
 sudo systemctl start nginx
 sudo systemctl is-enabled nginx
 sudo systemctl status nginx
+```
 
 # Backend 실행
 
@@ -116,6 +119,7 @@ ros2 launch turtlebot3_navigation2 navigation2.launch.py use_sim_time:=True
 ```
 ## 가제보 카메라 실행
 
+```bash
 # 1. ROS2 환경
 source /opt/ros/jazzy/setup.bash
 
@@ -136,8 +140,11 @@ ros2 topic hz /camera/image_raw
 
 # 7. 카메라 영상 직접 확인
 ros2 run rqt_image_view rqt_image_view
+```
 
 ## 카메라 연결
+
+```bash
 # 1. 카메라 연결 확인
 ls -l /dev/video*
 
@@ -156,8 +163,11 @@ ros2 topic hz /image_raw
 
 # 6. 영상 직접 확인
 ros2 run rqt_image_view rqt_image_view
+```
 
 # 가제보 구동
+
+```json
 {
   "stamp": {
     "sec": 0,
@@ -178,12 +188,14 @@ ros2 run rqt_image_view rqt_image_view
     "z": 0.0
   }
 }
-
+```
 
 # DB
+
+```text
 mariadb -u ohs -p ros2_dashboard
 sudo mariadb
-show database;
+SHOW DATABASES;
 use db명;
 show tables;
 
@@ -204,6 +216,7 @@ git clone \
   https://github.com/ohs9062-max/ros2_communication_dashboard.git \
   ros2_dashboard
 
+cd ros2_dashboard
 sudo ./scripts/install.sh
 ```
 

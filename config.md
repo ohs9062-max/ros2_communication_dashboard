@@ -23,8 +23,9 @@ cd ~/rang/ros2_dashboard
 ./scripts/stop.sh
 ```
 
-`backend/.env`의 `ROS_DOMAIN_ID`와 `RMW_IMPLEMENTATION`이 프로젝트 기준값이다. `install.sh`와 `start.sh`가
-이를 `/etc/ros2-dashboard/dashboard.env`에 반영하고 값이 바뀌면 Monitor를 재시작한다.
+`backend/.env`의 `ROS_DOMAIN_ID`와 `RMW_IMPLEMENTATION`이 프로젝트의 마지막 저장값이다. 실행 시 현재 shell에
+같은 변수가 명시돼 있으면 shell 값을 우선하며, `install.sh`와 `start.sh`가 결정된 값을 프로젝트 `.env`와
+`/etc/ros2-dashboard/dashboard.env`에 반영하고 값이 바뀌면 Monitor를 재시작한다.
 
 ```bash
 sudo systemctl start ros2-dashboard.target

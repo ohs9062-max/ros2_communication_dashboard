@@ -123,7 +123,21 @@ Fallback은 Remote QoS로 표시하지 않는다. 실행 결과에는 `QoS Mode`
   destroy하고 새 profile로 생성한다.
 - ServiceClient pool key에는 Service name/type과 8개 QoS 값이 포함된다.
 - ActionClient pool key에는 Goal/Result/Cancel/Feedback/Status 5개 profile의 8개 QoS 값이 모두 포함된다.
-- Auto에서 Discovery 결과가 바뀌어 fingerprint가 달라져도 새 Client가 생성된다.
+- Auto에서 Discovery 결과가 바뀌어 fingerprint가 달라지면 다음 실행에서 새 Client가 생성된다.
+
+Service와 Action Client의 호환 상태는 Client 생성 또는 상대 endpoint QoS signature 변경 시 계산해 Runtime에
+저장한다. 정기 snapshot 조립은 Fast DDS observer나 rclpy Graph를 다시 조회하지 않고 저장된 `qos_status`,
+`local_qos`, `qos_detection_source`를 읽는다. Action은 profile별 pool 삽입 순서가 아니라 리소스별 마지막 실행
+Client를 기준으로 5채널 상태를 공개하므로, 과거 incompatible Client가 최신 compatible 상태를 덮어쓰지 않는다.
+
+## 실행 결과의 의미
+
+- Topic의 `success`, `published`, `sent_to_topic`은 로컬 `Publisher.publish()` 호출 성공을 뜻한다. DDS는
+  Subscriber별 수신 확인을 이 결과로 반환하지 않으므로 QoS가 맞지 않는 Subscriber는 수신하지 못할 수 있다.
+- Service는 `service_is_ready()`가 false면 `call_async()` 전에 종료하며 `sent_to_server=false`로 기록한다.
+- Action은 `server_is_ready()`가 false면 Goal을 보내지 않는다. Goal 채널이 compatible이면 다른 Result, Cancel,
+  Feedback, Status 채널이 incompatible이어도 Goal 자체는 전송될 수 있으며 이후 결과 timeout, Feedback 미수신,
+  Cancel 실패처럼 채널별로 나타난다.
 
 ## 표시 색상
 

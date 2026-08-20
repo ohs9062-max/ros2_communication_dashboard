@@ -226,6 +226,10 @@ Interface Lab History + 일반 resource snapshot 요약
 Frontend 실행 결과와 Monitoring 목록
 ```
 
+Topic Publish의 성공은 로컬 `Publisher.publish()` 호출 성공이며 Subscriber 수신 확인이 아니다. QoS가 맞지 않는
+Subscriber는 받지 못해도 지속 Publish와 History는 정상 기록될 수 있다. Service는 Server readiness를 확인한 뒤
+Call을 보내고, Action은 Goal Service가 준비되면 나머지 네 채널 상태와 독립적으로 Goal을 보낼 수 있다.
+
 ## 5. Monitoring 공통 원칙
 
 ### 실제 Graph가 목록의 출발점

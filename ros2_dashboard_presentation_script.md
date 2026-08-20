@@ -252,9 +252,10 @@ Camera 데이터를 확인할 수 있도록 했습니다.
 
 ## 12페이지. Camera Topic 이미지 출력 검증
 
-실제 USB Camera와 Gazebo Camera를 이용해
-ROS2 Camera Topic이 Dashboard에서
-이미지로 출력되는 것을 확인했습니다.
+현재 검증에서는 Demo Camera Topic의 Raw/Compressed 이미지가
+Dashboard에서 Preview로 출력되는 것을 확인했습니다.
+실제 USB Camera와 Gazebo Camera도 각각 ROS2 Image Topic을 발행하는
+드라이버나 bridge가 있을 때 같은 경로로 표시할 수 있습니다.
 
 흐름은 간단합니다.
 
@@ -323,9 +324,10 @@ Browser
 
 순서입니다.
 
-Fresh Ubuntu VM에서 설치와 실행까지 확인했으며,
-재부팅 자동 시작과 ROS Domain 유지 여부는
-초기화된 환경에서 최종 재검증하는 단계입니다.
+현재 Ubuntu 24.04 host에서 설치·재설치와 실행,
+재부팅 자동 시작과 ROS Domain 유지 여부를 확인했습니다.
+ROS2와 Node.js, MariaDB가 전혀 없는 별도 Fresh Ubuntu 최초 설치는
+acceptance의 남은 검증 항목입니다.
 
 ---
 

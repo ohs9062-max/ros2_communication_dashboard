@@ -13,13 +13,16 @@
 .codex/WORK_LOG.md
 ```
 
-`.codex/archive/`는 현재 작업의 과거 근거가 필요할 때만 검색한다. 작업 종료 시 크기와 관계없이
-`.codex/WORK_LOG.md`에 날짜와 결과를 누적한다. 구조, 정책, 검증 상태 또는 다음 작업 지점이 바뀌었으면
-`.codex/CURRENT_STATUS.md`도 갱신한다.
+`.codex/archive/`는 현재 작업의 과거 근거가 필요할 때만 `rg`로 검색하며, 작업 시작 때 archive 전체를 읽지
+않는다. 작업 종료 시 크기와 관계없이 `.codex/WORK_LOG.md`에 날짜와 결과를 누적한다. 구조, 정책, 검증 상태 또는
+다음 작업 지점이 바뀌었으면 `.codex/CURRENT_STATUS.md`도 갱신한다.
 
-WORK_LOG는 최근 약 20~30개 작업을 유지한다. 더 길어지면 오래된 항목을 본문과 완료 상태를 바꾸지 않고
-`.codex/archive/`로 옮긴다. 구현하지 않았거나 검증하지 않은 항목을 완료로 기록하지 않는다. 코드와 문서가
-다르면 코드와 실행 결과를 기준으로 하고 불일치를 기록한다.
+`WORK_LOG.md`는 작업 시작 시 읽을 최근 약 20~30개 작업만 유지한다. 작업 기록을 추가한 결과 30개를 넘으면
+가장 오래된 항목을 날짜 단위로 `.codex/archive/WORK_LOG_YYYY-MM-DD.md`에 본문과 완료 상태를 바꾸지 않고 옮긴다.
+같은 날짜의 archive 파일이 이미 있으면 시간 순서가 유지되도록 그 파일에 이어 붙인다. 날짜 단위 이동만으로
+20~30개 범위를 만들 수 없는 경우에는 오래된 항목부터 옮기되 날짜별 archive 이름은 유지한다. 기존 legacy
+archive 파일은 과거 기록으로 보존하며 이름을 일괄 변경하지 않는다. 구현하지 않았거나 검증하지 않은 항목을
+완료로 기록하지 않는다. 코드와 문서가 다르면 코드와 실행 결과를 기준으로 하고 불일치를 기록한다.
 
 ## 2. 프로젝트 목적과 기술 스택
 
@@ -516,7 +519,7 @@ GET /ros/topics/image-preview?name=<topic>
 Frontend `TopicDetailPanel`은 metadata, 수신 시각, Hz와 이미지를 표시한다. 이미지를 클릭하면 닫기, 확대/축소,
 맞춤/원본 보기 기능이 있는 크게 보기 overlay를 연다.
 
-`ros2_dashboard_demo_nodes/demo_camera_publisher.py`는 외부 이미지 없이 코드로 만든 패턴을
+`ros2_ws/src/ros2_dashboard_demo_nodes/ros2_dashboard_demo_nodes/demo_camera_publisher.py`는 외부 이미지 없이 코드로 만든 패턴을
 `/demo_camera/image_raw`와 `/demo_camera/image_compressed`에 발행한다. Gazebo camera는 예를 들어
 `/camera/image_raw`, 실제 USB camera는 별도 `v4l2_camera` 같은 ROS2 camera node가 `/image_raw` 등을 발행해야
 Dashboard가 구독할 수 있다. Dashboard는 물리 카메라를 ROS2 Topic으로 변환하는 driver가 아니다.
