@@ -51,6 +51,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
       await refresh({ notifyWorkbench: false })
     } catch (error) {
       setResult({ success: false, error: error.message, sent_to_server: false })
+      await refresh({ notifyWorkbench: false })
     } finally {
       setExecuting(false)
     }

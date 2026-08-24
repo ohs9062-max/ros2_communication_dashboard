@@ -110,6 +110,32 @@ class ServiceCallRuntime:
             )
         except ExecutionQosError as exc:
             raise ServiceCallError(str(exc)) from exc
+        self._client_pool.record_qos_attempt(
+            service_name,
+            service_type,
+            execution_qos,
+            qos_selection,
+        )
+        if execution_qos.get('qos_status') == 'incompatible':
+            error = str(
+                execution_qos.get('mismatch_reason')
+                or 'The selected QoS is incompatible with the remote Service QoS.'
+            )
+            self._record_history_with_qos({
+                'success': False,
+                'called': False,
+                'sent_to_server': False,
+                'service_name': service_name,
+                'service_type': service_type,
+                'request': request_data,
+                'response': None,
+                'elapsed_ms': 0.0,
+                'timeout_sec': timeout,
+                'called_at': time(),
+                'error_type': 'qos_preflight_incompatible',
+                'error': error,
+            }, execution_qos)
+            raise ServiceCallError(error)
 
         result = execute_service_call(
             service_name=service_name,

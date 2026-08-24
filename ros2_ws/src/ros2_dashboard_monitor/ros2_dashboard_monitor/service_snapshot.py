@@ -82,9 +82,11 @@ def assemble_service_snapshot(monitor, *, include_hidden: bool = False) -> dict[
         service['call_count'] = summary.get('call_count', 0) if summary else 0
         service['success_count'] = summary.get('success_count', 0) if summary else 0
         service['failure_count'] = summary.get('failure_count', 0) if summary else 0
-        client_created = dashboard_states.get(key, {}).get('interface_client_created') is True
-        if client_created:
-            applied_qos = dashboard_states[key]
+        applied_qos = dashboard_states.get(key)
+        client_created = bool(
+            applied_qos and applied_qos.get('interface_client_created') is True
+        )
+        if applied_qos:
             service['local_qos'] = applied_qos.get('local_qos')
             if applied_qos.get('qos_status') in {'compatible', 'partial', 'incompatible'}:
                 service.update({

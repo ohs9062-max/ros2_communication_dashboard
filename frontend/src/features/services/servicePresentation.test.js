@@ -69,6 +69,22 @@ assert.equal(validation.callTone, 'warn')
 assert.equal(validation.sentToServer, false)
 assert.equal(validation.isIssue, false)
 
+const qosPreflight = servicePresentation({
+  call_status: 'qos_preflight_incompatible',
+  effective_status: 'active',
+  last_call_summary: {
+    error_type: 'qos_preflight_incompatible',
+    last_call_status: 'qos_preflight_incompatible',
+    sent_to_server: false,
+  },
+  status: 'active',
+})
+assert.equal(qosPreflight.statusLabel, '정상')
+assert.equal(qosPreflight.callLabel, 'QoS 불일치')
+assert.equal(qosPreflight.callTone, 'bad')
+assert.equal(qosPreflight.sentToServer, false)
+assert.equal(qosPreflight.isIssue, false)
+
 const legacy = servicePresentation({
   last_called_at: 10,
   last_request_preview: { legacy: true },

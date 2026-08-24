@@ -212,10 +212,19 @@ def resolve_split_service_execution_qos(
         profiles[channel] = profile
         states[channel] = state
     if profile_fingerprint(profiles['request']) != profile_fingerprint(profiles['response']):
-        raise ExecutionQosError(
+        reason = (
             'A ROS2 Service Client supports only one QoSProfile for Request and Response. '
-            'Use matching execution and receive QoS settings.',
+            'Use matching execution and receive QoS settings.'
         )
+        state = _split_service_state(remote, profiles['request'], states)
+        state.update({
+            'qos_status': 'incompatible',
+            'local_qos': None,
+            'dashboard_qos': None,
+            'mismatch_reason': reason,
+            'qos_error_type': 'service_profile_mismatch',
+        })
+        return profiles['request'], state
     profile = profiles['request']
     return profile, _split_service_state(remote, profile, states)
 

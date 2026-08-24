@@ -96,6 +96,126 @@ def test_timeout_then_success_recovers_latest_call_status(monkeypatch):
     assert runtime.summary_by_service()[key]['last_call_status'] == 'success'
 
 
+def test_manual_incompatible_qos_is_saved_when_call_is_not_sent(monkeypatch):
+    import ros2_dashboard_monitor.interface_lab.execution.service_call_runtime as call_runtime
+
+    remote = {
+        'qos_detection_source': 'fastdds_discovery',
+        'subscriber_qos': [{
+            'service_channel': 'request',
+            'qos': {'reliability': 'best_effort', 'durability': 'volatile'},
+        }],
+        'publisher_qos': [{
+            'service_channel': 'response',
+            'qos': {'reliability': 'best_effort', 'durability': 'volatile'},
+        }],
+    }
+    runtime = ServiceCallRuntime(
+        lock=_NoopLock(), node_getter=lambda: object(),
+        dds_qos_getter=lambda _name: remote,
+    )
+    runtime._allowed_service = lambda *_args: {'server_count': 1}
+
+    def fail_client(*_args):
+        raise AssertionError('incompatible Service must be blocked before Client lookup')
+
+    runtime._client = fail_client
+    monkeypatch.setattr(call_runtime, 'refresh_install_python_paths', lambda: None)
+    monkeypatch.setattr(call_runtime, 'load_service_class', lambda _type: _FakeService)
+    monkeypatch.setattr(call_runtime, 'build_ros_message', lambda *_args, **_kwargs: object())
+
+    with pytest.raises(ServiceCallError, match='incompatible'):
+        runtime.call_service(
+            service_name='/RobotControl',
+            service_type='demo_interfaces/srv/RobotControl',
+            request_data={},
+            timeout_sec=1.0,
+            qos_selection={
+                'mode': 'manual',
+                'profile': {
+                    'reliability': 'reliable',
+                    'durability': 'volatile',
+                    'history': 'keep_last',
+                    'depth': 10,
+                },
+            },
+        )
+
+    state = runtime.dashboard_state_by_service()[
+        ('/RobotControl', 'demo_interfaces/srv/RobotControl')
+    ]
+    assert state['interface_client_created'] is False
+    assert state['qos_status'] == 'incompatible'
+    summary = runtime.summary_by_service()[
+        ('/RobotControl', 'demo_interfaces/srv/RobotControl')
+    ]
+    assert summary['sent_to_server'] is False
+    assert summary['error_type'] == 'qos_preflight_incompatible'
+
+
+def test_split_profile_mismatch_is_saved_when_call_is_not_sent(monkeypatch):
+    import ros2_dashboard_monitor.interface_lab.execution.service_call_runtime as call_runtime
+
+    remote = {
+        'qos_detection_source': 'fastdds_discovery',
+        'subscriber_qos': [{
+            'service_channel': 'request',
+            'qos': {'reliability': 'reliable', 'durability': 'volatile'},
+        }],
+        'publisher_qos': [{
+            'service_channel': 'response',
+            'qos': {'reliability': 'reliable', 'durability': 'volatile'},
+        }],
+    }
+    runtime = ServiceCallRuntime(
+        lock=_NoopLock(), node_getter=lambda: object(),
+        dds_qos_getter=lambda _name: remote,
+    )
+    runtime._allowed_service = lambda *_args: {'server_count': 1}
+    runtime._client = lambda *_args: (_ for _ in ()).throw(
+        AssertionError('profile mismatch must be blocked before Client lookup'),
+    )
+    monkeypatch.setattr(call_runtime, 'refresh_install_python_paths', lambda: None)
+    monkeypatch.setattr(call_runtime, 'load_service_class', lambda _type: _FakeService)
+    monkeypatch.setattr(call_runtime, 'build_ros_message', lambda *_args, **_kwargs: object())
+
+    with pytest.raises(ServiceCallError, match='only one QoSProfile'):
+        runtime.call_service(
+            service_name='/ScheduleCrud',
+            service_type='demo_interfaces/srv/ScheduleCrud',
+            request_data={},
+            timeout_sec=1.0,
+            qos_selection={
+                'request': {
+                    'mode': 'manual',
+                    'profile': {
+                        'reliability': 'best_effort', 'durability': 'volatile',
+                        'history': 'keep_last', 'depth': 7,
+                    },
+                },
+                'response': {
+                    'mode': 'manual',
+                    'profile': {
+                        'reliability': 'reliable', 'durability': 'volatile',
+                        'history': 'keep_last', 'depth': 8,
+                    },
+                },
+            },
+        )
+
+    state = runtime.dashboard_state_by_service()[
+        ('/ScheduleCrud', 'demo_interfaces/srv/ScheduleCrud')
+    ]
+    assert state['interface_client_created'] is False
+    assert state['qos_status'] == 'incompatible'
+    assert state['qos_error_type'] == 'service_profile_mismatch'
+    summary = runtime.summary_by_service()[
+        ('/ScheduleCrud', 'demo_interfaces/srv/ScheduleCrud')
+    ]
+    assert summary['sent_to_server'] is False
+    assert summary['error_type'] == 'qos_preflight_incompatible'
+
+
 class _NoopLock:
     def __enter__(self):
         return self

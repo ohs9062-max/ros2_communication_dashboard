@@ -14,7 +14,6 @@ from rclpy.qos import (
 
 from ros2_dashboard_monitor.interface_lab.execution.action_client_pool import ActionClientPool
 from ros2_dashboard_monitor.interface_lab.execution.qos_profiles import (
-    ExecutionQosError,
     resolve_service_execution_qos,
     resolve_split_service_execution_qos,
 )
@@ -247,16 +246,22 @@ def test_service_split_auto_uses_one_profile_for_request_and_response():
     assert state['request']['dashboard_qos'] == state['response']['dashboard_qos']
 
 
-def test_service_split_rejects_different_manual_profiles():
-    with pytest.raises(ExecutionQosError, match='only one QoSProfile'):
-        resolve_split_service_execution_qos(
-            '/add',
-            selection={
-                'request': manual_profile(depth=7),
-                'response': manual_profile(depth=8),
-            },
-            remote_qos_getter=lambda _name: discovered_service_qos(),
-        )
+def test_service_split_marks_different_manual_profiles_incompatible():
+    _profile, state = resolve_split_service_execution_qos(
+        '/add',
+        selection={
+            'request': manual_profile(depth=7),
+            'response': manual_profile(depth=8),
+        },
+        remote_qos_getter=lambda _name: discovered_service_qos(),
+    )
+
+    assert state['qos_status'] == 'incompatible'
+    assert state['qos_error_type'] == 'service_profile_mismatch'
+    assert state['local_qos'] is None
+    assert state['request']['local_qos']['depth'] == 7
+    assert state['response']['local_qos']['depth'] == 8
+    assert 'only one QoSProfile' in state['mismatch_reason']
 
 
 def test_topic_publisher_is_recreated_when_manual_qos_changes():
@@ -515,6 +520,52 @@ def test_service_qos_refresh_recalculates_only_when_remote_qos_changes():
     assert changed_state['dashboard_qos']['reliability'] == 'reliable'
 
 
+def test_service_dashboard_state_preserves_preflight_qos_without_client():
+    pool = ServiceClientPool(
+        lock=RLock(), node_getter=lambda: None,
+        unavailable_error=lambda: RuntimeError('unavailable'),
+        dds_qos_getter=lambda _name: discovered_service_qos(reliability='best_effort'),
+    )
+    _profile, incompatible = resolve_split_service_execution_qos(
+        '/add', selection=manual_profile(reliability='reliable'),
+        remote_qos_getter=lambda _name: discovered_service_qos(reliability='best_effort'),
+    )
+
+    pool.record_qos_attempt(
+        '/add', 'pkg/srv/Add', incompatible,
+        manual_profile(reliability='reliable'),
+    )
+    state = pool.dashboard_state()[('/add', 'pkg/srv/Add')]
+
+    assert state['interface_client_created'] is False
+    assert state['qos_status'] == 'incompatible'
+    assert state['qos_detection_source'] == 'fastdds_discovery'
+
+
+def test_service_dashboard_qos_recovers_after_incompatible_attempt():
+    node = SimpleNamespace(create_client=lambda *_args, **_kwargs: object())
+    pool = ServiceClientPool(
+        lock=RLock(), node_getter=lambda: node,
+        unavailable_error=lambda: RuntimeError('unavailable'),
+    )
+    remote = discovered_service_qos(reliability='best_effort')
+
+    for reliability, expected in (
+        ('best_effort', 'compatible'),
+        ('reliable', 'incompatible'),
+        ('best_effort', 'compatible'),
+    ):
+        selection = manual_profile(reliability=reliability)
+        profile, state = resolve_split_service_execution_qos(
+            '/add', selection=selection,
+            remote_qos_getter=lambda _name: remote,
+        )
+        pool.get_or_create(
+            '/add', 'pkg/srv/Add', object, profile, state, selection=selection,
+        )
+        assert pool.dashboard_state()[('/add', 'pkg/srv/Add')]['qos_status'] == expected
+
+
 def test_action_accepts_five_independent_channel_profiles():
     captured = []
     node = TopicExecutionNode()
@@ -703,6 +754,20 @@ def test_service_and_action_snapshot_updates_compatible_qos():
     service = srv_snapshot['services'][0]
     assert service['qos_status'] == 'compatible'
     assert service['local_qos'] == {'reliability': 'best_effort'}
+
+    monitor._service_call_runtime.dashboard_state_by_service = lambda: {
+        ('/add', 'pkg/srv/Add'): {
+            'interface_client_created': False,
+            'qos_status': 'incompatible',
+            'qos_detection_source': 'fastdds_discovery',
+            'mismatch_reason': 'Manual QoS profile is incompatible with remote Service QoS.',
+            'local_qos': {'reliability': 'reliable'},
+        },
+    }
+    blocked_snapshot = assemble_service_snapshot(monitor, include_hidden=True)
+    blocked_service = blocked_snapshot['services'][0]
+    assert blocked_service['qos_status'] == 'incompatible'
+    assert blocked_service['dashboard_communication']['interface_client_created'] is False
 
     # Action snapshot verification
     act_snapshot = assemble_action_snapshot(monitor)

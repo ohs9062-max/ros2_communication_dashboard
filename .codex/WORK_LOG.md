@@ -4,28 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-18 - Gazebo 미실행 필수 Topic 주의 원인 확인
-
-- live 설정과 API를 대조한 결과 `/imu`, `/joint_states`, `/odom`, `/scan`은 실제 Graph 발견 여부와 무관하게
-  기본 `topics.required_stream_names`에 들어 있다. 따라서 Gazebo가 꺼져도 필수 Publisher 부재로
-  `waiting_publisher` warning 4건이 생성되는 것이 현재 설정 의미와 일치한다.
-- Topic 상세의 `There is not enough information to determine the reception issue.`는 별도 표시 문제다.
-  `effective_status=not_discovered`, `reception_diagnosis=null`이어도 latest API의 `received=false`만으로
-  `ReceptionDiagnosis` fallback을 렌더링해 Graph 미발견 상태를 수신 문제처럼 보이게 한다.
-- 코드와 설정은 수정하지 않았다. 이 네 이름이 Gazebo/demo에서만 필요한 경우 전역 기본 필수 목록에서 제거하고
-  실제 기기별 설정에서만 지정하는 것이 현재 단일 기기 진단 목적에 맞다.
-
-## 2026-08-18 - 실제 Graph 기반 Topic 목록·Alert로 정정
-
-- 직전 구현을 사용자 정책에 맞게 정정했다. `build_topic_snapshot()`이 `required_stream_names`와
-  `command_names`만 보고 미발견 Topic placeholder를 추가하던 경로를 제거해 목록·Overview·Alert가 실제 ROS2
-  Graph cache에서 수집된 Topic만 사용하도록 했다. 설정 이름은 발견된 Topic의 역할과 Alert 대상만 분류한다.
-- Topic 상세는 실제 `never_received` 상태일 때만 수신 원인 안내를 표시한다. Graph 미발견/null 진단에
-  `There is not enough information to determine the reception issue.` fallback을 표시하던 조건을 제거했다.
-- 관련 26건과 전체 Monitor pytest 245건, Frontend unit/lint/build가 통과했다. 최신 코드를 임시 8875 Monitor로
-  실행한 실제 Graph에서 Topic 5건만 반환됐고 `/imu`, `/joint_states`, `/odom`, `/scan`, `/cmd_vel`,
-  `/cmd_vel_smoothed` 미발견 설정 이름은 0건, Alert도 0건임을 확인했다. 기존 수동 8765 Monitor는 변경하지 않았다.
-
 ## 2026-08-18 - 제품 start.sh ROS Domain 불일치 복구
 
 - `start.sh` 제품 Monitor가 비어 보인 원인은 Demo Node 터미널은 `ROS_DOMAIN_ID=99`, 설치된
@@ -377,3 +355,46 @@
 - keepalive는 외부 sleep 자식을 만들지 않는 FIFO timeout 방식이며 EXIT/ERR/SIGINT/SIGTERM에서 process와 임시
   control path를 정리한다. 정상 종료·명령 실패·SIGINT 모형 테스트, 전체 installer shell syntax, 기존 install environment test, 생성물 root 소유 여부 검사와
   `git diff --check`가 통과했다. 샌드박스 `no_new_privileges` 제한으로 실제 sudo 전체 설치·재설치는 수행하지 않았다.
+
+## 2026-08-24 - Service Manual QoS 불일치 사전 판정 snapshot 반영
+
+- Service는 실행 QoS를 계산해도 `ServiceClientPool.get_or_create()`가 성공한 뒤에만 `_last_state`에 저장했고,
+  `assemble_service_snapshot()`도 `interface_client_created=true`일 때만 local 판정을 병합했다. 따라서 QoS 불일치로
+  Client 생성/호출 전에 차단되면 이전 observed/compatible 배지가 남았다. Action은 client factory 전에 state와
+  최신 key를 저장하므로 같은 공백이 없었다.
+- Service QoS 판정을 resolve 직후 `record_qos_attempt()`으로 저장하고, client 생성 여부와 dashboard state를
+  분리했다. 확정 incompatible은 `qos_preflight_incompatible`, `sent_to_server=false`로 기록한 뒤 Client lookup과
+  `call_async()` 전에 차단한다. snapshot은 client가 없어도 compatible/partial/incompatible을 병합하며 endpoint
+  signature 변경 refresh도 preflight-only state를 포함한다.
+- compatible→incompatible→compatible 복구, client 미생성 incompatible snapshot 병합, 사전 차단 시 Client lookup과
+  Call 미실행, Auto/Action 및 기존 QoS Alert 정책 회귀를 검증했다. 관련 43 tests, Monitor pytest 265 passed,
+  colcon package 결과 283 tests·0 errors·0 failures·1 skipped, Frontend unit/lint/build와 `git diff --check`가
+  통과했다. 새 사전 차단 history 상태는 `QoS 불일치`로 표시하고 Service 대표 상태/Alert 정책은 바꾸지 않았다.
+
+## 2026-08-24 - Service QoS 불일치 운영 UI 반영 확인
+
+- source와 `frontend/dist`는 최신이었지만 운영 Nginx 정적 경로 `/var/lib/ros2-dashboard/frontend`가 오전의 이전
+  hash bundle을 계속 제공하고 있었다. 최신 dist를 운영 경로에 동기화하고 `ros2-dashboard-monitor.service`를
+  재시작해 Python runtime 변경도 함께 반영했다.
+- HTTPS가 최신 `index-CGzEXTtL.js`와 `servicePresentation-CTJVJ-5D.js`를 제공하고, Monitor는 14:45:26 KST부터
+  active 상태이며 Backend health의 `monitor_connected=true`를 확인했다.
+- `/RobotControl`에 Request/Response 모두 best-effort인 Manual profile을 적용한 검증 요청은 Client/서버 전송 전에
+  HTTP 400으로 차단됐다. 직후 공개 Service API는 `qos_status=incompatible`, `call_status=qos_preflight_incompatible`,
+  `sent_to_server=false`, `interface_client_created=false`를 반환했다. Frontend `QosStatusBadge`는 이 상태를
+  `QoS 불일치`로 표시한다.
+- `/ScheduleCrud`로 동일 검증을 반복해 이름별 하드코딩이 없음을 확인했다. Monitor history/state는 즉시
+  incompatible을 저장했지만 Frontend Service 실행의 HTTP 400 catch 경로가 snapshot/history refresh를 생략해
+  Interface Lab 화면만 `observed`에 머물 수 있었다. inline/기존 Service controller의 실패 경로도 refresh하도록
+  수정하고 Frontend lint/unit/build를 통과한 뒤 최신 `index-DRdVeOQQ.js`를 운영 HTTPS 경로에 배포했다.
+- Monitor 재시작 후 `/RobotControl`과 `/ScheduleCrud`가 모두 `observed`로 돌아가는 것도 확인했다. Service의
+  `_last_state`, `_last_selection`, Client pool과 Call history는 Monitor process 메모리 상태이며 영속 저장하지 않는다.
+  재시작하면 적용 local profile과 비교 결과가 없어지고 Fast DDS가 다시 발견한 remote endpoint 사실만 남으므로
+  `local_qos=null`, `call_status=not_called`, `qos_status=observed`가 되는 것이 현재 lifecycle 의미다.
+- 재시작 후 실제 UI 버튼 POST들이 400을 반환했지만 history가 비어 있던 원인은 Request/Response profile fingerprint가
+  다를 때 `resolve_split_service_execution_qos()`가 `record_qos_attempt()`보다 먼저 예외를 던졌기 때문이다. 이 경우도
+  두 채널 계산 결과를 `qos_status=incompatible`, `qos_error_type=service_profile_mismatch`, top-level local profile 없음으로
+  반환해 기존 preflight 저장/Call 차단/snapshot merge 경로를 타도록 수정했다.
+- 새 Monitor PID 264020에서 `/ScheduleCrud`와 `/RobotControl`을 모두 검증했다. HTTPS proxy 기준 서로 다른 split
+  profile은 두 Service 모두 `observed→incompatible`, `sent_to_server=false`, Client 미생성이었고, 같은 reliable
+  profile 실행은 둘 다 응답 성공 후 `compatible`, `sent_to_server=true`로 복구됐다. 관련 47 tests, Monitor 전체
+  266 passed, colcon 결과 284 tests·0 errors·0 failures·1 skipped를 통과했다.

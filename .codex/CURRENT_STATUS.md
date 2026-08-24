@@ -77,6 +77,11 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- Interface Lab Service는 실행 직전 QoS 판정을 Client 생성 성공 여부와 분리해 저장한다. Manual/Auto 판정이
+  `incompatible`이면 Client lookup과 `call_async()` 전에 전송을 차단하고, client가 없어도 Service snapshot이
+  해당 상태를 병합해 목록 배지를 불일치로 표시한다. 이후 compatible 실행이나 endpoint QoS signature 변경 시
+  같은 state가 갱신된다. Monitor pytest 265건과 package test 283건이 통과했다.
+
 - 설치 sudo UX를 일반 사용자 실행 → 시작 시 1회 `sudo -v` → 설치 중 `sudo -n`과 45초 keepalive 구조로
   변경했다. 기존 root 전체 실행과 ROS build의 `sudo -u` 전환을 제거했고, 정상·오류·SIGINT cleanup 모형 테스트와
   설치 환경 테스트, 전체 shell syntax를 통과했다. 샌드박스가 실제 sudo 상승을 차단해 전체 재설치는 미검증이다.
@@ -395,6 +400,16 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 - Action QoS UI는 기본 상태에서 Service(Goal/Result/Cancel)와 Topic(Feedback/Status) 두 요약만 표시하고,
   그룹과 개별 채널을 단계적으로 펼치는 구조다. 상태 badge와 세부 QoS 값은 정상/발견/일부/불일치/확인 불가
   색상을 사용하며 항목명 typography를 통일했다.
+- 2026-08-24 Service Manual QoS 사전 불일치 변경은 운영 Frontend 정적 경로와 Monitor service에도 배포했다.
+  `/RobotControl`과 `/ScheduleCrud` end-to-end 검증에서 실제 Call 없이 `qos_status=incompatible`,
+  `call_status=qos_preflight_incompatible`, `sent_to_server=false`가 공개 API에 반영됨을 확인했다. Service 실행의
+  HTTP 400 catch 경로도 snapshot/history를 갱신해 Interface Lab의 이전 `observed` 표시가 남지 않도록 했다.
+- Service/Action Interface Lab의 적용 QoS, Client pool과 실행 history는 Monitor process 메모리 상태다. Monitor가
+  재시작되면 local profile과 비교 결과를 복원하지 않으므로 원격 endpoint만 다시 발견한 Service는 `observed`로
+  시작한다. 이전 `compatible/incompatible`을 영속 복원하면 stale 판정이 될 수 있어 현재는 저장하지 않는다.
+- 재시작 후 Interface Lab Service 실행에서 Request/Response profile이 달라도 비교 전에 버리지 않는다. 단일 rclpy
+  Client에 적용할 수 없는 split selection을 `service_profile_mismatch`의 확정 `incompatible`로 preflight state/history에
+  저장하고 Call은 보내지 않는다. 이후 같은 compatible profile 실행은 Client를 생성·호출하고 `compatible`로 복구한다.
 - 제품 Nginx template은 `/`와 `/assets`를 production static Frontend에서 제공하고
   `/health`·`/ros`·`/user-preferences`·`/ws/monitor`만 FastAPI 8000으로 proxy한다. 개발용 Vite/HMR은
   별도의 개발 스택 경로에 남아 있다.

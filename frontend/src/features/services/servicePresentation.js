@@ -75,6 +75,7 @@ export function serviceCallStatusLabel(status, summary = null) {
   if (['failed', 'response_failed', 'service_call_error'].includes(status)) {
     return '호출 실패'
   }
+  if (status === 'qos_preflight_incompatible') return 'QoS 불일치'
   if (status === 'validation_error') return '입력 검증 실패'
   return status || '-'
 }
@@ -85,7 +86,7 @@ export function serviceStatusTone(status) {
   if (['warning', 'waiting_server', 'pending', 'validation_error'].includes(value)) {
     return 'warn'
   }
-  if (['error', 'critical', 'disconnected', 'failed', 'timeout', 'response_failed', 'service_call_error'].includes(value)) {
+  if (['error', 'critical', 'disconnected', 'failed', 'timeout', 'response_failed', 'service_call_error', 'qos_preflight_incompatible'].includes(value)) {
     return 'bad'
   }
   return 'muted'

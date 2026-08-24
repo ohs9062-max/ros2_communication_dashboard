@@ -90,6 +90,9 @@ export function useServiceExecutionController({
       onStateChanged?.()
     } catch (error) {
       setResult({ success: false, error: error.message })
+      const historyPayload = await fetchServiceCallHistory()
+      setHistory(historyPayload.data ?? [])
+      onStateChanged?.()
     } finally {
       setBusy(false)
     }
