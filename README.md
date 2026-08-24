@@ -56,6 +56,9 @@ runtime 환경 설정과 TLS 인증서는 삭제하거나 초기화하지 않는
 
 `start.sh`는 현재 shell에 명시된 ROS runtime 값을 우선하고, 없으면 `backend/.env`의 마지막 저장값을 사용한다.
 결정된 값을 `backend/.env`와 `/etc/ros2-dashboard/dashboard.env`에 동기화하고 값이 바뀌면 Monitor를 재시작한다.
+제품 HTTPS 주소는 기본적으로 활성 default route interface의 IPv4를 사용한다. 다중 NIC에서 특정 주소를 우선할
+때는 `DASHBOARD_LOCAL_IP=<현재 장비에 할당된 IPv4> ./scripts/install.sh`로 지정할 수 있다. 선택 주소와 port는
+`/etc/ros2-dashboard/network.env`에 저장되어 설치 검증과 `status.sh`가 같은 URL을 사용한다.
 
 동일한 작업을 systemd로 직접 수행할 수도 있다.
 
@@ -71,8 +74,8 @@ systemctl status ros2-dashboard.target
 ## 접속 주소
 
 ```text
-https://localhost/
-https://<장비 LAN IP>/
+https://localhost[:설정 port]/
+https://<장비 LAN IP>[:설정 port]/
 ```
 
 최초 설치는 `/etc/nginx/ssl/ros2-dashboard.crt`와 `.key`에 self-signed 인증서를 만든다. 브라우저에서 해당
@@ -85,6 +88,7 @@ https://<장비 LAN IP>/
   - `ROS_DOMAIN_ID`
   - `RMW_IMPLEMENTATION` (기본 `rmw_fastrtps_cpp`)
 - systemd 반영 파일: `/etc/ros2-dashboard/dashboard.env` (직접 수정하지 않음)
+- 설치된 HTTPS 주소/port: `/etc/ros2-dashboard/network.env` (installer가 자동 갱신)
 - Monitor 정책: `ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml`
 - Interface Registry: 같은 Monitor config 디렉터리의 registry/apply YAML
 - Backend/DB: `backend/.env` (설치 시 최초 생성, 권한 `0600`)

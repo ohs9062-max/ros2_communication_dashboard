@@ -20,7 +20,9 @@
   keepalive를 정리한다. demo/Gazebo dependency는 기본 제품 rosdep/build에서 제외한다.
 - 로컬/LAN 제품 HTTPS/WSS는 Nginx TLS 종료 방식이다. Nginx가 `/var/lib/ros2-dashboard/frontend`의 production
   build를 정적으로 제공하고 FastAPI REST/WSS만 localhost로 proxy한다. Vite는 개발 모드에만 사용하며
-  인증서/private key는 Git에 포함하지 않는다.
+  인증서/private key는 Git에 포함하지 않는다. 설치기는 명시 IP 또는 활성 default route의 IPv4를 기본 주소로
+  선택하고 container/libvirt bridge를 제외한 추가 활성 IPv4를 TLS SAN에 포함한다. 선택 주소와 HTTPS port는
+  `/etc/ros2-dashboard/network.env`에 저장해 Nginx·설치 검증·`status.sh`가 함께 사용한다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Service와 Action 내부 Service QoS는 Fast DDS passive observer가 제공한다. QoS 확인을 위해 Service Call,
@@ -76,6 +78,11 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- 설치기의 `hostname -I` 첫 주소 의존을 공통 network helper로 교체했다. 단일/다중 NIC, container bridge 제외,
+  명시 IP, stale 자동 server name, 443/8443 URL, installer 관리 인증서 DHCP 갱신과 custom 인증서 보존을 합성
+  테스트로 검증했다. 현재 장비에서는 default-route `192.168.1.123` 선택, LAN HTTPS/health 200, WSS 101과 내부
+  8000/8765/8766 localhost bind를 확인했다. 변경된 installer 전체 실행과 별도 IP 장비 Fresh 설치는 미검증이다.
 
 - Interface Lab Service는 실행 직전 QoS 판정을 Client 생성 성공 여부와 분리해 저장한다. Manual/Auto 판정이
   `incompatible`이면 Client lookup과 `call_async()` 전에 전송을 차단하고, client가 없어도 Service snapshot이

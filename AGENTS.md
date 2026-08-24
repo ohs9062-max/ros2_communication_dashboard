@@ -589,7 +589,7 @@ Topic Publish, Service Request, Action Goal 모두 공통 입력 컴포넌트를
 
 ```text
 Browser HTTPS / WSS
-→ Nginx :443
+→ Nginx :443 (또는 DASHBOARD_HTTPS_PORT)
   /                    → production static Frontend `/var/lib/ros2-dashboard/frontend`
   /health, /ros        → FastAPI 127.0.0.1:8000
   /user-preferences    → FastAPI 127.0.0.1:8000
@@ -599,6 +599,11 @@ Browser HTTPS / WSS
 FastAPI, Frontend build, Monitor에 인증서를 직접 넣지 않는다. 제품 설치 스크립트는 self-signed 인증서를 만들 수
 있으나 Browser가 인증서를 신뢰하지 않으면 HTTPS/WSS가 거부될 수 있다. Nginx 설정과 실행 기준은
 `docs/deployment/https_wss.md`, `config/nginx`, `scripts/install_local_https.sh`를 따른다.
+설치기의 기본 LAN IPv4는 활성 default route interface에서 선택하며 container/libvirt bridge를 자동 후보에서
+제외한다. 명시한 `DASHBOARD_LOCAL_IP`가 최우선이고 선택 결과와 HTTPS port는
+`/etc/ros2-dashboard/network.env`에 저장해 설치 검증과 `status.sh`가 같이 사용한다. 추가 활성 IPv4는 TLS SAN에
+포함하지만 IPv6는 현재 자동 SAN 대상이 아니다. 설치기 관리 인증서만 SAN 변경 시 백업·갱신하며 사용자 인증서는
+덮어쓰지 않는다.
 
 WebSocket snapshot은 Backend의 마지막 Monitor cache를 전송하며 Camera binary는 포함하지 않는다. REST polling은
 WebSocket 연결 실패 시에도 화면의 상태 조회 경로로 유지한다.

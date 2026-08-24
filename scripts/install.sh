@@ -11,6 +11,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
 source "$SCRIPT_DIR/lib/install_environment.sh"
+source "$SCRIPT_DIR/lib/network_env.sh"
 source "$SCRIPT_DIR/lib/sudo_session.sh"
 
 command -v sudo >/dev/null || {
@@ -49,6 +50,7 @@ cleanup() {
   [[ -z "${runtime_env_work:-}" ]] || rm -f -- "$runtime_env_work"
   [[ -z "${rendered_unit:-}" ]] || rm -f -- "$rendered_unit"
   [[ -z "${rosdep_sudo_dir:-}" ]] || rm -rf -- "$rosdep_sudo_dir"
+  [[ -z "${lan_html:-}" ]] || rm -f -- "$lan_html"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -341,18 +343,40 @@ sudo_run systemctl enable ros2-dashboard.target ros2-dashboard-monitor.service r
 
 export DASHBOARD_FRONTEND_ROOT=/var/lib/ros2-dashboard/frontend
 dashboard_nginx_env="${DASHBOARD_ENV_FILE:-$PROJECT_DIR/config/nginx/dashboard.env}"
-if [[ -f "$dashboard_nginx_env" ]]; then
-  set -a
-  source "$dashboard_nginx_env"
-  set +a
-fi
-export DASHBOARD_HTTPS_PORT="${DASHBOARD_HTTPS_PORT:-443}"
+resolved_network_env=/etc/ros2-dashboard/network.env
 backup_system_file /etc/nginx/conf.d/ros2-dashboard.conf
-sudo_run env \
-  DASHBOARD_FRONTEND_ROOT="$DASHBOARD_FRONTEND_ROOT" \
-  DASHBOARD_HTTPS_PORT="$DASHBOARD_HTTPS_PORT" \
-  DASHBOARD_ENV_FILE="$dashboard_nginx_env" \
-  "$SCRIPT_DIR/install_local_https.sh"
+backup_system_file "$resolved_network_env"
+network_env_args=(
+  "DASHBOARD_FRONTEND_ROOT=$DASHBOARD_FRONTEND_ROOT"
+  "DASHBOARD_ENV_FILE=$dashboard_nginx_env"
+  "DASHBOARD_RESOLVED_ENV_FILE=$resolved_network_env"
+)
+for network_override in \
+    DASHBOARD_LOCAL_IP DASHBOARD_HTTPS_PORT DASHBOARD_SERVER_NAME \
+    DASHBOARD_SERVER_NAME_MODE DASHBOARD_TLS_CERTIFICATE \
+    DASHBOARD_TLS_PRIVATE_KEY DASHBOARD_BACKEND_UPSTREAM; do
+  if [[ -v "$network_override" ]]; then
+    network_env_args+=("$network_override=${!network_override}")
+  fi
+done
+sudo_run env "${network_env_args[@]}" "$SCRIPT_DIR/install_local_https.sh"
+set -a
+# shellcheck disable=SC1090
+source "$resolved_network_env"
+set +a
+local_url="$(ros_dashboard_https_url localhost "$DASHBOARD_HTTPS_PORT")"
+lan_url="$(ros_dashboard_https_url "$DASHBOARD_LOCAL_IP" "$DASHBOARD_HTTPS_PORT")"
+echo "[ros2_dashboard] Selected LAN URL: $lan_url/" >&3
+
+if command -v ufw >/dev/null 2>&1; then
+  firewall_status="$(sudo -n env LANG=C ufw status 2>/dev/null || true)"
+  if grep -Fq 'Status: active' <<< "$firewall_status" \
+      && ! grep -Eq "(^|[[:space:]])${DASHBOARD_HTTPS_PORT}(/tcp)?[[:space:]]+ALLOW" \
+        <<< "$firewall_status"; then
+    echo "[ros2_dashboard] WARNING: UFW is active and no explicit allow rule for TCP $DASHBOARD_HTTPS_PORT was found." >&3
+    echo "[ros2_dashboard] Verify from another LAN device; if policy permits, run: sudo ufw allow ${DASHBOARD_HTTPS_PORT}/tcp" >&3
+  fi
+fi
 
 step 9 "Starting Dashboard services"
 sudo_run systemctl start nginx.service mariadb.service
@@ -373,16 +397,16 @@ sudo_run systemctl start ros2-dashboard-monitor.service ros2-dashboard-backend.s
 
 step 10 "Verifying installed services"
 dashboard_https_ready() {
-  curl --silent --insecure --fail \
+  curl --silent --insecure --fail --noproxy '*' \
     --resolve "localhost:${DASHBOARD_HTTPS_PORT}:127.0.0.1" \
-    "https://localhost:${DASHBOARD_HTTPS_PORT}/" \
+    "$local_url/" \
     | grep -Fq '<title>ROS2 Communication Monitor</title>'
 }
 for _attempt in $(seq 1 40); do
   if systemctl is-active --quiet ros2-dashboard-monitor.service \
       && systemctl is-active --quiet ros2-dashboard-backend.service \
-      && curl --silent --fail http://127.0.0.1:8765/health >/dev/null 2>&1 \
-      && curl --silent --fail http://127.0.0.1:8000/health >/dev/null 2>&1 \
+      && curl --silent --fail --noproxy '*' http://127.0.0.1:8765/health >/dev/null 2>&1 \
+      && curl --silent --fail --noproxy '*' http://127.0.0.1:8000/health >/dev/null 2>&1 \
       && dashboard_https_ready; then
     break
   fi
@@ -390,20 +414,47 @@ for _attempt in $(seq 1 40); do
 done
 systemctl is-active --quiet ros2-dashboard-monitor.service
 systemctl is-active --quiet ros2-dashboard-backend.service
-curl --silent --fail http://127.0.0.1:8765/health >/dev/null
-curl --silent --fail http://127.0.0.1:8000/health >/dev/null
+curl --silent --fail --noproxy '*' http://127.0.0.1:8765/health >/dev/null
+curl --silent --fail --noproxy '*' http://127.0.0.1:8000/health >/dev/null
 dashboard_https_ready || {
-  echo "Nginx HTTPS did not serve the ROS2 Dashboard at https://localhost:${DASHBOARD_HTTPS_PORT}/." >&2
+  echo "Nginx HTTPS did not serve the ROS2 Dashboard at $local_url/." >&2
   echo "Check for an existing ${DASHBOARD_HTTPS_PORT}/localhost server conflict with: sudo nginx -T" >&2
   exit 1
 }
+curl --silent --insecure --fail --noproxy '*' "$local_url/health" \
+  | jq -e '.success == true and .data.monitor_connected == true' >/dev/null
+ros_dashboard_certificate_has_sans \
+  "$DASHBOARD_TLS_CERTIFICATE" localhost 127.0.0.1 "$DASHBOARD_LOCAL_IP"
+ros_dashboard_websocket_check "$local_url/ws/monitor" || {
+  echo "Nginx WSS did not upgrade at $local_url/ws/monitor." >&2
+  exit 1
+}
+
+lan_html="$(mktemp)"
+if curl --silent --show-error --insecure --fail --connect-timeout 3 --noproxy '*' \
+    --output "$lan_html" "$lan_url/"; then
+  grep -Fq '<title>ROS2 Communication Monitor</title>' "$lan_html" || {
+    echo "The selected LAN address did not serve the Dashboard production HTML: $lan_url/" >&2
+    exit 1
+  }
+  curl --silent --insecure --fail --noproxy '*' "$lan_url/health" \
+    | jq -e '.success == true and .data.monitor_connected == true' >/dev/null
+  ros_dashboard_websocket_check "$lan_url/ws/monitor" || {
+    echo "The selected LAN address did not complete a WSS upgrade: $lan_url/ws/monitor" >&2
+    exit 1
+  }
+  echo "[ros2_dashboard] LAN HTTPS, health, TLS SAN, and WSS checks passed: $lan_url/" >&3
+else
+  echo "[ros2_dashboard] WARNING: localhost checks passed, but this host could not connect to its selected LAN URL: $lan_url/" >&3
+  echo "[ros2_dashboard] This can be caused by host firewall or hairpin routing. Verify the URL from another LAN device." >&3
+fi
+rm -f -- "$lan_html"
 run_as_user "$(printf '%q' "$PROJECT_DIR/backend/.venv/bin/python") $(printf '%q' "$PROJECT_DIR/scripts/check_database.py")"
 
 trap - ERR
-local_ip="$(hostname -I | awk '{print $1}')"
 echo "[ros2_dashboard] Installation completed." >&3
-echo "[ros2_dashboard] Local URL: https://localhost/" >&3
-[[ -n "$local_ip" ]] && echo "[ros2_dashboard] LAN URL:   https://$local_ip/" >&3
+echo "[ros2_dashboard] Local URL: $local_url/" >&3
+echo "[ros2_dashboard] LAN URL:   $lan_url/" >&3
 echo "[ros2_dashboard] Status:    ./scripts/status.sh" >&3
 if sudo -n test -f "$BACKUP_DIR/MANIFEST"; then
   echo "[ros2_dashboard] Backup:    $BACKUP_DIR" >&3

@@ -4,90 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-18 - 제품 start.sh ROS Domain 불일치 복구
-
-- `start.sh` 제품 Monitor가 비어 보인 원인은 Demo Node 터미널은 `ROS_DOMAIN_ID=99`, 설치된
-  `/etc/ros2-dashboard/dashboard.env`는 Domain 0이어서 서로 다른 DDS Graph를 본 것이었다. 변경 전 Monitor는
-  자기 Node 1개와 Topic 0개만, 같은 시점의 터미널은 Demo Node 4개를 확인했다.
-- `start.sh`는 실행 터미널에 유효한 `ROS_DOMAIN_ID`가 명시된 경우 제품 설정과 비교해 다를 때만 동기화하고
-  Monitor를 재시작한다. 값이 없으면 기존 설정을 보존한다. `status.sh`에는 실제 제품 Domain 표시를 추가했고,
-  최초 설치는 `ROS2_DASHBOARD_ROS_DOMAIN_ID`로 Domain을 명시할 수 있게 했다.
-- 실제 제품 설정을 Domain 99로 갱신하고 systemd Monitor/Backend를 재기동했다. 제품 API에서 Demo Node 4개와
-  Monitor Node, Topic 3개, `/demo_cleaning_schedule` payload/Hz를 수집했고 Backend health와 HTTPS, DDS observer,
-  기존 MariaDB schema 및 Alert row 11건이 유지됨을 확인했다. shell syntax와 `git diff --check`가 통과했다.
-
-## 2026-08-18 - Fresh clone Backend venv 이식성 수정
-
-- Fresh Ubuntu의 `/home/hs/ros2_dashboard`에서 Backend 설치가 실패한 원인은 `backend/.venv` 539개 파일이 Git에
-  추적돼 기존 `/home/hs/rang/ros2_dashboard` shebang과 `pyvenv.cfg`가 clone에 복원됐기 때문이다. `install.sh`는
-  동적 `PROJECT_DIR`을 이미 사용했지만 실행 가능한 `bin/python`만 보고 이식 불가능한 venv를 재사용했으며
-  절대경로 shebang의 `bin/pip`를 직접 실행했다.
-- `.gitignore`의 기존 `.venv/` 규칙은 유지하고 추적 중이던 venv 파일만 Git index에서 제거했다. ROS build/install/
-  log와 Frontend node_modules/dist도 Git 추적 0건임을 확인했다. 설치기는 checkout 경로, `/etc/machine-id`, Python
-  executable/ABI stamp와 venv prefix·pip shebang을 검증해 불일치 venv만 재생성하며 의존성은
-  `backend/.venv/bin/python -m pip`로 설치한다. 기존 `.env`, DB, Registry, 인증서는 건드리지 않는다.
-- 임시 venv를 다른 경로로 이동해 pip launcher 실패와 `installer_would_reuse=false`를 재현했다. 별도의 빈 임시
-  경로에서 venv 생성, Backend requirements 전체 설치와 FastAPI/httpx/uvicorn/dotenv/yaml/PyMySQL import가
-  성공했다. 현재 Backend pytest 15 passed·2 skipped, Frontend `npm ci`와 production build, install.sh
-  `bash -n`이 통과했다. 별도 Fresh Ubuntu VM에서 7~10단계를 포함한 installer 재실행은 아직 확인 전이다.
-
-## 2026-08-18 - 커밋 HEAD Fresh clone 재검증
-
-- `46adc19`와 `new-origin/main`이 동일함을 확인하고 `/tmp`의 다른 절대경로에 `--no-local` clone했다. 새 clone에는
-  Backend `.venv`, ROS build/install/log, Frontend node_modules/dist가 없었고 작업 트리도 clean이었다.
-- 새 clone에서 Backend venv를 생성한 뒤 requirements 설치와 필수 모듈 import가 성공했다. pip shebang과
-  `sys.prefix`는 모두 새 clone 경로를 가리켰으며 개발환경 `/home/hs/rang/ros2_dashboard` 경로는 설치·애플리케이션
-  대상 파일에서 발견되지 않았다.
-- Frontend `npm ci`, lint, production build와 Python compileall, `install.sh` shell syntax가 통과했다. 실제 Fresh
-  Ubuntu VM의 apt/rosdep/colcon/systemd/MariaDB/Nginx를 포함한 전체 installer 재실행은 환경에서 계속 확인해야 한다.
-
-## 2026-08-18 - ROS Domain/RMW 프로젝트 .env 단일화
-
-- 전체 검색 결과 실행 코드에 Domain 99 하드코딩은 없었고, 기존 제품 흐름은 설치 전용/현재 shell 값을 최초
-  `/etc/ros2-dashboard/dashboard.env`에만 기록한 뒤 `start.sh`가 shell Domain으로 덮는 구조였다. Monitor는 rclpy
-  context 환경값을 사용하고 Fast DDS observer도 그 context Domain을 전달받는 구조임을 확인했다.
-- 기존 `backend/.env`를 ROS runtime 기준으로 확장하고 공통 shell helper에서 설치 전용 변수, 프로젝트 `.env`,
-  현재 shell, 기본값 순으로 Domain/RMW를 해석한다. `install.sh`는 최종값을 프로젝트와 systemd env에 기록하고,
-  `start.sh` 및 개발 통합 실행도 프로젝트 값을 사용한다. 기존 `.env`에 key가 없으면 설치된 runtime 값을 한 번
-  이관해 기존 Domain/RMW를 보존한다.
-- 우선순위, 잘못된 Domain 거부, 기존값 migration, 99→42 격리 동기화, shell syntax를 확인했다. Backend
-  15 passed·2 skipped, Monitor 245 passed가 통과했다. 실제 systemd unit은 EnvironmentFile을 사용하며 실행 중
-  Monitor PID 환경이 `ROS_DOMAIN_ID=99`, `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`임을 확인했다. 비대화형 sudo 제약으로
-  실제 시스템의 42 전환·복구는 수행하지 않고 temp runtime env에서 동일 동기화 경로를 검증했다.
-
-## 2026-08-18 - MariaDB 무인증이 아닌 무인 설치 경로 확정
-
-- 기존 설치기는 이미 MariaDB 설치/시작, `backend/.env` 랜덤 비밀번호 생성, root unix_socket 기반 DB·계정 생성,
-  schema 적용과 검증을 자동 수행했고 Backend/status도 `.env`로 연결해 사용자 DB 로그인이 필요 없었다. 실제 로컬
-  계정은 과거 설정 때문에 대상 DB에 ALL PRIVILEGES가 남아 있어 최소 권한 유지 공백을 확인했다.
-- 초기화 스크립트는 관리·시스템 계정/DB를 거부하고 지정된 전용 계정의 기존 권한을 정리한 뒤 대상 DB의 SELECT,
-  INSERT, UPDATE, DELETE만 부여한다. 기존 `.env` 비밀번호는 유지하고 비어 있을 때만 48자리 hex secret을 생성한다.
-  root socket 접근 불가와 Backend 빈/잘못된 비밀번호 오류도 비밀번호를 노출하지 않고 명확히 보고한다.
-- 네트워크를 끈 `/tmp` 독립 MariaDB에서 계정/DB/schema를 두 번 적용해 기존 Alert 행 1건 보존과 CRUD-only grant를
-  확인했다. 실제 DB는 전용 계정으로 Alert 11건과 schema 정상, `.env` 0600을 확인했고 잘못된 설정 실패 후 정상
-  설정 복구도 통과했다. Backend 16 passed·2 skipped와 shell/Python 문법 검사가 통과했다. 현재 운영 계정의 기존
-  과권한 축소는 다음 `sudo ./scripts/install.sh` 적용 시 반영된다.
-
-## 2026-08-18 - 전체 Markdown 실제 코드 동기화
-
-- Git 추적 Markdown 40개를 수집하고 요청대로 `start.md`는 내용 조회·수정에서 제외했다. 나머지 39개를 현재
-  source와 대조했으며 `.codex/archive` 3개는 과거 기록 보존 정책에 따라 수정하지 않았다.
-- `docs/docs2`의 구 `backend/` workspace, Backend/rclpy 일체형 구조, 제거된 함수·경로·line range를 현재
-  `ros2_ws` 독립 Monitor, localhost transport, 순수 Web Backend, feature별 Frontend 구조로 교정했다.
-  설치·venv·MariaDB·systemd·Nginx/HTTPS/WSS·ROS Domain/RMW 문구와 README 설정 반영 명령도 현재 script와 맞췄다.
-- 추적 문서 로컬 link, 남은 구 경로/API 표현과 line range를 재검사했다. Backend 16 passed·2 skipped,
-  Monitor 245 passed, Frontend unit script가 통과했고 `git diff --check`를 확인했다. 코드 파일은 수정하지 않았다.
-
-## 2026-08-18 - Alert 전체 목록 사용자 표현 정리
-
-- `docs/alert_policy/00_total_alert.md`의 21개 실제 code와 level을 source별 Alert builder에 다시 대조했다.
-- warning은 지연·일부 조건 불일치, error는 연결·실행·통신 실패 확인으로 짧게 구분하고 Topic/Service/Action/
-  Node 항목을 사용자 현상명으로 교체했다. source별 01~04 정책 문서에도 같은 사용자 상태명을 추가하고 기술적
-  판정 조건은 별도 설명으로 유지했다. 내부 code, level, alert_key와 판정 로직은 변경하지 않았다.
-- warning/error가 모두 가능한 QoS 3종과 단일 level Alert 목록, Alert가 아닌 정상·확인 불가 상태를 분리했다.
-- 전체 문서에 DB 생명주기 요약을 추가해 최초 발생은 행 추가, 지속 중에는 기존 행 유지, 해결 시 해결 시각 기록,
-  해결 후 재발 시 새 행 추가라는 동작과 해결 행의 이력 보존을 명시했다.
-
 ## 2026-08-19 - MonitorStatus Alert 판정·필터 조사
 
 - `MonitorStatus`는 Dashboard가 수치 임계값을 계산하는 상태가 아니라, 실제 Graph에서 발견하고 자동 구독한
@@ -398,3 +314,49 @@
   profile은 두 Service 모두 `observed→incompatible`, `sent_to_server=false`, Client 미생성이었고, 같은 reliable
   profile 실행은 둘 다 응답 성공 후 `compatible`, `sent_to_server=true`로 복구됐다. 관련 47 tests, Monitor 전체
   266 passed, colcon 결과 284 tests·0 errors·0 failures·1 skipped를 통과했다.
+
+## 2026-08-24 - System QoS와 Interface Lab Execution QoS 분리 구현성 검수
+
+- 일반 Topic QoS는 rclpy Graph의 Publisher×Subscriber를 비교하지만 Dashboard endpoint를 제외하지 않고, 자동
+  monitoring subscription state가 top-level 상태를 덮는다. Service는 Fast DDS server endpoint만 Python cache에
+  남긴 뒤 Interface Lab Client 판정을 snapshot에 병합하며, Action도 3개 Service와 2개 Topic 관찰 상태에 monitoring/
+  Interface Lab Client 상태를 합쳐 일반 배지와 QoS Alert가 System/Execution 의미를 혼용함을 확인했다.
+- Fast DDS C++ observer는 Client Request Writer/Response Reader와 Server Request Reader/Response Writer를 이미
+  모두 수집하고 역할·service name·channel·GUID·QoS를 제공한다. 실행 중 snapshot 130개 중 client 8개/server 122개,
+  `/ScheduleCrud`와 `/RobotControl` 양방향 Client endpoint를 확인했다. 다만 Python `_replace_snapshot()`이 client를
+  버리며 observer에는 ROS node identity가 없다.
+- Dashboard DDS GUID participant prefix는 rclpy Topic Graph에서 `dashboard_owned=true`인 Monitor participant ID와
+  구두점만 제거하면 실제로 일치했다. 따라서 외부 endpoint 제외와 signature 변경 시 resource별 재계산은 가능하지만,
+  participant 정규화·동일 participant 보장과 node label 한계를 먼저 통합 테스트로 고정해야 한다. 코드는 수정하지
+  않았으며 권장안은 nested `system_qos`/`execution_qos` 분리와 legacy top-level System alias의 단계적 전환이다.
+
+## 2026-08-24 - install.sh 다른 LAN IP·포트 처리 검수
+
+- 제품 외부 진입점은 Nginx HTTPS/WSS뿐이며 `0.0.0.0/[::]:443`에 listen한다. Monitor 8765, observer 8766,
+  Backend 8000과 MariaDB는 localhost 내부 연결이므로 이 주소 하드코딩은 다른 LAN PC 접속을 막는 원인이 아니다.
+  Frontend production build도 API base를 비워 현재 page origin의 REST/WSS를 사용한다.
+- 실제 주소 `192.168.1.123`에서 self-signed 인증서를 CA로 지정한 HTTPS Frontend 200, Backend `/health`, TLS IP SAN,
+  WSS `101 Switching Protocols`를 확인했고 Backend 8000은 LAN 주소에서 직접 연결되지 않았다. Nginx는 IPv4/IPv6
+  전체 interface에 listen했으며 Monitor/Backend/observer는 127.0.0.1에만 listen했다.
+- Fresh 단일-NIC 설치는 현재 IP를 인증서 SAN과 기본 server_name에 넣어 동작하지만, `hostname -I` 첫 주소 선택,
+  기존 인증서의 새 IP SAN 미검사·무조건 보존, 복사된 ignored `config/nginx/dashboard.env`의 stale server_name,
+  localhost만 확인하는 설치 완료 검사, custom HTTPS port를 무시하는 완료 URL/status.sh를 위험으로 확인했다.
+  별도 VM은 guest agent·주소·SSH가 없어 전체 타 장비 설치는 미검증이며 애플리케이션 코드는 수정하지 않았다.
+
+## 2026-08-24 - 설치기 네트워크/IP 자동 선택과 TLS 검증 개선
+
+- `hostname -I` 첫 주소 대신 공통 `scripts/lib/network_env.sh`에서 명시 `DASHBOARD_LOCAL_IP`, default-route
+  interface IPv4, 허용된 활성 IPv4, `hostname -I` fallback 순으로 선택한다. docker/Podman/libvirt/container
+  bridge와 loopback/link-local은 자동 후보에서 제외하고, 추가 물리/VPN IPv4는 SAN 후보로 유지한다. IPv6 자동
+  SAN은 현재 지원하지 않는다.
+- `install_local_https.sh`는 stale auto IP를 현재 주소로 교체하고 선택 결과를
+  `/etc/ros2-dashboard/network.env`에 저장한다. 기존 인증서의 SAN과 key pair를 검사해 모두 맞으면 재사용하고,
+  fingerprint marker가 일치하는 installer 관리 인증서만 백업 후 재생성한다. marker가 없는 custom/legacy
+  인증서에 SAN이 부족하면 덮어쓰지 않고 조치 안내와 함께 중단한다.
+- Nginx listen, 완료 URL, `status.sh`, HTTPS/health/WSS 검증이 같은 custom port를 사용한다. UFW active 상태에서
+  allow rule이 확인되지 않으면 네트워크 정책을 바꾸지 않고 경고한다. Frontend의 current-origin REST/WSS와 내부
+  localhost 8000/8765/8766 경계는 유지했다.
+- 합성 A~H 테스트와 install environment/sudo session 테스트, shell syntax, scoped diff check, Frontend unit/lint/build가
+  통과했다. 현재 장비에서는 `192.168.1.123`을 default-route 주소로 선택했고 LAN HTML/health 200, TLS SAN,
+  WSS 101, 내부 port localhost bind와 LAN 8000 차단을 확인했다. sudo가 필요한 변경 installer 전체 재실행과
+  별도 물리 PC/VM Fresh 설치는 수행하지 않았으므로 코드/현재 runtime 검증과 구분한다.
