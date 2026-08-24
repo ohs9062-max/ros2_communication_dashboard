@@ -30,14 +30,11 @@ git clone <repository>
 cd ros2_dashboard
 cp -n backend/.env.example backend/.env
 # backend/.env의 ROS_DOMAIN_ID와 RMW_IMPLEMENTATION을 장비에 맞게 설정
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
-root shell에서 직접 실행할 때는 프로젝트를 소유할 일반 사용자를 명시한다.
-
-```bash
-sudo ROS2_DASHBOARD_INSTALL_USER=<user> ./scripts/install.sh
-```
+설치 시작 시 관리자 권한이 필요한 이유를 안내하고 `sudo` 인증을 한 번 요청한다. 빌드와 전용 venv 생성은
+로그인한 일반 사용자로 실행하고, 패키지·systemd·Nginx·MariaDB 작업에만 관리자 권한을 사용한다.
 
 설치 스크립트는 재실행할 수 있다. 기존 MariaDB Alert 이력, Interface Registry, Backend `.env`,
 runtime 환경 설정과 TLS 인증서는 삭제하거나 초기화하지 않는다. 상세 설치 로그는

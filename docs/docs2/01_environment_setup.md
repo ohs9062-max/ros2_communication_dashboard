@@ -36,7 +36,7 @@ frontend/dist
 프로젝트 루트에서 실행한다.
 
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 설치기는 apt dependency, ROS workspace build, Backend/Frontend dependency와 production build, MariaDB 전용

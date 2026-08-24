@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-[[ "$EUID" -eq 0 ]] || {
-  echo "[ros2_dashboard] Run the installer with sudo: sudo ./scripts/install.sh" >&2
+[[ "$EUID" -ne 0 ]] || {
+  echo "[ros2_dashboard] Run the installer as your regular user: ./scripts/install.sh" >&2
+  echo "[ros2_dashboard] The installer will request administrator permission once at startup." >&2
   exit 1
 }
 
@@ -10,15 +11,59 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
 source "$SCRIPT_DIR/lib/install_environment.sh"
+source "$SCRIPT_DIR/lib/sudo_session.sh"
+
+command -v sudo >/dev/null || {
+  echo "[ros2_dashboard] sudo is required to install system packages and services." >&2
+  exit 1
+}
+
+if [[ -n "${ROS2_DASHBOARD_INSTALL_USER:-}" ]]; then
+  INSTALL_USER="$ROS2_DASHBOARD_INSTALL_USER"
+else
+  INSTALL_USER="$(id -un)"
+fi
+id "$INSTALL_USER" >/dev/null
+INSTALL_GROUP="$(id -gn "$INSTALL_USER")"
+INSTALL_HOME="$(getent passwd "$INSTALL_USER" | cut -d: -f6)"
+[[ "$(id -u "$INSTALL_USER")" -eq "$EUID" ]] || {
+  echo "[ros2_dashboard] Run the installer while logged in as $INSTALL_USER." >&2
+  echo "[ros2_dashboard] ROS2_DASHBOARD_INSTALL_USER cannot select another account for a user-owned build." >&2
+  exit 1
+}
+
+echo "[ros2_dashboard] Administrator permission is required."
+sudo -v
+ros_dashboard_start_sudo_keepalive sudo
+
+sudo_run() {
+  if ! sudo -n "$@"; then
+    echo "[ros2_dashboard] A privileged command failed." >&2
+    echo "[ros2_dashboard] If sudo authorization expired or was revoked, rerun ./scripts/install.sh." >&2
+    return 1
+  fi
+}
+
+cleanup() {
+  ros_dashboard_stop_sudo_keepalive
+  [[ -z "${runtime_env_work:-}" ]] || rm -f -- "$runtime_env_work"
+  [[ -z "${rendered_unit:-}" ]] || rm -f -- "$rendered_unit"
+  [[ -z "${rosdep_sudo_dir:-}" ]] || rm -rf -- "$rosdep_sudo_dir"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 LOG_DIR=/var/log/ros2-dashboard
 LOG_FILE="$LOG_DIR/install.log"
 BACKUP_ROOT=/var/backups/ros2-dashboard
 BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
-install -d -m 0755 "$LOG_DIR"
-touch "$LOG_FILE"
-chmod 0640 "$LOG_FILE"
+sudo_run install -d -m 0755 "$LOG_DIR"
+sudo_run touch "$LOG_FILE"
+sudo_run chown "root:$INSTALL_GROUP" "$LOG_FILE"
+sudo_run chmod 0640 "$LOG_FILE"
 exec 3>&1
-exec >>"$LOG_FILE" 2>&1
+exec > >(sudo -n tee -a "$LOG_FILE" >/dev/null) 2>&1
 
 fail_report() {
   local exit_code=$?
@@ -34,20 +79,8 @@ step() {
   echo "[$1/10] $2"
 }
 
-if [[ -n "${ROS2_DASHBOARD_INSTALL_USER:-}" ]]; then
-  INSTALL_USER="$ROS2_DASHBOARD_INSTALL_USER"
-elif [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != root ]]; then
-  INSTALL_USER="$SUDO_USER"
-else
-  echo "[ros2_dashboard] Set ROS2_DASHBOARD_INSTALL_USER when running from a root shell." >&3
-  exit 1
-fi
-id "$INSTALL_USER" >/dev/null
-INSTALL_GROUP="$(id -gn "$INSTALL_USER")"
-INSTALL_HOME="$(getent passwd "$INSTALL_USER" | cut -d: -f6)"
-
 run_as_user() {
-  sudo -u "$INSTALL_USER" -H env HOME="$INSTALL_HOME" bash -lc "$1"
+  env HOME="$INSTALL_HOME" bash -lc "$1"
 }
 
 run_with_jazzy() {
@@ -60,9 +93,9 @@ backup_system_file() {
   local source_path="$1" relative_path
   [[ -e "$source_path" ]] || return 0
   relative_path="${source_path#/}"
-  install -d -m 0700 "$BACKUP_DIR/$(dirname -- "$relative_path")"
-  cp -a -- "$source_path" "$BACKUP_DIR/$relative_path"
-  printf '%s\n' "$source_path" >> "$BACKUP_DIR/MANIFEST"
+  sudo_run install -d -m 0700 "$BACKUP_DIR/$(dirname -- "$relative_path")"
+  sudo_run cp -a -- "$source_path" "$BACKUP_DIR/$relative_path"
+  printf '%s\n' "$source_path" | sudo_run tee -a "$BACKUP_DIR/MANIFEST" >/dev/null
 }
 
 step 1 "Checking Ubuntu, architecture, and install owner"
@@ -89,12 +122,12 @@ step 2 "Installing Ubuntu runtime and build prerequisites"
 export DEBIAN_FRONTEND=noninteractive
 export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
-apt-get update
-apt-get install -y \
+sudo_run apt-get update
+sudo_run apt-get install -y \
   ca-certificates curl gnupg software-properties-common locales
-add-apt-repository universe -y
-apt-get update
-apt-get install -y \
+sudo_run add-apt-repository universe -y
+sudo_run apt-get update
+sudo_run apt-get install -y \
   python3.12 python3.12-venv build-essential cmake pkg-config git jq rsync xz-utils \
   openssl gettext-base nginx mariadb-server mariadb-client
 PYTHON_BIN="$(ros_dashboard_python_runtime /usr/bin/python3.12)" || {
@@ -119,10 +152,10 @@ if ! ros_dashboard_apt_repository_has_package ros-jazzy-ros-base; then
   ros_apt_deb="/tmp/ros2-apt-source_${ros_apt_version}.${VERSION_CODENAME}_all.deb"
   curl -fL "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ros_apt_version}/ros2-apt-source_${ros_apt_version}.${VERSION_CODENAME}_all.deb" \
     -o "$ros_apt_deb"
-  dpkg -i "$ros_apt_deb"
+  sudo_run dpkg -i "$ros_apt_deb"
 fi
-apt-get update
-apt-get install -y ros-jazzy-ros-base ros-dev-tools ros-jazzy-rmw-fastrtps-cpp
+sudo_run apt-get update
+sudo_run apt-get install -y ros-jazzy-ros-base ros-dev-tools ros-jazzy-rmw-fastrtps-cpp
 [[ -f /opt/ros/jazzy/setup.bash ]] || {
   echo "[ros2_dashboard] ROS2 Jazzy installation is incomplete: /opt/ros/jazzy/setup.bash is missing." >&2
   echo "[ros2_dashboard] Check the ROS apt source and rerun the installer; other ROS2 distributions were not removed." >&2
@@ -136,7 +169,7 @@ COLCON_BIN=/usr/bin/colcon
   exit 1
 }
 if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
-  "$PYTHON_BIN" "$ROSDEP_BIN" init
+  sudo_run "$PYTHON_BIN" "$ROSDEP_BIN" init
 fi
 run_with_jazzy "$(printf '%q' "$PYTHON_BIN") $(printf '%q' "$ROSDEP_BIN") update"
 
@@ -155,18 +188,18 @@ if ! ros_dashboard_node_toolchain_ready "$NODE_HOME/bin/node" "$NODE_HOME/bin/np
   node_archive_path="/tmp/$NODE_ARCHIVE"
   curl -fL "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ARCHIVE}" -o "$node_archive_path"
   printf '%s  %s\n' "$NODE_SHA256" "$node_archive_path" | sha256sum -c -
-  install -d -m 0755 "$NODE_TOOLCHAIN_ROOT"
+  sudo_run install -d -m 0755 "$NODE_TOOLCHAIN_ROOT"
   if [[ -e "$NODE_HOME" || -L "$NODE_HOME" ]]; then
-    rm -rf -- "$NODE_HOME"
+    sudo_run rm -rf -- "$NODE_HOME"
   fi
-  tar -xJf "$node_archive_path" -C "$NODE_TOOLCHAIN_ROOT"
+  sudo_run tar -xJf "$node_archive_path" -C "$NODE_TOOLCHAIN_ROOT"
 fi
 if [[ -e "$NODE_CURRENT" && ! -L "$NODE_CURRENT" ]]; then
   echo "[ros2_dashboard] Dashboard Node toolchain path exists but is not a symlink: $NODE_CURRENT" >&2
   echo "[ros2_dashboard] Move that Dashboard-specific path aside and rerun; the system Node was not changed." >&2
   exit 1
 fi
-ln -sfn "$NODE_HOME" "$NODE_CURRENT"
+sudo_run ln -sfn "$NODE_HOME" "$NODE_CURRENT"
 NODE_BIN="$NODE_CURRENT/bin/node"
 NPM_BIN="$NODE_CURRENT/bin/npm"
 ros_dashboard_node_toolchain_ready "$NODE_BIN" "$NPM_BIN" || {
@@ -185,7 +218,12 @@ if (( ${#ros_package_dirs[@]} == 0 )); then
   echo "No ROS packages were found." >&2
   exit 1
 fi
-run_with_jazzy "$(printf '%q' "$PYTHON_BIN") $(printf '%q' "$ROSDEP_BIN") install --from-paths $(printf '%q ' "${ros_package_dirs[@]}") --ignore-src --rosdistro jazzy -y"
+rosdep_sudo_dir="$(mktemp -d)"
+ros_dashboard_create_noninteractive_sudo_wrapper "$rosdep_sudo_dir" /usr/bin/sudo
+run_with_jazzy "export PATH=$(printf '%q' "$rosdep_sudo_dir"):\$PATH; \
+  $(printf '%q' "$PYTHON_BIN") $(printf '%q' "$ROSDEP_BIN") install --from-paths $(printf '%q ' "${ros_package_dirs[@]}") --ignore-src --rosdistro jazzy -y"
+rm -rf -- "$rosdep_sudo_dir"
+rosdep_sudo_dir=""
 run_with_jazzy "cd $(printf '%q' "$PROJECT_DIR/ros2_ws") && $(printf '%q' "$PYTHON_BIN") $(printf '%q' "$COLCON_BIN") build --symlink-install --packages-skip ros2_dashboard_demo_nodes"
 
 step 6 "Installing Backend and Frontend application dependencies"
@@ -225,17 +263,17 @@ venv_base_executable="$("$VENV_DIR/bin/python" -c 'import os, sys; print(os.path
   exit 1
 }
 if [[ ! -f "$venv_stamp" || "$(cat "$venv_stamp")" != "$venv_identity" ]]; then
-  install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0644 /dev/null "$venv_stamp"
+  install -m 0644 /dev/null "$venv_stamp"
   printf '%s\n' "$venv_identity" > "$venv_stamp"
 fi
 run_as_user "unset PYTHONHOME PYTHONPATH VIRTUAL_ENV PIP_USER PIP_PREFIX PIP_TARGET; \
   $(printf '%q' "$VENV_DIR/bin/python") -m pip install -r $(printf '%q' "$PROJECT_DIR/backend/requirements.txt")"
 run_as_user "export PATH=$(printf '%q' "$NODE_TOOL_PATH"); cd $(printf '%q' "$PROJECT_DIR/frontend") \
   && $(printf '%q' "$NPM_BIN") ci && VITE_API_BASE_URL= $(printf '%q' "$NPM_BIN") run build"
-install -d -m 0755 /var/lib/ros2-dashboard/frontend
-rsync -a --delete "$PROJECT_DIR/frontend/dist/" /var/lib/ros2-dashboard/frontend/
-find /var/lib/ros2-dashboard/frontend -type d -exec chmod 0755 {} +
-find /var/lib/ros2-dashboard/frontend -type f -exec chmod 0644 {} +
+sudo_run install -d -m 0755 /var/lib/ros2-dashboard/frontend
+sudo_run rsync -a --delete "$PROJECT_DIR/frontend/dist/" /var/lib/ros2-dashboard/frontend/
+sudo_run find /var/lib/ros2-dashboard/frontend -type d -exec chmod 0755 {} +
+sudo_run find /var/lib/ros2-dashboard/frontend -type f -exec chmod 0644 {} +
 
 step 7 "Preparing persistent configuration and MariaDB schema"
 backend_env="$PROJECT_DIR/backend/.env"
@@ -253,48 +291,53 @@ if [[ -z "${RMW_IMPLEMENTATION:-}" && -n "${INSTALL_USER:-}" ]]; then
   fi
 fi
 if [[ ! -f "$backend_env" ]]; then
-  install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0600 \
+  install -m 0600 \
     "$PROJECT_DIR/backend/.env.example" "$backend_env"
 fi
 if [[ -z "$(ros_dashboard_read_env_value "$backend_env" MARIADB_PASSWORD || true)" ]]; then
   ros_dashboard_set_env_value "$backend_env" MARIADB_PASSWORD "$(openssl rand -hex 24)"
 fi
-ros_dashboard_migrate_runtime_env "$backend_env" "$runtime_env"
+runtime_env_work="$(mktemp)"
+if sudo -n test -f "$runtime_env"; then
+  sudo_run cat "$runtime_env" > "$runtime_env_work"
+fi
+ros_dashboard_migrate_runtime_env "$backend_env" "$runtime_env_work"
 ros_dashboard_resolve_runtime_env "$backend_env" true
 ros_dashboard_set_env_value "$backend_env" ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
 ros_dashboard_set_env_value "$backend_env" RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
-chown "$INSTALL_USER:$INSTALL_GROUP" "$backend_env"
 chmod 0600 "$backend_env"
-systemctl enable --now mariadb.service
-"$SCRIPT_DIR/init_database.sh"
+sudo_run systemctl enable --now mariadb.service
+sudo_run "$SCRIPT_DIR/init_database.sh"
 
-install -d -m 0755 /etc/ros2-dashboard
-if [[ ! -f "$runtime_env" ]]; then
-  install -m 0644 /dev/null "$runtime_env"
-fi
-ros_dashboard_set_env_value "$runtime_env" ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
-ros_dashboard_set_env_value "$runtime_env" RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
-ros_dashboard_set_env_value "$runtime_env" ROS2_DASHBOARD_WS_ROOT "$PROJECT_DIR/ros2_ws"
-ros_dashboard_set_env_value "$runtime_env" ROS2_DASHBOARD_MONITOR_CONFIG_DIR \
+ros_dashboard_set_env_value "$runtime_env_work" ROS_DOMAIN_ID "$ROS_DASHBOARD_DOMAIN_ID"
+ros_dashboard_set_env_value "$runtime_env_work" RMW_IMPLEMENTATION "$ROS_DASHBOARD_RMW_IMPLEMENTATION"
+ros_dashboard_set_env_value "$runtime_env_work" ROS2_DASHBOARD_WS_ROOT "$PROJECT_DIR/ros2_ws"
+ros_dashboard_set_env_value "$runtime_env_work" ROS2_DASHBOARD_MONITOR_CONFIG_DIR \
   "$PROJECT_DIR/ros2_ws/src/ros2_dashboard_monitor/config"
-ros_dashboard_set_env_value "$runtime_env" ROS_LOG_DIR "$PROJECT_DIR/.runtime/ros_logs"
-install -d -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0755 "$PROJECT_DIR/.runtime/ros_logs"
+ros_dashboard_set_env_value "$runtime_env_work" ROS_LOG_DIR "$PROJECT_DIR/.runtime/ros_logs"
+sudo_run install -d -m 0755 /etc/ros2-dashboard
+sudo_run install -m 0644 "$runtime_env_work" "$runtime_env"
+rm -f -- "$runtime_env_work"
+sudo_run install -d -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0755 "$PROJECT_DIR/.runtime/ros_logs"
 
 step 8 "Installing systemd units and production HTTPS/WSS"
 escaped_project="${PROJECT_DIR//&/\\&}"
 for unit in ros2-dashboard-monitor.service ros2-dashboard-backend.service; do
   backup_system_file "/etc/systemd/system/${unit}"
+  rendered_unit="$(mktemp)"
   sed \
     -e "s|@PROJECT_DIR@|${escaped_project}|g" \
     -e "s|@DASHBOARD_USER@|${INSTALL_USER}|g" \
     -e "s|@DASHBOARD_GROUP@|${INSTALL_GROUP}|g" \
-    "$PROJECT_DIR/config/systemd/${unit}.in" > "/etc/systemd/system/${unit}"
+    "$PROJECT_DIR/config/systemd/${unit}.in" > "$rendered_unit"
+  sudo_run install -m 0644 "$rendered_unit" "/etc/systemd/system/${unit}"
+  rm -f -- "$rendered_unit"
 done
 backup_system_file /etc/systemd/system/ros2-dashboard.target
-install -m 0644 "$PROJECT_DIR/config/systemd/ros2-dashboard.target" \
+sudo_run install -m 0644 "$PROJECT_DIR/config/systemd/ros2-dashboard.target" \
   /etc/systemd/system/ros2-dashboard.target
-systemctl daemon-reload
-systemctl enable ros2-dashboard.target ros2-dashboard-monitor.service ros2-dashboard-backend.service
+sudo_run systemctl daemon-reload
+sudo_run systemctl enable ros2-dashboard.target ros2-dashboard-monitor.service ros2-dashboard-backend.service
 
 export DASHBOARD_FRONTEND_ROOT=/var/lib/ros2-dashboard/frontend
 dashboard_nginx_env="${DASHBOARD_ENV_FILE:-$PROJECT_DIR/config/nginx/dashboard.env}"
@@ -305,11 +348,15 @@ if [[ -f "$dashboard_nginx_env" ]]; then
 fi
 export DASHBOARD_HTTPS_PORT="${DASHBOARD_HTTPS_PORT:-443}"
 backup_system_file /etc/nginx/conf.d/ros2-dashboard.conf
-"$SCRIPT_DIR/install_local_https.sh"
+sudo_run env \
+  DASHBOARD_FRONTEND_ROOT="$DASHBOARD_FRONTEND_ROOT" \
+  DASHBOARD_HTTPS_PORT="$DASHBOARD_HTTPS_PORT" \
+  DASHBOARD_ENV_FILE="$dashboard_nginx_env" \
+  "$SCRIPT_DIR/install_local_https.sh"
 
 step 9 "Starting Dashboard services"
-systemctl start nginx.service mariadb.service
-systemctl stop ros2-dashboard.target \
+sudo_run systemctl start nginx.service mariadb.service
+sudo_run systemctl stop ros2-dashboard.target \
   ros2-dashboard-monitor.service ros2-dashboard-backend.service
 
 for dashboard_port in 8765 8000; do
@@ -320,8 +367,8 @@ for dashboard_port in 8765 8000; do
   fi
 done
 
-systemctl reset-failed ros2-dashboard-monitor.service ros2-dashboard-backend.service
-systemctl start ros2-dashboard-monitor.service ros2-dashboard-backend.service \
+sudo_run systemctl reset-failed ros2-dashboard-monitor.service ros2-dashboard-backend.service
+sudo_run systemctl start ros2-dashboard-monitor.service ros2-dashboard-backend.service \
   ros2-dashboard.target
 
 step 10 "Verifying installed services"
@@ -358,7 +405,7 @@ echo "[ros2_dashboard] Installation completed." >&3
 echo "[ros2_dashboard] Local URL: https://localhost/" >&3
 [[ -n "$local_ip" ]] && echo "[ros2_dashboard] LAN URL:   https://$local_ip/" >&3
 echo "[ros2_dashboard] Status:    ./scripts/status.sh" >&3
-if [[ -f "$BACKUP_DIR/MANIFEST" ]]; then
+if sudo -n test -f "$BACKUP_DIR/MANIFEST"; then
   echo "[ros2_dashboard] Backup:    $BACKUP_DIR" >&3
 fi
 echo "[ros2_dashboard] Full log:  $LOG_FILE" >&3

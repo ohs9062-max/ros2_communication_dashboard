@@ -219,7 +219,7 @@ git clone \
   ros2_dashboard
 
 cd ros2_dashboard
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 # 제품 실행
@@ -261,4 +261,3 @@ cd ~/rang/ros2_dashboard
 ```bash
 journalctl -u ros2-dashboard-monitor.service -u ros2-dashboard-backend.service -n 100 --no-pager
 ```
-

@@ -4,7 +4,7 @@
 
 ```bash
 cd ~/rang/ros2_dashboard
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 설치기는 Ubuntu 24.04의 `amd64`/`arm64`에서 ROS2 Jazzy, ROS 개발 도구, 지원 Node.js, Backend Python

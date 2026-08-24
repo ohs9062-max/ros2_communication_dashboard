@@ -15,7 +15,9 @@
 - 구조 리팩토링은 완료됐다. 이후 분리는 줄 수가 아니라 실제 복수 책임이나 기능 변경이 생길 때만 진행한다.
 - 제품 설치 경로는 `scripts/install.sh`와 Monitor/Backend systemd unit, MariaDB schema init, Nginx production
   static serving으로 구현됐다. 평상시 `start.sh`/`stop.sh`/`status.sh`가 target 수명주기와 API·DB 상태를 확인한다.
-  demo/Gazebo dependency는 기본 제품 rosdep/build에서 제외한다.
+  설치기는 일반 사용자로 실행해 시작 시 `sudo -v`를 한 번 요청하고 45초 주기의 비대화형 keepalive를 유지한다.
+  venv·ROS workspace·Frontend build는 일반 사용자, 시스템 변경만 `sudo -n`으로 실행하며 종료·실패·SIGINT 때
+  keepalive를 정리한다. demo/Gazebo dependency는 기본 제품 rosdep/build에서 제외한다.
 - 로컬/LAN 제품 HTTPS/WSS는 Nginx TLS 종료 방식이다. Nginx가 `/var/lib/ros2-dashboard/frontend`의 production
   build를 정적으로 제공하고 FastAPI REST/WSS만 localhost로 proxy한다. Vite는 개발 모드에만 사용하며
   인증서/private key는 Git에 포함하지 않는다.
@@ -41,7 +43,7 @@
   `.env` 비밀번호와 Alert 행은 재설치에서 유지하며 Backend 계정은 대상 DB의 CRUD 권한만 사용한다.
 - Fresh clone venv 이식성 수정은 `46adc19`에 반영됐고 `new-origin/main`과 동일하다. 다른 절대경로의 로컬
   clone에서 생성물 미포함, 새 Backend venv/의존성 설치, Frontend clean install/lint/build를 확인했다.
-  별도 Fresh Ubuntu VM에서 전체 `sudo ./scripts/install.sh` 재실행과 systemd/HTTPS 검증은 아직 남아 있다.
+  별도 Fresh Ubuntu VM에서 전체 `./scripts/install.sh` 재실행과 systemd/HTTPS 검증은 아직 남아 있다.
 
 ## 현재 핵심 구조
 
@@ -74,6 +76,10 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- 설치 sudo UX를 일반 사용자 실행 → 시작 시 1회 `sudo -v` → 설치 중 `sudo -n`과 45초 keepalive 구조로
+  변경했다. 기존 root 전체 실행과 ROS build의 `sudo -u` 전환을 제거했고, 정상·오류·SIGINT cleanup 모형 테스트와
+  설치 환경 테스트, 전체 shell syntax를 통과했다. 샌드박스가 실제 sudo 상승을 차단해 전체 재설치는 미검증이다.
 
 - 설치기는 시스템 기본 Python/Node와 다른 ROS 배포판을 교체하지 않는다. Dashboard는 side-by-side
   `/usr/bin/python3.12` 기반 Backend `.venv`, `/opt/ros2-dashboard/toolchains/node`의 검증된 Node 22.23.2,

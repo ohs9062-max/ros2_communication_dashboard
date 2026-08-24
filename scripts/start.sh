@@ -9,7 +9,7 @@ runtime_env_changed=false
 source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
 
 [[ -f /etc/systemd/system/ros2-dashboard.target ]] || {
-  echo "[ros2_dashboard] Not installed. Run: sudo ./scripts/install.sh" >&2
+  echo "[ros2_dashboard] Not installed. Run: ./scripts/install.sh" >&2
   exit 1
 }
 

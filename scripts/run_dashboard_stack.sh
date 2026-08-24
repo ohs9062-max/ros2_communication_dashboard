@@ -57,11 +57,11 @@ wait_http() {
   "Backend virtual environment is missing: run python3 -m venv $BACKEND_DIR/.venv and install requirements"
 "$BACKEND_DIR/.venv/bin/python" -c \
   'import sys; assert sys.version_info[:2] == (3, 12)' || fail \
-  "Backend virtual environment must use Dashboard Python 3.12: rerun sudo ./scripts/install.sh"
+  "Backend virtual environment must use Dashboard Python 3.12: rerun ./scripts/install.sh"
 "$BACKEND_DIR/.venv/bin/python" -c 'import fastapi, httpx, uvicorn, yaml' || fail \
   "Backend dependencies are incomplete: $BACKEND_DIR/.venv/bin/pip install -r $BACKEND_DIR/requirements.txt"
 [[ -x /opt/ros2-dashboard/toolchains/node/bin/npm ]] || fail \
-  "Dashboard Node.js toolchain is missing: rerun sudo ./scripts/install.sh"
+  "Dashboard Node.js toolchain is missing: rerun ./scripts/install.sh"
 
 "$SCRIPT_DIR/build_ros2_ws.sh"
 

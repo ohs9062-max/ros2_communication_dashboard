@@ -4,17 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-18 - 미발견 필수 Topic waiting_publisher Alert 연결
-
-- `RosMonitor.alerts()`가 raw Graph cache 대신 이미 생성된 공개 Topic snapshot을 Alert와 QoS 조립에 재사용하도록
-  수정했다. 따라서 snapshot이 추가한 미발견 `required_stream_names` placeholder도 기존 `waiting_publisher`
-  builder 조건을 통과하며 새 Alert code나 별도 판정 로직은 추가하지 않았다.
-- command Topic의 조기 제외와 일반 `no_subscriber` 비Alert 정책을 유지했다. 공개 snapshot 재사용 경로를 고정하는
-  회귀 테스트를 추가했고 관련 20건과 전체 Monitor pytest 245건이 통과했다.
-- 기존 수동 8765 Monitor는 건드리지 않고 최신 코드를 임시 8875에서 실제 Graph로 실행했다. `/imu`,
-  `/joint_states`, `/odom`, `/scan`의 `waiting_publisher` warning 4건만 생성되고 `/cmd_vel`,
-  `/cmd_vel_smoothed`는 제외됨을 확인한 뒤 임시 Monitor를 정상 종료했다.
-
 ## 2026-08-18 - Gazebo 미실행 필수 Topic 주의 원인 확인
 
 - live 설정과 API를 대조한 결과 `/imu`, `/joint_states`, `/odom`, `/scan`은 실제 Graph 발견 여부와 무관하게
@@ -375,3 +364,16 @@
   재사용 및 시스템 Node 20.20.2 보존을 확인했다. 전용 Node로 Frontend `npm ci`/lint/unit/build, Backend
   16 passed·2 skipped, Monitor 262 passed, ROS workspace 280 tests·0 failures·1 skipped를 통과했다. npm audit의
   기존 dependency 결과로 high 2건이 보고됐으며, 별도 Fresh VM과 sudo 전체 installer 재실행은 환경 제약으로 남았다.
+
+## 2026-08-24 - install.sh 시작 1회 sudo 인증과 credential keepalive
+
+- 기존 설치기는 `sudo ./scripts/install.sh`로 전체를 root 실행하면서 ROS dependency/build의 `run_as_user()`에서
+  다시 `sudo -u`를 호출했다. 특히 step 5의 일반 사용자 `rosdep install`은 package 설치를 위해 내부에서
+  `sudo -H apt-get`을 실행하므로, 앞 단계의 root 직접 명령 동안 갱신되지 않은 사용자 credential이 만료되면
+  이 지점에서 처음 비밀번호를 다시 요구할 수 있었다.
+- 설치기를 일반 사용자로 실행하고 시작 시 안내 후 `sudo -v`를 한 번 수행하도록 변경했다. 45초마다
+  `sudo -n -v`로 credential을 유지하며 이후 시스템 변경과 rosdep 내부 sudo도 전부 `sudo -n`으로만 실행한다. Backend venv,
+  ROS workspace, Frontend dependency/build와 project `.env`는 일반 사용자 작업으로 유지했다.
+- keepalive는 외부 sleep 자식을 만들지 않는 FIFO timeout 방식이며 EXIT/ERR/SIGINT/SIGTERM에서 process와 임시
+  control path를 정리한다. 정상 종료·명령 실패·SIGINT 모형 테스트, 전체 installer shell syntax, 기존 install environment test, 생성물 root 소유 여부 검사와
+  `git diff --check`가 통과했다. 샌드박스 `no_new_privileges` 제한으로 실제 sudo 전체 설치·재설치는 수행하지 않았다.

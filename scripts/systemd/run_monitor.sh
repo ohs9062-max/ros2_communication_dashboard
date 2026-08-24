@@ -10,7 +10,7 @@ ROS_WS="$PROJECT_DIR/ros2_ws"
   exit 1
 }
 [[ -f "$ROS_WS/install/setup.bash" ]] || {
-  echo "[ros2_dashboard] Workspace install is missing. Run sudo ./scripts/install.sh." >&2
+  echo "[ros2_dashboard] Workspace install is missing. Run ./scripts/install.sh." >&2
   exit 1
 }
 [[ -x /usr/bin/python3.12 ]] || {

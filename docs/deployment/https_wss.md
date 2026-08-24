@@ -13,7 +13,7 @@ Browser HTTPS/WSS
     /ws/monitor             → FastAPI WebSocket 127.0.0.1:8000
 ```
 
-`sudo ./scripts/install.sh`가 production Frontend를 빌드·복사하고 Nginx 설정과 인증서를 준비한다. 인증서가 없을
+`./scripts/install.sh`가 시작 시 sudo 인증을 요청한 뒤 production Frontend를 빌드·복사하고 Nginx 설정과 인증서를 준비한다. 인증서가 없을
 때만 localhost, 127.0.0.1과 현재 LAN IPv4를 SAN으로 넣은 self-signed 인증서를 생성한다. 기존 인증서와 private
 key는 재설치 시 보존하며 key는 `0600`으로 유지한다. 기존 Nginx 설정은 적용 전에
 `/var/backups/ros2-dashboard/<시각>/`에 백업한다.

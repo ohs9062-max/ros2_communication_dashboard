@@ -6,7 +6,7 @@ MariaDB는 ROS2 snapshot이나 Interface Lab 실행 이력이 아니라 Alert �
 
 ```bash
 cd ~/rang/ros2_dashboard
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 설치기는 `backend/.env`의 DB 설정을 사용해 MariaDB service, DB와 사용자, 최소 SELECT/INSERT/UPDATE/DELETE 권한,

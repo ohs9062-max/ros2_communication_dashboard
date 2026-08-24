@@ -4,7 +4,7 @@
 
 ### 1. 작업 개요
 
-Fresh Ubuntu 환경에서 `sudo ./scripts/install.sh` 실행 시 `backend/.env`와 `/etc/ros2-dashboard/dashboard.env`에 기본값 `ROS_DOMAIN_ID=0`이 저장된 이후, 사용자가 터미널에서 `export ROS_DOMAIN_ID=99` 후 `./scripts/start.sh`를 실행해도 `backend/.env`의 값이 우선되어 shell 변수가 무시되던 문제와, 인라인 주석/공백/따옴표 등으로 인해 정수 범위 검증(0~232)이 실패하던 문제를 수정했습니다.
+Fresh Ubuntu 환경에서 `./scripts/install.sh` 실행 시 `backend/.env`와 `/etc/ros2-dashboard/dashboard.env`에 기본값 `ROS_DOMAIN_ID=0`이 저장된 이후, 사용자가 터미널에서 `export ROS_DOMAIN_ID=99` 후 `./scripts/start.sh`를 실행해도 `backend/.env`의 값이 우선되어 shell 변수가 무시되던 문제와, 인라인 주석/공백/따옴표 등으로 인해 정수 범위 검증(0~232)이 실패하던 문제를 수정했습니다.
 
 ---
 
@@ -144,10 +144,10 @@ fi
 ```bash
 # 1. 설치 전 환경변수를 지정하는 경우
 export ROS_DOMAIN_ID=99
-sudo -E ./scripts/install.sh
+./scripts/install.sh
 
 # 2. 기본 설치 후 실행 시 Domain을 변경하는 경우
-sudo ./scripts/install.sh
+./scripts/install.sh
 export ROS_DOMAIN_ID=99
 ./scripts/start.sh
 

@@ -643,7 +643,7 @@ cd frontend
 npm run dev
 ```
 
-제품 최초 설치는 `sudo ./scripts/install.sh`, 평상시 실행·상태·종료는 각각 `scripts/start.sh`, `status.sh`,
+제품 최초 설치는 일반 사용자로 `./scripts/install.sh`를 실행하며 설치기가 시작 시 sudo 인증을 요청한다. 평상시 실행·상태·종료는 각각 `scripts/start.sh`, `status.sh`,
 `stop.sh`를 사용한다. 제품 모드는 `ros2-dashboard.target` 아래 Monitor와 Backend systemd service 및 Nginx
 production static Frontend를 사용한다. MariaDB와 Nginx는 공용 service로 간주해 `stop.sh`가 중지하지 않는다.
 설치기는 시스템 locale이나 NetworkManager/netplan 설정을 바꾸지 않고 설치 프로세스에만 `C.UTF-8`을 적용한다.
