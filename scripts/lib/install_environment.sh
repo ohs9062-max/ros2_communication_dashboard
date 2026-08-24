@@ -1,18 +1,35 @@
 #!/usr/bin/env bash
 
 ros_dashboard_python_runtime() {
-  local python_bin="${1:-/usr/bin/python3}" version
+  local python_bin="${1:-/usr/bin/python3.12}" version
   [[ -x "$python_bin" ]] || {
-    echo "[ros2_dashboard] Required system Python is missing: $python_bin" >&2
+    echo "[ros2_dashboard] Dashboard Python 3.12 is missing: $python_bin" >&2
     return 1
   }
   version="$($python_bin -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
   [[ "$version" == 3.12 ]] || {
-    echo "[ros2_dashboard] Ubuntu 24.04 / ROS2 Jazzy requires system Python 3.12; detected ${version:-unknown} at $python_bin." >&2
-    echo "[ros2_dashboard] Restore Ubuntu's /usr/bin/python3 and python3-venv packages; do not point the system Python to another version." >&2
+    echo "[ros2_dashboard] Dashboard requires Python 3.12; detected ${version:-unknown} at $python_bin." >&2
+    echo "[ros2_dashboard] Keep the existing system Python and install python3.12/python3.12-venv side-by-side." >&2
     return 1
   }
   printf '%s\n' "$python_bin"
+}
+
+ros_dashboard_node_distribution() {
+  local architecture="$1" version="${2:-22.23.2}" dist_arch checksum
+  case "$architecture" in
+    amd64)
+      dist_arch=x64
+      checksum=d60acfe00a2932254bb0ad20e01b0d74397a0875595de719654b214f4b03f307
+      ;;
+    arm64)
+      dist_arch=arm64
+      checksum=fff4078c5def658577f92c88db7db3bc0072924bfb93fe52c1e744a54e94abb8
+      ;;
+    *) return 1 ;;
+  esac
+  [[ "$version" == 22.23.2 ]] || return 1
+  printf 'node-v%s-linux-%s.tar.xz|%s\n' "$version" "$dist_arch" "$checksum"
 }
 
 ros_dashboard_node_supported() {

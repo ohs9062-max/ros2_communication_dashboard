@@ -17,6 +17,10 @@ ROS workspace와 production Frontend를 빌드한다. Gazebo, TurtleBot3, 실제
 의존성은 제품 필수 설치에서 제외한다. 설치 프로세스는 `C.UTF-8`을 사용하지만 시스템 locale과 사용자 언어,
 netplan/NetworkManager 연결 설정은 변경하지 않는다.
 
+기존 Python, Node.js와 다른 ROS2 배포판은 삭제하거나 기본 버전을 교체하지 않는다. Dashboard Backend는
+side-by-side `/usr/bin/python3.12`로 만든 전용 `backend/.venv`, Monitor는 명시적인 ROS2 Jazzy/Python 3.12,
+Frontend build는 `/opt/ros2-dashboard/toolchains/node`의 전용 Node.js를 사용한다.
+
 ## 최초 설치
 
 일반 사용자 계정으로 저장소를 받은 뒤 다음을 실행한다.

@@ -75,6 +75,11 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
+- 설치기는 시스템 기본 Python/Node와 다른 ROS 배포판을 교체하지 않는다. Dashboard는 side-by-side
+  `/usr/bin/python3.12` 기반 Backend `.venv`, `/opt/ros2-dashboard/toolchains/node`의 검증된 Node 22.23.2,
+  기존 환경변수를 제거한 ROS2 Jazzy/rclpy를 명시적으로 사용한다. installer·systemd·개발 실행·Interface Apply의
+  interpreter 경로를 통일했고 환경 모형 및 전체 Backend/Frontend/ROS 회귀 검증을 통과했다.
+
 - Ubuntu 24.04 변형 환경 설치 검수에서 Fresh 최소 설치의 `universe` 활성화 순서, Jazzy package가 없는 기존 ROS
   apt source, 다른 ROS 환경 혼입, 변경된 system Python, 지원 밖 Node/npm, 불완전 TLS pair와 잘못된 새 Nginx
   설정의 기존 설정 유실 위험을 최소 보완했다. 환경 분기 unit test와 전체 Backend/Frontend/ROS 회귀 검증은

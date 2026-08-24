@@ -11,6 +11,8 @@ Group=@DASHBOARD_GROUP@
 WorkingDirectory=@PROJECT_DIR@/backend
 EnvironmentFile=-/etc/ros2-dashboard/dashboard.env
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONNOUSERSITE=1
+UnsetEnvironment=PYTHONHOME PYTHONPATH VIRTUAL_ENV PIP_USER PIP_PREFIX PIP_TARGET
 ExecStart=@PROJECT_DIR@/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=3

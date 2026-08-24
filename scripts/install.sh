@@ -95,9 +95,13 @@ apt-get install -y \
 add-apt-repository universe -y
 apt-get update
 apt-get install -y \
-  python3 python3-venv python3-pip build-essential cmake pkg-config git jq rsync \
+  python3.12 python3.12-venv build-essential cmake pkg-config git jq rsync xz-utils \
   openssl gettext-base nginx mariadb-server mariadb-client
-PYTHON_BIN="$(ros_dashboard_python_runtime /usr/bin/python3)"
+PYTHON_BIN="$(ros_dashboard_python_runtime /usr/bin/python3.12)" || {
+  echo "[ros2_dashboard] Python 3.12 could not be installed side-by-side on this Ubuntu installation." >&2
+  echo "[ros2_dashboard] The existing default Python was not changed." >&2
+  exit 1
+}
 
 step 3 "Installing ROS2 Jazzy and ROS development tools"
 mapfile -t other_ros_distros < <(ros_dashboard_other_ros_distros /opt/ros jazzy)
@@ -125,36 +129,50 @@ apt-get install -y ros-jazzy-ros-base ros-dev-tools ros-jazzy-rmw-fastrtps-cpp
   exit 1
 }
 
-if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
-  rosdep init
-fi
-run_with_jazzy "rosdep update"
-
-step 4 "Installing Node.js 22 for the production Frontend build"
-if ! ros_dashboard_node_toolchain_ready node npm; then
-  install -d -m 0755 /usr/share/keyrings
-  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-    | gpg --dearmor --yes -o /usr/share/keyrings/nodesource.gpg
-  chmod 0644 /usr/share/keyrings/nodesource.gpg
-  rm -f /etc/apt/sources.list.d/nodesource.list
-  cat > /etc/apt/sources.list.d/nodesource.sources <<EOF
-Types: deb
-URIs: https://deb.nodesource.com/node_22.x
-Suites: nodistro
-Components: main
-Architectures: ${architecture}
-Signed-By: /usr/share/keyrings/nodesource.gpg
-EOF
-  apt-get update
-  apt-get install -y nodejs
-fi
-ros_dashboard_node_toolchain_ready node npm || {
-  echo "[ros2_dashboard] Frontend requires Node.js ^20.19.0 or >=22.12.0 and a working npm command." >&2
-  echo "[ros2_dashboard] Remove any unsupported node/npm that shadows /usr/bin, then rerun the installer." >&2
+ROSDEP_BIN=/usr/bin/rosdep
+COLCON_BIN=/usr/bin/colcon
+[[ -f "$ROSDEP_BIN" && -f "$COLCON_BIN" ]] || {
+  echo "[ros2_dashboard] ROS2 Jazzy development tools are incomplete (rosdep/colcon missing)." >&2
   exit 1
 }
-NODE_BIN="$(command -v node)"
-NPM_BIN="$(command -v npm)"
+if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
+  "$PYTHON_BIN" "$ROSDEP_BIN" init
+fi
+run_with_jazzy "$(printf '%q' "$PYTHON_BIN") $(printf '%q' "$ROSDEP_BIN") update"
+
+step 4 "Installing the Dashboard Node.js 22 build toolchain"
+NODE_VERSION=22.23.2
+NODE_TOOLCHAIN_ROOT=/opt/ros2-dashboard/toolchains
+node_distribution="$(ros_dashboard_node_distribution "$architecture" "$NODE_VERSION")" || {
+  echo "[ros2_dashboard] No Dashboard Node.js build is available for architecture: $architecture" >&2
+  exit 1
+}
+NODE_ARCHIVE="${node_distribution%%|*}"
+NODE_SHA256="${node_distribution#*|}"
+NODE_HOME="$NODE_TOOLCHAIN_ROOT/${NODE_ARCHIVE%.tar.xz}"
+NODE_CURRENT="$NODE_TOOLCHAIN_ROOT/node"
+if ! ros_dashboard_node_toolchain_ready "$NODE_HOME/bin/node" "$NODE_HOME/bin/npm"; then
+  node_archive_path="/tmp/$NODE_ARCHIVE"
+  curl -fL "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ARCHIVE}" -o "$node_archive_path"
+  printf '%s  %s\n' "$NODE_SHA256" "$node_archive_path" | sha256sum -c -
+  install -d -m 0755 "$NODE_TOOLCHAIN_ROOT"
+  if [[ -e "$NODE_HOME" || -L "$NODE_HOME" ]]; then
+    rm -rf -- "$NODE_HOME"
+  fi
+  tar -xJf "$node_archive_path" -C "$NODE_TOOLCHAIN_ROOT"
+fi
+if [[ -e "$NODE_CURRENT" && ! -L "$NODE_CURRENT" ]]; then
+  echo "[ros2_dashboard] Dashboard Node toolchain path exists but is not a symlink: $NODE_CURRENT" >&2
+  echo "[ros2_dashboard] Move that Dashboard-specific path aside and rerun; the system Node was not changed." >&2
+  exit 1
+fi
+ln -sfn "$NODE_HOME" "$NODE_CURRENT"
+NODE_BIN="$NODE_CURRENT/bin/node"
+NPM_BIN="$NODE_CURRENT/bin/npm"
+ros_dashboard_node_toolchain_ready "$NODE_BIN" "$NPM_BIN" || {
+  echo "[ros2_dashboard] Dashboard Node.js toolchain validation failed: $NODE_HOME" >&2
+  exit 1
+}
 NODE_TOOL_PATH="$(dirname -- "$NODE_BIN"):$(dirname -- "$NPM_BIN"):/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 step 5 "Resolving ROS dependencies and building the product workspace"
@@ -167,8 +185,8 @@ if (( ${#ros_package_dirs[@]} == 0 )); then
   echo "No ROS packages were found." >&2
   exit 1
 fi
-run_with_jazzy "rosdep install --from-paths $(printf '%q ' "${ros_package_dirs[@]}") --ignore-src --rosdistro jazzy -y"
-run_with_jazzy "cd $(printf '%q' "$PROJECT_DIR/ros2_ws") && colcon build --symlink-install --packages-skip ros2_dashboard_demo_nodes"
+run_with_jazzy "$(printf '%q' "$PYTHON_BIN") $(printf '%q' "$ROSDEP_BIN") install --from-paths $(printf '%q ' "${ros_package_dirs[@]}") --ignore-src --rosdistro jazzy -y"
+run_with_jazzy "cd $(printf '%q' "$PROJECT_DIR/ros2_ws") && $(printf '%q' "$PYTHON_BIN") $(printf '%q' "$COLCON_BIN") build --symlink-install --packages-skip ros2_dashboard_demo_nodes"
 
 step 6 "Installing Backend and Frontend application dependencies"
 VENV_DIR="$PROJECT_DIR/backend/.venv"
@@ -201,6 +219,11 @@ if [[ ! -x "$VENV_DIR/bin/python" ]]; then
   run_as_user "unset PYTHONHOME PYTHONPATH VIRTUAL_ENV PIP_USER PIP_PREFIX PIP_TARGET; \
     $(printf '%q' "$PYTHON_BIN") -m venv $(printf '%q' "$VENV_DIR")"
 fi
+venv_base_executable="$("$VENV_DIR/bin/python" -c 'import os, sys; print(os.path.realpath(sys._base_executable))')"
+[[ "$venv_base_executable" == "$(readlink -f "$PYTHON_BIN")" ]] || {
+  echo "[ros2_dashboard] Backend venv does not use the Dashboard Python: $venv_base_executable" >&2
+  exit 1
+}
 if [[ ! -f "$venv_stamp" || "$(cat "$venv_stamp")" != "$venv_identity" ]]; then
   install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0644 /dev/null "$venv_stamp"
   printf '%s\n' "$venv_identity" > "$venv_stamp"

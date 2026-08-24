@@ -55,11 +55,19 @@ wait_http() {
 
 [[ -x "$BACKEND_DIR/.venv/bin/python" ]] || fail \
   "Backend virtual environment is missing: run python3 -m venv $BACKEND_DIR/.venv and install requirements"
+"$BACKEND_DIR/.venv/bin/python" -c \
+  'import sys; assert sys.version_info[:2] == (3, 12)' || fail \
+  "Backend virtual environment must use Dashboard Python 3.12: rerun sudo ./scripts/install.sh"
 "$BACKEND_DIR/.venv/bin/python" -c 'import fastapi, httpx, uvicorn, yaml' || fail \
   "Backend dependencies are incomplete: $BACKEND_DIR/.venv/bin/pip install -r $BACKEND_DIR/requirements.txt"
+[[ -x /opt/ros2-dashboard/toolchains/node/bin/npm ]] || fail \
+  "Dashboard Node.js toolchain is missing: rerun sudo ./scripts/install.sh"
 
 "$SCRIPT_DIR/build_ros2_ws.sh"
 
+unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH \
+  LD_LIBRARY_PATH PKG_CONFIG_PATH PYTHONPATH ROS_DISTRO ROS_ETC_DIR \
+  ROS_PYTHON_VERSION ROS_VERSION
 set +u
 source /opt/ros/jazzy/setup.bash
 source "$ROS_WS/install/setup.bash"
@@ -69,7 +77,7 @@ set -u
   cd "$ROS_WS"
   export ROS_LOG_DIR="$ROS_LOG_DIR_VALUE"
   export ROS2_DASHBOARD_WS_ROOT="$ROS_WS"
-  exec setsid ros2 run ros2_dashboard_monitor monitor
+  exec setsid /usr/bin/python3.12 -m ros2_dashboard_monitor.main
 ) >"$RUNTIME_DIR/monitor.log" 2>&1 &
 MONITOR_PID=$!
 echo "$MONITOR_PID" >"$RUNTIME_DIR/monitor.pid"
@@ -87,7 +95,8 @@ wait_http backend http://127.0.0.1:8000/health "$BACKEND_PID"
 
 (
   cd "$FRONTEND_DIR"
-  exec setsid npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+  export PATH="/opt/ros2-dashboard/toolchains/node/bin:$PATH"
+  exec setsid /opt/ros2-dashboard/toolchains/node/bin/npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ) >"$RUNTIME_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" >"$RUNTIME_DIR/frontend.pid"

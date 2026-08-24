@@ -27,6 +27,15 @@ if ros_dashboard_python_runtime "$tmp_dir/python311" >/dev/null 2>&1; then
   exit 1
 fi
 
+[[ "$(ros_dashboard_node_distribution amd64)" == \
+  'node-v22.23.2-linux-x64.tar.xz|d60acfe00a2932254bb0ad20e01b0d74397a0875595de719654b214f4b03f307' ]]
+[[ "$(ros_dashboard_node_distribution arm64)" == \
+  'node-v22.23.2-linux-arm64.tar.xz|fff4078c5def658577f92c88db7db3bc0072924bfb93fe52c1e744a54e94abb8' ]]
+if ros_dashboard_node_distribution i386 >/dev/null 2>&1; then
+  echo 'Unsupported Node.js architectures must be rejected.' >&2
+  exit 1
+fi
+
 fake_node node2019 20.19.0
 fake_node node2212 22.12.0
 fake_node node2018 20.18.9

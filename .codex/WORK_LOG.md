@@ -4,18 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-18 - Overview 상태와 Topic Alert 대상 불일치 확인
-
-- Overview의 주의/오류·비활성 집계와 실제 Topic Alert builder 입력을 추가 대조했다. `no_subscriber` 3개는
-  Subscriber 부재를 장애로 보지 않는 정책에 따라 Alert가 아니며, command `/cmd_vel`, `/cmd_vel_smoothed`도
-  명시적으로 Alert에서 제외된다.
-- 반면 `required_stream_names`의 `/imu`, `/joint_states`, `/odom`, `/scan`은 문서와 builder 조건상 Publisher가
-  없으면 `waiting_publisher` 대상이다. 공개 Topic snapshot은 이들을 `not_discovered` placeholder로 추가하지만,
-  `alert_snapshot()`은 Graph cache `_topics`만 전달해 한 번도 발견되지 않은 placeholder가 Alert 계산에 들어가지
-  않는다. 따라서 현재 Alert 0건에는 필수 스트림 4개의 구현 공백이 포함돼 있다.
-- 코드는 수정하지 않았다. Overview의 빨간 열도 실제 error뿐 아니라 Alert가 아닌 `inactive/not_discovered`를
-  함께 합산하므로 사용자에게 Alert 수처럼 보일 수 있음을 확인했다.
-
 ## 2026-08-18 - 미발견 필수 Topic waiting_publisher Alert 연결
 
 - `RosMonitor.alerts()`가 raw Graph cache 대신 이미 생성된 공개 Topic snapshot을 Alert와 QoS 조립에 재사용하도록
@@ -368,3 +356,22 @@
   Backend 16 passed·2 skipped, Frontend `npm ci`/lint/unit/build, ROS workspace 280 tests·0 failures·1 skipped를
   통과했다. 별도 Fresh VM은 없었고 현재 host는 sudo 암호가 필요해 수정 후 전체 installer 재실행은 수행하지
   못했으므로 acceptance의 Fresh Ubuntu 항목은 계속 미검증이다.
+
+## 2026-08-24 - Dashboard 전용 Python/Node/ROS side-by-side 환경 구성
+
+- 설치 차단 중심 정책을 기존 환경 보존 중심으로 변경했다. 시스템 기본 `python3`를 검사·교체하지 않고 Ubuntu의
+  `/usr/bin/python3.12`와 `python3.12-venv`를 side-by-side로 확보해 Backend 전용 `.venv`를 만들며, venv의
+  `_base_executable`이 해당 interpreter인지 설치 중 검증한다. 다른 Python 기반이거나 system site를 노출하는 기존
+  venv만 Dashboard 생성물 범위에서 재생성한다.
+- Backend systemd는 `.venv/bin/python`을 유지하면서 `PYTHONPATH`/`PYTHONHOME`/기존 venv·pip 환경을 최종 제거하고
+  user site도 비활성화해 runtime이 외부 Python package를 끌어오지 않도록 고정했다.
+- 전역 NodeSource apt 설정과 `nodejs` 교체를 제거했다. 공식 Node.js 22.23.2 tarball을 amd64/arm64별 고정 SHA-256으로
+  검증해 `/opt/ros2-dashboard/toolchains` 아래에 설치하고 `node` symlink로 재사용한다. Frontend install/build와
+  설치 후 개발 stack은 이 toolchain을 우선 사용하며 시스템 Node는 변경하지 않는다.
+- 다른 ROS 배포판은 보존한다. installer, systemd Monitor, 개발 build/실행과 Interface Apply가 기존 ROS 환경변수를
+  제거하고 Jazzy만 source하며 rosdep/colcon/Monitor를 `/usr/bin/python3.12`로 실행한다. Monitor는 `ros2` shebang을
+  우회해 Python module을 직접 실행하고 rclpy가 Jazzy Python 3.12 경로에서 import되는지 시작 시 확인한다.
+- Python 3.11 기본 모형과 Python 3.12 venv 공존, Humble 환경 주입 후 Jazzy/rclpy 격리, Node 22.23.2 checksum·실행·
+  재사용 및 시스템 Node 20.20.2 보존을 확인했다. 전용 Node로 Frontend `npm ci`/lint/unit/build, Backend
+  16 passed·2 skipped, Monitor 262 passed, ROS workspace 280 tests·0 failures·1 skipped를 통과했다. npm audit의
+  기존 dependency 결과로 high 2건이 보고됐으며, 별도 Fresh VM과 sudo 전체 installer 재실행은 환경 제약으로 남았다.

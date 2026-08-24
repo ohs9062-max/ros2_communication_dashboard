@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-COLCON_COMMAND = 'source /opt/ros/jazzy/setup.bash && colcon build --symlink-install'
+COLCON_COMMAND = (
+    'unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH '
+    'LD_LIBRARY_PATH PKG_CONFIG_PATH PYTHONPATH ROS_DISTRO ROS_ETC_DIR '
+    'ROS_PYTHON_VERSION ROS_VERSION; '
+    'source /opt/ros/jazzy/setup.bash && '
+    '/usr/bin/python3.12 /usr/bin/colcon build --symlink-install'
+)
 
 
 def run_colcon(
