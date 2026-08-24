@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-20
+마지막 갱신: 2026-08-24
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -74,6 +74,11 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- Ubuntu 24.04 변형 환경 설치 검수에서 Fresh 최소 설치의 `universe` 활성화 순서, Jazzy package가 없는 기존 ROS
+  apt source, 다른 ROS 환경 혼입, 변경된 system Python, 지원 밖 Node/npm, 불완전 TLS pair와 잘못된 새 Nginx
+  설정의 기존 설정 유실 위험을 최소 보완했다. 환경 분기 unit test와 전체 Backend/Frontend/ROS 회귀 검증은
+  통과했으나 별도 Fresh VM과 수정 후 전체 installer 재실행은 아직 수행하지 못했다.
 
 - `.codex`와 생성물 의존성 문서를 제외한 프로젝트 Markdown 38개를 현재 코드·설정·route·script와 다시 대조했다.
   ROS runtime 우선순위, Nginx 설정 경로, Service/Action QoS cache 갱신과 snapshot read 경계, Topic Publish 성공과

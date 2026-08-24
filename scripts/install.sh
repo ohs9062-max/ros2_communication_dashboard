@@ -9,6 +9,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/lib/ros_runtime_env.sh"
+source "$SCRIPT_DIR/lib/install_environment.sh"
 LOG_DIR=/var/log/ros2-dashboard
 LOG_FILE="$LOG_DIR/install.log"
 BACKUP_ROOT=/var/backups/ros2-dashboard
@@ -49,6 +50,12 @@ run_as_user() {
   sudo -u "$INSTALL_USER" -H env HOME="$INSTALL_HOME" bash -lc "$1"
 }
 
+run_with_jazzy() {
+  run_as_user "unset AMENT_PREFIX_PATH COLCON_PREFIX_PATH CMAKE_PREFIX_PATH \
+    LD_LIBRARY_PATH PKG_CONFIG_PATH PYTHONPATH ROS_DISTRO ROS_ETC_DIR \
+    ROS_PYTHON_VERSION ROS_VERSION; source /opt/ros/jazzy/setup.bash && $1"
+}
+
 backup_system_file() {
   local source_path="$1" relative_path
   [[ -e "$source_path" ]] || return 0
@@ -84,13 +91,21 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 apt-get update
 apt-get install -y \
-  ca-certificates curl gnupg software-properties-common locales \
+  ca-certificates curl gnupg software-properties-common locales
+add-apt-repository universe -y
+apt-get update
+apt-get install -y \
   python3 python3-venv python3-pip build-essential cmake pkg-config git jq rsync \
   openssl gettext-base nginx mariadb-server mariadb-client
-add-apt-repository universe -y
+PYTHON_BIN="$(ros_dashboard_python_runtime /usr/bin/python3)"
 
 step 3 "Installing ROS2 Jazzy and ROS development tools"
-if [[ ! -f /etc/apt/sources.list.d/ros2.sources ]]; then
+mapfile -t other_ros_distros < <(ros_dashboard_other_ros_distros /opt/ros jazzy)
+if (( ${#other_ros_distros[@]} > 0 )); then
+  echo "[ros2_dashboard] Other ROS2 installations detected: ${other_ros_distros[*]}" >&3
+  echo "[ros2_dashboard] They will not be removed. Installer build commands use an isolated ROS2 Jazzy environment." >&3
+fi
+if ! ros_dashboard_apt_repository_has_package ros-jazzy-ros-base; then
   ros_apt_version="$(curl -fsSL https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest \
     | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p' | head -n 1)"
   [[ "$ros_apt_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
@@ -104,24 +119,19 @@ if [[ ! -f /etc/apt/sources.list.d/ros2.sources ]]; then
 fi
 apt-get update
 apt-get install -y ros-jazzy-ros-base ros-dev-tools ros-jazzy-rmw-fastrtps-cpp
+[[ -f /opt/ros/jazzy/setup.bash ]] || {
+  echo "[ros2_dashboard] ROS2 Jazzy installation is incomplete: /opt/ros/jazzy/setup.bash is missing." >&2
+  echo "[ros2_dashboard] Check the ROS apt source and rerun the installer; other ROS2 distributions were not removed." >&2
+  exit 1
+}
 
 if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
   rosdep init
 fi
-run_as_user "rosdep update"
+run_with_jazzy "rosdep update"
 
 step 4 "Installing Node.js 22 for the production Frontend build"
-node_ok=false
-if command -v node >/dev/null 2>&1; then
-  node_major="$(node -p 'process.versions.node.split(".")[0]')"
-  node_minor="$(node -p 'process.versions.node.split(".")[1]')"
-  if (( node_major > 22 \
-      || (node_major == 22 && node_minor >= 12) \
-      || (node_major == 20 && node_minor >= 19) )); then
-    node_ok=true
-  fi
-fi
-if [[ "$node_ok" != true ]]; then
+if ! ros_dashboard_node_toolchain_ready node npm; then
   install -d -m 0755 /usr/share/keyrings
   curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
     | gpg --dearmor --yes -o /usr/share/keyrings/nodesource.gpg
@@ -138,6 +148,14 @@ EOF
   apt-get update
   apt-get install -y nodejs
 fi
+ros_dashboard_node_toolchain_ready node npm || {
+  echo "[ros2_dashboard] Frontend requires Node.js ^20.19.0 or >=22.12.0 and a working npm command." >&2
+  echo "[ros2_dashboard] Remove any unsupported node/npm that shadows /usr/bin, then rerun the installer." >&2
+  exit 1
+}
+NODE_BIN="$(command -v node)"
+NPM_BIN="$(command -v npm)"
+NODE_TOOL_PATH="$(dirname -- "$NODE_BIN"):$(dirname -- "$NPM_BIN"):/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 step 5 "Resolving ROS dependencies and building the product workspace"
 mapfile -d '' ros_package_dirs < <(
@@ -149,20 +167,21 @@ if (( ${#ros_package_dirs[@]} == 0 )); then
   echo "No ROS packages were found." >&2
   exit 1
 fi
-run_as_user "source /opt/ros/jazzy/setup.bash && rosdep install --from-paths $(printf '%q ' "${ros_package_dirs[@]}") --ignore-src --rosdistro jazzy -y"
-run_as_user "cd $(printf '%q' "$PROJECT_DIR/ros2_ws") && source /opt/ros/jazzy/setup.bash && colcon build --symlink-install --packages-skip ros2_dashboard_demo_nodes"
+run_with_jazzy "rosdep install --from-paths $(printf '%q ' "${ros_package_dirs[@]}") --ignore-src --rosdistro jazzy -y"
+run_with_jazzy "cd $(printf '%q' "$PROJECT_DIR/ros2_ws") && colcon build --symlink-install --packages-skip ros2_dashboard_demo_nodes"
 
 step 6 "Installing Backend and Frontend application dependencies"
 VENV_DIR="$PROJECT_DIR/backend/.venv"
 venv_stamp="$VENV_DIR/.ros2-dashboard-venv"
-python_runtime="$(readlink -f "$(command -v python3)"):$(
-  python3 -c 'import sys; print(f"{sys.implementation.name}:{sys.version_info.major}.{sys.version_info.minor}")'
+python_runtime="$(readlink -f "$PYTHON_BIN"):$(
+  "$PYTHON_BIN" -c 'import sys; print(f"{sys.implementation.name}:{sys.version_info.major}.{sys.version_info.minor}")'
 )"
 venv_identity="$VENV_DIR|$(cat /etc/machine-id)|$python_runtime"
 venv_reusable=false
 
-if [[ -d "$VENV_DIR" && ! -L "$VENV_DIR" \
-    && -x "$VENV_DIR/bin/python" && -f "$VENV_DIR/bin/pip" ]]; then
+if [[ -d "$VENV_DIR" && ! -L "$VENV_DIR" ]] \
+    && ros_dashboard_venv_is_isolated "$VENV_DIR" \
+    && [[ -x "$VENV_DIR/bin/python" && -f "$VENV_DIR/bin/pip" ]]; then
   venv_prefix="$("$VENV_DIR/bin/python" -c 'import sys; print(sys.prefix)' 2>/dev/null || true)"
   pip_shebang="$(head -n 1 "$VENV_DIR/bin/pip" 2>/dev/null || true)"
   if [[ "$(readlink -f "$venv_prefix" 2>/dev/null || true)" == "$(readlink -f "$VENV_DIR")" \
@@ -179,14 +198,17 @@ if [[ ( -e "$VENV_DIR" || -L "$VENV_DIR" ) && "$venv_reusable" != true ]]; then
   run_as_user "rm -rf -- $(printf '%q' "$VENV_DIR")"
 fi
 if [[ ! -x "$VENV_DIR/bin/python" ]]; then
-  run_as_user "python3 -m venv $(printf '%q' "$VENV_DIR")"
+  run_as_user "unset PYTHONHOME PYTHONPATH VIRTUAL_ENV PIP_USER PIP_PREFIX PIP_TARGET; \
+    $(printf '%q' "$PYTHON_BIN") -m venv $(printf '%q' "$VENV_DIR")"
 fi
 if [[ ! -f "$venv_stamp" || "$(cat "$venv_stamp")" != "$venv_identity" ]]; then
   install -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0644 /dev/null "$venv_stamp"
   printf '%s\n' "$venv_identity" > "$venv_stamp"
 fi
-run_as_user "$(printf '%q' "$VENV_DIR/bin/python") -m pip install -r $(printf '%q' "$PROJECT_DIR/backend/requirements.txt")"
-run_as_user "cd $(printf '%q' "$PROJECT_DIR/frontend") && npm ci && VITE_API_BASE_URL= npm run build"
+run_as_user "unset PYTHONHOME PYTHONPATH VIRTUAL_ENV PIP_USER PIP_PREFIX PIP_TARGET; \
+  $(printf '%q' "$VENV_DIR/bin/python") -m pip install -r $(printf '%q' "$PROJECT_DIR/backend/requirements.txt")"
+run_as_user "export PATH=$(printf '%q' "$NODE_TOOL_PATH"); cd $(printf '%q' "$PROJECT_DIR/frontend") \
+  && $(printf '%q' "$NPM_BIN") ci && VITE_API_BASE_URL= $(printf '%q' "$NPM_BIN") run build"
 install -d -m 0755 /var/lib/ros2-dashboard/frontend
 rsync -a --delete "$PROJECT_DIR/frontend/dist/" /var/lib/ros2-dashboard/frontend/
 find /var/lib/ros2-dashboard/frontend -type d -exec chmod 0755 {} +
@@ -252,6 +274,13 @@ systemctl daemon-reload
 systemctl enable ros2-dashboard.target ros2-dashboard-monitor.service ros2-dashboard-backend.service
 
 export DASHBOARD_FRONTEND_ROOT=/var/lib/ros2-dashboard/frontend
+dashboard_nginx_env="${DASHBOARD_ENV_FILE:-$PROJECT_DIR/config/nginx/dashboard.env}"
+if [[ -f "$dashboard_nginx_env" ]]; then
+  set -a
+  source "$dashboard_nginx_env"
+  set +a
+fi
+export DASHBOARD_HTTPS_PORT="${DASHBOARD_HTTPS_PORT:-443}"
 backup_system_file /etc/nginx/conf.d/ros2-dashboard.conf
 "$SCRIPT_DIR/install_local_https.sh"
 
@@ -273,12 +302,18 @@ systemctl start ros2-dashboard-monitor.service ros2-dashboard-backend.service \
   ros2-dashboard.target
 
 step 10 "Verifying installed services"
+dashboard_https_ready() {
+  curl --silent --insecure --fail \
+    --resolve "localhost:${DASHBOARD_HTTPS_PORT}:127.0.0.1" \
+    "https://localhost:${DASHBOARD_HTTPS_PORT}/" \
+    | grep -Fq '<title>ROS2 Communication Monitor</title>'
+}
 for _attempt in $(seq 1 40); do
   if systemctl is-active --quiet ros2-dashboard-monitor.service \
       && systemctl is-active --quiet ros2-dashboard-backend.service \
       && curl --silent --fail http://127.0.0.1:8765/health >/dev/null 2>&1 \
       && curl --silent --fail http://127.0.0.1:8000/health >/dev/null 2>&1 \
-      && curl --silent --insecure --fail https://127.0.0.1/ >/dev/null 2>&1; then
+      && dashboard_https_ready; then
     break
   fi
   sleep 0.5
@@ -287,7 +322,11 @@ systemctl is-active --quiet ros2-dashboard-monitor.service
 systemctl is-active --quiet ros2-dashboard-backend.service
 curl --silent --fail http://127.0.0.1:8765/health >/dev/null
 curl --silent --fail http://127.0.0.1:8000/health >/dev/null
-curl --silent --insecure --fail https://127.0.0.1/ >/dev/null
+dashboard_https_ready || {
+  echo "Nginx HTTPS did not serve the ROS2 Dashboard at https://localhost:${DASHBOARD_HTTPS_PORT}/." >&2
+  echo "Check for an existing ${DASHBOARD_HTTPS_PORT}/localhost server conflict with: sudo nginx -T" >&2
+  exit 1
+}
 run_as_user "$(printf '%q' "$PROJECT_DIR/backend/.venv/bin/python") $(printf '%q' "$PROJECT_DIR/scripts/check_database.py")"
 
 trap - ERR

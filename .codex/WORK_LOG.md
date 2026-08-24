@@ -4,36 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-18 - Monitor Ctrl+C 이후 8765 점유 원인 조사
-
-- 코드 수정 없이 `stop.sh`, 설치된/source systemd unit, `run_monitor.sh`, ROS2 `ros2 run` 구현, Monitor FastAPI
-  lifespan과 DDS observer child lifecycle, 실제 systemd journal·PID를 대조했다.
-- 재부팅 직후 08:50:35부터 systemd Monitor가 실행 중이었고 `ros2 run` parent PID 1638 아래 실제 Uvicorn Monitor
-  child PID 2085가 8765를 계속 소유했다. 수동 터미널의 Ctrl+C는 이 별도 systemd cgroup에 전달되지 않으므로,
-  당시 남아 있던 listener는 수동 실행의 orphan이 아니라 기존 제품 service였다.
-- `stop.sh`는 target과 Monitor/Backend unit을 명시적으로 `systemctl stop`한다. Monitor unit의
-  `KillMode=control-group`이 parent, 실제 Monitor child와 DDS observer를 함께 종료하며, 09:19 journal에서 child
-  PID 2085의 Uvicorn shutdown 완료와 service deactivation 후 8765 해제를 확인했다.
-- 설치형 제품은 프로젝트 루트의 `./scripts/start.sh`와 `./scripts/stop.sh`를 공식 lifecycle로 사용한다.
-  `ros2 run ros2_dashboard_monitor monitor`는 Monitor만 단독 확인하는 개발·진단용이며 제품 service와 동시에
-  실행하지 않는다.
-- 개발 모드는 제품 stack을 먼저 중지한 뒤 `run_dashboard_stack.sh`/`stop_dashboard_stack.sh`를 권장한다.
-  수동 실행 시에는 Monitor만 `ros2 run`, Backend는 `uvicorn`, Frontend는 `npm run dev`로 각각 실행한다.
-
-## 2026-08-18 - start.md 제품 lifecycle 명령 정리
-
-- 기존 수동 개발 실행, 통합 개발 stack, Demo·Gazebo 명령은 유지했다. 하단 새 Ubuntu 환경 명령을 최초 설치,
-  제품 실행, 상태 확인, 접속, 종료, 재실행과 로그 확인으로 구분하고 남아 있던 conflict marker를 제거했다.
-
-## 2026-08-18 - Overview Topic 상태 분포와 빈 Alert DB 대조
-
-- 코드 수정 없이 현재 Backend Topic/Alert API와 Overview 집계 코드를 대조했다. MariaDB Alert row와 API Alert는
-  모두 0건이지만 Overview 상태 분포는 DB가 아니라 실시간 Monitor snapshot의 주요 ROS2 resource를 집계한다.
-- 현재 주요 Topic 9개는 정상 0, `no_subscriber` 주의 3, `not_discovered` 비활성 6으로 정확히
-  `Topic 0 / 3 / 6 / 9`에 대응했다. 오류·비활성 열은 Alert 수가 아니므로 Alert 0건과 모순되지 않는다.
-- systemd Monitor/Backend는 inactive지만 수동 개발 Monitor PID 44223, Backend PID 44257과 DDS observer PID
-  44243이 각각 8765/8000/8766을 제공 중인 상태도 확인했다.
-
 ## 2026-08-18 - Overview 상태와 Topic Alert 대상 불일치 확인
 
 - Overview의 주의/오류·비활성 집계와 실제 Topic Alert builder 입력을 추가 대조했다. `no_subscriber` 3개는
@@ -332,3 +302,69 @@
   관련 snapshot 회귀 테스트로 부정했다.
 - 현재 compatibility 경로의 rclpy `qos_check_compatible()`와 프로젝트 mismatch 요약은 History/Depth 차이를
   incompatible로 판정하지 않는다. Topic QoS 관련 21 tests가 통과했으며 이번 검수에서는 코드 변경을 하지 않았다.
+
+## 2026-08-21 - Topic/Service/Action `compatible` 판정 의미 검수
+
+- Topic Graph 상태는 rclpy endpoint API의 Publisher×Subscription 전체 조합을 `qos_check_compatible()`로 비교하며,
+  Dashboard local entity가 없어도 양쪽 Graph endpoint에 ERROR가 없으면 `compatible`이 된다. Topic Auto 실행은
+  선택 candidate와 반대편 remote endpoint를 실제 비교하지만 Manual 실행은 현재 Graph aggregate 상태에 local
+  profile만 덧붙여 사전 local-vs-remote 비교를 하지 않고, 생성 뒤 RMW incompatible event로만 불일치를 보완한다.
+- Service/Action Service 채널 Auto는 Fast DDS Request Reader/Response Writer의 공통 호환 범위를 계산해 profile을
+  만든 뒤 계산 성공을 `compatible`로 기록하는 A 방식이며, 생성 후 같은 profile을 다시 비교하는 B 방식은 아니다.
+  Manual은 `_is_service_profile_compatible()`로 local profile을 remote와 명시 비교한다. Call/Goal 성공 여부는
+  compatibility 입력이 아니고 Client 생성 여부는 계산된 execution state를 공개 snapshot에 병합하는 gate다.
+- Action Goal/Result/Cancel은 위 Service 방식, Feedback/Status는 Topic 방식이다. UI 대표 상태는 5채널 전부가
+  compatible일 때만 compatible이다. 따라서 “QoS 호환은 항상 Dashboard local/remote 실제 비교 결과”라는 무조건적
+  표현은 성립하지 않는다. 관련 QoS/lifecycle 테스트 43건이 통과했고 기능 코드는 변경하지 않았다.
+
+## 2026-08-21 - Interface Lab 실행 전 QoS 선계산 trigger 구조 검수
+
+- Service/Action QoS resolver는 Client 생성과 실제 Call/Goal 전송 전 호출되며 계산 자체는 entity 생성, DB 변경,
+  observer 재시작 같은 side effect가 없다. 따라서 기본 Auto selection은 endpoint QoS signature 변경 시 미리 계산해
+  state에 저장하는 구조로 옮길 수 있다. 현재 정기 Graph update에도 이미 Client가 있는 resource만 signature 변경 시
+  재계산하는 `refresh_qos()`/`refresh_service_qos()` 패턴이 존재한다.
+- 단순 호출 위치 이동만으로 끝나지는 않는다. 현재 Service `_last_state`와 Action `_qos_by_key`는 생성된 Client를
+  기준으로만 보관하고, Manual 선택값은 실행 전까지 Frontend `useState`에만 있다. 실행 전 Auto 표시에는 Client와
+  독립된 precomputed state cache가 필요하고, Manual까지 즉시 표시하려면 설정 변경 preview API 또는 선택값 동기화와
+  selection fingerprint 기반 무효화가 필요하다.
+- 최적 trigger는 remote endpoint QoS signature 변경이고 Manual은 설정값 변경 trigger를 함께 써야 한다. snapshot마다
+  계산하는 방식은 기존 성능 회귀를 되살릴 수 있어 피해야 하며, 실행 직전에는 cached signature/selection을 확인해
+  같으면 재사용하고 다르면 한 번 재계산하는 안전장치가 필요하다. 관련 QoS/lifecycle 테스트 43건이 통과했고 기능
+  코드는 변경하지 않았다.
+
+## 2026-08-24 - QoS 무제한 duration 표시 문구 변경
+
+- 공통 `QosDetails.durationValue()`의 infinite duration 표시만 변경해 Deadline은 `주기 제한 없음`, Lifespan은
+  `유효시간 제한 없음`, Lease duration은 `생존시간 제한 없음`으로 통일했다. QoS 값, 계산, 색상과 레이아웃,
+  Backend/Monitor는 변경하지 않았다.
+- Frontend `npm run test:unit`, `npm run lint`, `npm run build`가 통과했다. 프로젝트에는 `npm test` script가 없어
+  최초 명령은 실행되지 않았고 등록된 실제 unit test script로 검증했다.
+
+## 2026-08-24 - QoS duration 문구 운영 UI 미반영 원인 수정
+
+- source와 새 `frontend/dist`에는 변경 문구가 있었지만 Nginx가 제공하는 `/var/lib/ros2-dashboard/frontend`에는
+  이전 bundle이 남아 있어 운영 UI에 구 문구가 표시됐다. 새 production build를 실제 정적 제공 디렉터리에
+  `rsync --delete`로 동기화했다.
+- 배포 `index.html`이 새 `index-bOdV9drD.js`를 참조하고 배포 bundle에는 새 세 문구만 있으며 구 세 문구는 없음을
+  확인했다. Frontend unit test, lint, production build를 다시 실행해 모두 통과했다.
+
+## 2026-08-24 - Ubuntu 24.04 변형 환경 install.sh 안전성 검수 및 보완
+
+- 설치 기준을 Ubuntu 24.04 amd64/arm64, ROS2 Jazzy, Ubuntu system Python 3.12, Node.js
+  `^20.19.0 || >=22.12.0`로 코드·lockfile과 대조했다. 현재 장비의 MariaDB 10.11.14와 Nginx 1.24는 Ubuntu
+  24.04 package이며 별도 고정 버전이 아니라 schema 검증과 `nginx -t`를 호환성 경계로 사용한다.
+- Fresh 최소 설치에서 `universe` 활성화 전에 `python3-venv`와 MariaDB를 설치하던 순서를 교정했다. Jazzy package를
+  실제 제공하지 않는 ROS apt source, 다른 ROS 환경변수 혼입, 변경된 `/usr/bin/python3`, 지원 밖 Node 또는 npm
+  누락을 명시적으로 감지하고, 다른 ROS 배포판은 삭제하지 않은 채 Jazzy 빌드 환경만 격리하도록 보완했다.
+- Nginx는 인증서/key 중 하나만 남은 상태를 덮어쓰지 않고 중단하며, 새 Dashboard 설정이 `nginx -t`에 실패하면
+  직전 설정을 복구한다. 완료 검사는 단순 HTTPS 200이 아니라 Dashboard 고유 HTML을 확인해 기존 443 사이트를
+  설치 성공으로 오인하지 않는다. MariaDB의 기존 schema/Alert와 project 전용 systemd/Nginx 백업 정책은 유지했다.
+- 기존 venv가 system/user site package를 노출하면 재사용하지 않고 격리 venv로 재생성하며, Backend pip 실행에서
+  외부 Python 환경변수를 제거한다. Node/npm도 root 검사 결과와 설치 사용자 login shell의 PATH가 달라지지 않도록
+  검증된 실행 파일 경로를 build에 고정한다.
+- 격리 테스트에서 Python 3.12 허용·3.11 차단, Node 20.19/22.12/24 허용·20.18/22.11 차단, npm 누락 차단,
+  Jazzy apt package 유무, Humble/Rolling 탐지, 이동 venv 거부와 Humble 환경에서 Jazzy 격리를 확인했다. 현재 DB는
+  schema 정상·Alert 22건, 관련 service는 active/enabled였다. 깨끗한 Python 3.12 venv의 최신 requirements 설치와
+  Backend 16 passed·2 skipped, Frontend `npm ci`/lint/unit/build, ROS workspace 280 tests·0 failures·1 skipped를
+  통과했다. 별도 Fresh VM은 없었고 현재 host는 sudo 암호가 필요해 수정 후 전체 installer 재실행은 수행하지
+  못했으므로 acceptance의 Fresh Ubuntu 항목은 계속 미검증이다.

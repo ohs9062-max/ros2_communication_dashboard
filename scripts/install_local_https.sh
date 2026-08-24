@@ -29,6 +29,12 @@ export DASHBOARD_BACKEND_UPSTREAM="${DASHBOARD_BACKEND_UPSTREAM:-http://127.0.0.
   echo "[ros2_dashboard] local IPv4 address was not detected; set DASHBOARD_LOCAL_IP" >&2
   exit 1
 }
+if [[ -f "$DASHBOARD_TLS_CERTIFICATE" && ! -f "$DASHBOARD_TLS_PRIVATE_KEY" \
+    || ! -f "$DASHBOARD_TLS_CERTIFICATE" && -f "$DASHBOARD_TLS_PRIVATE_KEY" ]]; then
+  echo "[ros2_dashboard] TLS certificate and private key must either both exist or both be absent." >&2
+  echo "[ros2_dashboard] Restore the missing file or move the incomplete pair before reinstalling; the existing file was not overwritten." >&2
+  exit 1
+fi
 install -d -m 0755 "$(dirname -- "$DASHBOARD_TLS_CERTIFICATE")"
 if [[ ! -f "$DASHBOARD_TLS_CERTIFICATE" || ! -f "$DASHBOARD_TLS_PRIVATE_KEY" ]]; then
   openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 825 \
@@ -41,11 +47,25 @@ chmod 0600 "$DASHBOARD_TLS_PRIVATE_KEY"
 chmod 0644 "$DASHBOARD_TLS_CERTIFICATE"
 
 rendered="$(mktemp)"
-trap 'rm -f -- "$rendered"' EXIT
+previous_config="$(mktemp)"
+had_previous_config=false
+if [[ -f /etc/nginx/conf.d/ros2-dashboard.conf ]]; then
+  cp -a /etc/nginx/conf.d/ros2-dashboard.conf "$previous_config"
+  had_previous_config=true
+fi
+trap 'rm -f -- "$rendered" "$previous_config"' EXIT
 "$SCRIPT_DIR/render_nginx_config.sh" "$rendered"
 install -m 0644 "$rendered" /etc/nginx/conf.d/ros2-dashboard.conf
 
-nginx -t
+if ! nginx -t; then
+  if [[ "$had_previous_config" == true ]]; then
+    cp -a "$previous_config" /etc/nginx/conf.d/ros2-dashboard.conf
+  else
+    rm -f /etc/nginx/conf.d/ros2-dashboard.conf
+  fi
+  echo "[ros2_dashboard] The generated Nginx configuration was rejected; the previous Dashboard configuration was restored." >&2
+  exit 1
+fi
 systemctl enable --now nginx >/dev/null
 systemctl reload nginx
 

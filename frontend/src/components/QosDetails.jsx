@@ -403,9 +403,9 @@ function durationValue(profile, field) {
   const value = profile[`${field}_ns`]
   if (isUnlimitedDuration(profile, field)) {
     return ({
-      deadline: '기한 제한 없음',
-      lifespan: '만료되지 않음',
-      liveliness_lease_duration: '임대 만료 없음',
+      deadline: '주기 제한 없음',
+      lifespan: '유효시간 제한 없음',
+      liveliness_lease_duration: '생존시간 제한 없음',
     })[field] ?? '시간 제한 없음'
   }
   if (value !== null && value !== undefined) return value

@@ -71,3 +71,20 @@ Activity       = 사용자가 Interface Lab에서 수행한 Publish/Call/Goal �
 기본 목록의 `*_node_count`는 내부 `/ros2_dashboard_topic_monitor`를 제외한 고유 Node 수다.
 `publisher_count`, `subscriber_count`, `server_count`, `client_count`와 endpoint 상세는 Dashboard를 포함한
 raw Graph 진단값을 유지한다. Interface Lab에서 사용자가 명시적으로 만든 entity는 실행 사실로 별도 표시한다.
+
+
+Topology
+어떤 Node가 이 Topic을 Publish하고
+어떤 Node가 Subscribe하는지
+즉 “누가 누구와 이 Topic으로 연결돼 있나”를 나타내는 관계 정보야.
+Primary
+여러 정보 중에서 화면에 대표로 보여줄 주 상태/대표 상태
+예를 들면 정상, 발행자 없음, stale, disconnected 같은 것 중
+현재 Topic을 대표하는 상태를 고르는 개념으로 보면 돼.
+Lab 상태
+Interface Lab에서 이 Topic을 실제로 Publish/Receive 실행했는지
+어떤 QoS를 적용했는지
+실행 중인지, 최근 실행 결과가 어떤지
+이런 Dashboard 실행 상태를 말해.
+
+그래서 예를 들어 /cmd_vel 하나를 최종 화면에 보여줄

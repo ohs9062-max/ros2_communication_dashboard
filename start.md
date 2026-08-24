@@ -210,6 +210,8 @@ ORDER BY id DESC;
 ```
 
 # 새 Ubuntu 환경 최초 설치
+gnome-boxes
+
 
 ```bash
 git clone \
@@ -260,5 +262,3 @@ cd ~/rang/ros2_dashboard
 journalctl -u ros2-dashboard-monitor.service -u ros2-dashboard-backend.service -n 100 --no-pager
 ```
 
-# 가상
-gnome-boxes
