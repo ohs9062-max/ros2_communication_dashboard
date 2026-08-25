@@ -107,6 +107,59 @@ class TopicQueryFacade:
         self._ensure_subscription(name, topic_type, message_class)
         return self._topic_hz_snapshot(name, topic_type)
 
+    def topic_history(self, name: str, *, limit: int | None = None) -> dict[str, Any]:
+        """Return bounded messages actually received by the Monitor Subscription."""
+        topic_type = self._topic_type(name)
+        if topic_type is None:
+            return {
+                'success': False,
+                'data': [],
+                'meta': {'count': 0, 'limit': 0, 'source': 'monitor_subscription'},
+                'message': 'Topic not found',
+            }
+        if not self._is_supported_type(topic_type):
+            return {
+                'success': False,
+                'data': [],
+                'meta': {'count': 0, 'limit': 0, 'source': 'monitor_subscription'},
+                'message': 'unsupported topic type',
+            }
+
+        message_class = self._message_class(topic_type)
+        if message_class is None:
+            return {
+                'success': False,
+                'data': [],
+                'meta': {'count': 0, 'limit': 0, 'source': 'monitor_subscription'},
+                'message': 'Failed to import topic message class',
+            }
+        self._ensure_subscription(name, topic_type, message_class)
+        selected_limit = min(
+            max(1, int(limit or self._config.topics_history_limit)),
+            self._config.topics_history_limit,
+        )
+        with self._lock:
+            entry = self._subscriptions.get(name, {})
+            history = list(entry.get('history') or ())[:selected_limit]
+            items = [
+                {
+                    **item,
+                    'name': name,
+                    'type': topic_type,
+                }
+                for item in history
+            ]
+        return {
+            'success': True,
+            'data': items,
+            'meta': {
+                'count': len(items),
+                'limit': self._config.topics_history_limit,
+                'source': 'monitor_subscription',
+            },
+            'message': 'Recent Topic data fetched successfully',
+        }
+
     def image_preview(self, name: str) -> dict[str, Any]:
         """Enable short-lived Camera encoding and return its latest bounded frame."""
         if self._node_getter() is None:

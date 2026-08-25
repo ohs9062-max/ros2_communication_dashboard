@@ -46,3 +46,11 @@ def test_camera_preview_keeps_a_separate_topic_detail_route() -> None:
     paths = {route.path for route in _routes(app)}
 
     assert '/ros/topics/image-preview' in paths
+
+
+def test_monitoring_history_routes_are_demand_driven_endpoints() -> None:
+    paths = {route.path for route in _routes(app)}
+
+    assert '/ros/topics/history' in paths
+    assert '/ros/services/history' in paths
+    assert '/ros/actions/history' in paths

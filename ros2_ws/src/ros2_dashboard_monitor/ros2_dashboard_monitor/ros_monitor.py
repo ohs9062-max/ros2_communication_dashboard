@@ -273,6 +273,10 @@ class RosMonitor(InterfaceLabFacade):
         """지정한 Topic의 현재 수신 Hz를 TopicRuntime에서 가져옵니다."""
         return self._topic_runtime.topic_hz(name)
 
+    def topic_history(self, name: str, *, limit: int | None = None) -> dict[str, Any]:
+        """Return recent Topic previews outside the periodic snapshot path."""
+        return self._topic_runtime.topic_history(name, limit=limit)
+
     def image_preview(self, name: str) -> dict[str, Any]:
         """선택한 Camera Topic의 요청형 Browser preview를 반환합니다."""
         return self._topic_runtime.image_preview(name)

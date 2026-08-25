@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from time import time
 from typing import Any
 
@@ -17,6 +18,7 @@ def build_subscription_entry(
     subscription: Any,
     qos: dict[str, Any] | None = None,
     qos_profile: Any = None,
+    history_limit: int = 100,
 ) -> dict[str, Any]:
     """새 subscription과 latest·timestamp 초기값을 하나의 Cache entry로 만듭니다."""
     return {
@@ -28,6 +30,7 @@ def build_subscription_entry(
         'created_at': time(),
         'last_received_at': None,
         'timestamps': [],
+        'history': deque(maxlen=max(1, int(history_limit))),
     }
 
 
@@ -50,6 +53,12 @@ def update_subscription_entry(
     """Topic 모니터링에서 runtime 상태를 갱신하는 함수입니다."""
     entry['message_preview'] = message_preview
     entry['last_received_at'] = received_at
+    history = entry.get('history')
+    if history is not None:
+        history.appendleft({
+            'received_at': received_at,
+            'payload': message_preview,
+        })
     entry['timestamps'].append(received_at)
     entry['timestamps'] = recent_timestamps(
         entry['timestamps'],

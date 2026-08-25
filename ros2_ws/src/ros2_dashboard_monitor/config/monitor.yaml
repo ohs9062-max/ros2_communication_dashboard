@@ -18,6 +18,8 @@ fastdds_observer:
 topics:
   auto_discover: true
   auto_subscribe_supported_types: true
+  # 실제 Monitor Subscription이 수신한 lightweight preview의 Topic별 최대 보존 수입니다.
+  history_limit: 100
 
   required_stream_names:
     - /imu

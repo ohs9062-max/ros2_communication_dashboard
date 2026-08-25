@@ -1,6 +1,7 @@
 import { formatTime } from '../utils/format.js'
 import { displayText } from '../utils/displayText.js'
 import { DetailSection } from './DetailSection.jsx'
+import { CommunicationHistory } from './CommunicationHistory.jsx'
 import { QosDetails } from './QosDetails.jsx'
 import { QosSummaryNotice } from './QosSummary.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
@@ -114,6 +115,11 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
 
       <ActionConnectionSection action={action} participants={participants} />
       <ActionExecutionSection action={action} goalSummary={goalSummary} presentation={presentation} runtime={runtime} />
+      <CommunicationHistory
+        kind="action"
+        name={action.name}
+        resourceType={action.type}
+      />
       <ActionCapabilitySection action={action} />
       <ActionPreviewSections goalSummary={goalSummary} runtime={runtime} />
     </aside>

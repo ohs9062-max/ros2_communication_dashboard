@@ -23,6 +23,7 @@ def build_camera_metadata(topic_type: str, message: Any) -> dict[str, Any]:
     preview = {
         'preview_kind': 'image',
         'header': _header_metadata(getattr(message, 'header', None)),
+        'payload_size_bytes': _payload_size(getattr(message, 'data', b'')),
     }
     if topic_type == IMAGE_TYPE:
         preview.update({
@@ -198,3 +199,13 @@ def _integer(value: Any) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _payload_size(value: Any) -> int:
+    try:
+        return len(memoryview(value).cast('B'))
+    except (TypeError, ValueError):
+        try:
+            return len(value)
+        except (TypeError, ValueError):
+            return 0

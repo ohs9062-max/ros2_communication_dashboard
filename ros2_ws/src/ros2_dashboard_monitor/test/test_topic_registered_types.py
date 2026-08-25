@@ -242,6 +242,41 @@ def test_external_subscriber_count_excludes_all_monitor_owned_endpoints() -> Non
     assert topic['external_subscriber_count'] == 0
 
 
+def test_topic_history_is_resource_bounded_and_absent_from_snapshot() -> None:
+    topic_type = 'example_interfaces/msg/String'
+    node = _FakeNode()
+    runtime = TopicRuntime(
+        action_monitor_subscriber_count=lambda _name: 0,
+        config=MonitorConfig(
+            topics_supported_types=(topic_type,),
+            topics_registered_types=(topic_type,),
+            topics_history_limit=3,
+        ),
+        lock=Lock(),
+        node_getter=lambda: node,
+    )
+    node.publisher_count = 1
+    runtime.update()
+    callback = node.subscriptions[0]['callback']
+    for value in ('one', 'two', 'three', 'four'):
+        callback(RegisteredString(data=value))
+
+    history = runtime.topic_history(node.topic_name)
+    topic = runtime.snapshot()['topics'][0]
+
+    assert [item['payload']['data'] for item in history['data']] == [
+        'four', 'three', 'two',
+    ]
+    assert history['meta'] == {
+        'count': 3,
+        'limit': 3,
+        'source': 'monitor_subscription',
+    }
+    assert topic['last_message_preview'] == {'data': 'four'}
+    assert 'history' not in topic
+    assert 'history' not in RosMonitor._websocket_topic_meta([topic])
+
+
 def test_registered_custom_message_reports_missing_and_stale_alerts() -> None:
     topic_type = 'example_interfaces/msg/String'
     node = _FakeNode()

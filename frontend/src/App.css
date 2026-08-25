@@ -4516,6 +4516,79 @@ details summary {
   margin-top: 12px;
 }
 
+.communication-history-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.communication-history-heading p {
+  margin: 0;
+}
+
+.communication-history-heading button {
+  flex: 0 0 auto;
+}
+
+.communication-history-stream {
+  background: rgba(8, 13, 19, 0.58);
+  border: 1px solid rgba(48, 68, 92, 0.72);
+  border-radius: var(--radius-control);
+  height: min(52vh, 520px);
+  min-height: 180px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.communication-history-entry {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.communication-history-entry + .communication-history-entry {
+  border-top: 1px solid rgba(48, 68, 92, 0.72);
+}
+
+.communication-history-entry > header {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.communication-history-entry time {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.communication-history-entry strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.communication-history-entry pre {
+  background: rgba(15, 23, 42, 0.74);
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .metric,
 .detail-line,
 .collapsible-list-item,

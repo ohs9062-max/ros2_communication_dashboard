@@ -153,6 +153,29 @@ class ActionGoalRuntime:
             },
         }
 
+    def history_for_action(
+        self,
+        *,
+        action_name: str,
+        action_type: str | None = None,
+        limit: int = MAX_HISTORY_ITEMS,
+    ) -> dict[str, Any]:
+        """Return only real Interface Lab goal executions for one Action."""
+        selected = [
+            {**item, 'status_label': _goal_summary(item)['last_goal_status']}
+            for item in self._history.snapshot()
+            if item.get('action_name') == action_name
+            and (not action_type or item.get('action_type') == action_type)
+        ][:max(1, min(int(limit), MAX_HISTORY_ITEMS))]
+        return {
+            'history': selected,
+            'meta': {
+                'count': len(selected),
+                'limit': MAX_HISTORY_ITEMS,
+                'source': 'interface_lab',
+            },
+        }
+
     def reset_history(self, *, action_name: str | None = None, action_type: str | None = None) -> dict[str, Any]:
         """Action Goal 실행 이력 전체를 지웁니다."""
         previous = self._history.remove(lambda item: (

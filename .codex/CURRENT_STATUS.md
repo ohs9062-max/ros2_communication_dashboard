@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-24
+마지막 갱신: 2026-08-25
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -23,8 +23,17 @@
   인증서/private key는 Git에 포함하지 않는다. 설치기는 명시 IP 또는 활성 default route의 IPv4를 기본 주소로
   선택하고 container/libvirt bridge를 제외한 추가 활성 IPv4를 TLS SAN에 포함한다. 선택 주소와 HTTPS port는
   `/etc/ros2-dashboard/network.env`에 저장해 Nginx·설치 검증·`status.sh`가 함께 사용한다.
+- 현재 사용·검증 기준은 별도 원격 production이 아니라 이 장비의 Nginx 로컬 HTTPS/WSS다. Frontend 변경은
+  `frontend/dist` build만으로 실제 화면에 반영되지 않고 `/var/lib/ros2-dashboard/frontend`와 동기화돼야 한다.
+  이 동작은 “운영 배포”가 아니라 “로컬 HTTPS 실행 파일 반영”으로 부르며, UI 미반영 시 source dist·설치 정적
+  파일·HTTPS 응답의 asset hash를 먼저 대조한다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
+- Topic Monitor Subscription은 resource별 실제 수신 preview를 기본 100개 bounded memory history로 보존한다.
+  Service와 Action 상세은 기존 Interface Lab Call/Goal 최대 30건을 resource별로 조회한다. 전체 history는 정기
+  snapshot/WebSocket에 넣지 않고 상세의 접힌 로그를 열 때 `/ros/topics|services|actions/history`로 가져온다.
+  불러온 항목은 최신순 단일 고정 높이 영역에서 클릭 없이 pretty JSON으로 이어 표시하고 영역 내부만 스크롤한다.
+  Camera history에는 binary/Base64 없이 metadata와 payload size만 남긴다.
 - Service와 Action 내부 Service QoS는 Fast DDS passive observer가 제공한다. QoS 확인을 위해 Service Call,
   Action Goal 또는 사용자 데이터 endpoint를 만들지 않는다.
 - Interface Lab의 Topic/Service/Action 실행은 Auto/Manual QoS를 지원한다. Topic Auto는 Graph endpoint의
@@ -78,6 +87,14 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- Topic/Service/Action 상세에 요청형 `최근 데이터 로그`를 추가했다. 실제 `/cmd_vel` 100건 bounded 수신과
+  `/RobotControl` Request/Response, `/CanControl` Goal/Feedback/Result/succeeded를 임시 Monitor 8875에서 확인했고,
+  일반 snapshot에는 history가 없었다. append 증분은 소형 preview 기준 약 0.054µs/message, 100건 메모리 증분은
+  약 44.5KB, 상세 JSON 직렬화는 약 0.046ms였다. Monitor 271 tests, Backend 16 passed·2 skipped, Frontend
+  unit/lint/build와 Monitor colcon 271 tests가 통과했다. 최신 build를 로컬 HTTPS 정적 경로에 동기화하고 Monitor를
+  재시작했다. source dist·설치 정적 파일·실제 HTTPS 응답이 모두 `index-ejcbpnGB.js`로 일치하며 Topic/Service/Action
+  History의 Monitor 직접 경로와 HTTPS proxy가 모두 HTTP 200이다.
 
 - 설치기의 `hostname -I` 첫 주소 의존을 공통 network helper로 교체했다. 단일/다중 NIC, container bridge 제외,
   명시 IP, stale 자동 server name, 443/8443 URL, installer 관리 인증서 DHCP 갱신과 custom 인증서 보존을 합성

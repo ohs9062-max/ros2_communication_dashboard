@@ -78,6 +78,9 @@ https://localhost[:설정 port]/
 https://<장비 LAN IP>[:설정 port]/
 ```
 
+이 주소는 별도 원격 production 서버가 아니라 Dashboard와 ROS2가 실행되는 로컬 장비의 Nginx HTTPS 환경이다.
+일반 사용과 UI 확인은 Vite 개발 주소가 아니라 위 HTTPS 주소를 기준으로 한다.
+
 최초 설치는 `/etc/nginx/ssl/ros2-dashboard.crt`와 `.key`에 self-signed 인증서를 만든다. 브라우저에서 해당
 인증서를 신뢰해야 HTTPS/WSS 연결이 허용된다. Nginx는 `/var/lib/ros2-dashboard/frontend`의 production build를
 정적으로 제공하며 Backend REST와 WebSocket을 localhost로 proxy한다. 제품 실행에 Vite 개발 서버는 사용하지 않는다.
@@ -114,9 +117,9 @@ MariaDB
   ← Backend Alert lifecycle
 ```
 
-- Topic missing/stale/disconnected, Pub/Sub, Hz/latest/age와 Camera Preview
-- Service Server/Client, 사용자 Call과 최근 Request/Response
-- Action Goal/Feedback/Result/Cancel과 5개 채널 QoS
+- Topic missing/stale/disconnected, Pub/Sub, Hz/latest/age, bounded 최근 데이터와 Camera Preview
+- Service Server/Client, 사용자 Call과 요청형 Interface Lab Request/Response 이력
+- Action Goal/Feedback/Result/Cancel, 요청형 Interface Lab 실행 이력과 5개 채널 QoS
 - Node 통신 역할과 Graph 이탈 감지
 - Graph/Fast DDS/RMW 근거를 구분한 QoS 진단과 Alert
 - Interface Lab의 등록·build/apply, Topic Publish/Receive, Service Call, Action Goal

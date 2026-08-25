@@ -87,6 +87,12 @@ def test_camera_preview_limits_are_loaded_and_bounded() -> None:
     assert config.camera_preview.max_height == 480
 
 
+def test_topic_history_limit_is_loaded_and_bounded() -> None:
+    assert _monitor_config({}).topics_history_limit == 100
+    assert _monitor_config({'topics': {'history_limit': 12}}).topics_history_limit == 12
+    assert _monitor_config({'topics': {'history_limit': 1000}}).topics_history_limit == 100
+
+
 def test_qos_alert_confirmation_count_uses_default_and_config_value() -> None:
     assert _monitor_config({}).qos_alerts.incompatible_confirmation_count == 3
     configured = _monitor_config({

@@ -159,6 +159,28 @@ class ServiceCallRuntime:
         """최근 Service Call 실행 이력을 복사해 반환합니다."""
         return self._history.response()
 
+    def history_for_service(
+        self,
+        *,
+        service_name: str,
+        service_type: str | None = None,
+        limit: int = MAX_HISTORY_ITEMS,
+    ) -> dict[str, Any]:
+        """Return only real Interface Lab calls for one Service."""
+        selected = [
+            item for item in self._history.snapshot()
+            if item.get('service_name') == service_name
+            and (not service_type or item.get('service_type') == service_type)
+        ][:max(1, min(int(limit), MAX_HISTORY_ITEMS))]
+        return {
+            'history': selected,
+            'meta': {
+                'count': len(selected),
+                'limit': MAX_HISTORY_ITEMS,
+                'source': 'interface_lab',
+            },
+        }
+
     def reset_history(self, *, service_name: str | None = None, service_type: str | None = None) -> dict[str, Any]:
         """Service Call 실행 이력 전체를 지웁니다."""
         cleared = self._history.reset(service_name=service_name, service_type=service_type)

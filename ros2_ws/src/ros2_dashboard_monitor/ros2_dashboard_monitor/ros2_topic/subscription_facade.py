@@ -84,6 +84,7 @@ class TopicSubscriptionFacade:
             message_class=message_class,
             callback=self._latest_message_callback(name, topic_type),
             qos_resolver=self._qos_profile,
+            history_limit=self._config.topics_history_limit,
         )
 
     def _has_subscription(self, name: str, topic_type: str) -> bool:

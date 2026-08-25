@@ -29,6 +29,16 @@ class InterfaceLabFacade:
     def service_call_history(self) -> dict[str, Any]:
         return self._service_call_runtime.history()
 
+    def service_history(
+        self, *, service_name: str, service_type: str | None = None,
+        limit: int = 30,
+    ) -> dict[str, Any]:
+        return self._service_call_runtime.history_for_service(
+            service_name=service_name,
+            service_type=service_type,
+            limit=limit,
+        )
+
     def reset_service_call_history(self, *, service_name: str | None = None, service_type: str | None = None) -> dict[str, Any]:
         return self._service_call_runtime.reset_history(service_name=service_name, service_type=service_type)
 
@@ -73,6 +83,16 @@ class InterfaceLabFacade:
 
     def action_goal_history(self) -> dict[str, Any]:
         return self._action_goal_runtime.history()
+
+    def action_history(
+        self, *, action_name: str, action_type: str | None = None,
+        limit: int = 30,
+    ) -> dict[str, Any]:
+        return self._action_goal_runtime.history_for_action(
+            action_name=action_name,
+            action_type=action_type,
+            limit=limit,
+        )
 
     def reset_action_goal_history(self, *, action_name: str | None = None, action_type: str | None = None) -> dict[str, Any]:
         return self._action_goal_runtime.reset_history(action_name=action_name, action_type=action_type)

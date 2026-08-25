@@ -2,6 +2,7 @@ import { formatMs, formatRelativeTime, formatTime } from '../utils/format.js'
 import { withExecutionNode } from '../utils/participants.js'
 import { displayText } from '../utils/displayText.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
+import { CommunicationHistory } from './CommunicationHistory.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { QosDetails } from './QosDetails.jsx'
 import { QosSummaryNotice } from './QosSummary.jsx'
@@ -152,6 +153,12 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         <DetailLine label="호출 수" value={service.call_count ?? 0} />
         <DetailLine label="성공/실패" value={`${service.success_count ?? 0}/${service.failure_count ?? 0}`} />
       </DetailSection>
+
+      <CommunicationHistory
+        kind="service"
+        name={service.name}
+        resourceType={service.type}
+      />
 
       <DetailSection collapsible title="상세 데이터">
         <details>

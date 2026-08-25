@@ -87,6 +87,26 @@ def test_service_effective_status_keeps_graph_and_call_results_separate():
     ) == 'waiting_server'
 
 
+def test_service_detail_history_filters_exact_resource_and_limit():
+    runtime = ServiceCallRuntime(lock=_NoopLock(), node_getter=lambda: None)
+    for index, name in enumerate(('/other', '/ScheduleCrud', '/ScheduleCrud')):
+        runtime._record_history({
+            'success': True,
+            'service_name': name,
+            'service_type': 'pkg/srv/Demo',
+            'request': {'index': index},
+            'response': {'ok': True},
+            'called_at': float(index),
+        })
+
+    detail = runtime.history_for_service(
+        service_name='/ScheduleCrud', service_type='pkg/srv/Demo', limit=1,
+    )
+
+    assert detail['meta'] == {'count': 1, 'limit': 30, 'source': 'interface_lab'}
+    assert detail['history'][0]['request'] == {'index': 2}
+
+
 def test_service_discovery_preserves_each_exact_type_and_counts():
     class Node:
         def get_service_names_and_types(self):
@@ -203,6 +223,34 @@ def test_action_graph_preserves_each_type_and_exact_type_counts():
             'client_count': 1,
         },
     ]
+
+
+def test_action_detail_history_filters_resource_and_adds_status_label():
+    runtime = ActionGoalRuntime(lock=_NoopLock(), node_getter=lambda: None)
+    runtime._record_history({
+        'success': True,
+        'action_name': '/CanControl',
+        'action_type': 'pkg/action/Demo',
+        'goal': {'id': 1},
+        'accepted': True,
+        'feedback': [],
+        'result': {'ok': True},
+        'status': 4,
+        'sent_at': 10.0,
+    })
+    runtime._record_history({
+        'success': False,
+        'action_name': '/other',
+        'action_type': 'pkg/action/Demo',
+        'sent_at': 11.0,
+    })
+
+    detail = runtime.history_for_action(
+        action_name='/CanControl', action_type='pkg/action/Demo',
+    )
+
+    assert detail['meta'] == {'count': 1, 'limit': 30, 'source': 'interface_lab'}
+    assert detail['history'][0]['status_label'] == 'succeeded'
 
 
 def test_action_client_cache_is_keyed_by_name_and_type():

@@ -4,42 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-19 - MonitorStatus Alert 판정·필터 조사
-
-- `MonitorStatus`는 Dashboard가 수치 임계값을 계산하는 상태가 아니라, 실제 Graph에서 발견하고 자동 구독한
-  `ros2_dashboard_interfaces/msg/MonitorStatus`의 최신 payload `level`을 trim/lowercase한 뒤
-  warning/error/critical만 그대로 Alert로 변환하는 구조임을 확인했다.
-- Topic include/exclude/type 및 supported type·자동 구독 조건은 적용되지만 required/등록/primary/command,
-  device/status allowlist와 confirmation 필터는 적용되지 않는다. info·빈 값·기타 level은 제외된다.
-- `last_received_at`과 `age_sec`은 기록만 하며 최신 MonitorStatus의 만료 판단에는 사용하지 않는다. 새 정상
-  메시지가 없으면 과거 warning/error/critical preview가 subscription 정리 전까지 Alert로 남을 수 있는 정책
-  공백을 확인했으며 코드는 수정하지 않았다.
-
-## 2026-08-19 - 사내 압축 배포의 개발환경 잔존 위험 조사
-
-- 현재 개발 폴더를 그대로 압축하면 Git에서 제외되는 Backend `.env`/`.venv`, Frontend `node_modules`/`dist`,
-  ROS `build`/`install`/`log`, `.runtime` 약 188MB와 편집기 임시 파일까지 함께 전달되는 것을 확인했다.
-- 설치기는 다른 머신의 `.venv`를 판별해 재생성하고 Frontend를 다시 빌드하지만 기존 `.env`는 보존하며 ROS
-  생성물을 사전에 제거하지 않으므로, 전체 폴더 압축은 비밀값 전달·Domain 설정 상속·절대경로 build 실패 위험이 있다.
-- Git 추적 Interface Registry/Apply 상태에도 현재 개발 경로의 `absolute_path`, `workspace_path`, install Python
-  path가 남아 있고 일부 상태 판정이 이를 읽는다. 사내 전달 전에는 Git 추적 소스만 담는 별도 배포 archive와
-  Registry의 이식 가능한 상태 정리가 필요함을 확인했으며 코드는 수정하지 않았다.
-
-## 2026-08-19 - ROS_DOMAIN_ID 처리 우선순위 및 파싱 취약점 개선
-
-- Fresh 설치 및 일상 실행 환경에서 사용자 shell의 `export ROS_DOMAIN_ID=...` 설정이 `backend/.env`의 이전
-  저장값에 의해 무시되던 우선순위 역전 문제와, `.env` 값의 인라인 주석/공백/따옴표 미정제로 인한 정수 검증(0~232)
-  실패 문제를 해결했다.
-- `scripts/lib/ros_runtime_env.sh`에 `ros_dashboard_trim_env_value()`를 추가하여 주석, 앞뒤 공백, 따옴표(`"`, `'`),
-  `\r`을 안전하게 정제하도록 파서를 개선하고, 우선순위를 shell 환경변수 → `backend/.env` → runtime env → `0` 순으로
-  교정했다.
-- `scripts/start.sh` 및 `scripts/run_dashboard_stack.sh`에서 shell에 명시된 값이 결정되면 `backend/.env`에도
-  동기화 저장하도록 하여 영속성을 보장했으며, 값이 변경되면 systemd Monitor가 자동으로 재시작되도록 연결했다.
-- `scripts/install.sh` step 7에서 sudo 실행 시 `INSTALL_USER`의 shell 환경변수 fallback을 보강했다.
-- 시나리오 1~6(쉘 우선 반영, 미설정 시 기존값 유지, 새 값 변경, 재부팅 후 영속성, 정수 범위 초과 거부, 기본값 0)
-  테스트 스크립트를 작성하여 전체 통과를 확인했고, Backend pytest 16 passed, Monitor pytest 249 passed,
-  Frontend test/lint/build 통과를 검증했다.
-
 ## 2026-08-20 - Service 및 Action Client 생성 시 QoS 호환(compatible) 상태 반영
 
 - Interface Lab에서 Service Client 또는 Action Client가 생성되어 호환되는 `local_qos` 프로파일이 적용되었음에도
@@ -360,3 +324,73 @@
   통과했다. 현재 장비에서는 `192.168.1.123`을 default-route 주소로 선택했고 LAN HTML/health 200, TLS SAN,
   WSS 101, 내부 port localhost bind와 LAN 8000 차단을 확인했다. sudo가 필요한 변경 installer 전체 재실행과
   별도 물리 PC/VM Fresh 설치는 수행하지 않았으므로 코드/현재 runtime 검증과 구분한다.
+
+## 2026-08-25 - 통신 상세 요청형 최근 데이터 history
+
+- Topic 자동 Subscription callback이 실제 수신한 lightweight preview를 resource별 `deque(maxlen=100)`에 최신순으로
+  보존하도록 했다. `topics.history_limit`은 1~500 범위 설정이며 Camera Image/CompressedImage는 원본 binary나
+  data URL 대신 기존 metadata와 `payload_size_bytes`만 저장한다. append에서 deepcopy하지 않는다.
+- Service와 Action은 새 payload 관찰기를 만들지 않고 기존 Interface Lab 실행 history를 재사용한다. Service는
+  Request/Response/success/error/timeout/duration, Action은 Goal/accepted/Feedback/Result/final status/duration을
+  이름·타입으로 필터링한다. 외부 Service payload와 외부 Action Goal payload를 Graph/Fast DDS 정보로 합성하지 않는다.
+- `/ros/topics/history`, `/ros/services/history`, `/ros/actions/history`를 Monitor에 추가했고 Backend의 기존 async
+  catch-all proxy를 그대로 사용한다. Frontend 공통 `CommunicationHistory`는 각 상세의 접힌 로그를 처음 열거나
+  새로고침할 때만 호출하며 Service/Action은 `Interface Lab 실행 이력`임을 명시한다. 정기 transport/WebSocket
+  snapshot에는 history가 추가되지 않았다.
+- 임시 Monitor 8875의 실제 ROS Graph에서 `/cmd_vel` 100건이 최신순으로 bounded되고 `/RobotControl` Call의
+  Request/Response, `/CanControl` Goal의 Feedback/Result와 `succeeded`가 상세 API에 기록됨을 확인했다. 일반
+  snapshot의 Topic/Service/Action에는 history key가 없고 WebSocket JSON은 896 bytes였다.
+- 소형 Topic preview 20,000회 benchmark에서 기존 callback 7.931µs/message, history 포함 7.986µs/message로 증분
+  0.054µs였고, 100건 retained memory 증분은 44,450 bytes였다. 100건 상세 JSON은 7,385 bytes, 직렬화는 호출당
+  약 0.046ms였으며 snapshot 크기는 history 유무 모두 125 bytes였다.
+- Monitor 전체 271 passed, Backend 16 passed·2 skipped, Frontend unit/lint/build, Monitor package colcon
+  271 tests·0 failures와 compileall/diff check를 통과했다. 운영 Frontend 동기화와 Monitor restart는 운영 변경
+  위험으로 승인되지 않아 수행하지 않았으며 source와 production build까지만 완료했다.
+
+## 2026-08-25 - HTTPS 운영 UI 미반영 원인 재확인
+
+- 소스의 최신 `frontend/dist/index.html`은 11:43 KST 빌드의 `index-ejcbpnGB.js`를 참조하지만, Nginx 운영 경로
+  `/var/lib/ros2-dashboard/frontend/index.html`은 8월 24일 14:53 KST의 `index-DRdVeOQQ.js`를 계속 참조했다.
+  따라서 최근 데이터 UI가 보이지 않는 직접 원인은 브라우저 캐시나 React 조건 분기가 아니라 최신 production
+  build가 HTTPS 정적 경로에 배포되지 않은 것이다.
+- 현재 검사 namespace에서는 localhost 8765와 HTTPS 응답을 직접 확인하지 못했다. 새 history route는 Monitor
+  Python 변경이므로 정적 파일 동기화와 함께 `ros2-dashboard-monitor.service` 재시작이 필요하다. Backend/Nginx
+  재시작은 필요하지 않다.
+- 기존 파일을 삭제하지 않는 `rsync -a` 동기화와 Monitor 단독 재시작을 요청했으나, 운영 변경에 대한 사용자의
+  명시적 승인이 필요하다는 정책 검토로 실행 전 차단됐다. 운영 파일이나 서비스는 변경되지 않았다.
+
+## 2026-08-25 - 로컬 HTTPS 환경과 반영 용어 명확화
+
+- 사용 환경은 외부 production 배포가 아니라 Dashboard와 ROS2가 같은 장비에서 실행되고 Browser가 localhost/LAN
+  IP의 Nginx HTTPS/WSS로 접속하는 로컬 환경임을 AGENTS, README, HTTPS 문서와 CURRENT_STATUS에 명시했다.
+- 앞으로 `frontend/dist`를 `/var/lib/ros2-dashboard/frontend`에 맞추는 작업은 “운영 배포”가 아니라 “로컬 HTTPS
+  실행 파일 동기화/반영”으로 표현한다. 사용자가 원격 서버를 명시하지 않으면 별도 production 배포를 전제하지 않는다.
+- UI 변경 검증은 Vite나 source build만 보지 않고 source dist, 로컬 HTTPS 정적 경로, 실제 HTTPS 응답의 asset hash를
+  대조한다. 이번 문서 작업에서는 정적 파일 동기화나 service 재시작을 수행하지 않았다.
+
+## 2026-08-25 - 최근 데이터 UI 로컬 HTTPS 반영 완료
+
+- 사용자 승인 뒤 최신 `frontend/dist`를 같은 장비의 `/var/lib/ros2-dashboard/frontend`에 동기화하고
+  `ros2-dashboard-monitor.service`만 재시작했다. Backend와 Nginx는 설정 변경이 없어 재시작하지 않았다.
+- source dist와 설치 정적 경로의 `index.html` SHA-256이
+  `0920cf8cab9ebfa989bfa646f6a8531813a91cdcea970a74e07dab8c46655b66`로 일치하고 실제
+  `https://127.0.0.1/`도 새 `index-ejcbpnGB.js`와 `index-IT3d-VQn.css`를 HTTP 200으로 제공했다. 제공 bundle에
+  최근 데이터 UI와 Interface Lab 이력 문구가 포함된 것도 확인했다.
+- 재시작된 Monitor는 PID 118016, 11:52:26 KST부터 active/running이다. Topic/Service/Action History는 Monitor
+  직접 경로와 HTTPS Backend proxy에서 모두 HTTP 200이었다. `/cmd_vel`은 최신 2건 payload를 반환했고 재시작 직후
+  Service/Action Interface Lab 메모리 이력은 설계대로 빈 배열이었다. HTTPS health는
+  `monitor_connected=true`를 반환했다.
+
+## 2026-08-25 - 최근 데이터 로그 연속 스크롤 UI
+
+- Interface Lab Topic Receive의 즉시 `<pre>` JSON 표시, dark color, `pre-wrap`/word-break 표현을 참고해 공통
+  `CommunicationHistory`의 항목별 `<details>` 카드와 클릭 펼치기를 제거했다. Topic/Service/Action 모두 하나의
+  `role=log` 영역에서 최신순 timestamp·상태·pretty JSON을 바로 표시한다.
+- 로그 영역은 `height: min(52vh, 520px)`, 최소 180px와 내부 세로 스크롤을 사용한다. 각 항목은 별도 카드 대신
+  구분선으로만 나뉘며 긴 JSON은 가로 스크롤보다 줄바꿈한다. 새로고침, 빈 상태, 요청형 API와 저장 정책은 유지했다.
+- `buildHistoryRows()`가 timestamp/status/payload JSON을 만들고 React `useMemo`가 items/kind 변경 때만 계산한다.
+  소형 Topic 100건 포맷 benchmark는 평균 0.047ms/100건(0.4702µs/row)이었다. Topic 최신순 100건과
+  Service Request/Response, Action Goal/Feedback/Result 즉시 표시 model test를 추가했다.
+- Frontend unit 전체, oxlint, Vite build와 `git diff --check`가 통과했다. 최종 build를 로컬 HTTPS 경로에 동기화해
+  source/install index SHA-256이 일치했고 HTTPS는 `index-D-owj5Ln.js`, `index-BDTxWnW4.css`를 HTTP 200으로
+  제공했다. CSS의 고정 높이·내부 scroll·pre-wrap과 Backend `monitor_connected=true`를 확인했다.

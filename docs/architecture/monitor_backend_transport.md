@@ -47,8 +47,9 @@ Backend는 1초 기본 주기로 이를 polling합니다. 실패 시 마지막 c
 
 Topic payload는 Graph 원본 `status`와 목록·요약에 사용하는 `effective_status`를 함께 보존합니다. Service와
 Action의 최근 사용자 실행 결과도 각 resource snapshot에 합쳐지며 Frontend는 같은 snapshot을 공통 presentation
-selector로 표시합니다. Camera binary/data URL은 정기 snapshot과 WebSocket에 포함하지 않고 상세 화면의
-`/ros/topics/image-preview` 요청 경로로만 전달합니다.
+selector로 표시합니다. Camera binary/data URL과 Topic/Service/Action recent history 전체는 정기 snapshot과
+WebSocket에 포함하지 않습니다. Camera는 `/ros/topics/image-preview`, 최근 통신값은 각 resource의
+`/ros/.../history` 상세 요청 경로로만 전달합니다.
 
 ## Commands
 

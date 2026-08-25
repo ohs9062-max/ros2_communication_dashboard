@@ -72,6 +72,7 @@ class MonitorConfig:
     topics_registered_types: tuple[str, ...] = ()
     topics_required_stream_names: tuple[str, ...] = ()
     topics_command_names: tuple[str, ...] = ()
+    topics_history_limit: int = 100
     camera_preview: CameraPreviewConfig = field(default_factory=CameraPreviewConfig)
     qos_alerts: QosAlertConfig = field(default_factory=QosAlertConfig)
     services_include: tuple[str, ...] = ()
@@ -137,6 +138,10 @@ def build_monitor_config(
         topics_registered_types=tuple(dict.fromkeys(registered_message_types)),
         topics_required_stream_names=string_tuple(topics.get('required_stream_names')),
         topics_command_names=string_tuple(topics.get('command_names')),
+        topics_history_limit=bounded_integer(
+            topics.get('history_limit'), default=100,
+            minimum=1, maximum=500,
+        ),
         camera_preview=CameraPreviewConfig(
             demand_ttl_sec=positive_float(
                 camera_preview.get('demand_ttl_sec'), default=3.0,

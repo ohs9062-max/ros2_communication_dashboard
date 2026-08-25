@@ -40,6 +40,15 @@ def get_ros_topic_hz(name: str = Query(...)) -> dict[str, Any]:
     return ros_monitor.topic_hz(name)
 
 
+@router.get('/ros/topics/history')
+def get_ros_topic_history(
+    name: str = Query(...),
+    limit: int = Query(100, ge=1, le=500),
+) -> dict[str, Any]:
+    """실제 Monitor Subscription이 수신한 최근 Topic preview를 반환합니다."""
+    return ros_monitor.topic_history(name, limit=limit)
+
+
 @router.get('/ros/topics/image-preview')
 def get_ros_topic_image_preview(name: str = Query(...)) -> dict[str, Any]:
     """선택한 Camera Topic의 작은 요청형 image preview를 반환합니다."""
@@ -63,6 +72,21 @@ def get_ros_services(
     }
 
 
+@router.get('/ros/services/history')
+def get_ros_service_history(
+    name: str = Query(...),
+    service_type: str | None = Query(None),
+    limit: int = Query(30, ge=1, le=30),
+) -> dict[str, Any]:
+    """한 Service의 실제 Interface Lab Call 이력만 반환합니다."""
+    snapshot = ros_monitor.service_history(
+        service_name=name,
+        service_type=service_type,
+        limit=limit,
+    )
+    return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
+
+
 @router.get('/ros/actions')
 def get_ros_actions() -> dict[str, Any]:
     """현재 Action 목록과 관찰 상태를 반환합니다."""
@@ -74,6 +98,21 @@ def get_ros_actions() -> dict[str, Any]:
             'meta': snapshot['meta'],
         },
     }
+
+
+@router.get('/ros/actions/history')
+def get_ros_action_history(
+    name: str = Query(...),
+    action_type: str | None = Query(None),
+    limit: int = Query(30, ge=1, le=30),
+) -> dict[str, Any]:
+    """한 Action의 실제 Interface Lab Goal 실행 이력만 반환합니다."""
+    snapshot = ros_monitor.action_history(
+        action_name=name,
+        action_type=action_type,
+        limit=limit,
+    )
+    return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
 
 
 @router.get('/ros/nodes')

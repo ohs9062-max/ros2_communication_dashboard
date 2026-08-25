@@ -1,5 +1,10 @@
 # HTTPS / WSS reverse proxy
 
+이 문서의 대상은 외부 서버로의 production 배포가 아니라 Dashboard가 설치된 **로컬 ROS2 장비에서 사용하는
+Nginx HTTPS/WSS 실행 환경**이다. Browser는 같은 장비의 localhost 또는 LAN IP로 접속한다. 소스 변경 뒤
+`frontend/dist`를 `/var/lib/ros2-dashboard/frontend`에 복사하는 과정은 이 문서에서 로컬 HTTPS 실행 파일
+동기화라고 부르며, 별도 원격 배포를 뜻하지 않는다.
+
 제품 모드의 TLS는 Nginx에서 종료한다. Browser는 HTTPS/WSS를 사용하고, Nginx는 production Frontend 정적
 파일을 직접 제공하면서 FastAPI REST와 `ws://127.0.0.1:8000/ws/monitor`를 proxy한다. FastAPI, Monitor,
 Frontend build에 인증서 설정을 넣지 않는다.
@@ -37,6 +42,11 @@ sudo systemctl reload nginx
 
 Frontend는 `VITE_API_BASE_URL`을 비운 production build를 사용하므로 REST와 WebSocket이 현재 page origin을
 따른다. HTTPS 페이지에서는 WebSocket URL이 자동으로 `wss://<현재-host>/ws/monitor`가 된다.
+
+`npm run build`는 checkout의 `frontend/dist`만 갱신한다. 로컬 HTTPS 화면이 새 UI를 제공하려면 설치 정적 경로
+`/var/lib/ros2-dashboard/frontend`도 같은 build여야 한다. UI 미반영 시에는 source dist, 설치 정적 경로,
+`https://localhost` 응답의 `index.html`이 참조하는 asset hash를 대조한다. hash가 다르면 브라우저 캐시 문제가
+아니라 로컬 HTTPS 정적 파일 미동기화다.
 
 개발 모드의 Vite/HMR은 `scripts/run_dashboard_stack.sh`로 별도 실행한다. 제품 Nginx `/`는 Vite로 proxy하지
 않으므로 개발 화면은 `http://127.0.0.1:5173`에서 직접 확인한다.

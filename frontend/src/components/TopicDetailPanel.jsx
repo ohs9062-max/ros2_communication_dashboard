@@ -6,6 +6,7 @@ import {
 import { withExecutionNode } from '../utils/participants.js'
 import { displayText } from '../utils/displayText.js'
 import { ConnectionNodeList } from './ConnectionNodeList.jsx'
+import { CommunicationHistory } from './CommunicationHistory.jsx'
 import { DetailSection } from './DetailSection.jsx'
 import { KeyValueTable } from './KeyValueTable.jsx'
 import { QosDetails } from './QosDetails.jsx'
@@ -87,6 +88,12 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
           topicType={topic.types?.[0]}
         />
       )}
+
+      <CommunicationHistory
+        kind="topic"
+        name={topic.name}
+        resourceType={topic.types?.[0]}
+      />
 
       <QosDetails
         focusRequest={qosFocusRequest?.name === topic.name ? qosFocusRequest : null}

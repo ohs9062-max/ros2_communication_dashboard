@@ -238,6 +238,7 @@ fastdds_observer.poll_interval_sec                 0.5
 fastdds_observer.request_timeout_sec               0.2
 topics.auto_discover                              true
 topics.auto_subscribe_supported_types             true
+topics.history_limit                              100
 topics.required_stream_names                      /imu, /joint_states, /odom, /scan
 topics.command_names                              /cmd_vel, /cmd_vel_smoothed
 topics.include_names / exclude_names / prefixes   배포별 필터
@@ -304,18 +305,27 @@ waiting       Publisher가 없는 감시 대상
 사실만으로 실제 데이터 수신이나 QoS 호환을 단정하지 않는다.
 설정에 이름만 있고 Graph에서 한 번도 발견되지 않은 Topic은 placeholder로 목록이나 Alert에 추가하지 않는다.
 `required_stream_names`와 `command_names`는 실제 발견된 Topic의 역할과 Alert 대상 여부를 분류할 때만 사용한다.
+실제 Monitor Subscription callback은 Topic별 최근 preview를 `topics.history_limit`만큼 메모리에 보존한다. Camera는
+binary/Base64가 아니라 width, height, encoding, payload size 등의 metadata만 보존한다. 이 history는 정기 snapshot과
+WebSocket에 넣지 않고 Topic 상세의 `/ros/topics/history` 요청에서만 반환한다.
 
 ### Service
 
 Graph의 Server 존재가 기본 관찰 사실이다. Client 없음은 요청 대기형 Service의 정상 상태다. 자동 active check는
 기본 비활성화이며 allowlist와 명시적 안전 요청 없이 일반 Service를 주기 호출하지 않는다. 실제 요청/응답은
 Interface Lab의 사용자 Call로 확인하고 최근 상태, 응답, 시간, 오류를 snapshot에 합친다.
+Service 상세 history는 Interface Lab이 실제 실행해 메모리에 보존한 최대 30건의 Request/Response만
+`/ros/services/history`에서 resource별로 필터링한다. Graph와 Fast DDS discovery로 외부 Client payload를
+관찰했다고 표시하지 않는다.
 
 ### Action
 
 Action Server 발견과 Goal/Result/Cancel Service, Feedback/Status Topic을 조립한다. Feedback/Status는 Graph Topic
 QoS와 자동 Subscription을 사용하고, 설정이 켜진 경우 관찰한 Goal의 Result를 조회한다. 사용자가 명시한 Goal의
 accept, feedback, result, cancel과 실행 이력을 Interface Lab runtime에서 관리한다. Client 없음은 정상 대기다.
+Action 상세 history는 Interface Lab Goal 최대 30건만 `/ros/actions/history`에서 resource별로 반환한다. 자동 Action
+monitoring에서 부분적으로 관찰하는 외부 Status/Feedback/Result를 외부 Goal payload가 포함된 완전한 실행 로그처럼
+합성하지 않는다.
 
 ### Node
 
@@ -581,6 +591,12 @@ Topic Publish, Service Request, Action Goal 모두 공통 입력 컴포넌트를
 
 ## 12. Web, HTTPS와 WSS
 
+이 프로젝트의 기본 사용자 실행 환경은 원격 production 배포가 아니라, Dashboard와 ROS2가 설치된 **같은 로컬
+장비의 Nginx HTTPS/WSS 환경**이다. 사용자는 `https://localhost` 또는 같은 장비의 LAN IP로 접속한다. 이후
+문서와 작업 보고에서 `/var/lib/ros2-dashboard/frontend`에 현재 checkout의 build를 반영하는 작업은 “운영 배포”가
+아니라 **로컬 HTTPS 실행 파일 동기화/반영**으로 표현한다. 사용자가 별도 원격 서버 배포를 명시하지 않았다면
+외부 production 배포를 전제하거나 제안하지 않는다.
+
 개발 HTTP 화면은 `ws://`를 사용할 수 있다. HTTPS 화면은 반드시 `wss://`를 사용한다. Frontend
 `monitorWebSocketUrl()`은 `window.location.protocol`이 HTTPS면 WSS, 아니면 WS를 선택하고
 `VITE_API_BASE_URL`이 비어 있으면 현재 host의 `/ws/monitor`로 연결한다. 연결 종료 후 현재 2.5초 뒤 재연결한다.
@@ -606,7 +622,10 @@ FastAPI, Frontend build, Monitor에 인증서를 직접 넣지 않는다. 제품
 덮어쓰지 않는다.
 
 WebSocket snapshot은 Backend의 마지막 Monitor cache를 전송하며 Camera binary는 포함하지 않는다. REST polling은
-WebSocket 연결 실패 시에도 화면의 상태 조회 경로로 유지한다.
+WebSocket 연결 실패 시에도 화면의 상태 조회 경로로 유지한다. Topic/Service/Action 최근 통신 history 전체도
+snapshot에 포함하지 않고 사용자가 상세의 접힌 로그를 열 때만 localhost Monitor proxy를 통해 조회한다. 불러온
+history는 항목별 클릭 카드가 아니라 최신순 단일 고정 높이 로그 영역에 pretty JSON을 바로 표시하며, 로그 영역
+내부만 세로 스크롤한다.
 
 ## 13. API와 transport 경계
 
@@ -657,6 +676,21 @@ venv prefix/pip launcher 경로를 검증하고 현재 환경과 다르면 `back
 `backend/.venv/bin/python -m pip`로 의존성을 설치한다.
 `backend/.env`의 `ROS_DOMAIN_ID`와 `RMW_IMPLEMENTATION`이 제품 기준값이다. `install.sh`와 `start.sh`는 이를
 `/etc/ros2-dashboard/dashboard.env`에 동기화하고 값이 바뀐 Monitor만 재시작한다.
+
+Frontend UI 변경의 기본 검증 대상은 Vite 개발 화면이 아니라 사용자가 실제 쓰는 로컬 Nginx HTTPS 화면이다.
+`npm run build`는 `frontend/dist`만 갱신하므로 `/var/lib/ros2-dashboard/frontend`가 자동으로 바뀌지 않는다. UI가
+반영되지 않았다는 요청을 받으면 브라우저 캐시로 추정하기 전에 아래 세 항목을 순서대로 대조한다.
+
+```text
+frontend/dist/index.html의 asset hash
+/var/lib/ros2-dashboard/frontend/index.html의 asset hash
+로컬 HTTPS 응답 index.html의 asset hash
+```
+
+서로 다르면 원인은 build 실패가 아니라 로컬 HTTPS 정적 파일 미동기화다. 이때 필요한 작업은 원격 배포가 아니라
+동일 장비의 HTTPS 실행 파일 반영이며, Monitor Python 변경이 포함됐을 때만 Monitor 재시작도 필요하다. Backend나
+Nginx 설정이 바뀌지 않았다면 두 서비스를 관성적으로 재시작하지 않는다. 실제 동기화나 재시작 전에는 변경 범위를
+알리고 필요한 권한 승인을 받되, 사용자에게 별도 production 배포가 필요한 것처럼 설명하지 않는다.
 
 개발 통합 실행은 `./scripts/run_dashboard_stack.sh`, 종료는 `./scripts/stop_dashboard_stack.sh`를 사용한다. Vite는
 5173 strict port를 사용하며 제품 서비스와 동시에 실행하지 않는다. ROS demo는 다음 package launch를 사용한다.

@@ -27,6 +27,7 @@ def ensure_subscription(
     message_class: type,
     callback: Callable[[Any], None],
     qos_resolver: Callable[[str, str], tuple[Any, dict[str, Any]]],
+    history_limit: int = 100,
 ) -> None:
     """동일 type subscription을 재사용하고 type/QoS 변경 시 안전하게 교체합니다."""
     if node is None:
@@ -96,6 +97,7 @@ def ensure_subscription(
             subscription=subscription,
             qos=qos,
             qos_profile=qos_profile,
+            history_limit=history_limit,
         )
 
 

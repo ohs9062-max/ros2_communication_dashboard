@@ -47,6 +47,7 @@ def test_raw_camera_metadata_never_contains_binary_array() -> None:
             'stamp': {'sec': 12, 'nanosec': 34},
             'frame_id': 'camera',
         },
+        'payload_size_bytes': 6,
         'width': 2,
         'height': 1,
         'encoding': 'rgb8',
@@ -130,5 +131,6 @@ def test_compressed_metadata_contains_header_and_format_only() -> None:
     metadata = build_camera_metadata(COMPRESSED_IMAGE_TYPE, message)
 
     assert metadata['format'] == 'jpeg; compressed bgr8'
+    assert metadata['payload_size_bytes'] == 7
     assert metadata['header']['frame_id'] == 'compressed_camera'
     assert 'data' not in metadata
