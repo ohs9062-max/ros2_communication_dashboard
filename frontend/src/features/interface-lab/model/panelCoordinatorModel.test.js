@@ -145,6 +145,23 @@ test('ignores unsupported execution modes without changing UI state', async () =
   assert.equal(isExecutionMode('mock'), false)
 })
 
+test('passes an explicit Graph resource target to the matching execution loader', async () => {
+  const calls = []
+  const target = { domainId: 2, fullType: 'example_interfaces/srv/AddTwoInts', name: '/add', resourceKey: '2:/add' }
+  const result = await runExecutionPanelLoad({
+    hideManagementPanels: () => {},
+    loaders: { service: async (options) => calls.push(options) },
+    mode: 'service',
+    setBusy: () => {},
+    setExecutionMode: () => {},
+    setFeedback: () => {},
+    target,
+  })
+
+  assert.equal(result, true)
+  assert.deepEqual(calls, [{ target }])
+})
+
 test('expands only an active management or matching receive workspace', () => {
   const base = {
     executionMode: null,
@@ -163,7 +180,7 @@ test('expands only an active management or matching receive workspace', () => {
   }), true)
   assert.equal(isWorkspaceExpanded({
     ...base, executionMode: 'service', receiveMode: 'topic', showReceivePanel: true,
-  }), false)
+  }), true)
   assert.equal(isWorkspaceExpanded({
     ...base, receiveMode: 'topic', showReceivePanel: true, workspaceExpanded: false,
   }), false)

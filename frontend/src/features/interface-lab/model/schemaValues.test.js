@@ -14,6 +14,7 @@ import {
 import {
   defaultFieldValue,
   defaultRequestValues,
+  domainIdFromResource,
   normalizeNumericValues as normalizeLegacyNumericValues,
 } from './interfaceUploadModel.js'
 
@@ -81,4 +82,11 @@ test('keeps the existing interfaceUploadModel schema helper contract', () => {
   assert.equal(defaultFieldValue('int32'), 0)
   assert.deepEqual(defaultRequestValues(schema), { count: 0 })
   assert.deepEqual(normalizeLegacyNumericValues({ count: '7' }, schema), { count: 7 })
+})
+
+test('takes a monitored Domain only from the selected resource identity', () => {
+  assert.equal(domainIdFromResource({ resource_key: '2:/add_two_ints', domain_id: 99 }), 2)
+  assert.equal(domainIdFromResource({ domain_id: 7 }), 7)
+  assert.equal(domainIdFromResource({ resource_key: 'invalid:/add', domain_id: undefined }), null)
+  assert.equal(domainIdFromResource({ resource_key: '233:/outside' }), null)
 })

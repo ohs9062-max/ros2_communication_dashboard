@@ -6,6 +6,7 @@ import {
   stopReceiveTopic,
 } from '../../../api/interfaceExecution.js'
 import { topicHasType } from '../../../utils/interfaceTopics.js'
+import { domainIdFromResource } from '../model/interfaceUploadModel.js'
 import { useExecutionQos } from './useExecutionQos.js'
 
 export function useTopicReceiveController({
@@ -20,6 +21,7 @@ export function useTopicReceiveController({
 }) {
   const [selectedTopic, setSelectedTopic] = useState('')
   const [selectedDomainId, setSelectedDomainId] = useState(null)
+  const [selectedResourceKey, setSelectedResourceKey] = useState('')
   const selectedTopicSourceRef = useRef('empty')
   const [topicSearch, setTopicSearch] = useState('')
   const qos = useExecutionQos()
@@ -58,6 +60,7 @@ export function useTopicReceiveController({
     selectedTopicSourceRef.current = nextTopic ? 'auto' : 'empty'
     setSelectedTopic(nextTopic?.name ?? '')
     setSelectedDomainId(nextTopic?.domain_id ?? null)
+    setSelectedResourceKey(nextTopic?.resource_key ?? '')
   }, [filteredTopics, selectedDomainId, selectedMessage?.message_type, selectedTopic])
 
   const changeTopic = useCallback((value, source) => {
@@ -66,11 +69,13 @@ export function useTopicReceiveController({
       selectedTopicSourceRef.current = topic ? 'graph' : 'empty'
       setSelectedTopic(topic?.name ?? '')
       setSelectedDomainId(topic?.domain_id ?? null)
+      setSelectedResourceKey(topic?.resource_key ?? '')
       return
     }
     selectedTopicSourceRef.current = value ? source : 'empty'
     setSelectedTopic(value)
     setSelectedDomainId(null)
+    setSelectedResourceKey('')
   }, [filteredTopics])
 
   const startTopic = async () => {
@@ -83,13 +88,21 @@ export function useTopicReceiveController({
       setFeedback({ tone: 'error', text: 'Select a Message full_type to receive.' })
       return
     }
+    const domainId = domainIdFromResource({
+      domain_id: selectedDomainId,
+      resource_key: selectedResourceKey,
+    })
+    if (domainId === null) {
+      setFeedback({ tone: 'error', text: 'Select a Graph Topic with a monitored Domain ID to receive.' })
+      return
+    }
     try {
       await startReceiveTopic({
         topic_name: selectedTopic.trim(),
         topic_type: topicType,
         history_limit: 500,
         qos: qos.qosSelection,
-        domain_id: selectedDomainId,
+        domain_id: domainId,
       })
       await load()
       setFeedback({ tone: 'success', text: `${selectedTopic.trim()} · ${topicType} 수신을 시작했습니다.` })
@@ -99,8 +112,16 @@ export function useTopicReceiveController({
   }
 
   const stopTopic = async () => {
+    const domainId = domainIdFromResource({
+      domain_id: selectedDomainId,
+      resource_key: selectedResourceKey,
+    })
+    if (domainId === null) {
+      setFeedback({ tone: 'error', text: 'Select a Graph Topic with a monitored Domain ID to stop receiving.' })
+      return
+    }
     try {
-      await stopReceiveTopic({ topic_name: selectedTopic, topic_type: selectedMessage?.message_type, domain_id: selectedDomainId })
+      await stopReceiveTopic({ topic_name: selectedTopic, topic_type: selectedMessage?.message_type, domain_id: domainId })
       await load()
       setFeedback({ tone: 'warning', text: `Stopped receiving ${selectedTopic}.` })
     } catch (error) {

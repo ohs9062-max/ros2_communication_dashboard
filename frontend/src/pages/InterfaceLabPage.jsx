@@ -127,7 +127,11 @@ export function InterfaceLabPage({ websocket }) {
           setSelected(null)
         }}
         onHistorySelect={setSelectedHistoryItem}
-        onExecute={(item) => setExecutionRequest({ id: Date.now(), kind: item.kind })}
+        onExecute={(item) => setExecutionRequest({
+          id: Date.now(),
+          kind: item.kind,
+          target: executionTarget(item),
+        })}
         onRelatedSelect={(nextItem) => {
           setSelected(nextItem)
           setSelectedHistoryItem(null)
@@ -144,4 +148,32 @@ export function InterfaceLabPage({ websocket }) {
       )}
     </main>
   )
+}
+
+function executionTarget(item) {
+  const kind = item.kind === 'callable_service' ? 'service'
+    : item.kind === 'callable_action' ? 'action'
+    : item.kind
+  const candidates = kind === 'message'
+    ? item.connectedTopics ?? []
+    : kind === 'service'
+    ? item.connectedServices ?? []
+    : kind === 'action'
+    ? item.connectedActions ?? []
+    : []
+  if (candidates.length !== 1) return null
+
+  const resource = candidates[0]
+  const name = kind === 'message'
+    ? resource.name ?? resource.topic_name
+    : kind === 'service'
+    ? resource.service_name
+    : resource.action_name
+  if (!name || resource.domain_id === null || resource.domain_id === undefined) return null
+  return {
+    domainId: resource.domain_id,
+    fullType: item.fullType,
+    name,
+    resourceKey: resource.resource_key ?? `${resource.domain_id}:${name}`,
+  }
 }

@@ -8,6 +8,7 @@ import {
 import {
   actionKey,
   defaultRequestValues,
+  domainIdFromResource,
   normalizeNumericValues,
 } from '../model/interfaceUploadModel.js'
 import { useActionExecutionQos } from './useExecutionQos.js'
@@ -59,19 +60,32 @@ export function useActionExecutionController({
     if (nextHistory !== null) setHistory(nextHistory)
   }, [])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ target = null } = {}) => {
     const [actionsPayload, historyPayload] = await Promise.all([
       fetchCallableActions(),
       fetchActionGoalHistory(),
     ])
     const nextActions = actionsPayload.data ?? []
     replace(nextActions, historyPayload.data ?? [])
+    if (target) {
+      const action = nextActions.find((item) => matchesTarget(item, target))
+      if (action) {
+        setSelectedKey(actionKey(action))
+        onSelectionChange?.(actionKey(action))
+        setGoalValues(defaultRequestValues(action.goal_schema ?? []))
+      }
+    }
     return nextActions
-  }, [replace])
+  }, [onSelectionChange, replace])
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
       setResult({ success: false, error: 'No executable Action is available.' })
+      return
+    }
+    const domainId = domainIdFromResource(selected)
+    if (domainId === null) {
+      setResult({ success: false, accepted: false, error: 'The selected Action has no monitored Domain ID.' })
       return
     }
     setBusy(true)
@@ -84,7 +98,7 @@ export function useActionExecutionController({
         goal: normalizeNumericValues(goalValues, selected.goal_schema),
         timeout_sec: timeoutSec,
         qos: qos.qosSelection,
-        domain_id: selected.domain_id,
+        domain_id: domainId,
       })
       setResult(payload)
       const historyPayload = await fetchActionGoalHistory()
@@ -119,4 +133,11 @@ export function useActionExecutionController({
     timeoutSec,
     visibleActions,
   }
+}
+
+function matchesTarget(action, target) {
+  return (target.resourceKey && action.resource_key === target.resourceKey)
+    || (action.domain_id === target.domainId
+      && action.action_name === target.name
+      && action.action_type === target.fullType)
 }

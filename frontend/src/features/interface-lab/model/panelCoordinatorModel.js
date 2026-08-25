@@ -19,6 +19,7 @@ export async function runExecutionPanelLoad({
   keepOpen = false,
   loaders,
   mode,
+  target = null,
   isCurrent = () => true,
   setBusy,
   setExecutionMode,
@@ -29,7 +30,7 @@ export async function runExecutionPanelLoad({
 
   setBusy(true)
   try {
-    await loader()
+    await loader(target ? { target } : undefined)
     if (!isCurrent()) return false
     setExecutionMode(mode)
     if (!keepOpen) hideManagementPanels()
@@ -43,7 +44,7 @@ export async function runExecutionPanelLoad({
 }
 
 export function isWorkspaceExpanded({
-  executionMode,
+  executionMode: _executionMode,
   receiveMode,
   showManualInput,
   showPackages,
@@ -55,12 +56,6 @@ export function isWorkspaceExpanded({
     showManualInput
     || showRegistry
     || showPackages
-    || (
-      showReceivePanel
-      && (
-        executionMode === receiveMode
-        || (executionMode === null && receiveMode !== 'mock')
-      )
-    )
+    || (showReceivePanel && receiveMode !== 'mock')
   ))
 }

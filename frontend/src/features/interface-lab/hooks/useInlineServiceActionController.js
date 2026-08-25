@@ -8,6 +8,7 @@ import {
   sendActionGoal,
 } from '../../../api/interfaceExecution.js'
 import { defaultValues, normalizeNumericValues } from '../model/schemaValues.js'
+import { domainIdFromResource } from '../model/interfaceUploadModel.js'
 import { useActionExecutionQos, useServiceExecutionQos } from './useExecutionQos.js'
 
 export function useInlineServiceActionController({ refresh, selectedDetail }) {
@@ -59,6 +60,11 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
       setResult({ success: false, error: 'No callable Service is available.' })
       return
     }
+    const domainId = domainIdFromResource(target)
+    if (domainId === null) {
+      setResult({ success: false, error: 'The selected Service has no monitored Domain ID.' })
+      return
+    }
     setExecuting(true)
     setResult(null)
     try {
@@ -68,7 +74,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
         request: normalizeNumericValues(requestValues, selectedDetail.schema),
         timeout_sec: timeoutSec,
         qos: serviceQos.qosSelection,
-        domain_id: target.domain_id,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -87,6 +93,11 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
       setResult({ success: false, accepted: false, error: 'No executable Action is available.' })
       return
     }
+    const domainId = domainIdFromResource(target)
+    if (domainId === null) {
+      setResult({ success: false, accepted: false, error: 'The selected Action has no monitored Domain ID.' })
+      return
+    }
     setExecuting(true)
     setResult(null)
     try {
@@ -97,7 +108,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
         goal: normalizeNumericValues(goalValues, selectedDetail.schema),
         timeout_sec: goalTimeoutSec,
         qos: actionQos.qosSelection,
-        domain_id: target.domain_id,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -112,13 +123,18 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     const target = callableActions.find((action) => resourceKey(action) === actionTargetKey)
       ?? (selectedDetail?.kind === 'callable_action' ? selectedDetail.status : null)
     if (!target?.action_name || !target?.action_type) return
+    const domainId = domainIdFromResource(target)
+    if (domainId === null) {
+      setResult({ success: false, error: 'The selected Action has no monitored Domain ID.' })
+      return
+    }
     setCancelingGoal(true)
     try {
       const nextResult = await cancelActionGoal({
         action_name: target.action_name,
         action_type: target.action_type,
         timeout_sec: goalTimeoutSec,
-        domain_id: target.domain_id,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })

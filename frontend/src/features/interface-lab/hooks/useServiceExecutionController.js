@@ -7,6 +7,7 @@ import {
 } from '../../../api/interfaceExecution.js'
 import {
   defaultRequestValues,
+  domainIdFromResource,
   normalizeNumericValues,
   serviceKey,
 } from '../model/interfaceUploadModel.js'
@@ -59,19 +60,32 @@ export function useServiceExecutionController({
     if (nextHistory !== null) setHistory(nextHistory)
   }, [])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ target = null } = {}) => {
     const [servicesPayload, historyPayload] = await Promise.all([
       fetchCallableServices(),
       fetchServiceCallHistory(),
     ])
     const nextServices = servicesPayload.data ?? []
     replace(nextServices, historyPayload.data ?? [])
+    if (target) {
+      const service = nextServices.find((item) => matchesTarget(item, target))
+      if (service) {
+        setSelectedKey(serviceKey(service))
+        onSelectionChange?.(serviceKey(service))
+        setRequestValues(defaultRequestValues(service.request_schema ?? []))
+      }
+    }
     return nextServices
-  }, [replace])
+  }, [onSelectionChange, replace])
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
       setResult({ success: false, error: 'No callable Service is available.' })
+      return
+    }
+    const domainId = domainIdFromResource(selected)
+    if (domainId === null) {
+      setResult({ success: false, error: 'The selected Service has no monitored Domain ID.' })
       return
     }
     setBusy(true)
@@ -83,7 +97,7 @@ export function useServiceExecutionController({
         request: normalizeNumericValues(requestValues, selected.request_schema),
         timeout_sec: timeoutSec,
         qos: qos.qosSelection,
-        domain_id: selected.domain_id,
+        domain_id: domainId,
       })
       setResult(payload)
       const historyPayload = await fetchServiceCallHistory()
@@ -121,4 +135,11 @@ export function useServiceExecutionController({
     timeoutSec,
     visibleServices,
   }
+}
+
+function matchesTarget(service, target) {
+  return (target.resourceKey && service.resource_key === target.resourceKey)
+    || (service.domain_id === target.domainId
+      && service.service_name === target.name
+      && service.service_type === target.fullType)
 }

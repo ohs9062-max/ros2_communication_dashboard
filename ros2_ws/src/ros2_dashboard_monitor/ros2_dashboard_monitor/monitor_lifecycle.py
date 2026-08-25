@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import rclpy
 from rclpy.context import Context
+from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 
 
@@ -62,10 +63,20 @@ def spin_monitor_node(node: Any, *, context: Context | None = None) -> None:
     """정상 shutdown 예외는 삼키고 실행 중 예외만 다시 발생시킵니다."""
     if node is None:
         return
+    executor = None
     try:
-        rclpy.spin(node)
+        if context is None:
+            rclpy.spin(node)
+            return
+        executor = SingleThreadedExecutor(context=context)
+        executor.add_node(node)
+        executor.spin()
     except rclpy.executors.ExternalShutdownException:
         pass
     except Exception:
         if rclpy.ok(context=context):
             raise
+    finally:
+        if executor is not None:
+            executor.remove_node(node)
+            executor.shutdown(timeout_sec=SPIN_JOIN_TIMEOUT_SEC)

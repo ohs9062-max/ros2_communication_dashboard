@@ -38,6 +38,14 @@ export function messageKey(message) {
   return `${message.message_type ?? message.full_type ?? message.file_name}|${message.source ?? ''}`
 }
 
+export function domainIdFromResource(resource) {
+  const resourceKey = String(resource?.resource_key ?? resource?.resourceKey ?? '')
+  const keyDomain = /^([0-9]+):/.exec(resourceKey)?.[1]
+  const value = keyDomain ?? resource?.domain_id ?? resource?.domainId
+  const domainId = Number(value)
+  return Number.isInteger(domainId) && domainId >= 0 && domainId <= 232 ? domainId : null
+}
+
 export function topicStatusLabel(message) {
   return message.import_available ? 'Publish 가능' : 'Publish 불가'
 }

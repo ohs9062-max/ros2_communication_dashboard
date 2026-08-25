@@ -32,6 +32,13 @@
   Context/Node/Fast DDS observer runtime을 추가·종료·재시작 복원하고 `.env`/shell `ROS_DOMAIN_ID`, 99 또는 첫
   Domain을 multi-domain fallback으로 사용하지 않는다. Topic/Service/Action/Node snapshot, 상세·History·Latest·Hz·Preview,
   QoS·Alert·Overview와 Interface Lab 실행은 `domain_id`/`resource_key`를 유지해 동일 이름 리소스를 분리한다.
+- Interface Lab 상세에서 실행을 열면 Graph에서 선택한 단일 Topic/Service/Action resource의
+  `resource_key`·`domain_id`·이름·type을 실행 loader까지 전달해 해당 Domain runtime으로 자동 실행한다.
+  수신 mode 전환은 실행 panel/busy state를 변경하지 않으며, 여러 동일 type 후보가 있으면 임의 Domain을
+  선택하지 않고 기존 Domain 표기 selector를 유지한다.
+- Interface Lab의 Topic Publish/Receive, Service Call, Action Goal/Cancel은 selected resource identity에서
+  확정한 `domain_id`가 있을 때만 HTTP payload를 보낸다. 누락/범위 밖 값은 Browser에서 차단하며 multi-domain
+  Monitor에 name-only 요청을 보내지 않는다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Topic Monitor Subscription은 resource별 실제 수신 preview를 기본 100개 bounded memory history로 보존한다.
@@ -393,7 +400,7 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 277 passed
+Monitor pytest: 278 passed
 Backend pytest: 17 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
@@ -471,6 +478,9 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 - Node `주요 항목`은 Backend의 최종 `is_primary`를 사용한다. disconnected 일반 Node는 주요로 유지하되,
   transform listener, launch helper, `_rclcpp_node`, `_action_client`는 `is_auxiliary=true`로 분류해 자동 주요에서
   제외한다. 명시적 `nodes.primary_names`와 사용자 별표는 보조 Node 제외보다 우선한다.
+- Multi-domain child `RosMonitor`는 각 rclpy `Context`에 결합된 전용 `SingleThreadedExecutor`로 spin한다.
+  `rclpy.spin(node)`의 global executor를 사용하지 않으므로 Domain별 Topic callback, Service future와 Action
+  feedback/result가 선택 resource의 Context에서 처리된다.
 
 ## 다음 우선 작업
 

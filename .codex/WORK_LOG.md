@@ -349,3 +349,43 @@
   Domain 2 실행 라우팅을 회귀 테스트로 추가했다. Monitor 277 passed, Backend 17 passed·2 skipped, Frontend
   unit 전체·oxlint·Vite build와 `git diff --check`가 통과했다. 실제 service 재시작과 로컬 HTTPS 정적 파일
   동기화는 이번 작업에서 수행하지 않았다.
+
+## 2026-08-25 - Multi-domain 실제 통신 executor 수정
+
+- resource 발견부터 Frontend/Backend payload, Monitor transport와 `MultiDomainRosMonitor._runtime(domain_id)`까지는
+  선택 Domain이 유지됐지만, child `RosMonitor._spin()`이 `rclpy.spin(node)`을 호출해 전역 기본 executor를
+  사용했다. Domain별 Node를 올바른 Context로 생성하고도 callback/future가 그 Context에서 처리되지 않은 것이
+  `감시 중` 표시와 실제 통신 불가가 동시에 나타난 직접 원인이었다.
+- 명시 Context가 있는 child runtime만 `SingleThreadedExecutor(context=context)`를 생성해 Node를 add/spin/remove/
+  shutdown하도록 `monitor_lifecycle.py`를 최소 수정했다. 기본 Context의 기존 단일 runtime 경로는 유지했고
+  ROS_DOMAIN_ID, 99 또는 첫 Domain fallback은 추가하지 않았다.
+- 실제 Domain 7 subscriber/server를 별도 Context로 띄워 Dashboard Domain 7 runtime의 Topic Publish 수신,
+  AddTwoInts Service Call 응답과 Fibonacci Action Goal/Result가 모두 성공했고 Domain 0에는 전용 Topic이 섞이지
+  않음을 확인했다. Monitor 전체 278 passed, Monitor package build와 `git diff --check`가 통과했다. 로컬 Monitor
+  재시작은 `sudo -n` credential이 없어 실행되지 않았으므로 현재 service에는 아직 새 executor가 적용되지 않았다.
+
+## 2026-08-25 - Interface Lab 실행 선택/수신 상태 회귀 수정
+
+- Graph 상세에서 `실행`을 열 때 기존에는 execution request에 kind만 전달돼 Topic/Service/Action callable loader가
+  목록의 기본 항목을 선택했다. 이제 단일로 식별되는 Graph resource의 `resource_key`, `domain_id`, 이름과 full type을
+  loader까지 넘겨 해당 항목을 선택하고, Topic은 실행 이름 입력과 Domain도 함께 채운다. 실행 payload는 기존처럼
+  선택 state의 `domain_id`를 Monitor에 전달한다. 여러 후보가 있으면 임의 Domain fallback 없이 기존 selector를 유지한다.
+- Service/Action loader도 전달받은 target과 정확히 일치하는 callable 항목을 선택한다. `ROS_DOMAIN_ID`, 99 또는
+  첫 Domain fallback은 추가하지 않았다. Backend/Monitor routing과 QoS/통신 로직은 변경하지 않았다.
+- 수신 탭의 `selectReceiveMode()`가 동일 이름의 실행 panel까지 다시 load/전환하던 결합을 제거했다. 따라서
+  Service 수신 mode 선택/시작은 Action Goal 실행 panel의 selected/busy/button state를 바꾸지 않으며, 각 수신 observer의
+  기존 독립 active key는 유지된다.
+- Frontend `npm run lint`, `npm run test:unit`, `npm run build`, `git diff --check`를 통과했다. HTTPS 정적 실행 경로
+  동기화는 수행하지 않았으므로 현재 Nginx 화면 반영에는 별도 사용자 권한으로 local HTTPS static sync가 필요하다.
+
+## 2026-08-25 - Interface Lab 실행 payload Domain ID 보장
+
+- multi-domain 상태에서 `domain_id: undefined`는 JSON 직렬화 시 key 자체가 빠져 Monitor의
+  `domain_id is required when multiple Domains are monitored` 오류를 만들 수 있었다. 선택 resource의
+  `resource_key` 우선(없으면 선택 state의 `domain_id`)으로 0~232 정수 Domain을 명시 추출하는 작은 helper를 기존
+  Interface Lab model에 추가했다. 이는 fallback이 아니라 선택 resource identity 검증이다.
+- Topic Publish/지속 Publish/중지/Receive 시작·중지, Service Call, Action Goal/Cancel의 payload가 이 확정 숫자를
+  `domain_id`로 보낸다. Graph resource identity가 없으면 요청을 전송하지 않고 선택 Domain ID 필요 오류를 화면에
+  표시한다. ROS_DOMAIN_ID, 99, 첫 Domain 및 UI Domain 선택은 추가하지 않았다.
+- helper의 resource-key 우선·범위/누락 거부 unit test와 Frontend `npm run lint`, `npm run test:unit`,
+  `npm run build`, `git diff --check`를 통과했다. HTTPS 정적 실행 경로 동기화는 수행하지 않았다.

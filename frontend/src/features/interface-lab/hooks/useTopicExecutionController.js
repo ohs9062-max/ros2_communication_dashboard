@@ -8,6 +8,7 @@ import {
 } from '../../../api/interfaceExecution.js'
 import {
   defaultRequestValues,
+  domainIdFromResource,
   messageKey,
   normalizeNumericValues,
 } from '../model/interfaceUploadModel.js'
@@ -28,6 +29,7 @@ export function useTopicExecutionController({
   const [importableOnly, setImportableOnly] = useState(false)
   const [publishName, setPublishName] = useState('')
   const [publishDomainId, setPublishDomainId] = useState(null)
+  const [publishResourceKey, setPublishResourceKey] = useState('')
   const publishNameSourceRef = useRef('empty')
   const [messageValues, setMessageValues] = useState({})
   const [busy, setBusy] = useState(false)
@@ -90,11 +92,13 @@ export function useTopicExecutionController({
       publishNameSourceRef.current = 'empty'
       setPublishName('')
       setPublishDomainId(null)
+      setPublishResourceKey('')
       return
     } else if (source === 'auto' && publishGraphTopics.length !== 1) {
       publishNameSourceRef.current = 'empty'
       setPublishName('')
       setPublishDomainId(null)
+      setPublishResourceKey('')
       return
     }
 
@@ -104,6 +108,7 @@ export function useTopicExecutionController({
       publishNameSourceRef.current = 'auto'
       setPublishName(nextName)
       setPublishDomainId(publishGraphTopics[0].domain_id ?? null)
+      setPublishResourceKey(publishGraphTopics[0].resource_key ?? '')
     }
   }, [publishDomainId, publishGraphTopics, publishName, selected?.message_type])
 
@@ -112,6 +117,7 @@ export function useTopicExecutionController({
     onStateChanged,
     publishDomainId,
     publishName,
+    publishResourceKey,
     selected,
     setBusy,
     setResult,
@@ -125,13 +131,26 @@ export function useTopicExecutionController({
     if (nextContinuous !== null) setContinuousPublishes(nextContinuous)
   }, [setContinuousPublishes])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ target = null } = {}) => {
     const [messagesPayload, historyPayload] = await Promise.all([
       fetchCallableMessages(),
       fetchTopicPublishHistory({ limit: 100 }),
     ])
     const nextMessages = messagesPayload.data ?? []
     replace(nextMessages, historyPayload.data ?? [])
+    if (target) {
+      const message = nextMessages.find((item) => item.message_type === target.fullType)
+      if (message) {
+        setSelectedKey(messageKey(message))
+        setMessageValues(defaultRequestValues(message.message_schema ?? []))
+      }
+      if (target.name && target.domainId !== null && target.domainId !== undefined) {
+        publishNameSourceRef.current = 'graph'
+        setPublishName(target.name)
+        setPublishDomainId(target.domainId)
+        setPublishResourceKey(target.resourceKey ?? '')
+      }
+    }
     return nextMessages
   }, [replace])
 
@@ -141,11 +160,13 @@ export function useTopicExecutionController({
       publishNameSourceRef.current = topic ? 'graph' : 'empty'
       setPublishName(topic?.name ?? '')
       setPublishDomainId(topic?.domain_id ?? null)
+      setPublishResourceKey(topic?.resource_key ?? '')
       return
     }
     publishNameSourceRef.current = value ? sourceKind : 'empty'
     setPublishName(value)
     setPublishDomainId(null)
+    setPublishResourceKey('')
   }, [publishGraphTopics])
 
   const publish = useCallback(async () => {
@@ -157,6 +178,14 @@ export function useTopicExecutionController({
       setResult({ success: false, error: 'Select a Message full_type to publish.' })
       return
     }
+    const domainId = domainIdFromResource({
+      domain_id: publishDomainId,
+      resource_key: publishResourceKey,
+    })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to publish.' })
+      return
+    }
     setBusy(true)
     setResult(null)
     try {
@@ -166,7 +195,7 @@ export function useTopicExecutionController({
         full_type: selected.message_type,
         message: normalizeNumericValues(messageValues, selected.message_schema),
         qos: qos.qosSelection,
-        domain_id: publishDomainId,
+        domain_id: domainId,
       })
       setResult(payload)
       const historyPayload = await fetchTopicPublishHistory({ limit: 100 })
@@ -177,7 +206,7 @@ export function useTopicExecutionController({
     } finally {
       setBusy(false)
     }
-  }, [messageValues, onStateChanged, publishDomainId, publishName, qos.qosSelection, selected])
+  }, [messageValues, onStateChanged, publishDomainId, publishName, publishResourceKey, qos.qosSelection, selected])
 
   const resetHistory = useCallback(async () => {
     try {
@@ -210,6 +239,7 @@ export function useTopicExecutionController({
     publish,
     publishGraphTopics,
     publishDomainId,
+    publishResourceKey,
     publishName,
     publishWarning,
     replace,

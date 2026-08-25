@@ -137,9 +137,9 @@ export function InterfaceUploadControl({
 
   useEffect(() => {
     if (!executionRequest?.id) return
-    if (executionRequest.kind === 'message') openTopicPanel()
-    else if (executionRequest.kind === 'service' || executionRequest.kind === 'callable_service') openServicePanel()
-    else if (executionRequest.kind === 'action' || executionRequest.kind === 'callable_action') openActionPanel()
+    if (executionRequest.kind === 'message') openTopicPanel(executionRequest.target)
+    else if (executionRequest.kind === 'service' || executionRequest.kind === 'callable_service') openServicePanel(executionRequest.target)
+    else if (executionRequest.kind === 'action' || executionRequest.kind === 'callable_action') openActionPanel(executionRequest.target)
   }, [executionRequest, openActionPanel, openServicePanel, openTopicPanel])
 
   useInterfaceControlLifecycle({

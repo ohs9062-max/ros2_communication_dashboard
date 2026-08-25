@@ -26,6 +26,27 @@ class _Thread:
         self.join_timeout = timeout
 
 
+class _Executor:
+    def __init__(self, *, context) -> None:
+        self.context = context
+        self.added = []
+        self.removed = []
+        self.spun = False
+        self.shutdown_timeout = None
+
+    def add_node(self, node) -> None:
+        self.added.append(node)
+
+    def remove_node(self, node) -> None:
+        self.removed.append(node)
+
+    def spin(self) -> None:
+        self.spun = True
+
+    def shutdown(self, *, timeout_sec: float) -> None:
+        self.shutdown_timeout = timeout_sec
+
+
 def test_create_monitor_node_initializes_rclpy_and_timer(monkeypatch) -> None:
     initialized = []
     monkeypatch.setattr(lifecycle.rclpy, 'init', lambda **kwargs: initialized.append(kwargs))
@@ -64,3 +85,23 @@ def test_shutdown_stops_rclpy_joins_thread_and_destroys_node(monkeypatch) -> Non
     assert shutdown == [True]
     assert thread.join_timeout == lifecycle.SPIN_JOIN_TIMEOUT_SEC
     assert node.destroyed is True
+
+
+def test_spin_uses_an_executor_bound_to_the_explicit_context(monkeypatch) -> None:
+    executors = []
+    monkeypatch.setattr(
+        lifecycle,
+        'SingleThreadedExecutor',
+        lambda **kwargs: executors.append(_Executor(**kwargs)) or executors[-1],
+    )
+    context = object()
+    node = _Node()
+
+    lifecycle.spin_monitor_node(node, context=context)
+
+    assert len(executors) == 1
+    assert executors[0].context is context
+    assert executors[0].added == [node]
+    assert executors[0].spun is True
+    assert executors[0].removed == [node]
+    assert executors[0].shutdown_timeout == lifecycle.SPIN_JOIN_TIMEOUT_SEC

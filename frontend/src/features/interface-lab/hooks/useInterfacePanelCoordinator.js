@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   closeExecutionPanel,
-  isExecutionMode,
   isWorkspaceExpanded,
   runExecutionPanelLoad,
 } from '../model/panelCoordinatorModel.js'
@@ -47,7 +46,7 @@ export function useInterfacePanelCoordinator({
     setShowBuildLog(false)
   }, [setShowBuildLog, setShowPackages, setShowRegistry])
 
-  const loadExecutionPanel = useCallback(async (mode, keepOpen = false) => {
+  const loadExecutionPanel = useCallback(async (mode, keepOpen = false, target = null) => {
     const requestId = executionRequestRef.current + 1
     executionRequestRef.current = requestId
     return runExecutionPanelLoad({
@@ -60,6 +59,7 @@ export function useInterfacePanelCoordinator({
         topic: loadTopicExecution,
       },
       mode,
+      target,
       setBusy,
       setExecutionMode,
       setFeedback,
@@ -73,10 +73,10 @@ export function useInterfacePanelCoordinator({
     setFeedback,
   ])
 
-  const openExecutionPanel = useCallback(async (mode) => {
+  const openExecutionPanel = useCallback(async (mode, target = null) => {
     setShowReceivePanel(true)
     setReceiveMode(mode)
-    if (await loadExecutionPanel(mode)) await loadReceiveState({ silent: true })
+    if (await loadExecutionPanel(mode, false, target)) await loadReceiveState({ silent: true })
   }, [loadExecutionPanel, loadReceiveState, setReceiveMode, setShowReceivePanel])
 
   const openReceivePanel = useCallback(() => {
@@ -93,18 +93,14 @@ export function useInterfacePanelCoordinator({
     setShowReceivePanel,
   ])
 
-  const openTopicPanel = useCallback(() => openExecutionPanel('topic'), [openExecutionPanel])
-  const openServicePanel = useCallback(() => openExecutionPanel('service'), [openExecutionPanel])
-  const openActionPanel = useCallback(() => openExecutionPanel('action'), [openExecutionPanel])
+  const openTopicPanel = useCallback((target = null) => openExecutionPanel('topic', target), [openExecutionPanel])
+  const openServicePanel = useCallback((target = null) => openExecutionPanel('service', target), [openExecutionPanel])
+  const openActionPanel = useCallback((target = null) => openExecutionPanel('action', target), [openExecutionPanel])
 
   const selectReceiveMode = useCallback(async (mode) => {
     setReceiveMode(mode)
-    if (!isExecutionMode(mode)) {
-      closeExecutionPanels()
-      return
-    }
-    if (await loadExecutionPanel(mode)) await loadReceiveState({ silent: true })
-  }, [closeExecutionPanels, loadExecutionPanel, loadReceiveState, setReceiveMode])
+    await loadReceiveState({ silent: true })
+  }, [loadReceiveState, setReceiveMode])
 
   const openPackages = useCallback(async () => {
     if (await loadPackages()) closeExecutionPanels()

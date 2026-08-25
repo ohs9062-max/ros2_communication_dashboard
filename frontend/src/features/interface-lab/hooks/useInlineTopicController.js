@@ -15,6 +15,7 @@ import {
   topicNameTypeWarning,
 } from '../../../utils/interfaceTopics.js'
 import { defaultValues, normalizeNumericValues } from '../model/schemaValues.js'
+import { domainIdFromResource } from '../model/interfaceUploadModel.js'
 import { runSingleFlight } from '../model/singleFlight.js'
 import { useExecutionQos } from './useExecutionQos.js'
 
@@ -28,9 +29,11 @@ export function useInlineTopicController({
   const [messageValues, setMessageValues] = useState({})
   const [publishName, setPublishName] = useState('')
   const [publishDomainId, setPublishDomainId] = useState(null)
+  const [publishResourceKey, setPublishResourceKey] = useState('')
   const [publishHz, setPublishHz] = useState(10)
   const [subscribeName, setSubscribeName] = useState('')
   const [subscribeDomainId, setSubscribeDomainId] = useState(null)
+  const [subscribeResourceKey, setSubscribeResourceKey] = useState('')
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState(null)
   const continuousPollInFlightRef = useRef(false)
@@ -75,8 +78,9 @@ export function useInlineTopicController({
       setMessageValues(defaultValues(selectedDetail.schema ?? []))
       setSubscribeName(defaultTopicName)
       setSubscribeDomainId(defaultTopic?.domain_id ?? null)
+      setSubscribeResourceKey(defaultTopic?.resource_key ?? '')
     }
-  }, [defaultTopic?.domain_id, defaultTopicName, selectedDetail?.kind, selectedDetail?.schema, selectedDetail?.stableKey])
+  }, [defaultTopic?.domain_id, defaultTopic?.resource_key, defaultTopicName, selectedDetail?.kind, selectedDetail?.schema, selectedDetail?.stableKey])
 
   useEffect(() => {
     if (selectedDetail?.kind !== 'message') return
@@ -92,11 +96,13 @@ export function useInlineTopicController({
       publishNameSourceRef.current = 'empty'
       setPublishName('')
       setPublishDomainId(null)
+      setPublishResourceKey('')
       return
     } else if (source === 'auto' && publishGraphTopics.length !== 1) {
       publishNameSourceRef.current = 'empty'
       setPublishName('')
       setPublishDomainId(null)
+      setPublishResourceKey('')
       return
     }
 
@@ -106,6 +112,7 @@ export function useInlineTopicController({
       publishNameSourceRef.current = 'auto'
       setPublishName(nextName)
       setPublishDomainId(publishGraphTopics[0].domain_id ?? null)
+      setPublishResourceKey(publishGraphTopics[0].resource_key ?? '')
     }
   }, [publishDomainId, publishGraphTopics, selectedDetail?.kind, selectedDetail?.fullType, publishName])
 
@@ -113,6 +120,7 @@ export function useInlineTopicController({
     publishNameSourceRef.current = value ? 'user' : 'empty'
     setPublishName(value)
     setPublishDomainId(null)
+    setPublishResourceKey('')
   }
 
   const selectPublishGraphTopic = (resourceKey) => {
@@ -120,6 +128,7 @@ export function useInlineTopicController({
     publishNameSourceRef.current = topic ? 'graph' : 'empty'
     setPublishName(topic?.name ?? '')
     setPublishDomainId(topic?.domain_id ?? null)
+    setPublishResourceKey(topic?.resource_key ?? '')
   }
 
   const publish = async () => {
@@ -131,6 +140,11 @@ export function useInlineTopicController({
       setResult({ success: false, error: 'Enter a Topic name to publish.' })
       return
     }
+    const domainId = domainIdFromResource({ domain_id: publishDomainId, resource_key: publishResourceKey })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to publish.' })
+      return
+    }
     setExecuting(true)
     setResult(null)
     try {
@@ -140,7 +154,7 @@ export function useInlineTopicController({
         full_type: selectedDetail.fullType,
         message: normalizeNumericValues(messageValues, selectedDetail.schema),
         qos: publishQos.qosSelection,
-        domain_id: publishDomainId,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -156,6 +170,11 @@ export function useInlineTopicController({
       setResult({ success: false, error: 'Message full_type and a publish Topic name are required.' })
       return
     }
+    const domainId = domainIdFromResource({ domain_id: publishDomainId, resource_key: publishResourceKey })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to publish.' })
+      return
+    }
     setExecuting(true)
     setResult(null)
     try {
@@ -166,7 +185,7 @@ export function useInlineTopicController({
         message: normalizeNumericValues(messageValues, selectedDetail.schema),
         hz: Number(publishHz),
         qos: publishQos.qosSelection,
-        domain_id: publishDomainId,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -179,12 +198,17 @@ export function useInlineTopicController({
 
   const stopContinuous = async () => {
     if (!selectedDetail?.fullType || !publishName) return
+    const domainId = domainIdFromResource({ domain_id: publishDomainId, resource_key: publishResourceKey })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to stop publishing.' })
+      return
+    }
     setExecuting(true)
     try {
       const nextResult = await stopContinuousTopicPublish({
         topic_name: publishName,
         topic_type: selectedDetail.fullType,
-        domain_id: publishDomainId,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -200,6 +224,11 @@ export function useInlineTopicController({
       setResult({ success: false, error: 'Topic name and Message full_type are required.' })
       return
     }
+    const domainId = domainIdFromResource({ domain_id: subscribeDomainId, resource_key: subscribeResourceKey })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to receive.' })
+      return
+    }
     try {
       const nextResult = await startReceiveTopic({
         topic_name: subscribeName,
@@ -207,7 +236,7 @@ export function useInlineTopicController({
         full_type: selectedDetail.fullType,
         history_limit: 500,
         qos: subscribeQos.qosSelection,
-        domain_id: subscribeDomainId,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -218,12 +247,17 @@ export function useInlineTopicController({
 
   const stopSubscribe = async () => {
     if (!selectedDetail?.fullType || !subscribeName) return
+    const domainId = domainIdFromResource({ domain_id: subscribeDomainId, resource_key: subscribeResourceKey })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to stop receiving.' })
+      return
+    }
     try {
       const nextResult = await stopReceiveTopic({
         topic_name: subscribeName,
         topic_type: selectedDetail.fullType,
         full_type: selectedDetail.fullType,
-        domain_id: subscribeDomainId,
+        domain_id: domainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -248,9 +282,11 @@ export function useInlineTopicController({
     publishNameSourceRef.current = 'empty'
     setPublishName('')
     setPublishDomainId(null)
+    setPublishResourceKey('')
     setPublishHz(10)
     setSubscribeName('')
     setSubscribeDomainId(null)
+    setSubscribeResourceKey('')
     setResult(null)
   }
 
@@ -278,7 +314,7 @@ export function useInlineTopicController({
     selectPublishGraphTopic,
     setMessageValues,
     setPublishHz,
-    setSubscribeName: (value) => { setSubscribeName(value); setSubscribeDomainId(null) },
+    setSubscribeName: (value) => { setSubscribeName(value); setSubscribeDomainId(null); setSubscribeResourceKey('') },
     subscribeDomainId,
     startContinuous,
     startSubscribe,

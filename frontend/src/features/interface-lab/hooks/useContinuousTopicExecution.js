@@ -5,13 +5,14 @@ import {
   startContinuousTopicPublish,
   stopContinuousTopicPublish,
 } from '../../../api/interfaceExecution.js'
-import { normalizeNumericValues } from '../model/interfaceUploadModel.js'
+import { domainIdFromResource, normalizeNumericValues } from '../model/interfaceUploadModel.js'
 import { runSingleFlight } from '../model/singleFlight.js'
 
 export function useContinuousTopicExecution({
   messageValues,
   onStateChanged,
   publishDomainId,
+  publishResourceKey,
   publishName,
   qosSelection,
   selected,
@@ -50,6 +51,14 @@ export function useContinuousTopicExecution({
       setResult({ success: false, error: 'Select a publish Topic name and Message full_type.' })
       return
     }
+    const domainId = domainIdFromResource({
+      domain_id: publishDomainId,
+      resource_key: publishResourceKey,
+    })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to publish.' })
+      return
+    }
     setBusy(true)
     setResult(null)
     try {
@@ -60,7 +69,7 @@ export function useContinuousTopicExecution({
         message: normalizeNumericValues(messageValues, selected.message_schema),
         hz: Number(publishHz),
         qos: qosSelection,
-        domain_id: publishDomainId,
+        domain_id: domainId,
       })
       setResult(payload)
       const state = await fetchContinuousTopicPublishes()
@@ -71,16 +80,24 @@ export function useContinuousTopicExecution({
     } finally {
       setBusy(false)
     }
-  }, [messageValues, onStateChanged, publishDomainId, publishHz, publishName, qosSelection, selected, setBusy, setResult])
+  }, [messageValues, onStateChanged, publishDomainId, publishHz, publishName, publishResourceKey, qosSelection, selected, setBusy, setResult])
 
   const stopContinuous = useCallback(async () => {
     if (!publishName.trim() || !selected?.message_type) return
+    const domainId = domainIdFromResource({
+      domain_id: publishDomainId,
+      resource_key: publishResourceKey,
+    })
+    if (domainId === null) {
+      setResult({ success: false, error: 'Select a Graph Topic with a monitored Domain ID to stop publishing.' })
+      return
+    }
     setBusy(true)
     try {
       const payload = await stopContinuousTopicPublish({
         topic_name: publishName.trim(),
         topic_type: selected.message_type,
-        domain_id: publishDomainId,
+        domain_id: domainId,
       })
       setResult(payload)
       const state = await fetchContinuousTopicPublishes()
@@ -91,7 +108,7 @@ export function useContinuousTopicExecution({
     } finally {
       setBusy(false)
     }
-  }, [onStateChanged, publishDomainId, publishName, selected?.message_type, setBusy, setResult])
+  }, [onStateChanged, publishDomainId, publishName, publishResourceKey, selected?.message_type, setBusy, setResult])
 
   return {
     activeContinuousPublish,
