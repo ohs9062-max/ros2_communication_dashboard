@@ -9,8 +9,9 @@ import {
   actionKey,
   defaultRequestValues,
   domainIdFromResource,
+  executionCandidateForTarget,
+  executionResourceOptions,
   normalizeNumericValues,
-  preferredExecutable,
 } from '../model/interfaceUploadModel.js'
 import { useActionExecutionQos } from './useExecutionQos.js'
 
@@ -53,9 +54,9 @@ export function useActionExecutionController({
       return
     }
     const current = visibleActions.find((action) => actionKey(action) === selectedKey)
-    const preferred = preferredExecutable(visibleActions)
-    if (current && (current.callable || !preferred?.callable)) return
-    select(actionKey(preferred))
+    if (current) return
+    if (visibleActions.length === 1) select(actionKey(visibleActions[0]))
+    else if (selectedKey) select('')
   }, [select, selectedKey, visibleActions])
 
   const replace = useCallback((nextActions, nextHistory = null) => {
@@ -68,15 +69,22 @@ export function useActionExecutionController({
       fetchCallableActions(),
       fetchActionGoalHistory(),
     ])
-    const nextActions = actionsPayload.data ?? []
+    let selectedTarget = null
+    const nextActions = executionResourceOptions(
+      actionsPayload.data ?? [], 'action_name', 'action_type',
+    ).map((item) => {
+      const candidate = target
+        ? executionCandidateForTarget(item, target, 'action_name', 'action_type')
+        : null
+      if (!candidate) return item
+      selectedTarget = { ...item, ...candidate, resource_candidates: item.resource_candidates }
+      return selectedTarget
+    })
     replace(nextActions, historyPayload.data ?? [])
-    if (target) {
-      const action = nextActions.find((item) => matchesTarget(item, target))
-      if (action) {
-        setSelectedKey(actionKey(action))
-        onSelectionChange?.(actionKey(action))
-        setGoalValues(defaultRequestValues(action.goal_schema ?? []))
-      }
+    if (selectedTarget) {
+      setSelectedKey(actionKey(selectedTarget))
+      onSelectionChange?.(actionKey(selectedTarget))
+      setGoalValues(defaultRequestValues(selectedTarget.goal_schema ?? []))
     }
     return nextActions
   }, [onSelectionChange, replace])
@@ -136,11 +144,4 @@ export function useActionExecutionController({
     timeoutSec,
     visibleActions,
   }
-}
-
-function matchesTarget(action, target) {
-  return (target.resourceKey && action.resource_key === target.resourceKey)
-    || (action.domain_id === target.domainId
-      && action.action_name === target.name
-      && action.action_type === target.fullType)
 }

@@ -13,9 +13,18 @@ export function isActionInternalTopic(topicName = '') {
 
 export function graphPublishTopicCandidates(topics = [], fullType = '') {
   if (!fullType) return []
-  return topics.filter((topic) =>
+  const resources = new Map()
+  topics.filter((topic) =>
     !isActionInternalTopic(topic?.name)
-      && topicHasType(topic, fullType))
+      && topicHasType(topic, fullType)
+      && topic?.graph_present !== false
+      && Number.isInteger(topic?.domain_id)
+      && Boolean(topic?.resource_key))
+    .forEach((topic) => resources.set(`${topic.resource_key}\u0000${fullType}`, topic))
+  return [...resources.values()].sort((left, right) => (
+    String(left.name).localeCompare(String(right.name))
+    || left.domain_id - right.domain_id
+  ))
 }
 
 export function topicNameTypeWarning(topics = [], topicName = '', fullType = '') {

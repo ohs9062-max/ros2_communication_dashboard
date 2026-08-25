@@ -76,7 +76,7 @@ export function useInterfacePanelCoordinator({
   const openExecutionPanel = useCallback(async (mode, target = null) => {
     setShowReceivePanel(true)
     setReceiveMode(mode)
-    if (await loadExecutionPanel(mode, false, target)) await loadReceiveState({ silent: true })
+    if (await loadExecutionPanel(mode, false, target)) await loadReceiveState({ silent: true, mode })
   }, [loadExecutionPanel, loadReceiveState, setReceiveMode, setShowReceivePanel])
 
   const openReceivePanel = useCallback(() => {
@@ -99,7 +99,7 @@ export function useInterfacePanelCoordinator({
 
   const selectReceiveMode = useCallback(async (mode) => {
     setReceiveMode(mode)
-    await loadReceiveState({ silent: true })
+    await loadReceiveState({ silent: true, mode })
   }, [loadReceiveState, setReceiveMode])
 
   const openPackages = useCallback(async () => {

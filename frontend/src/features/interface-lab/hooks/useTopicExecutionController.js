@@ -21,6 +21,8 @@ import { useExecutionQos } from './useExecutionQos.js'
 
 export function useTopicExecutionController({
   availableTopics,
+  onGraphTopicSelectionChange,
+  onMessageSelectionChange,
   onStateChanged,
   setFeedback,
 }) {
@@ -65,9 +67,10 @@ export function useTopicExecutionController({
   const select = useCallback((key) => {
     const message = messages.find((item) => messageKey(item) === key)
     setSelectedKey(key)
+    onMessageSelectionChange?.(key)
     setMessageValues(defaultRequestValues(message?.message_schema ?? []))
     setResult(null)
-  }, [messages])
+  }, [messages, onMessageSelectionChange])
 
   useEffect(() => {
     if (!visibleMessages.length) {
@@ -142,6 +145,7 @@ export function useTopicExecutionController({
       const message = nextMessages.find((item) => item.message_type === target.fullType)
       if (message) {
         setSelectedKey(messageKey(message))
+        onMessageSelectionChange?.(messageKey(message))
         setMessageValues(defaultRequestValues(message.message_schema ?? []))
       }
       if (target.name && target.domainId !== null && target.domainId !== undefined) {
@@ -149,10 +153,16 @@ export function useTopicExecutionController({
         setPublishName(target.name)
         setPublishDomainId(target.domainId)
         setPublishResourceKey(target.resourceKey ?? '')
+        onGraphTopicSelectionChange?.({
+          name: target.name,
+          domain_id: target.domainId,
+          resource_key: target.resourceKey ?? '',
+          type: target.fullType,
+        })
       }
     }
     return nextMessages
-  }, [replace])
+  }, [onGraphTopicSelectionChange, onMessageSelectionChange, replace])
 
   const changePublishName = useCallback((value, sourceKind) => {
     if (sourceKind === 'graph') {
@@ -161,13 +171,22 @@ export function useTopicExecutionController({
       setPublishName(topic?.name ?? '')
       setPublishDomainId(topic?.domain_id ?? null)
       setPublishResourceKey(topic?.resource_key ?? '')
+      if (topic) onGraphTopicSelectionChange?.(topic)
       return
     }
     publishNameSourceRef.current = value ? sourceKind : 'empty'
     setPublishName(value)
     setPublishDomainId(null)
     setPublishResourceKey('')
-  }, [publishGraphTopics])
+  }, [onGraphTopicSelectionChange, publishGraphTopics])
+
+  const selectGraphTopicFromReceive = useCallback((topic) => {
+    if (!topic?.resource_key) return
+    publishNameSourceRef.current = 'graph'
+    setPublishName(topic.name ?? '')
+    setPublishDomainId(topic.domain_id ?? null)
+    setPublishResourceKey(topic.resource_key)
+  }, [])
 
   const publish = useCallback(async () => {
     if (!publishName.trim()) {
@@ -246,6 +265,7 @@ export function useTopicExecutionController({
     resetHistory,
     result,
     select,
+    selectGraphTopicFromReceive,
     selected,
     selectedKey,
     setHistory,

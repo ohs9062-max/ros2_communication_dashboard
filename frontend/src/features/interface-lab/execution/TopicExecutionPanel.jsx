@@ -77,7 +77,7 @@ export function TopicExecutionPanel({
             <span>기존 Graph Topic 후보</span>
             <select value={publishGraphTopics.find((topic) => topic.name === publishName && topic.domain_id === publishDomainId)?.resource_key ?? ''} onChange={(event) => onTopicNameChange(event.target.value, 'graph')}>
               <option value="">직접 입력</option>
-              {publishGraphTopics.map((topic) => <option key={topic.resource_key} value={topic.resource_key}>Domain {topic.domain_id} · {topic.name} · {topic.type ?? topic.types?.[0] ?? '-'}</option>)}
+              {publishGraphTopics.map((topic) => <option key={topic.resource_key} value={topic.resource_key}>{topic.name} · D{topic.domain_id} · {topic.type ?? topic.types?.[0] ?? '-'}</option>)}
             </select>
             <small>선택하면 해당 Topic에 추가 Publisher로 발행합니다. 새 Topic을 만들려면 Publish Topic name을 직접 입력하세요.</small>
           </label>

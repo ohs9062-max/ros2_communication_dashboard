@@ -43,9 +43,10 @@ export function ActionExecutionPanel({
           <label className="interface-service-field">
             <span>Action · {visibleActions.length}/{actions.length}개</span>
             <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
+              <option value="">실행 Action 선택</option>
               {visibleActions.map((action) => (
                 <option key={actionKey(action)} value={actionKey(action)}>
-                  {action.import_available ? 'import됨' : 'import 안됨'} · {actionStatusLabel(action)} · {action.action_name || action.file_name} · {action.action_type}
+                  {action.action_name} · D{action.domain_id} · {action.action_type} · {action.import_available ? 'import됨' : 'import 안됨'} · {actionStatusLabel(action)}
                 </option>
               ))}
             </select>

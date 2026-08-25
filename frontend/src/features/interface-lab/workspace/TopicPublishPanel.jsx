@@ -38,7 +38,7 @@ export function TopicPublishPanel({
           <option value="">직접 입력</option>
           {publishGraphTopics.map((topic) => (
             <option key={topic.resource_key ?? topic.name} value={topic.resource_key ?? ''}>
-              Domain {topic.domain_id} · {topic.name} · {firstType(topic.type ?? topic.types) ?? '-'}
+              {topic.name} · D{topic.domain_id} · {firstType(topic.type ?? topic.types) ?? '-'}
             </option>
           ))}
         </select>

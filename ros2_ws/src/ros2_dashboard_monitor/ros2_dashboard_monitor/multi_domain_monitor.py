@@ -97,13 +97,39 @@ class MultiDomainRosMonitor:
     def action_snapshot(self) -> dict[str, Any]:
         return self._merge('actions', 'action_snapshot')
 
-    def node_snapshot(self, **_: Any) -> dict[str, Any]:
-        return self._merge('nodes', 'node_snapshot')
-
-    def alerts(self, **_: Any) -> dict[str, Any]:
+    def node_snapshot(
+        self,
+        *,
+        topic_snapshot: dict[str, Any] | None = None,
+        service_snapshot: dict[str, Any] | None = None,
+        action_snapshot: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         values = []
         for domain_id, runtime in self._items():
-            snapshot = runtime.alerts()
+            snapshot = runtime.node_snapshot(
+                topic_snapshot=_domain_collection(topic_snapshot, 'topics', domain_id),
+                service_snapshot=_domain_collection(service_snapshot, 'services', domain_id),
+                action_snapshot=_domain_collection(action_snapshot, 'actions', domain_id),
+            )
+            values.extend(_tag_domain_items(snapshot.get('nodes', []), domain_id))
+        return {'nodes': values, 'meta': {'count': len(values)}}
+
+    def alerts(
+        self,
+        *,
+        action_snapshot: dict[str, Any] | None = None,
+        node_snapshot: dict[str, Any] | None = None,
+        service_snapshot: dict[str, Any] | None = None,
+        topic_snapshot: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        values = []
+        for domain_id, runtime in self._items():
+            snapshot = runtime.alerts(
+                action_snapshot=_domain_collection(action_snapshot, 'actions', domain_id),
+                node_snapshot=_domain_collection(node_snapshot, 'nodes', domain_id),
+                service_snapshot=_domain_collection(service_snapshot, 'services', domain_id),
+                topic_snapshot=_domain_collection(topic_snapshot, 'topics', domain_id),
+            )
             for item in snapshot.get('data', []):
                 value = deepcopy(item)
                 value['domain_id'] = domain_id
@@ -260,13 +286,16 @@ class MultiDomainRosMonitor:
     def _callables(self, method: str, key: str) -> dict[str, Any]:
         values = []
         for domain_id, runtime in self._items():
+            if not _runtime_has_server(runtime, key):
+                continue
             for item in getattr(runtime, method)().get(key, []):
                 value = deepcopy(item)
                 value['domain_id'] = domain_id
                 name = value.get('service_name') or value.get('action_name') or value.get('name') or ''
                 value['resource_key'] = f'{domain_id}:{name}'
                 values.append(value)
-        return {key: values, 'meta': {'count': len(values)}}
+        resources = _actual_callable_resources(values, key)
+        return {key: resources, 'meta': {'count': len(resources)}}
 
     def _aggregate_runtime_collection(self, method: str, key: str, **kwargs: Any) -> dict[str, Any]:
         values = []
@@ -344,6 +373,63 @@ def _stored_domain_ids() -> list[int]:
 def _observer_port(base_port: int, domain_id: int) -> int:
     # A separate loopback HTTP port is required per passive Fast DDS helper.
     return int(base_port) + int(domain_id)
+
+
+def _actual_callable_resources(values: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
+    """Return only exact Graph resources while preserving their Domain identity."""
+    name_field = 'service_name' if key == 'services' else 'action_name'
+    type_field = 'service_type' if key == 'services' else 'action_type'
+    discovered: dict[tuple[int, str, str], dict[str, Any]] = {}
+    for value in values:
+        name = str(value.get(name_field) or '')
+        resource_type = str(value.get(type_field) or '')
+        domain_id = value.get('domain_id')
+        if (
+            not name or not resource_type or not isinstance(domain_id, int)
+            or int(value.get('server_count') or 0) <= 0
+        ):
+            continue
+        identity = (domain_id, name, resource_type)
+        current = discovered.get(identity)
+        if current is None or (value.get('callable') is True and current.get('callable') is not True):
+            discovered[identity] = value
+
+    return [
+        deepcopy(discovered[identity])
+        for identity in sorted(discovered, key=lambda item: (item[1], item[2], item[0]))
+    ]
+
+
+def _runtime_has_server(runtime: RosMonitor, key: str) -> bool:
+    if key == 'services':
+        items = runtime._service_runtime.snapshot(include_hidden=True).get('services', [])
+    else:
+        items = runtime._action_runtime.snapshot().get('actions', [])
+    return any(int(item.get('server_count') or 0) > 0 for item in items)
+
+
+def _domain_collection(
+    snapshot: dict[str, Any] | None,
+    key: str,
+    domain_id: int,
+) -> dict[str, Any] | None:
+    if snapshot is None:
+        return None
+    values = [
+        item for item in snapshot.get(key, [])
+        if item.get('domain_id') == domain_id
+    ]
+    return {**snapshot, key: values, 'meta': {'count': len(values)}}
+
+
+def _tag_domain_items(items: list[dict[str, Any]], domain_id: int) -> list[dict[str, Any]]:
+    values = []
+    for item in items:
+        value = deepcopy(item)
+        value['domain_id'] = domain_id
+        value['resource_key'] = f'{domain_id}:{value.get("name", value.get("full_name", ""))}'
+        values.append(value)
+    return values
 
 
 def _alert_meta(values: list[dict[str, Any]]) -> dict[str, int]:

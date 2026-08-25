@@ -8,8 +8,9 @@ import {
 import {
   defaultRequestValues,
   domainIdFromResource,
+  executionCandidateForTarget,
+  executionResourceOptions,
   normalizeNumericValues,
-  preferredExecutable,
   serviceKey,
 } from '../model/interfaceUploadModel.js'
 import { useServiceExecutionQos } from './useExecutionQos.js'
@@ -53,9 +54,9 @@ export function useServiceExecutionController({
       return
     }
     const current = visibleServices.find((service) => serviceKey(service) === selectedKey)
-    const preferred = preferredExecutable(visibleServices)
-    if (current && (current.callable || !preferred?.callable)) return
-    select(serviceKey(preferred))
+    if (current) return
+    if (visibleServices.length === 1) select(serviceKey(visibleServices[0]))
+    else if (selectedKey) select('')
   }, [select, selectedKey, visibleServices])
 
   const replace = useCallback((nextServices, nextHistory = null) => {
@@ -68,15 +69,22 @@ export function useServiceExecutionController({
       fetchCallableServices(),
       fetchServiceCallHistory(),
     ])
-    const nextServices = servicesPayload.data ?? []
+    let selectedTarget = null
+    const nextServices = executionResourceOptions(
+      servicesPayload.data ?? [], 'service_name', 'service_type',
+    ).map((item) => {
+      const candidate = target
+        ? executionCandidateForTarget(item, target, 'service_name', 'service_type')
+        : null
+      if (!candidate) return item
+      selectedTarget = { ...item, ...candidate, resource_candidates: item.resource_candidates }
+      return selectedTarget
+    })
     replace(nextServices, historyPayload.data ?? [])
-    if (target) {
-      const service = nextServices.find((item) => matchesTarget(item, target))
-      if (service) {
-        setSelectedKey(serviceKey(service))
-        onSelectionChange?.(serviceKey(service))
-        setRequestValues(defaultRequestValues(service.request_schema ?? []))
-      }
+    if (selectedTarget) {
+      setSelectedKey(serviceKey(selectedTarget))
+      onSelectionChange?.(serviceKey(selectedTarget))
+      setRequestValues(defaultRequestValues(selectedTarget.request_schema ?? []))
     }
     return nextServices
   }, [onSelectionChange, replace])
@@ -138,11 +146,4 @@ export function useServiceExecutionController({
     timeoutSec,
     visibleServices,
   }
-}
-
-function matchesTarget(service, target) {
-  return (target.resourceKey && service.resource_key === target.resourceKey)
-    || (service.domain_id === target.domainId
-      && service.service_name === target.name
-      && service.service_type === target.fullType)
 }

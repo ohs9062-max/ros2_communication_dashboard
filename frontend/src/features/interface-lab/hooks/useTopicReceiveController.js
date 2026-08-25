@@ -12,6 +12,7 @@ import { useExecutionQos } from './useExecutionQos.js'
 export function useTopicReceiveController({
   availableTopics,
   load,
+  onTopicSelectionChange,
   selectedMessage,
   setFeedback,
   setTopicHistory,
@@ -70,13 +71,22 @@ export function useTopicReceiveController({
       setSelectedTopic(topic?.name ?? '')
       setSelectedDomainId(topic?.domain_id ?? null)
       setSelectedResourceKey(topic?.resource_key ?? '')
+      if (topic) onTopicSelectionChange?.(topic)
       return
     }
     selectedTopicSourceRef.current = value ? source : 'empty'
     setSelectedTopic(value)
     setSelectedDomainId(null)
     setSelectedResourceKey('')
-  }, [filteredTopics])
+  }, [filteredTopics, onTopicSelectionChange])
+
+  const selectTopicFromExecution = useCallback((topic) => {
+    if (!topic?.resource_key) return
+    selectedTopicSourceRef.current = 'graph'
+    setSelectedTopic(topic.name ?? '')
+    setSelectedDomainId(topic.domain_id ?? null)
+    setSelectedResourceKey(topic.resource_key)
+  }, [])
 
   const startTopic = async () => {
     if (!selectedTopic.trim()) {
@@ -176,6 +186,7 @@ export function useTopicReceiveController({
     selectedTopic,
     selectedDomainId,
     selectedTopicReceiving,
+    selectTopicFromExecution,
     setTopicSearch,
     startTopic,
     stopTopic,

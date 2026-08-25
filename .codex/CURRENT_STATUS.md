@@ -39,8 +39,10 @@
   Domain을 선택하지 않고 기존 Domain 표기 selector를 유지한다.
 - Topic 목록 Hz polling과 표시 cache는 `resource_key`로 구분하고 모든 Hz 요청에 선택 resource의 `domain_id`를
   전달한다. Monitor Hz 응답도 `domain_id/resource_key`를 반환해 같은 이름 Topic의 다른 Domain 응답을 섞지 않는다.
-- Multi-domain Interface Lab 실행 목록에 Domain별 serverless placeholder가 앞서더라도 Service/Action controller는
-  실제 `callable=true` 항목을 기본 선택한다. 서버가 없는 type만 있을 때는 기존처럼 실행을 차단한다.
+- Interface Lab Topic/Service/Action 실행 선택목록은 현재 Graph에 실제 존재하는 Domain별 resource만 사용한다.
+  설정 Domain placeholder와 `graph_present=false` Topic은 제외하며, 같은 name/type이 여러 Domain에 실제 존재하면
+  `D0`, `D99`처럼 각각 별도 option으로 유지한다. 여러 후보에서 첫 Domain을 자동 선택하지 않고, 사용자가 선택한
+  option의 `domain_id/resource_key`로 해당 runtime에 자동 라우팅한다.
 - Interface Lab의 Topic Publish/Receive, Service Call, Action Goal/Cancel은 selected resource identity에서
   확정한 `domain_id`가 있을 때만 HTTP payload를 보낸다. 누락/범위 밖 값은 Browser에서 차단하며 multi-domain
   Monitor에 name-only 요청을 보내지 않는다.
@@ -405,7 +407,7 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 278 passed
+Monitor pytest: 283 passed
 Backend pytest: 17 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
@@ -486,6 +488,15 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 - Multi-domain child `RosMonitor`는 각 rclpy `Context`에 결합된 전용 `SingleThreadedExecutor`로 spin한다.
   `rclpy.spin(node)`의 global executor를 사용하지 않으므로 Domain별 Topic callback, Service future와 Action
   feedback/result가 선택 resource의 Context에서 처리된다.
+- Multi-domain callable Service/Action 목록은 Server 없는 Domain별 등록 placeholder를 노출하지 않는다. 같은 이름/type의
+  실제 resource는 UI 한 항목과 내부 Domain candidate로 유지하며, Graph에서 연 실행은 선택 resource의
+  `domain_id/resource_key` candidate로 자동 라우팅한다. 여러 Domain에 동시에 존재하는 항목을 generic 실행 화면에서
+  임의의 첫 Domain으로 보내지 않는다.
+- 정기 transport snapshot의 Topic/Service/Action 결과는 Domain별 Node와 Alert 조립에서 재사용한다. 이전처럼 Node와
+  Alert 단계에서 child snapshot을 다시 만들지 않으며, Interface Lab 수신 polling도 현재 mode의 API만 조회한다.
+- Interface Lab 실행/수신 탭은 선택 resource identity만 양방향 동기화한다. Service/Action은
+  `domain_id|resource_key|type` key, Topic은 Message type과 Graph Topic의 `domain_id/resource_key`를 유지한다.
+  수신 observer의 active/receiving state와 실행 Controller의 busy/Goal·Call state는 의도적으로 분리돼 있다.
 
 ## 다음 우선 작업
 

@@ -46,8 +46,55 @@ export function domainIdFromResource(resource) {
   return Number.isInteger(domainId) && domainId >= 0 && domainId <= 232 ? domainId : null
 }
 
-export function preferredExecutable(items = []) {
-  return items.find((item) => item?.callable === true) ?? items[0]
+export function executionCandidateForTarget(item, target, nameField, typeField) {
+  const matches = (candidate) => (
+    (target?.resourceKey && candidate?.resource_key === target.resourceKey)
+    || (candidate?.domain_id === target?.domainId
+      && candidate?.[nameField] === target?.name
+      && candidate?.[typeField] === target?.fullType)
+  )
+  if (matches(item)) return item
+  if (domainIdFromResource(item) !== null) return null
+  const candidates = item?.resource_candidates?.length ? item.resource_candidates : []
+  return candidates.find(matches) ?? null
+}
+
+export function executionResourceOptions(items = [], nameField, typeField) {
+  const resources = new Map()
+  for (const item of items) {
+    const sourceCandidates = [item, ...(item?.resource_candidates ?? [])]
+    for (const candidate of sourceCandidates) {
+      const name = String(candidate?.[nameField] || '')
+      const resourceType = String(candidate?.[typeField] || '')
+      const domainId = domainIdFromResource(candidate)
+      const resourceKey = String(candidate?.resource_key || '')
+      const graphPresent = candidate?.server_available === true
+        || Number(candidate?.server_count || 0) > 0
+      if (!name || !resourceType || domainId === null || !resourceKey || !graphPresent) continue
+      const candidateKey = `${resourceKey}\u0000${resourceType}`
+      const current = resources.get(candidateKey)
+      if (!current || (candidate.callable === true && current.callable !== true)) {
+        resources.set(candidateKey, { ...item, ...candidate })
+      }
+    }
+  }
+
+  const options = [...resources.values()].sort((left, right) => (
+    String(left[nameField]).localeCompare(String(right[nameField]))
+    || String(left[typeField]).localeCompare(String(right[typeField]))
+    || domainIdFromResource(left) - domainIdFromResource(right)
+  ))
+  const candidatesByResource = new Map()
+  for (const option of options) {
+    const key = `${option[nameField]}\u0000${option[typeField]}`
+    candidatesByResource.set(key, [...(candidatesByResource.get(key) ?? []), option])
+  }
+  return options.map((option) => ({
+    ...option,
+    resource_candidates: candidatesByResource.get(
+      `${option[nameField]}\u0000${option[typeField]}`,
+    ),
+  }))
 }
 
 export function topicStatusLabel(message) {

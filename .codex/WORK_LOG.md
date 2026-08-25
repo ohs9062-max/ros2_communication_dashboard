@@ -417,3 +417,64 @@
 - Frontend unit/lint/build와 `git diff --check`, Monitor 관련 21 tests, Monitor 전체 279 tests 및 Monitor package
   symlink build가 통과했다. 로컬 HTTPS 정적 경로 동기화와 Monitor 재시작은 `sudo -n` credential이 없어 실행 전에
   중단됐으며 실제 로컬 HTTPS/service 상태는 변경되지 않았다.
+
+## 2026-08-25 - Multi-domain 실행 목록 중복 및 snapshot 반복 조립 제거
+
+- Interface Lab callable Service/Action API가 모든 child Domain의 등록 Interface placeholder까지 합쳐 실제 resource
+  하나를 Domain 수만큼 표시하던 원인을 확인했다. 실제 Graph runtime cache에 Server가 있는 Domain만 상세 callable을
+  조립하고, 이름/type이 같은 실제 resource는 UI 항목 하나와 내부 `resource_candidates`로 묶는다. 한 Domain에만
+  존재하면 그 `domain_id/resource_key`를 그대로 쓰며, 여러 Domain에 동시에 존재하면 임의 첫 Domain을 고르지 않는다.
+  Graph에서 연 실행은 선택 resource와 정확히 일치하는 candidate를 복원해 기존 자동 Domain routing을 유지한다.
+- `/transport/snapshot`이 이미 만든 Topic/Service/Action 결과를 multi-domain Node/Alert 조립에서 무시해 child마다
+  같은 세 snapshot을 반복 생성하던 경로를 수정했다. 전달된 aggregate를 Domain별로 나눠 재사용해 정기 poll의
+  Topic/Service/Action 조립 횟수를 Domain당 12회에서 3회로 줄였다. callable 목록도 전체 Domain의 무거운 상세 조립
+  대신 raw Graph cache를 먼저 확인해, 실제 Server가 한 Domain뿐인 5-Domain 구성에서는 상세 조립이 5회에서 1회다.
+- Interface Lab 수신 loader는 매번 Topic/Service/Action 8개 API를 모두 요청하던 것을 선택 mode만 조회하도록 바꿨다.
+  Service/Action 수신 refresh는 8→2 requests, Topic은 8→4이며, 실행 panel open은 Service/Action 10→4,
+  Topic 10→6 requests다. 새 cache/thread/fallback은 추가하지 않았다. Monitor 283 passed, Frontend unit 전체,
+  oxlint, Vite build, Monitor symlink build와 `git diff --check`가 통과했다. HTTPS 정적 동기화와 service 재시작은
+  이번 작업에서 수행하지 않았다.
+
+## 2026-08-25 - Interface Lab 최종 Service/Action options 중복 차단
+
+- 실행탭의 최종 경로를 `callable API → Service/Action controller state → visibleServices/visibleActions → option`까지
+  확인했다. view/panel 단계에서 Domain 목록을 다시 합치는 코드는 없었고, controller가 API 배열을 그대로 `map()`해
+  실행 중 Monitor가 Domain별 원본을 반환하면 중복이 최종 option까지 통과하는 것이 남은 원인이었다.
+- Service/Action controller가 state에 넣기 직전에 이름/type별 option을 한 번 더 정규화한다. 이름 없는 Domain
+  placeholder는 제거하고, 같은 실제 resource는 한 항목과 `resource_candidates`로 보존한다. Graph 상세에서 실행을
+  열면 기존 target identity로 정확한 candidate를 복원하며 여러 Domain의 동일 resource를 임의 첫 Domain으로 보내지
+  않는다. 다른 Interface Lab/Monitor 기능은 변경하지 않았다.
+- Frontend unit 전체, oxlint, Vite build와 `git diff --check`가 통과했다. `pkexec` GUI 관리자 인증으로 새 build를
+  로컬 HTTPS 정적 경로에 동기화했고 source/install `index.html` SHA-256은
+  `b788964886b45e881454d6132ab8618252580d45283f48107d89248ecb8c39db`로 일치한다. 검사 sandbox에서는 localhost/LAN
+  HTTPS socket에 접근할 수 없어 Browser 응답 확인은 수행하지 못했다.
+- sudo가 필요하면 터미널 암호 prompt를 대기시키지 않고 즉시 권한 상승을 요청하며, GUI session에서 가능하면
+  `pkexec` 시스템 관리자 비밀번호 창을 우선 띄우도록 `AGENTS.md` 작업 규칙을 갱신했다.
+
+## 2026-08-25 - Interface Lab 실제 Graph Domain별 실행 후보로 교정
+
+- 이전의 name/type 단순 병합을 제거했다. Multi-domain Monitor는 설정된 runtime마다 placeholder를 만들지 않고
+  `server_count>0`인 실제 Service/Action Graph resource만 `(domain_id, name, type)` identity로 반환한다. 같은
+  name/type이 D1과 D2에 실제 존재하면 두 API 항목과 두 option을 유지한다.
+- Frontend 최종 Service/Action options도 기존 grouped/raw 응답을 실제 `resource_key/domain_id/server` 기준으로
+  펼치고 exact identity 중복만 제거한다. 여러 option일 때 첫 Domain을 자동 선택하지 않으며 선택한 option의
+  identity가 Call/Goal payload까지 유지되고 같은 name/type의 실제 후보들은 controller state에 보존된다. Topic Graph 후보는 `graph_present=false`, Domain/resource key 누락과
+  exact identity 중복을 제외하고 `/name · D<id>` 형식으로 표시한다.
+- Monitor 283 passed, Frontend unit 전체·oxlint·Vite build, Monitor symlink build와 diff check가 통과했다. GUI
+  `pkexec` 인증으로 로컬 HTTPS 정적 파일을 동기화하고 Monitor만 재시작했다. 실제 API는 `/RobotControl`과
+  `/ScheduleCrud`, `/CanControl`, `/cmd_vel`을 모두 존재하는 D99 한 건씩만 반환했으며 placeholder는 0건이었다.
+  로컬 HTTPS는 새 `index-k4qoljFc.js`를 제공하고 source/install index SHA-256
+  `fa68df8fce012f8d3eed239287a2eb52615e3a4594495bbe723ebe615b532004`도 일치한다.
+
+## 2026-08-25 - Interface Lab 실행/수신 선택 연동 복구
+
+- 실행과 수신 controller의 runtime state는 분리된 채로 두고, `useInterfaceExecutionSuite`에서 선택 callback만
+  양방향 연결했다. Service/Action은 기존 `domain_id|resource_key|type` key를, Topic은 선택 Message type과
+  Graph Topic의 `domain_id/resource_key`를 각각 유지해 같은 실제 resource만 반대 탭에 선택한다.
+- 실행 쪽 선택은 수신 controller의 raw selection setter만 갱신하고, 수신 쪽 선택은 ref callback으로 실행
+  controller의 selection만 갱신한다. 따라서 수신의 `activeKey`/start/stop과 실행의 `busy`/Goal·Call state는
+  다시 공유되지 않는다.
+- Frontend `npm run test:unit`, `npm run lint`, `npm run build`, `git diff --check`를 통과했다. GUI `pkexec`
+  인증으로 HTTPS 정적 경로에 새 build를 동기화했고 `InterfaceLabPage-CmHlNQ4t.js` source/install SHA-256은
+  `f17a28a209286102d93794cf513376bda1006964e98b8a59a794633dcaa5f101`로 일치한다. Monitor 코드 변경은 없어
+  service restart는 하지 않았다.

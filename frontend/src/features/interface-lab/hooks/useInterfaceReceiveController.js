@@ -20,6 +20,10 @@ import { useTopicReceiveController } from './useTopicReceiveController.js'
 
 export function useInterfaceReceiveController({
   availableTopics,
+  onActionSelectionChange,
+  onMessageSelectionChange,
+  onServiceSelectionChange,
+  onTopicSelectionChange,
   setAvailableTopics,
   setBusy,
   setFeedback,
@@ -40,48 +44,61 @@ export function useInterfaceReceiveController({
   const pollInFlightRef = useRef(false)
   const actionQos = useActionExecutionQos()
 
-  const load = useCallback(async ({ silent = false } = {}) => {
+  const selectReceiveMessage = useCallback((key) => {
+    setSelectedMessageKey(key)
+    onMessageSelectionChange?.(key)
+  }, [onMessageSelectionChange])
+  const selectReceiveService = useCallback((key) => {
+    setSelectedReceiveServiceKey(key)
+    onServiceSelectionChange?.(key)
+  }, [onServiceSelectionChange])
+  const selectReceiveAction = useCallback((key) => {
+    setSelectedReceiveActionKey(key)
+    onActionSelectionChange?.(key)
+  }, [onActionSelectionChange])
+
+  const load = useCallback(async ({ silent = false, mode: requestedMode = null } = {}) => {
     if (!silent) setBusy(true)
     try {
-      const [
-        topicsPayload,
-        receivingPayload,
-        topicHistoryPayload,
-        servicePayload,
-        actionPayload,
-        messagesPayload,
-        servicesPayload,
-        actionsPayload,
-      ] = await Promise.all([
-        fetchTopics(),
-        fetchReceiveTopics(),
-        fetchReceiveTopicHistory('', { limit: 500 }),
-        fetchReceiveServiceHistory(),
-        fetchReceiveActionHistory(),
-        fetchCallableMessages(),
-        fetchCallableServices(),
-        fetchCallableActions(),
-      ])
-      const nextTopics = topicsPayload.data?.topics ?? topicsPayload.data ?? []
-      const nextServices = servicesPayload.data ?? []
-      const nextActions = actionsPayload.data ?? []
-      const nextMessages = messagesPayload.data ?? []
-      setAvailableTopics(nextTopics)
-      setTopics(receivingPayload.data ?? [])
-      setTopicHistory(topicHistoryPayload.data ?? [])
-      setServiceHistory(servicePayload.data ?? [])
-      setActionHistory(actionPayload.data ?? [])
-      setMessages(nextMessages)
-      setServices(nextServices)
-      setActions(nextActions)
-      if (!nextMessages.some((message) => messageKey(message) === selectedMessageKey)) {
-        setSelectedMessageKey(nextMessages[0] ? messageKey(nextMessages[0]) : '')
-      }
-      if (!nextServices.some((service) => serviceKey(service) === selectedReceiveServiceKey)) {
-        setSelectedReceiveServiceKey(nextServices[0] ? serviceKey(nextServices[0]) : '')
-      }
-      if (!nextActions.some((action) => actionKey(action) === selectedReceiveActionKey)) {
-        setSelectedReceiveActionKey(nextActions[0] ? actionKey(nextActions[0]) : '')
+      const selectedMode = requestedMode ?? mode
+      if (selectedMode === 'service') {
+        const [historyPayload, servicesPayload] = await Promise.all([
+          fetchReceiveServiceHistory(),
+          fetchCallableServices(),
+        ])
+        const nextServices = servicesPayload.data ?? []
+        setServiceHistory(historyPayload.data ?? [])
+        setServices(nextServices)
+        if (!nextServices.some((service) => serviceKey(service) === selectedReceiveServiceKey)) {
+          setSelectedReceiveServiceKey(nextServices[0] ? serviceKey(nextServices[0]) : '')
+        }
+      } else if (selectedMode === 'action') {
+        const [historyPayload, actionsPayload] = await Promise.all([
+          fetchReceiveActionHistory(),
+          fetchCallableActions(),
+        ])
+        const nextActions = actionsPayload.data ?? []
+        setActionHistory(historyPayload.data ?? [])
+        setActions(nextActions)
+        if (!nextActions.some((action) => actionKey(action) === selectedReceiveActionKey)) {
+          setSelectedReceiveActionKey(nextActions[0] ? actionKey(nextActions[0]) : '')
+        }
+      } else {
+        const [topicsPayload, receivingPayload, historyPayload, messagesPayload] = await Promise.all([
+          fetchTopics(),
+          fetchReceiveTopics(),
+          fetchReceiveTopicHistory('', { limit: 500 }),
+          fetchCallableMessages(),
+        ])
+        const nextTopics = topicsPayload.data?.topics ?? topicsPayload.data ?? []
+        const nextMessages = messagesPayload.data ?? []
+        setAvailableTopics(nextTopics)
+        setTopics(receivingPayload.data ?? [])
+        setTopicHistory(historyPayload.data ?? [])
+        setMessages(nextMessages)
+        if (!nextMessages.some((message) => messageKey(message) === selectedMessageKey)) {
+          setSelectedMessageKey(nextMessages[0] ? messageKey(nextMessages[0]) : '')
+        }
       }
     } catch (error) {
       if (!silent) setFeedback({ tone: 'error', text: error.message })
@@ -89,6 +106,7 @@ export function useInterfaceReceiveController({
       if (!silent) setBusy(false)
     }
   }, [
+    mode,
     selectedMessageKey,
     selectedReceiveActionKey,
     selectedReceiveServiceKey,
@@ -109,6 +127,7 @@ export function useInterfaceReceiveController({
   const topicController = useTopicReceiveController({
     availableTopics,
     load,
+    onTopicSelectionChange,
     messageImportableOnly,
     selectedMessage,
     setFeedback,
@@ -209,9 +228,12 @@ export function useInterfaceReceiveController({
     setMessageImportableOnly,
     setOpen,
     setServiceSearch,
-    setSelectedMessageKey,
-    setSelectedReceiveActionKey,
-    setSelectedReceiveServiceKey,
+    setSelectedMessageKey: selectReceiveMessage,
+    setSelectedReceiveActionKey: selectReceiveAction,
+    setSelectedReceiveServiceKey: selectReceiveService,
+    selectMessageFromExecution: setSelectedMessageKey,
+    selectServiceFromExecution: setSelectedReceiveServiceKey,
+    selectActionFromExecution: setSelectedReceiveActionKey,
     startAction,
     startService,
     stopAction,

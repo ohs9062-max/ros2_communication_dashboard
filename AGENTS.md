@@ -703,10 +703,13 @@ frontend/dist/index.html의 asset hash
 Nginx 설정이 바뀌지 않았다면 두 서비스를 관성적으로 재시작하지 않는다. 실제 동기화나 재시작 전에는 변경 범위를
 알리고 필요한 권한 승인을 받되, 사용자에게 별도 production 배포가 필요한 것처럼 설명하지 않는다.
 
-Codex의 비대화형 PTY에서 `sudo` 암호 prompt는 사용자 입력창으로 전달되지 않는다. 따라서 HTTPS 실행 파일 동기화처럼
-sudo가 필요한 작업은 암호 입력을 기다리는 명령을 먼저 실행하지 말고, 사용자에게 인증이 필요함을 명확히 알린다.
-이미 유효한 sudo credential을 확인할 수 있을 때만 `sudo -n`으로 진행하며, 그렇지 않으면 사용자가 터미널에서
-`sudo -v`를 완료한 뒤 재시도를 요청하도록 안내한다.
+Codex 작업 중 `sudo` 권한이 필요하다고 확인되면 일반 명령으로 암호 prompt를 대기시키거나 사용자에게 별도 터미널의
+`sudo -v`를 먼저 요구하지 않는다. 즉시 권한 상승 요청을 보내고, GUI session에서 `pkexec`를 사용할 수 있으면 시스템
+관리자 비밀번호 입력창을 바로 띄운다. 사용자가 GUI에서 승인한 뒤에만 승인된 범위의 작업을 계속한다. GUI 인증이나
+askpass 경로를 사용할 수 없거나 인증이 취소·실패하면 터미널 password prompt로 재시도하지 않고 즉시 중단한 뒤,
+사용자가 직접 실행할 최소 명령만 알려준다. 비밀번호를 코드·로그·파일·문서에 저장하거나 전달하지 않으며 sudo 보안
+정책도 변경하지 않는다. 이 규칙은 Frontend build 후 `/var/lib/ros2-dashboard/frontend/` 동기화, systemd service
+재시작과 그 밖의 모든 관리자 권한 작업에 동일하게 적용한다.
 
 개발 통합 실행은 `./scripts/run_dashboard_stack.sh`, 종료는 `./scripts/stop_dashboard_stack.sh`를 사용한다. Vite는
 5173 strict port를 사용하며 제품 서비스와 동시에 실행하지 않는다. ROS demo는 다음 package launch를 사용한다.

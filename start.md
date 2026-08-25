@@ -264,3 +264,11 @@ journalctl -u ros2-dashboard-monitor.service -u ros2-dashboard-backend.service -
 
 # 도메인 확인
 curl -sk https://127.0.0.1/ros/domains | jq
+
+# 토픽테스트
+export ROS_DOMAIN_ID=0
+
+ros2 topic pub /domain_test \
+geometry_msgs/msg/Twist \
+"{linear: {x: 1.0}, angular: {z: 0.5}}" \
+-r 1

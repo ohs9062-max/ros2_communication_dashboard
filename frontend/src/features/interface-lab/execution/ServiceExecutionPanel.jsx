@@ -46,9 +46,10 @@ export function ServiceExecutionPanel({
           <label className="interface-service-field">
             <span>Service · {visibleServices.length}/{services.length}개</span>
             <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
+              <option value="">실행 Service 선택</option>
               {visibleServices.map((service) => (
                 <option key={serviceKey(service)} value={serviceKey(service)}>
-                  {service.import_available ? 'import됨' : 'import 안됨'} · {serviceStatusLabel(service)} · {service.service_name || service.file_name} · {service.service_type}
+                  {service.service_name} · D{service.domain_id} · {service.service_type} · {service.import_available ? 'import됨' : 'import 안됨'} · {serviceStatusLabel(service)}
                 </option>
               ))}
             </select>
