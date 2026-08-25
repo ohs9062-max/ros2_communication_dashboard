@@ -46,10 +46,11 @@ export function fetchReceiveTopicHistory(topicName = '', { limit = 500, topicTyp
   return requestJson(`/ros/interfaces/receive/topics/history${query.size ? `?${query}` : ''}`)
 }
 
-export function resetReceiveTopicHistory(topicName = '', topicType = '') {
+export function resetReceiveTopicHistory(topicName = '', topicType = '', domainId = null) {
   const payload = {}
   if (topicName) payload.topic_name = topicName
   if (topicType) payload.topic_type = topicType
+  if (domainId !== null && domainId !== undefined) payload.domain_id = domainId
   return requestWithJsonBody('/ros/interfaces/receive/topics/history/reset', 'POST', payload)
 }
 

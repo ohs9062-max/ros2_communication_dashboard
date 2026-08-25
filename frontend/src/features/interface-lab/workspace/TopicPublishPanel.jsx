@@ -21,6 +21,7 @@ export function TopicPublishPanel({
   setTopicPublishName,
   topicPublishHz,
   topicPublishName,
+  topicPublishDomainId,
   topicPublishWarning,
   publishQosMode,
   publishQosProfile,
@@ -32,12 +33,12 @@ export function TopicPublishPanel({
         <span>기존 Graph Topic 후보</span>
         <select
           onChange={(event) => selectPublishGraphTopic(event.target.value)}
-          value={publishGraphTopics.some((topic) => topic.name === topicPublishName) ? topicPublishName : ''}
+          value={publishGraphTopics.find((topic) => topic.name === topicPublishName && topic.domain_id === topicPublishDomainId)?.resource_key ?? ''}
         >
           <option value="">직접 입력</option>
           {publishGraphTopics.map((topic) => (
-            <option key={topic.name} value={topic.name}>
-              {topic.name} · {firstType(topic.type ?? topic.types) ?? '-'}
+            <option key={topic.resource_key ?? topic.name} value={topic.resource_key ?? ''}>
+              Domain {topic.domain_id} · {topic.name} · {firstType(topic.type ?? topic.types) ?? '-'}
             </option>
           ))}
         </select>
@@ -54,6 +55,7 @@ export function TopicPublishPanel({
           value={topicPublishName}
         />
       </label>
+      {Number.isInteger(topicPublishDomainId) && <p className="muted">실행 Domain {topicPublishDomainId}</p>}
       {topicPublishWarning && <div className="interface-service-state warning">{topicPublishWarning}</div>}
       {schemaFields(item.schema).map((field) => (
         <SchemaRequestField

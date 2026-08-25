@@ -73,7 +73,7 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
       </DetailSection>
 
       <QosDetails
-        focusRequest={qosFocusRequest?.name === service.name ? qosFocusRequest : null}
+        focusRequest={qosFocusRequest?.name === (service.resource_key ?? service.name) ? qosFocusRequest : null}
         qos={service}
         title="Service QoS"
       />

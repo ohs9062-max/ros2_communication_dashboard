@@ -25,7 +25,8 @@ export function useResourceReceiveObserver({
   const visibleHistory = selected && activeKey === selectedKey
     ? history.filter((event) =>
       event[nameField] === selected[nameField]
-      && event[typeField] === selected[typeField])
+      && event[typeField] === selected[typeField]
+      && event.domain_id === selected.domain_id)
     : []
 
   const start = async () => {
@@ -37,6 +38,7 @@ export function useResourceReceiveObserver({
       await resetHistory({
         [nameField]: selected[nameField],
         [typeField]: selected[typeField],
+        domain_id: selected.domain_id,
       })
       setActiveKey(selectedKey)
       await load()
@@ -70,6 +72,7 @@ export function useResourceReceiveObserver({
       const payload = await resetHistory(selectedOnly ? {
         [nameField]: selected[nameField],
         [typeField]: selected[typeField],
+        domain_id: selected.domain_id,
       } : undefined)
       await load()
       setFeedback({

@@ -11,9 +11,11 @@ export function TopicSubscribePanel({
   subscribeQosMode,
   subscribeQosProfile,
   topicSubscribeName,
+  topicSubscribeDomainId,
 }) {
   const activeSubscription = (item.topicStates ?? []).find(
-    (state) => state.topic_name === topicSubscribeName && state.topic_type === item.fullType,
+    (state) => state.topic_name === topicSubscribeName && state.topic_type === item.fullType
+      && state.domain_id === topicSubscribeDomainId,
   )
   return (
     <>
@@ -27,6 +29,7 @@ export function TopicSubscribePanel({
           value={topicSubscribeName}
         />
       </label>
+      {Number.isInteger(topicSubscribeDomainId) && <p className="muted">실행 Domain {topicSubscribeDomainId}</p>}
       <QosModeControl
         groups={[{ key: 'topic', label: 'Topic Subscribe QoS', profile: subscribeQosProfile, onChange: onSubscribeQosProfileChange }]}
         mode={subscribeQosMode}

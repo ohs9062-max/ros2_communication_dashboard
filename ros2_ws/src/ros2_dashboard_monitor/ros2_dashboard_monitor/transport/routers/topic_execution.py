@@ -32,7 +32,7 @@ def get_message_schema(full_type: str = Query(...)) -> dict[str, Any]:
     """FastAPI Router에서 interface schema를 반환하는 함수입니다."""
     try:
         snapshot = ros_monitor.message_schema(message_type=full_type)
-    except InterfaceReceiveError as exc:
+    except (InterfaceReceiveError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         'success': True,
@@ -67,8 +67,9 @@ async def publish_registered_topic(request: Request) -> dict[str, Any]:
             topic_type=topic_type,
             payload=message_data,
             qos_selection=payload.get('qos'),
+            domain_id=payload.get('domain_id'),
         )
-    except InterfaceReceiveError as exc:
+    except (InterfaceReceiveError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         **result,
@@ -120,8 +121,9 @@ async def start_continuous_topic_publish(request: Request) -> dict[str, Any]:
             payload=message_data,
             hz=payload.get('hz', 10.0),
             qos_selection=payload.get('qos'),
+            domain_id=payload.get('domain_id'),
         )
-    except InterfaceReceiveError as exc:
+    except (InterfaceReceiveError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         **state,
@@ -144,10 +146,14 @@ async def stop_continuous_topic_publish(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail='topic_name is required.')
     if not isinstance(topic_type, str) or not topic_type:
         raise HTTPException(status_code=400, detail='topic_type or full_type is required.')
-    state = ros_monitor.stop_continuous_topic_publish(
-        topic_name=topic_name,
-        topic_type=topic_type,
-    )
+    try:
+        state = ros_monitor.stop_continuous_topic_publish(
+            topic_name=topic_name,
+            topic_type=topic_type,
+            domain_id=payload.get('domain_id'),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {**state, 'success': True, 'data': state, 'message': 'Topic 지속 발행을 중지했습니다.'}
 
 
@@ -168,5 +174,6 @@ async def reset_topic_publish_history(request: Request) -> dict[str, Any]:
     snapshot = ros_monitor.reset_topic_publish_history(
         topic_name=payload.get('topic_name'),
         topic_type=payload.get('topic_type') or payload.get('full_type'),
+        domain_id=payload.get('domain_id'),
     )
     return {'success': True, 'data': snapshot, 'message': 'Topic Publish 이력을 초기화했습니다.'}

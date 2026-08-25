@@ -8,8 +8,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 import os
+from pathlib import Path
 from threading import Lock
 from typing import Any
+
+import yaml
 
 from ros2_dashboard_monitor.ros_monitor import RosMonitor
 from ros2_dashboard_monitor.snapshot_summary import assemble_websocket_snapshot
@@ -24,12 +27,13 @@ class MultiDomainRosMonitor:
         self._priority_state = priority_state
         self._lock = Lock()
         self._runtimes: dict[int, RosMonitor] = {}
-        self._configured_domain_ids: list[int] = []
-        self._default_domain_id = _configured_domain_id(config)
+        self._configured_domain_ids: list[int] = _stored_domain_ids()
 
     def start(self) -> None:
         with self._lock:
-            desired = self._configured_domain_ids or [self._default_domain_id]
+            # domains.ids is the only persisted multi-domain source.  Do not
+            # infer a runtime from ROS_DOMAIN_ID when the list is empty.
+            desired = list(self._configured_domain_ids)
         self.set_domain_ids(desired)
 
     def stop(self) -> None:
@@ -55,11 +59,9 @@ class MultiDomainRosMonitor:
                     self._config,
                     priority_state=self._priority_state,
                     domain_id=domain_id,
-                    # First configured runtime retains the legacy observer port.
-                    # Added runtimes receive adjacent loopback ports.
                     observer_port=_observer_port(
                         self._config.fastdds_observer.port,
-                        desired.index(domain_id),
+                        domain_id,
                     ),
                 )
             added = [self._runtimes[domain_id] for domain_id in add]
@@ -74,7 +76,7 @@ class MultiDomainRosMonitor:
             runtimes = dict(self._runtimes)
             configured = list(self._configured_domain_ids)
         items = []
-        for domain_id in configured or [self._default_domain_id]:
+        for domain_id in configured:
             runtime = runtimes.get(domain_id)
             status = runtime.domain_snapshot().get('status') if runtime else 'stopped'
             items.append({'domain_id': domain_id, 'status': status})
@@ -154,6 +156,102 @@ class MultiDomainRosMonitor:
     def send_action_goal(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
         return self._runtime(domain_id).send_action_goal(**kwargs)
 
+    def cancel_action_goal(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._runtime(domain_id).cancel_action_goal(**kwargs)
+
+    def callable_messages(self) -> dict[str, Any]:
+        """Merge registered Message types and retain Domain on Graph candidates."""
+        by_type: dict[str, dict[str, Any]] = {}
+        for domain_id, runtime in self._items():
+            for item in runtime.callable_messages().get('messages', []):
+                message_type = str(item.get('message_type') or item.get('full_type') or '')
+                if not message_type:
+                    continue
+                current = by_type.setdefault(message_type, {
+                    **deepcopy(item), 'graph_topics': [], 'graph_conflicts': [],
+                })
+                for field in ('graph_topics', 'graph_conflicts'):
+                    for graph_item in item.get(field, []):
+                        value = deepcopy(graph_item)
+                        value['domain_id'] = domain_id
+                        value['resource_key'] = f'{domain_id}:{value.get("name", "")}'
+                        current[field].append(value)
+        messages = sorted(by_type.values(), key=lambda item: item.get('message_type') or '')
+        return {'messages': messages, 'meta': {'count': len(messages)}}
+
+    def message_schema(self, *, message_type: str) -> dict[str, Any]:
+        item = next(
+            (value for value in self.callable_messages()['messages']
+             if value.get('message_type') == message_type),
+            None,
+        )
+        if item is None:
+            raise ValueError(f'Message type is not registered: {message_type}')
+        return item
+
+    def publish_topic(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._runtime(domain_id).publish_topic(**kwargs)
+
+    def start_continuous_topic_publish(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._runtime(domain_id).start_continuous_topic_publish(**kwargs)
+
+    def stop_continuous_topic_publish(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._runtime(domain_id).stop_continuous_topic_publish(**kwargs)
+
+    def start_receive_topic(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._runtime(domain_id).start_receive_topic(**kwargs)
+
+    def stop_receive_topic(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._runtime(domain_id).stop_receive_topic(**kwargs)
+
+    def receive_topics(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('receive_topics', 'topics')
+
+    def receive_topic_history(self, **kwargs: Any) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('receive_topic_history', 'history', **kwargs)
+
+    def topic_publish_history(self, **kwargs: Any) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('topic_publish_history', 'history', **kwargs)
+
+    def continuous_topic_publishes(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('continuous_topic_publishes', 'publishes')
+
+    def service_call_history(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('service_call_history', 'calls')
+
+    def action_goal_history(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('action_goal_history', 'goals')
+
+    def receive_service_history(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('receive_service_history', 'history')
+
+    def receive_action_history(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('receive_action_history', 'history')
+
+    def reset_topic_publish_history(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._reset_runtime('reset_topic_publish_history', domain_id=domain_id, **kwargs)
+
+    def reset_receive_topic_history(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._reset_runtime('reset_receive_topic_history', domain_id=domain_id, **kwargs)
+
+    def reset_service_call_history(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._reset_runtime('reset_service_call_history', domain_id=domain_id, **kwargs)
+
+    def reset_action_goal_history(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._reset_runtime('reset_action_goal_history', domain_id=domain_id, **kwargs)
+
+    def reset_receive_service_history(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._reset_runtime('reset_receive_service_history', domain_id=domain_id, **kwargs)
+
+    def reset_receive_action_history(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._reset_runtime('reset_receive_action_history', domain_id=domain_id, **kwargs)
+
+    def reset_alert_history(self) -> dict[str, Any]:
+        return self._reset_runtime('reset_alert_history', domain_id=None)
+
+    def reset_current_alerts(self) -> dict[str, Any]:
+        return self._reset_runtime('reset_current_alerts', domain_id=None)
+
     def _callables(self, method: str, key: str) -> dict[str, Any]:
         values = []
         for domain_id, runtime in self._items():
@@ -165,14 +263,25 @@ class MultiDomainRosMonitor:
                 values.append(value)
         return {key: values, 'meta': {'count': len(values)}}
 
-    def __getattr__(self, name: str) -> Any:
-        """Keep existing Interface Lab routes on the legacy default Domain.
+    def _aggregate_runtime_collection(self, method: str, key: str, **kwargs: Any) -> dict[str, Any]:
+        values = []
+        for domain_id, runtime in self._items():
+            for item in getattr(runtime, method)(**kwargs).get(key, []):
+                value = deepcopy(item)
+                value['domain_id'] = domain_id
+                name = value.get('topic_name') or value.get('service_name') or value.get('action_name') or ''
+                value['resource_key'] = f'{domain_id}:{name}'
+                values.append(value)
+        return {key: values, 'meta': {'count': len(values)}}
 
-        Those routes do not yet carry a domain_id selector.  Monitoring snapshots
-        are multi-domain; explicit execution stays backwards compatible rather
-        than accidentally broadcasting a user command to every Domain.
-        """
-        return getattr(self._runtime(None), name)
+    def _reset_runtime(self, method: str, *, domain_id: int | None, **kwargs: Any) -> dict[str, Any]:
+        if domain_id is not None:
+            return getattr(self._runtime(domain_id), method)(**kwargs)
+        results = [getattr(runtime, method)(**kwargs) for _, runtime in self._items()]
+        return {
+            key: sum(int(result.get(key, 0) or 0) for result in results)
+            for key in {key for result in results for key in result if isinstance(result.get(key), int)}
+        }
 
     def _merge(self, key: str, method: str, **kwargs: Any) -> dict[str, Any]:
         items: list[dict[str, Any]] = []
@@ -198,32 +307,38 @@ class MultiDomainRosMonitor:
         with self._lock:
             target = domain_id
             if target is None:
-                # Legacy Interface Lab routes do not carry domain_id yet. Keep
-                # their existing ROS_DOMAIN_ID target rather than changing it
-                # merely because a numerically smaller Domain was added.
-                target = (
-                    self._default_domain_id
-                    if self._default_domain_id in self._runtimes
-                    else (self._configured_domain_ids[0] if self._configured_domain_ids else self._default_domain_id)
-                )
+                if len(self._runtimes) == 1:
+                    return next(iter(self._runtimes.values()))
+                raise ValueError('domain_id is required when multiple Domains are monitored.')
             runtime = self._runtimes.get(int(target))
         if runtime is None:
             raise ValueError(f'Domain {target} is not being monitored.')
         return runtime
 
 
-def _configured_domain_id(config: Any) -> int:
-    # The existing single-domain config remains the fallback for old installations.
-    value = os.getenv('ROS_DOMAIN_ID', getattr(config, 'ros_domain_id', 0))
+def _stored_domain_ids() -> list[int]:
+    """Read the same Backend-owned preferences file used by the Domains UI."""
+    configured = os.getenv('USER_PREFERENCES_PATH')
+    path = Path(configured).expanduser() if configured else (
+        Path(os.getenv('ROS2_DASHBOARD_WS_ROOT', '')).expanduser().parent
+        / 'backend' / 'config' / 'user_preferences.yaml'
+        if os.getenv('ROS2_DASHBOARD_WS_ROOT')
+        else Path(__file__).resolve().parents[4] / 'backend' / 'config' / 'user_preferences.yaml'
+    )
     try:
-        return int(value)
-    except (TypeError, ValueError):
-        return 0
+        data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
+        values = data.get('domains', {}).get('ids', [])
+    except (OSError, UnicodeError, yaml.YAMLError, AttributeError):
+        return []
+    return sorted({
+        int(value) for value in values
+        if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 232
+    })
 
 
-def _observer_port(base_port: int, offset: int) -> int:
+def _observer_port(base_port: int, domain_id: int) -> int:
     # A separate loopback HTTP port is required per passive Fast DDS helper.
-    return int(base_port) + int(offset)
+    return int(base_port) + int(domain_id)
 
 
 def _alert_meta(values: list[dict[str, Any]]) -> dict[str, int]:

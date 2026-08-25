@@ -21,12 +21,15 @@ export function ActionWorkspaceDetail({
   onGoalChange,
   onHistorySelect,
   onReset,
+  onTargetChange,
   qosControls = [],
   selectedHistoryItem,
+  selectedTargetKey,
   setGoalTimeoutSec,
   view,
 }) {
-  const callableTarget = item.connectedActions?.find((action) => action.callable)
+  const callableActions = item.connectedActions?.filter((action) => action.callable) ?? []
+  const callableTarget = callableActions.find((action) => resourceKey(action) === selectedTargetKey)
     ?? (item.kind === 'callable_action' ? item.status : null)
   return (
     <>
@@ -46,6 +49,12 @@ export function ActionWorkspaceDetail({
       {view === 'execute' && <><SectionTitle title={callableTarget?.action_name ?? 'Action Goal'} />
       {callableTarget ? (
         <>
+          {callableActions.length > 1 && <label className="interface-service-field">
+            <span>실행 Action</span>
+            <select onChange={(event) => onTargetChange(event.target.value)} value={selectedTargetKey}>
+              {callableActions.map((action) => <option key={resourceKey(action)} value={resourceKey(action)}>Domain {action.domain_id} · {action.action_name}</option>)}
+            </select>
+          </label>}
           {schemaFields(item.schema).map((field) => (
             <SchemaRequestField
               field={field}
@@ -98,4 +107,8 @@ export function ActionWorkspaceDetail({
       />}
     </>
   )
+}
+
+function resourceKey(action) {
+  return action.resource_key ?? `${action.domain_id}:${action.action_name}`
 }

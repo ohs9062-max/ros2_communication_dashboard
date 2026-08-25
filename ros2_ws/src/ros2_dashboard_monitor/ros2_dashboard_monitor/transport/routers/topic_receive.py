@@ -26,6 +26,7 @@ async def start_receive_topic(request: Request) -> dict[str, Any]:
             topic_type=str(payload.get('topic_type') or payload.get('full_type') or ''),
             history_limit=int(payload.get('history_limit') or 100),
             qos_selection=payload.get('qos'),
+            domain_id=payload.get('domain_id'),
         )
     except (InterfaceReceiveError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -39,10 +40,14 @@ async def stop_receive_topic(request: Request) -> dict[str, Any]:
         payload = await request.json()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail='A JSON request body is required.') from exc
-    state = ros_monitor.stop_receive_topic(
-        topic_name=str(payload.get('topic_name') or ''),
-        topic_type=payload.get('topic_type') or payload.get('full_type'),
-    )
+    try:
+        state = ros_monitor.stop_receive_topic(
+            topic_name=str(payload.get('topic_name') or ''),
+            topic_type=payload.get('topic_type') or payload.get('full_type'),
+            domain_id=payload.get('domain_id'),
+        )
+    except (InterfaceReceiveError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {'success': True, 'data': state, 'message': 'Topic 수신을 중지했습니다.'}
 
 
@@ -81,6 +86,7 @@ async def reset_receive_topic_history(request: Request) -> dict[str, Any]:
     snapshot = ros_monitor.reset_receive_topic_history(
         topic_name=str(topic_name) if topic_name else None,
         topic_type=str(topic_type) if topic_type else None,
+        domain_id=payload.get('domain_id'),
     )
     snapshot['topics'] = ros_monitor.receive_topics()['topics']
     return {

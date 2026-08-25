@@ -22,9 +22,13 @@ def create_monitor_node(
     domain_id: int | None = None,
 ) -> Node:
     """rclpy를 초기화하고 Graph 갱신 timer를 가진 Monitor Node를 생성합니다."""
-    runtime_context = context or rclpy.get_default_context()
-    rclpy.init(args=None, context=runtime_context, domain_id=domain_id)
-    node = Node(MONITOR_NODE_NAME, context=runtime_context)
+    if context is None and domain_id is None:
+        rclpy.init(args=None)
+        node = Node(MONITOR_NODE_NAME)
+    else:
+        runtime_context = context or rclpy.get_default_context()
+        rclpy.init(args=None, context=runtime_context, domain_id=domain_id)
+        node = Node(MONITOR_NODE_NAME, context=runtime_context)
     node.create_timer(poll_interval_sec, update_callback)
     return node
 
@@ -43,9 +47,11 @@ def shutdown_monitor_node(
     context: Context | None = None,
 ) -> None:
     """rclpy shutdown 후 spin 종료를 기다리고 정확한 Monitor Node만 파괴합니다."""
-    runtime_context = context or rclpy.get_default_context()
-    if rclpy.ok(context=runtime_context):
-        rclpy.shutdown(context=runtime_context)
+    if context is None:
+        if rclpy.ok():
+            rclpy.shutdown()
+    elif rclpy.ok(context=context):
+        rclpy.shutdown(context=context)
     if thread is not None:
         thread.join(timeout=SPIN_JOIN_TIMEOUT_SEC)
     if node is not None:

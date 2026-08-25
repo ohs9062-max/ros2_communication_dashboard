@@ -169,7 +169,7 @@ export function ActionsPage({ dashboard }) {
         <ActionDetailPanel
           action={detailAction}
           onClose={() => setSelectedActionName('')}
-          participants={actionParticipants[detailAction.name] ?? null}
+          participants={actionParticipants[detailAction.resource_key ?? detailAction.name] ?? null}
           qosFocusRequest={qosFocusRequest}
         />
       )}

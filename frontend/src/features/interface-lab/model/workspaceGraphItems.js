@@ -7,7 +7,8 @@ export function mergeGraphServiceEntries(graphServices = [], callableServices = 
     const serviceName = item.service_name ?? item.name
     const serviceType = firstType(item.service_type ?? item.type ?? item.types)
     if (!serviceName || !serviceType) return
-    byKey.set(`${serviceName}|${serviceType}`, {
+    const key = `${item.domain_id ?? ''}|${serviceName}|${serviceType}`
+    byKey.set(key, {
       ...item,
       callable: false,
       service_name: serviceName,
@@ -19,8 +20,9 @@ export function mergeGraphServiceEntries(graphServices = [], callableServices = 
     const serviceName = item.service_name ?? item.name
     const serviceType = firstType(item.service_type ?? item.type)
     if (!serviceName || !serviceType) return
-    byKey.set(`${serviceName}|${serviceType}`, {
-      ...(byKey.get(`${serviceName}|${serviceType}`) ?? {}),
+    const key = `${item.domain_id ?? ''}|${serviceName}|${serviceType}`
+    byKey.set(key, {
+      ...(byKey.get(key) ?? {}),
       ...item,
       service_name: serviceName,
       service_type: serviceType,
@@ -35,7 +37,8 @@ export function mergeGraphActionEntries(graphActions = [], callableActions = [])
     const actionName = item.action_name ?? item.name
     const actionType = firstType(item.action_type ?? item.type ?? item.types)
     if (!actionName || !actionType) return
-    byKey.set(`${actionName}|${actionType}`, {
+    const key = `${item.domain_id ?? ''}|${actionName}|${actionType}`
+    byKey.set(key, {
       ...item,
       action_name: actionName,
       action_type: actionType,
@@ -47,8 +50,9 @@ export function mergeGraphActionEntries(graphActions = [], callableActions = [])
     const actionName = item.action_name ?? item.name
     const actionType = firstType(item.action_type ?? item.type)
     if (!actionName || !actionType) return
-    byKey.set(`${actionName}|${actionType}`, {
-      ...(byKey.get(`${actionName}|${actionType}`) ?? {}),
+    const key = `${item.domain_id ?? ''}|${actionName}|${actionType}`
+    byKey.set(key, {
+      ...(byKey.get(key) ?? {}),
       ...item,
       action_name: actionName,
       action_type: actionType,
@@ -59,7 +63,8 @@ export function mergeGraphActionEntries(graphActions = [], callableActions = [])
 
 export function callableServiceItem(item, history) {
   const filteredHistory = history.filter((call) =>
-    call.service_name === item.service_name && call.service_type === item.service_type,
+    call.service_name === item.service_name && call.service_type === item.service_type
+      && call.domain_id === item.domain_id,
   )
   return {
     callable: Boolean(item.callable),
@@ -69,7 +74,7 @@ export function callableServiceItem(item, history) {
     connectedActions: [],
     connectedTopics: [],
     history: filteredHistory,
-    id: `graph:service:${item.service_name}:${item.service_type}`,
+    id: `graph:service:${item.domain_id}:${item.service_name}:${item.service_type}`,
     importAvailable: item.import_available ?? null,
     kind: 'callable_service',
     lastRun: filteredHistory[0] ?? null,
@@ -81,7 +86,7 @@ export function callableServiceItem(item, history) {
     schema: item.request_schema,
     serverAvailable: item.server_available ?? null,
     source: 'graph',
-    stableKey: `callable_service:${item.service_name}:${item.service_type}`,
+    stableKey: `callable_service:${item.domain_id}:${item.service_name}:${item.service_type}`,
     status: item,
     subtitle: item.service_type,
     title: item.service_name || item.file_name,
@@ -90,7 +95,8 @@ export function callableServiceItem(item, history) {
 
 export function callableActionItem(item, history, _actionsByType, topics = []) {
   const filteredHistory = history.filter((goal) =>
-    goal.action_name === item.action_name && goal.action_type === item.action_type,
+    goal.action_name === item.action_name && goal.action_type === item.action_type
+      && goal.domain_id === item.domain_id,
   )
   return {
     callable: Boolean(item.callable),
@@ -100,7 +106,7 @@ export function callableActionItem(item, history, _actionsByType, topics = []) {
     connectedServices: [],
     connectedTopics: actionTopics(item.action_type, [item], topics),
     history: filteredHistory,
-    id: `graph:action:${item.action_name}:${item.action_type}`,
+    id: `graph:action:${item.domain_id}:${item.action_name}:${item.action_type}`,
     importAvailable: item.import_available ?? null,
     kind: 'callable_action',
     lastRun: filteredHistory[0] ?? null,
@@ -112,7 +118,7 @@ export function callableActionItem(item, history, _actionsByType, topics = []) {
     schema: item.goal_schema,
     serverAvailable: item.server_available ?? null,
     source: 'graph',
-    stableKey: `callable_action:${item.action_name}:${item.action_type}`,
+    stableKey: `callable_action:${item.domain_id}:${item.action_name}:${item.action_type}`,
     status: item,
     subtitle: item.action_type,
     title: item.action_name || item.file_name,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   callRegisteredService,
@@ -18,8 +18,18 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
   const [cancelingGoal, setCancelingGoal] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState(null)
+  const [serviceTargetKey, setServiceTargetKey] = useState('')
+  const [actionTargetKey, setActionTargetKey] = useState('')
   const serviceQos = useServiceExecutionQos()
   const actionQos = useActionExecutionQos()
+  const callableServices = useMemo(
+    () => selectedDetail?.connectedServices?.filter((item) => item.callable) ?? [],
+    [selectedDetail?.connectedServices],
+  )
+  const callableActions = useMemo(
+    () => selectedDetail?.connectedActions?.filter((item) => item.callable) ?? [],
+    [selectedDetail?.connectedActions],
+  )
 
   useEffect(() => {
     setResult(null)
@@ -30,8 +40,20 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     }
   }, [selectedDetail?.kind, selectedDetail?.schema, selectedDetail?.stableKey])
 
+  useEffect(() => {
+    setServiceTargetKey((current) => callableServices.some((item) => resourceKey(item) === current)
+      ? current
+      : resourceKey(callableServices[0]))
+  }, [callableServices])
+
+  useEffect(() => {
+    setActionTargetKey((current) => callableActions.some((item) => resourceKey(item) === current)
+      ? current
+      : resourceKey(callableActions[0]))
+  }, [callableActions])
+
   const executeService = async () => {
-    const target = selectedDetail?.connectedServices?.find((service) => service.callable)
+    const target = callableServices.find((service) => resourceKey(service) === serviceTargetKey)
       ?? (selectedDetail?.kind === 'callable_service' ? selectedDetail.status : null)
     if (!target?.service_name || !target?.service_type) {
       setResult({ success: false, error: 'No callable Service is available.' })
@@ -46,6 +68,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
         request: normalizeNumericValues(requestValues, selectedDetail.schema),
         timeout_sec: timeoutSec,
         qos: serviceQos.qosSelection,
+        domain_id: target.domain_id,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -58,7 +81,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
   }
 
   const executeAction = async () => {
-    const target = selectedDetail?.connectedActions?.find((action) => action.callable)
+    const target = callableActions.find((action) => resourceKey(action) === actionTargetKey)
       ?? (selectedDetail?.kind === 'callable_action' ? selectedDetail.status : null)
     if (!target?.action_name || !target?.action_type) {
       setResult({ success: false, accepted: false, error: 'No executable Action is available.' })
@@ -74,6 +97,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
         goal: normalizeNumericValues(goalValues, selectedDetail.schema),
         timeout_sec: goalTimeoutSec,
         qos: actionQos.qosSelection,
+        domain_id: target.domain_id,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -85,7 +109,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
   }
 
   const cancelAction = async () => {
-    const target = selectedDetail?.connectedActions?.find((action) => action.callable)
+    const target = callableActions.find((action) => resourceKey(action) === actionTargetKey)
       ?? (selectedDetail?.kind === 'callable_action' ? selectedDetail.status : null)
     if (!target?.action_name || !target?.action_type) return
     setCancelingGoal(true)
@@ -94,6 +118,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
         action_name: target.action_name,
         action_type: target.action_type,
         timeout_sec: goalTimeoutSec,
+        domain_id: target.domain_id,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -115,10 +140,10 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
   const resetHistories = async (scope = 'all') => {
     if (selectedDetail?.kind === 'service' || selectedDetail?.kind === 'callable_service') {
       const target = selectedDetail.connectedServices?.[0]
-      await resetServiceCallHistory(scope === 'selected' ? { service_name: target?.service_name, service_type: selectedDetail.fullType } : {})
+      await resetServiceCallHistory(scope === 'selected' ? { service_name: target?.service_name, service_type: selectedDetail.fullType, domain_id: target?.domain_id } : {})
     } else if (selectedDetail?.kind === 'action' || selectedDetail?.kind === 'callable_action') {
       const target = selectedDetail.connectedActions?.[0]
-      await resetActionGoalHistory(scope === 'selected' ? { action_name: target?.action_name, action_type: selectedDetail.fullType } : {})
+      await resetActionGoalHistory(scope === 'selected' ? { action_name: target?.action_name, action_type: selectedDetail.fullType, domain_id: target?.domain_id } : {})
     }
     setResult(null)
     await refresh({ notifyWorkbench: false })
@@ -127,6 +152,7 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
   return {
     cancelAction,
     actionQosControls: actionQos.qosControls,
+    actionTargetKey,
     cancelingGoal,
     executeAction,
     executeService,
@@ -150,5 +176,14 @@ export function useInlineServiceActionController({ refresh, selectedDetail }) {
     serviceRequestQosProfile: serviceQos.requestQosProfile,
     serviceResponseQosMode: serviceQos.responseQosMode,
     serviceResponseQosProfile: serviceQos.responseQosProfile,
+    serviceTargetKey,
+    setActionTargetKey,
+    setServiceTargetKey,
   }
+}
+
+function resourceKey(item) {
+  if (!item) return ''
+  const name = item.service_name ?? item.action_name ?? item.name ?? ''
+  return item.resource_key ?? `${item.domain_id}:${name}`
 }

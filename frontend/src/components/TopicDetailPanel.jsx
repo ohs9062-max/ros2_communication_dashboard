@@ -97,7 +97,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
       />
 
       <QosDetails
-        focusRequest={qosFocusRequest?.name === topic.name ? qosFocusRequest : null}
+        focusRequest={qosFocusRequest?.name === (topic.resource_key ?? topic.name) ? qosFocusRequest : null}
         qos={topic}
         title="Topic QoS"
       />

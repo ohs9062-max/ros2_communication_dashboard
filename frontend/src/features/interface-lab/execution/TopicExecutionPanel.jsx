@@ -35,6 +35,7 @@ export function TopicExecutionPanel({
   onTopicNameChange,
   onToggleExpanded,
   publishGraphTopics,
+  publishDomainId,
   publishName,
   publishResult,
   publishWarning,
@@ -74,15 +75,16 @@ export function TopicExecutionPanel({
           )}
           <label className="interface-service-field">
             <span>기존 Graph Topic 후보</span>
-            <select value={publishGraphTopics.some((topic) => topic.name === publishName) ? publishName : ''} onChange={(event) => onTopicNameChange(event.target.value, 'graph')}>
+            <select value={publishGraphTopics.find((topic) => topic.name === publishName && topic.domain_id === publishDomainId)?.resource_key ?? ''} onChange={(event) => onTopicNameChange(event.target.value, 'graph')}>
               <option value="">직접 입력</option>
-              {publishGraphTopics.map((topic) => <option key={topic.name} value={topic.name}>{topic.name} · {topic.type ?? topic.types?.[0] ?? '-'}</option>)}
+              {publishGraphTopics.map((topic) => <option key={topic.resource_key} value={topic.resource_key}>Domain {topic.domain_id} · {topic.name} · {topic.type ?? topic.types?.[0] ?? '-'}</option>)}
             </select>
             <small>선택하면 해당 Topic에 추가 Publisher로 발행합니다. 새 Topic을 만들려면 Publish Topic name을 직접 입력하세요.</small>
           </label>
           <label className="interface-service-field">
             <span>Publish Topic name</span>
             <input placeholder="/interface_lab_topic_test" value={publishName} onChange={(event) => onTopicNameChange(event.target.value, 'user')} />
+            {publishDomainId !== null && <small>실행 Domain {publishDomainId}</small>}
           </label>
           {selected && <div className="interface-package-help">선택 Message {selected.message_type}의 schema {selected.message_schema?.length ?? 0}개 필드로 payload 폼을 생성합니다. 사용자가 명시적으로 실행할 때만 전송합니다.</div>}
           {publishWarning && <div className="interface-service-state warning">{publishWarning}</div>}

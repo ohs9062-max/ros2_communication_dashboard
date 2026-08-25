@@ -26,6 +26,7 @@ export function useInlineWorkspaceController({
   return {
     activeContinuousPublish: topic.activeContinuousPublish,
     actionQosControls: serviceAction.actionQosControls,
+    actionTargetKey: serviceAction.actionTargetKey,
     cancelAction: serviceAction.cancelAction,
     cancelingGoal: serviceAction.cancelingGoal,
     executeAction: serviceAction.executeAction,
@@ -66,14 +67,19 @@ export function useInlineWorkspaceController({
     serviceRequestQosProfile: serviceAction.serviceRequestQosProfile,
     serviceResponseQosMode: serviceAction.serviceResponseQosMode,
     serviceResponseQosProfile: serviceAction.serviceResponseQosProfile,
+    serviceTargetKey: serviceAction.serviceTargetKey,
+    setActionTargetKey: serviceAction.setActionTargetKey,
+    setServiceTargetKey: serviceAction.setServiceTargetKey,
     topicPublishHz: topic.publishHz,
     topicPublishName: topic.publishName,
+    topicPublishDomainId: topic.publishDomainId,
     topicPublishWarning: topic.publishWarning,
     topicPublishQosMode: topic.publishQosMode,
     topicPublishQosProfile: topic.publishQosProfile,
     topicSubscribeQosMode: topic.subscribeQosMode,
     topicSubscribeQosProfile: topic.subscribeQosProfile,
     topicSubscribeName: topic.subscribeName,
+    topicSubscribeDomainId: topic.subscribeDomainId,
     updateTopicPublishName: topic.updatePublishName,
   }
 }

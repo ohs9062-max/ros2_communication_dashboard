@@ -20,17 +20,20 @@ export function ServiceWorkspaceDetail({
   onRequestQosProfileChange,
   onResponseQosModeChange,
   onResponseQosProfileChange,
+  onTargetChange,
   requestQosMode,
   requestQosProfile,
   requestValues,
   selectedHistoryItem,
+  selectedTargetKey,
   responseQosMode,
   responseQosProfile,
   setTimeoutSec,
   timeoutSec,
   view,
 }) {
-  const callableTarget = item.connectedServices?.find((service) => service.callable)
+  const callableServices = item.connectedServices?.filter((service) => service.callable) ?? []
+  const callableTarget = callableServices.find((service) => resourceKey(service) === selectedTargetKey)
     ?? (item.kind === 'callable_service' ? item.status : null)
   return (
     <>
@@ -42,6 +45,12 @@ export function ServiceWorkspaceDetail({
       {view === 'execute' && <><SectionTitle title={callableTarget?.service_name ?? 'Service Call'} />
       {callableTarget ? (
         <>
+          {callableServices.length > 1 && <label className="interface-service-field">
+            <span>실행 Service</span>
+            <select onChange={(event) => onTargetChange(event.target.value)} value={selectedTargetKey}>
+              {callableServices.map((service) => <option key={resourceKey(service)} value={resourceKey(service)}>Domain {service.domain_id} · {service.service_name}</option>)}
+            </select>
+          </label>}
           {schemaFields(item.schema).map((field) => (
             <SchemaRequestField
               field={field}
@@ -89,4 +98,8 @@ export function ServiceWorkspaceDetail({
       />}
     </>
   )
+}
+
+function resourceKey(service) {
+  return service.resource_key ?? `${service.domain_id}:${service.service_name}`
 }

@@ -19,7 +19,7 @@ export function TopicWorkspaceDetail(props) {
       />}
       {(view === 'details' || view === 'advanced') && <>
         <SectionTitle title="Graph 연결" />
-        <ConnectionList empty="Graph에서 이 Message full_type으로 열린 Topic이 없습니다." items={item.connectedTopics} render={(topic) => [topic.name, firstType(topic.type ?? topic.types) ?? '-', `publishers ${topic.publisher_count ?? 0}`, `subscribers ${topic.subscriber_count ?? 0}`].join(' · ')} />
+        <ConnectionList empty="Graph에서 이 Message full_type으로 열린 Topic이 없습니다." items={item.connectedTopics} render={(topic) => [`Domain ${topic.domain_id}`, topic.name, firstType(topic.type ?? topic.types) ?? '-', `publishers ${topic.publisher_count ?? 0}`, `subscribers ${topic.subscriber_count ?? 0}`].join(' · ')} />
         {(item.graphConflicts ?? []).length > 0 && <CollapsibleJson title="같은 Topic 이름의 다른 type 경고" value={item.graphConflicts} />}
       </>}
     </>

@@ -87,9 +87,9 @@ export function AlertsPage({
   const openAlert = (alert) => {
     if (alert.source === 'topic' || alert.source === 'monitor_status') {
       dashboard.setIncludeAllTopics(true)
-      dashboard.setSelectedTopicName(alert.name)
+      dashboard.setSelectedTopicName(alert.resource_key ?? alert.name)
       if (alert.code === 'topic_qos_incompatible') {
-        dashboard.focusQosDetails(alert.name, qosAlertChannel(alert))
+        dashboard.focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
       }
       onNavigate('topics')
       return
@@ -97,9 +97,9 @@ export function AlertsPage({
 
     if (alert.source === 'service') {
       serviceDashboard.setIncludeHidden(true)
-      serviceDashboard.setSelectedServiceName(alert.name)
+      serviceDashboard.setSelectedServiceName(alert.resource_key ?? alert.name)
       if (alert.code === 'service_qos_incompatible') {
-        serviceDashboard.focusQosDetails(alert.name, qosAlertChannel(alert))
+        serviceDashboard.focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
       }
       onNavigate('services')
       return
@@ -107,9 +107,9 @@ export function AlertsPage({
 
     if (alert.source === 'action') {
       actionDashboard.setIncludeIdleActions(true)
-      actionDashboard.setSelectedActionName(alert.name)
+      actionDashboard.setSelectedActionName(alert.resource_key ?? alert.name)
       if (alert.code === 'action_qos_incompatible') {
-        actionDashboard.focusQosDetails(alert.name, qosAlertChannel(alert))
+        actionDashboard.focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
       }
       onNavigate('actions')
       return
@@ -117,11 +117,13 @@ export function AlertsPage({
 
     if (alert.source === 'node' || alert.code === 'node_stale') {
       const targetNode = nodeDashboard.nodes.find(
-        (node) => node.full_name === alert.name || node.name === alert.name,
+        (node) => (node.resource_key === alert.resource_key) || (
+          !alert.resource_key && (node.full_name === alert.name || node.name === alert.name)
+        ),
       )
       nodeDashboard.setIncludeInternalNodes(true)
       nodeDashboard.setStatusFilter('all')
-      nodeDashboard.setSelectedNodeName(targetNode?.full_name ?? alert.name)
+      nodeDashboard.setSelectedNodeName(targetNode?.resource_key ?? alert.resource_key ?? alert.name)
       onNavigate('nodes')
     }
   }

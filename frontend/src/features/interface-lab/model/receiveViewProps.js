@@ -35,6 +35,7 @@ export function receiveWorkspaceViewProps(state) {
       selectedMessage: state.selectedMessage,
       selectedMessageKey: state.selectedMessageKey,
       selectedTopic: state.selectedReceiveTopic,
+      selectedDomainId: state.selectedReceiveTopicDomainId,
       visibleMessages: state.visibleCallableMessages,
     },
   }

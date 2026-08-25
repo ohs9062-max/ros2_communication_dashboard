@@ -32,6 +32,7 @@ export function TopicReceivePanel({
   search,
   selectedMessage,
   selectedMessageKey,
+  selectedDomainId,
   selectedTopic,
   visibleMessages,
 }) {
@@ -59,9 +60,9 @@ export function TopicReceivePanel({
       </label>
       <label className="interface-service-field">
         <span>Graph Topic 후보 · {filteredTopics.length}/{allTopics.length}</span>
-        <select value={selectedTopic} onChange={(event) => onTopicNameChange(event.target.value, 'graph')}>
+        <select value={filteredTopics.find((topic) => topic.name === selectedTopic && topic.domain_id === selectedDomainId)?.resource_key ?? ''} onChange={(event) => onTopicNameChange(event.target.value, 'graph')}>
           {filteredTopics.map((topic) => (
-            <option key={topic.name} value={topic.name}>{topic.name} · {topic.type ?? topic.types?.[0] ?? '-'}</option>
+            <option key={topic.resource_key} value={topic.resource_key}>Domain {topic.domain_id} · {topic.name} · {topic.type ?? topic.types?.[0] ?? '-'}</option>
           ))}
         </select>
         {!filteredTopics.length && <small>검색 결과가 없습니다.</small>}
@@ -69,6 +70,7 @@ export function TopicReceivePanel({
       <label className="interface-service-field">
         <span>Subscribe Topic name</span>
         <input placeholder="/interface_lab_topic_test" value={selectedTopic} onChange={(event) => onTopicNameChange(event.target.value, 'user')} />
+        {selectedDomainId !== null && <small>실행 Domain {selectedDomainId}</small>}
       </label>
       <label className="interface-service-field">
         <span>선택 Message</span>

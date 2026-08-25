@@ -11,6 +11,7 @@ export function buildParticipantMaps(nodes = [], { excludeInternal = false } = {
       continue
     }
     const nodeName = node.full_name || node.name
+    const domainId = node.domain_id
     if (!nodeName) {
       continue
     }
@@ -20,36 +21,42 @@ export function buildParticipantMaps(nodes = [], { excludeInternal = false } = {
       node.topic_publishers,
       'publishers',
       nodeName,
+      domainId,
     )
     addParticipants(
       topicParticipants,
       node.topic_subscribers,
       'subscribers',
       nodeName,
+      domainId,
     )
     addParticipants(
       serviceParticipants,
       node.service_servers,
       'servers',
       nodeName,
+      domainId,
     )
     addParticipants(
       serviceParticipants,
       node.service_clients,
       'clients',
       nodeName,
+      domainId,
     )
     addParticipants(
       actionParticipants,
       node.action_servers,
       'servers',
       nodeName,
+      domainId,
     )
     addParticipants(
       actionParticipants,
       node.action_clients,
       'clients',
       nodeName,
+      domainId,
     )
   }
 
@@ -68,16 +75,17 @@ export function withExecutionNode(items = [], executionNode) {
   return [...items, executionNode]
 }
 
-function addParticipants(map, entities = [], role, nodeName) {
+function addParticipants(map, entities = [], role, nodeName, domainId) {
   for (const entity of entities ?? []) {
     const entityName = entityNameOf(entity)
     if (!entityName) {
       continue
     }
 
-    map[entityName] ??= {}
-    map[entityName][role] ??= new Set()
-    map[entityName][role].add(nodeName)
+    const key = Number.isInteger(domainId) ? `${domainId}:${entityName}` : entityName
+    map[key] ??= {}
+    map[key][role] ??= new Set()
+    map[key][role].add(nodeName)
   }
 }
 

@@ -14,8 +14,8 @@ export function uniqueStrings(items = []) {
 export function mergeByNameAndType(items = [], nameKey, typeKey) {
   const byKey = new Map()
   items.forEach((item) => {
-    const key = `${item?.[nameKey] ?? ''}|${item?.[typeKey] ?? ''}`
-    if (!item || key === '|') return
+    const key = `${item?.domain_id ?? ''}|${item?.[nameKey] ?? ''}|${item?.[typeKey] ?? ''}`
+    if (!item || (!item?.[nameKey] && !item?.[typeKey])) return
     byKey.set(key, { ...(byKey.get(key) ?? {}), ...item })
   })
   return Array.from(byKey.values())
@@ -42,11 +42,12 @@ export function registryFullType(item, kind) {
 export function actionTopics(fullType, connectedActions = [], topics = []) {
   if (!fullType?.includes('/action/')) return []
   const actionNames = connectedActions
-    .map((item) => item.action_name)
-    .filter(Boolean)
+    .filter((item) => item.action_name)
   return topics.filter((topic) =>
-    actionNames.some((name) =>
-      topic.name === `${name}/_action/feedback` || topic.name === `${name}/_action/status`,
+    actionNames.some((action) =>
+      action.domain_id === topic.domain_id && (
+        topic.name === `${action.action_name}/_action/feedback` || topic.name === `${action.action_name}/_action/status`
+      ),
     ),
   )
 }
@@ -54,4 +55,3 @@ export function actionTopics(fullType, connectedActions = [], topics = []) {
 export function packageFromType(type = '') {
   return type.split('/')[0] || null
 }
-

@@ -27,6 +27,7 @@ export function useTopicExecutionController({
   const [selectedKey, setSelectedKey] = useState('')
   const [importableOnly, setImportableOnly] = useState(false)
   const [publishName, setPublishName] = useState('')
+  const [publishDomainId, setPublishDomainId] = useState(null)
   const publishNameSourceRef = useRef('empty')
   const [messageValues, setMessageValues] = useState({})
   const [busy, setBusy] = useState(false)
@@ -55,6 +56,7 @@ export function useTopicExecutionController({
   )
   const visibleHistory = history.filter((event) =>
     (!publishName || event.topic_name === publishName)
+    && (publishDomainId === null || event.domain_id === publishDomainId)
     && (!selected?.message_type || event.topic_type === selected.message_type),
   )
 
@@ -77,7 +79,8 @@ export function useTopicExecutionController({
   useEffect(() => {
     if (!selected?.message_type) return
     const currentName = publishName.trim()
-    const currentIsCandidate = publishGraphTopics.some((topic) => topic.name === currentName)
+    const currentIsCandidate = publishGraphTopics.some((topic) =>
+      topic.name === currentName && topic.domain_id === publishDomainId)
     const source = publishNameSourceRef.current
 
     if (source === 'user') {
@@ -86,10 +89,12 @@ export function useTopicExecutionController({
       if (currentIsCandidate) return
       publishNameSourceRef.current = 'empty'
       setPublishName('')
+      setPublishDomainId(null)
       return
     } else if (source === 'auto' && publishGraphTopics.length !== 1) {
       publishNameSourceRef.current = 'empty'
       setPublishName('')
+      setPublishDomainId(null)
       return
     }
 
@@ -98,12 +103,14 @@ export function useTopicExecutionController({
       if (source === 'auto' && currentName === nextName) return
       publishNameSourceRef.current = 'auto'
       setPublishName(nextName)
+      setPublishDomainId(publishGraphTopics[0].domain_id ?? null)
     }
-  }, [publishGraphTopics, publishName, selected?.message_type])
+  }, [publishDomainId, publishGraphTopics, publishName, selected?.message_type])
 
   const continuous = useContinuousTopicExecution({
     messageValues,
     onStateChanged,
+    publishDomainId,
     publishName,
     selected,
     setBusy,
@@ -129,9 +136,17 @@ export function useTopicExecutionController({
   }, [replace])
 
   const changePublishName = useCallback((value, sourceKind) => {
+    if (sourceKind === 'graph') {
+      const topic = publishGraphTopics.find((item) => item.resource_key === value)
+      publishNameSourceRef.current = topic ? 'graph' : 'empty'
+      setPublishName(topic?.name ?? '')
+      setPublishDomainId(topic?.domain_id ?? null)
+      return
+    }
     publishNameSourceRef.current = value ? sourceKind : 'empty'
     setPublishName(value)
-  }, [])
+    setPublishDomainId(null)
+  }, [publishGraphTopics])
 
   const publish = useCallback(async () => {
     if (!publishName.trim()) {
@@ -151,6 +166,7 @@ export function useTopicExecutionController({
         full_type: selected.message_type,
         message: normalizeNumericValues(messageValues, selected.message_schema),
         qos: qos.qosSelection,
+        domain_id: publishDomainId,
       })
       setResult(payload)
       const historyPayload = await fetchTopicPublishHistory({ limit: 100 })
@@ -161,13 +177,14 @@ export function useTopicExecutionController({
     } finally {
       setBusy(false)
     }
-  }, [messageValues, onStateChanged, publishName, qos.qosSelection, selected])
+  }, [messageValues, onStateChanged, publishDomainId, publishName, qos.qosSelection, selected])
 
   const resetHistory = useCallback(async () => {
     try {
       const payload = await resetTopicPublishHistory({
         topic_name: publishName,
         topic_type: selected?.message_type,
+        domain_id: publishDomainId,
       })
       const historyPayload = await fetchTopicPublishHistory({ limit: 100 })
       setHistory(historyPayload.data ?? [])
@@ -178,7 +195,7 @@ export function useTopicExecutionController({
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message })
     }
-  }, [publishName, selected?.message_type, setFeedback])
+  }, [publishDomainId, publishName, selected?.message_type, setFeedback])
 
   return {
     ...continuous,
@@ -192,6 +209,7 @@ export function useTopicExecutionController({
     messages,
     publish,
     publishGraphTopics,
+    publishDomainId,
     publishName,
     publishWarning,
     replace,

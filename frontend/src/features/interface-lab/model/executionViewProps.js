@@ -85,6 +85,7 @@ export function topicExecutionViewProps(state) {
     publishGraphTopics: state.publishGraphTopics,
     publishHz: state.topicPublishHz,
     publishName: state.topicPublishName,
+    publishDomainId: state.topicPublishDomainId,
     publishResult: state.topicPublishResult,
     publishWarning: state.topicPublishWarning,
     qosMode: state.topicQosMode,

@@ -63,7 +63,7 @@ async def send_registered_action_goal(request: Request) -> dict[str, Any]:
             qos_selection=payload.get('qos'),
             domain_id=payload.get('domain_id'),
         )
-    except ActionGoalError as exc:
+    except (ActionGoalError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
@@ -94,7 +94,7 @@ async def reset_action_goal_history(request: Request) -> dict[str, Any]:
         payload = await request.json()
     except ValueError:
         payload = {}
-    snapshot = ros_monitor.reset_action_goal_history(action_name=payload.get('action_name'), action_type=payload.get('action_type'))
+    snapshot = ros_monitor.reset_action_goal_history(action_name=payload.get('action_name'), action_type=payload.get('action_type'), domain_id=payload.get('domain_id'))
     return {'success': True, 'data': snapshot, 'message': 'Action Goal 전체 이력을 초기화했습니다.'}
 
 
@@ -107,8 +107,9 @@ async def cancel_registered_action_goal(request: Request) -> dict[str, Any]:
             action_name=str(body.get('action_name') or ''),
             action_type=str(body.get('action_type') or ''),
             timeout_sec=body.get('timeout_sec'),
+            domain_id=body.get('domain_id'),
         )
-    except ActionGoalError as exc:
+    except (ActionGoalError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {'success': result['success'], 'data': result}
 
@@ -130,5 +131,6 @@ async def reset_receive_action_history(request: Request) -> dict[str, Any]:
     snapshot = ros_monitor.reset_receive_action_history(
         action_name=payload.get('action_name'),
         action_type=payload.get('action_type'),
+        domain_id=payload.get('domain_id'),
     )
     return {'success': True, 'data': snapshot, 'message': 'Action 수신 이력을 초기화했습니다.'}

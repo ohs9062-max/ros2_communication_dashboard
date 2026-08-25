@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import FastAPI
 
 from ros2_dashboard_monitor.transport.state import backend_config, priority_state, ros_monitor
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from ros2_dashboard_monitor.interface_lab.apply.runtime import apply_status
 from ros2_dashboard_monitor.service_snapshot import visible_service_snapshot
 from ros2_dashboard_monitor.transport.routers import (
@@ -41,13 +41,13 @@ app.include_router(action_execution.router)
 
 class PriorityPayload(BaseModel):
     priority: dict[str, list[str]]
-    domain_ids: list[int] = []
+    domain_ids: list[int] = Field(default_factory=list)
 
 
 @app.put('/transport/priority')
 def update_priority(payload: PriorityPayload) -> dict[str, Any]:
     priority_state.replace(payload.priority)
-    domains = ros_monitor.set_domain_ids(payload.domain_ids) if payload.domain_ids else ros_monitor.domain_snapshot()
+    domains = ros_monitor.set_domain_ids(payload.domain_ids)
     return {'success': True, 'data': {'domains': domains}}
 
 

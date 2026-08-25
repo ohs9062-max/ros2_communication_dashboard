@@ -55,7 +55,7 @@ async def call_registered_service(request: Request) -> dict[str, Any]:
             qos_selection=payload.get('qos'),
             domain_id=payload.get('domain_id'),
         )
-    except ServiceCallError as exc:
+    except (ServiceCallError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
@@ -86,7 +86,7 @@ async def reset_service_call_history(request: Request) -> dict[str, Any]:
         payload = await request.json()
     except ValueError:
         payload = {}
-    snapshot = ros_monitor.reset_service_call_history(service_name=payload.get('service_name'), service_type=payload.get('service_type'))
+    snapshot = ros_monitor.reset_service_call_history(service_name=payload.get('service_name'), service_type=payload.get('service_type'), domain_id=payload.get('domain_id'))
     return {'success': True, 'data': snapshot, 'message': 'Service Call 전체 이력을 초기화했습니다.'}
 
 
@@ -107,5 +107,6 @@ async def reset_receive_service_history(request: Request) -> dict[str, Any]:
     snapshot = ros_monitor.reset_receive_service_history(
         service_name=payload.get('service_name'),
         service_type=payload.get('service_type'),
+        domain_id=payload.get('domain_id'),
     )
     return {'success': True, 'data': snapshot, 'message': 'Service 수신 이력을 초기화했습니다.'}

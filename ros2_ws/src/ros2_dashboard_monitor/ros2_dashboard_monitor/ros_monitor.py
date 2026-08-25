@@ -247,10 +247,12 @@ class RosMonitor(InterfaceLabFacade):
     ) -> None:
         system_primary = bool(item.get('primary'))
         preferences = getattr(self, '_priority_state', None)
+        domain_id = getattr(self, '_domain_id', None)
+        resource_key = f'{domain_id}:{name}' if domain_id is not None and name else name
         user_primary = bool(
             preferences
-            and name
-            and preferences.contains(kind, name)
+            and resource_key
+            and preferences.contains(kind, resource_key)
         )
         item['system_primary'] = system_primary
         item['user_primary'] = user_primary

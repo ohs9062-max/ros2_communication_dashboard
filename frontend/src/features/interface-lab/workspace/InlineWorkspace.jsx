@@ -4,6 +4,7 @@ import { WorkspaceDetailPanel } from './WorkspaceDetailPanel.jsx'
 export function InlineWorkspace({
   activeContinuousPublish,
   actionQosControls,
+  actionTargetKey,
   cancelingGoal,
   executing,
   goalTimeoutSec,
@@ -42,6 +43,9 @@ export function InlineWorkspace({
   serviceRequestQosProfile,
   serviceResponseQosMode,
   serviceResponseQosProfile,
+  serviceTargetKey,
+  setActionTargetKey,
+  setServiceTargetKey,
   selectPublishGraphTopic,
   setGoalTimeoutSec,
   setTopicPublishName,
@@ -49,6 +53,7 @@ export function InlineWorkspace({
   setTopicSubscribeName,
   setTimeoutSec,
   topicPublishName,
+  topicPublishDomainId,
   topicPublishHz,
   publishGraphTopics,
   topicPublishWarning,
@@ -57,6 +62,7 @@ export function InlineWorkspace({
   topicSubscribeQosMode,
   topicSubscribeQosProfile,
   topicSubscribeName,
+  topicSubscribeDomainId,
   timeoutSec,
 }) {
   const showDetail = item.kind !== 'package'
@@ -69,6 +75,7 @@ export function InlineWorkspace({
         <WorkspaceDetailPanel
           cancelingGoal={cancelingGoal}
           actionQosControls={actionQosControls}
+          actionTargetKey={actionTargetKey}
           activeContinuousPublish={activeContinuousPublish}
           executing={executing}
           goalTimeoutSec={goalTimeoutSec}
@@ -105,6 +112,9 @@ export function InlineWorkspace({
           serviceRequestQosProfile={serviceRequestQosProfile}
           serviceResponseQosMode={serviceResponseQosMode}
           serviceResponseQosProfile={serviceResponseQosProfile}
+          serviceTargetKey={serviceTargetKey}
+          setActionTargetKey={setActionTargetKey}
+          setServiceTargetKey={setServiceTargetKey}
           selectPublishGraphTopic={selectPublishGraphTopic}
           setGoalTimeoutSec={setGoalTimeoutSec}
           setTopicPublishName={setTopicPublishName}
@@ -112,6 +122,7 @@ export function InlineWorkspace({
           setTopicSubscribeName={setTopicSubscribeName}
           setTimeoutSec={setTimeoutSec}
           topicPublishName={topicPublishName}
+          topicPublishDomainId={topicPublishDomainId}
           topicPublishHz={topicPublishHz}
           publishGraphTopics={publishGraphTopics}
           topicPublishWarning={topicPublishWarning}
@@ -120,6 +131,7 @@ export function InlineWorkspace({
           topicSubscribeQosMode={topicSubscribeQosMode}
           topicSubscribeQosProfile={topicSubscribeQosProfile}
           topicSubscribeName={topicSubscribeName}
+          topicSubscribeDomainId={topicSubscribeDomainId}
           timeoutSec={timeoutSec}
         />
       )}

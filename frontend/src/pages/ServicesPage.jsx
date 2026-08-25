@@ -120,7 +120,7 @@ export function ServicesPage({ dashboard }) {
       {detailService && (
         <ServiceDetailPanel
           onClose={() => setSelectedServiceName('')}
-          participants={serviceParticipants[detailService.name] ?? null}
+          participants={serviceParticipants[detailService.resource_key ?? detailService.name] ?? null}
           qosFocusRequest={qosFocusRequest}
           service={detailService}
         />

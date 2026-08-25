@@ -27,10 +27,11 @@
   `frontend/dist` build만으로 실제 화면에 반영되지 않고 `/var/lib/ros2-dashboard/frontend`와 동기화돼야 한다.
   이 동작은 “운영 배포”가 아니라 “로컬 HTTPS 실행 파일 반영”으로 부르며, UI 미반영 시 source dist·설치 정적
   파일·HTTPS 응답의 asset hash를 먼저 대조한다.
-- 좌측 `Domains` 화면은 쉼표 구분 0~232 Domain ID 목록을 Backend `user_preferences.yaml`에 저장하고 재진입 시
-  복원한다. Monitor는 Domain별 rclpy Context/Node/Fast DDS observer runtime을 만들기 시작했으며 snapshot resource에
-  `domain_id`/`resource_key`를 붙여 집계한다. 동일 이름 resource의 상세 선택과 Interface Lab의 Domain 선택은 아직
-  domain-aware로 전환 중이므로 multi-domain 기능 전체 완료 전에는 기존 기본 Domain 실행 경로를 유지한다.
+- 좌측 `Domains` 화면은 0~232 Domain을 하나씩 추가·삭제하며, 감시 목록의 단일 source는
+  `backend/config/user_preferences.yaml`의 `domains.ids`다. Monitor는 이 목록만으로 Domain별 rclpy
+  Context/Node/Fast DDS observer runtime을 추가·종료·재시작 복원하고 `.env`/shell `ROS_DOMAIN_ID`, 99 또는 첫
+  Domain을 multi-domain fallback으로 사용하지 않는다. Topic/Service/Action/Node snapshot, 상세·History·Latest·Hz·Preview,
+  QoS·Alert·Overview와 Interface Lab 실행은 `domain_id`/`resource_key`를 유지해 동일 이름 리소스를 분리한다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Topic Monitor Subscription은 resource별 실제 수신 preview를 기본 100개 bounded memory history로 보존한다.
@@ -392,8 +393,8 @@ docs/                            설계·운영 문서
 마지막 기능 변경 기준 확인 결과:
 
 ```text
-Monitor pytest: 258 passed
-Backend pytest: 16 passed, 2 skipped
+Monitor pytest: 277 passed
+Backend pytest: 17 passed, 2 skipped
 격리 MariaDB exact-schema E2E: 1 passed
 실제 MariaDB Alert UI 조회 E2E: 1 passed
 전체 workspace colcon test-result: 262 tests, 0 failures, 1 skipped

@@ -15,6 +15,7 @@ import { CollapsibleJson, CollapsibleText } from './WorkspaceShared.jsx'
 export function WorkspaceDetailPanel({
   activeContinuousPublish,
   actionQosControls,
+  actionTargetKey,
   cancelingGoal,
   executing,
   goalTimeoutSec,
@@ -51,6 +52,9 @@ export function WorkspaceDetailPanel({
   serviceRequestQosProfile,
   serviceResponseQosMode,
   serviceResponseQosProfile,
+  serviceTargetKey,
+  setActionTargetKey,
+  setServiceTargetKey,
   selectPublishGraphTopic,
   setGoalTimeoutSec,
   setTopicPublishName,
@@ -58,6 +62,7 @@ export function WorkspaceDetailPanel({
   setTopicSubscribeName,
   setTimeoutSec,
   topicPublishName,
+  topicPublishDomainId,
   topicPublishHz,
   publishGraphTopics,
   topicPublishWarning,
@@ -66,6 +71,7 @@ export function WorkspaceDetailPanel({
   topicSubscribeQosMode,
   topicSubscribeQosProfile,
   topicSubscribeName,
+  topicSubscribeDomainId,
   timeoutSec,
 }) {
   const [activeView, setActiveView] = useState(() => defaultDetailView(item?.kind))
@@ -146,6 +152,7 @@ export function WorkspaceDetailPanel({
           setTopicPublishHz={setTopicPublishHz}
           setTopicSubscribeName={setTopicSubscribeName}
           topicPublishName={topicPublishName}
+          topicPublishDomainId={topicPublishDomainId}
           topicPublishHz={topicPublishHz}
           publishGraphTopics={publishGraphTopics}
           topicPublishWarning={topicPublishWarning}
@@ -154,6 +161,7 @@ export function WorkspaceDetailPanel({
           subscribeQosMode={topicSubscribeQosMode}
           subscribeQosProfile={topicSubscribeQosProfile}
           topicSubscribeName={topicSubscribeName}
+          topicSubscribeDomainId={topicSubscribeDomainId}
         />
       )}
       {(item.kind === 'service' || item.kind === 'callable_service') && (
@@ -174,6 +182,8 @@ export function WorkspaceDetailPanel({
           requestQosProfile={serviceRequestQosProfile}
           responseQosMode={serviceResponseQosMode}
           responseQosProfile={serviceResponseQosProfile}
+          selectedTargetKey={serviceTargetKey}
+          onTargetChange={setServiceTargetKey}
           requestValues={requestValues}
           selectedHistoryItem={selectedHistoryItem}
           setTimeoutSec={setTimeoutSec}
@@ -193,6 +203,8 @@ export function WorkspaceDetailPanel({
           onCancel={onActionCancel}
           onGoalChange={onGoalChange}
           qosControls={actionQosControls}
+          selectedTargetKey={actionTargetKey}
+          onTargetChange={setActionTargetKey}
           onHistorySelect={onHistorySelect}
           onReset={onServiceActionReset}
           selectedHistoryItem={selectedHistoryItem}

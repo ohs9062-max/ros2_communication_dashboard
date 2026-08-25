@@ -89,6 +89,7 @@ export function InterfaceLabWorkspaceBrowser({
           <InlineWorkspace
             activeContinuousPublish={controller.activeContinuousPublish}
             actionQosControls={controller.actionQosControls}
+            actionTargetKey={controller.actionTargetKey}
             cancelingGoal={controller.cancelingGoal}
             executing={controller.executing}
             goalTimeoutSec={controller.goalTimeoutSec}
@@ -128,6 +129,9 @@ export function InterfaceLabWorkspaceBrowser({
             serviceRequestQosProfile={controller.serviceRequestQosProfile}
             serviceResponseQosMode={controller.serviceResponseQosMode}
             serviceResponseQosProfile={controller.serviceResponseQosProfile}
+            serviceTargetKey={controller.serviceTargetKey}
+            setActionTargetKey={controller.setActionTargetKey}
+            setServiceTargetKey={controller.setServiceTargetKey}
             selectPublishGraphTopic={controller.selectPublishGraphTopic}
             setGoalTimeoutSec={controller.setGoalTimeoutSec}
             setTimeoutSec={controller.setTimeoutSec}
@@ -137,12 +141,14 @@ export function InterfaceLabWorkspaceBrowser({
             timeoutSec={controller.timeoutSec}
             topicPublishHz={controller.topicPublishHz}
             topicPublishName={controller.topicPublishName}
+            topicPublishDomainId={controller.topicPublishDomainId}
             topicPublishWarning={controller.topicPublishWarning}
             topicPublishQosMode={controller.topicPublishQosMode}
             topicPublishQosProfile={controller.topicPublishQosProfile}
             topicSubscribeQosMode={controller.topicSubscribeQosMode}
             topicSubscribeQosProfile={controller.topicSubscribeQosProfile}
             topicSubscribeName={controller.topicSubscribeName}
+            topicSubscribeDomainId={controller.topicSubscribeDomainId}
           />
         </aside>
       )}

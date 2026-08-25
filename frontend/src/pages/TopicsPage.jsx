@@ -176,7 +176,7 @@ export function TopicsPage({ dashboard }) {
           hz={hz}
           latest={latest}
           onClose={() => setSelectedTopicName('')}
-          participants={topicParticipants[detailTopic.name] ?? null}
+          participants={topicParticipants[detailTopic.resource_key ?? detailTopic.name] ?? null}
           qosFocusRequest={qosFocusRequest}
           topic={detailTopic}
         />

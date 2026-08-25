@@ -27,11 +27,11 @@ export function packageStatusLabel(item) {
 }
 
 export function serviceKey(service) {
-  return `${service.service_name || service.file_name}|${service.service_type}`
+  return `${service.domain_id ?? ''}|${service.service_name || service.file_name}|${service.service_type}`
 }
 
 export function actionKey(action) {
-  return `${action.action_name || action.file_name}|${action.action_type}`
+  return `${action.domain_id ?? ''}|${action.action_name || action.file_name}|${action.action_type}`
 }
 
 export function messageKey(message) {

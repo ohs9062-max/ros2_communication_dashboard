@@ -11,6 +11,7 @@ import { runSingleFlight } from '../model/singleFlight.js'
 export function useContinuousTopicExecution({
   messageValues,
   onStateChanged,
+  publishDomainId,
   publishName,
   qosSelection,
   selected,
@@ -23,9 +24,10 @@ export function useContinuousTopicExecution({
   const activeContinuousPublish = continuousPublishes.find((item) =>
     item.active
     && item.topic_name === publishName.trim()
-    && item.topic_type === selected?.message_type)
+    && item.topic_type === selected?.message_type
+    && item.domain_id === publishDomainId)
   const activeKey = activeContinuousPublish
-    ? `${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
+    ? `${activeContinuousPublish.domain_id}\u0000${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
     : ''
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export function useContinuousTopicExecution({
         message: normalizeNumericValues(messageValues, selected.message_schema),
         hz: Number(publishHz),
         qos: qosSelection,
+        domain_id: publishDomainId,
       })
       setResult(payload)
       const state = await fetchContinuousTopicPublishes()
@@ -68,7 +71,7 @@ export function useContinuousTopicExecution({
     } finally {
       setBusy(false)
     }
-  }, [messageValues, onStateChanged, publishHz, publishName, qosSelection, selected, setBusy, setResult])
+  }, [messageValues, onStateChanged, publishDomainId, publishHz, publishName, qosSelection, selected, setBusy, setResult])
 
   const stopContinuous = useCallback(async () => {
     if (!publishName.trim() || !selected?.message_type) return
@@ -77,6 +80,7 @@ export function useContinuousTopicExecution({
       const payload = await stopContinuousTopicPublish({
         topic_name: publishName.trim(),
         topic_type: selected.message_type,
+        domain_id: publishDomainId,
       })
       setResult(payload)
       const state = await fetchContinuousTopicPublishes()
@@ -87,7 +91,7 @@ export function useContinuousTopicExecution({
     } finally {
       setBusy(false)
     }
-  }, [onStateChanged, publishName, selected?.message_type, setBusy, setResult])
+  }, [onStateChanged, publishDomainId, publishName, selected?.message_type, setBusy, setResult])
 
   return {
     activeContinuousPublish,

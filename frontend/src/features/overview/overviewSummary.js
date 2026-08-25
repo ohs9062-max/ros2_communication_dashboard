@@ -55,7 +55,7 @@ export function applyAlertsToResourceSummary(
     if (!sources.has(alert.source)) {
       continue
     }
-    const name = String(alert.name ?? '')
+    const name = String(alert.resource_key ?? alert.name ?? '')
     const severity = alertSeverity(alert.level)
     if (!name || !severity) {
       continue
@@ -69,7 +69,7 @@ export function applyAlertsToResourceSummary(
   }
 
   for (const resource of resources) {
-    const names = [resource.name, resource.full_name]
+    const names = [resource.resource_key, resource.name, resource.full_name]
       .map((name) => String(name ?? ''))
       .filter(Boolean)
     const alertBucket = names.reduce((bucket, name) => {

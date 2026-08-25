@@ -27,8 +27,10 @@ export function useInlineTopicController({
 }) {
   const [messageValues, setMessageValues] = useState({})
   const [publishName, setPublishName] = useState('')
+  const [publishDomainId, setPublishDomainId] = useState(null)
   const [publishHz, setPublishHz] = useState(10)
   const [subscribeName, setSubscribeName] = useState('')
+  const [subscribeDomainId, setSubscribeDomainId] = useState(null)
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState(null)
   const continuousPollInFlightRef = useRef(false)
@@ -40,14 +42,14 @@ export function useInlineTopicController({
     () => graphPublishTopicCandidates(topics, selectedDetail?.fullType),
     [selectedDetail?.fullType, topics],
   )
-  const defaultTopicName = selectedDetail?.connectedTopics?.[0]?.name
-    ?? selectedDetail?.topicStates?.[0]?.topic_name
-    ?? ''
+  const defaultTopic = selectedDetail?.connectedTopics?.[0] ?? selectedDetail?.topicStates?.[0] ?? null
+  const defaultTopicName = defaultTopic?.name ?? defaultTopic?.topic_name ?? ''
   const publishWarning = topicNameTypeWarning(topics, publishName, selectedDetail?.fullType)
   const activeContinuousPublish = continuousTopicPublishes.find((item) =>
     item.active
     && item.topic_name === publishName
-    && item.topic_type === selectedDetail?.fullType)
+    && item.topic_type === selectedDetail?.fullType
+    && item.domain_id === publishDomainId)
   const activeContinuousPublishKey = activeContinuousPublish
     ? `${activeContinuousPublish.topic_name}\u0000${activeContinuousPublish.topic_type}`
     : ''
@@ -72,13 +74,15 @@ export function useInlineTopicController({
     if (selectedDetail?.kind === 'message') {
       setMessageValues(defaultValues(selectedDetail.schema ?? []))
       setSubscribeName(defaultTopicName)
+      setSubscribeDomainId(defaultTopic?.domain_id ?? null)
     }
-  }, [defaultTopicName, selectedDetail?.kind, selectedDetail?.schema, selectedDetail?.stableKey])
+  }, [defaultTopic?.domain_id, defaultTopicName, selectedDetail?.kind, selectedDetail?.schema, selectedDetail?.stableKey])
 
   useEffect(() => {
     if (selectedDetail?.kind !== 'message') return
     const currentName = publishName.trim()
-    const currentIsCandidate = publishGraphTopics.some((topic) => topic.name === currentName)
+    const currentIsCandidate = publishGraphTopics.some((topic) =>
+      topic.name === currentName && topic.domain_id === publishDomainId)
     const source = publishNameSourceRef.current
 
     if (source === 'user') {
@@ -87,10 +91,12 @@ export function useInlineTopicController({
       if (currentIsCandidate) return
       publishNameSourceRef.current = 'empty'
       setPublishName('')
+      setPublishDomainId(null)
       return
     } else if (source === 'auto' && publishGraphTopics.length !== 1) {
       publishNameSourceRef.current = 'empty'
       setPublishName('')
+      setPublishDomainId(null)
       return
     }
 
@@ -99,17 +105,21 @@ export function useInlineTopicController({
       if (source === 'auto' && currentName === nextName) return
       publishNameSourceRef.current = 'auto'
       setPublishName(nextName)
+      setPublishDomainId(publishGraphTopics[0].domain_id ?? null)
     }
-  }, [publishGraphTopics, selectedDetail?.kind, selectedDetail?.fullType, publishName])
+  }, [publishDomainId, publishGraphTopics, selectedDetail?.kind, selectedDetail?.fullType, publishName])
 
   const updatePublishName = (value) => {
     publishNameSourceRef.current = value ? 'user' : 'empty'
     setPublishName(value)
+    setPublishDomainId(null)
   }
 
-  const selectPublishGraphTopic = (value) => {
-    publishNameSourceRef.current = value ? 'graph' : 'empty'
-    setPublishName(value)
+  const selectPublishGraphTopic = (resourceKey) => {
+    const topic = publishGraphTopics.find((item) => item.resource_key === resourceKey)
+    publishNameSourceRef.current = topic ? 'graph' : 'empty'
+    setPublishName(topic?.name ?? '')
+    setPublishDomainId(topic?.domain_id ?? null)
   }
 
   const publish = async () => {
@@ -130,6 +140,7 @@ export function useInlineTopicController({
         full_type: selectedDetail.fullType,
         message: normalizeNumericValues(messageValues, selectedDetail.schema),
         qos: publishQos.qosSelection,
+        domain_id: publishDomainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -155,6 +166,7 @@ export function useInlineTopicController({
         message: normalizeNumericValues(messageValues, selectedDetail.schema),
         hz: Number(publishHz),
         qos: publishQos.qosSelection,
+        domain_id: publishDomainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -172,6 +184,7 @@ export function useInlineTopicController({
       const nextResult = await stopContinuousTopicPublish({
         topic_name: publishName,
         topic_type: selectedDetail.fullType,
+        domain_id: publishDomainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -194,6 +207,7 @@ export function useInlineTopicController({
         full_type: selectedDetail.fullType,
         history_limit: 500,
         qos: subscribeQos.qosSelection,
+        domain_id: subscribeDomainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -209,6 +223,7 @@ export function useInlineTopicController({
         topic_name: subscribeName,
         topic_type: selectedDetail.fullType,
         full_type: selectedDetail.fullType,
+        domain_id: subscribeDomainId,
       })
       setResult(nextResult)
       await refresh({ notifyWorkbench: false })
@@ -219,9 +234,10 @@ export function useInlineTopicController({
 
   const resetHistories = async (scope = 'all') => {
     const topicType = scope === 'selected' ? selectedDetail?.fullType : ''
+    const domainId = scope === 'selected' ? (publishDomainId ?? subscribeDomainId) : null
     await Promise.all([
-      resetReceiveTopicHistory('', topicType),
-      resetTopicPublishHistory(topicType ? { topic_type: topicType } : {}),
+      resetReceiveTopicHistory('', topicType, domainId),
+      resetTopicPublishHistory(topicType ? { topic_type: topicType, domain_id: domainId } : {}),
     ])
     setResult({ success: true, message: topicType ? '선택 Topic 타입 이력을 초기화했습니다.' : 'Topic 전체 Publish/Subscribe 이력을 초기화했습니다.' })
     await refresh({ notifyWorkbench: false })
@@ -231,8 +247,10 @@ export function useInlineTopicController({
     setMessageValues({})
     publishNameSourceRef.current = 'empty'
     setPublishName('')
+    setPublishDomainId(null)
     setPublishHz(10)
     setSubscribeName('')
+    setSubscribeDomainId(null)
     setResult(null)
   }
 
@@ -252,6 +270,7 @@ export function useInlineTopicController({
     publishGraphTopics,
     publishHz,
     publishName,
+    publishDomainId,
     publishWarning,
     reset,
     resetHistories,
@@ -259,7 +278,8 @@ export function useInlineTopicController({
     selectPublishGraphTopic,
     setMessageValues,
     setPublishHz,
-    setSubscribeName,
+    setSubscribeName: (value) => { setSubscribeName(value); setSubscribeDomainId(null) },
+    subscribeDomainId,
     startContinuous,
     startSubscribe,
     stopContinuous,

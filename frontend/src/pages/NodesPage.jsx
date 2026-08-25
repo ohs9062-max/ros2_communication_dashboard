@@ -69,19 +69,22 @@ export function NodesPage({ actions, dashboard, services, topics }) {
   }, [actions, includeInternalNodes, nodes, search, services, statusFilter, topics])
 
   const detailNode = filteredNodes.some(
-    (node) => node.full_name === selectedNodeName,
+    (node) => (node.resource_key ?? node.full_name) === selectedNodeName,
   )
     ? selectedNode
     : null
   const openNodeAlert = (alert) => {
     const targetNode = nodes.find(
-      (node) => node.full_name === alert.name || node.name === alert.name,
+      (node) => node.resource_key === alert.resource_key || (
+        !alert.resource_key && (node.full_name === alert.name || node.name === alert.name)
+      ),
     )
     setIncludeInternalNodes(true)
     setSearch('')
     setStatusFilter('all')
-    setSelectedNodeName(targetNode?.full_name ?? alert.name)
-    focusMonitorRow(targetNode?.full_name ?? alert.name, setSelectedNodeName)
+    const key = targetNode?.resource_key ?? alert.resource_key ?? alert.name
+    setSelectedNodeName(key)
+    focusMonitorRow(key, setSelectedNodeName)
   }
 
   return (

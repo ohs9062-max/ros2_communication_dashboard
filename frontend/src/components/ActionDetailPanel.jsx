@@ -108,7 +108,7 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
       </DetailSection>
 
       <QosDetails
-        focusRequest={qosFocusRequest?.name === action.name ? qosFocusRequest : null}
+        focusRequest={qosFocusRequest?.name === (action.resource_key ?? action.name) ? qosFocusRequest : null}
         qos={action.qos}
         title="Action 내부 통신 QoS"
       />

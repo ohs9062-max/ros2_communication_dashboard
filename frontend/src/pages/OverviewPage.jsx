@@ -125,21 +125,21 @@ export function OverviewPage({
 
   const openAlert = (alert) => {
     if (alert.source === 'topic' || alert.source === 'monitor_status') {
-      setSelectedTopicName(alert.name)
+      setSelectedTopicName(alert.resource_key ?? alert.name)
       onNavigate('topics')
       return
     }
 
     if (alert.source === 'service') {
       serviceDashboard.setIncludeHidden(true)
-      serviceDashboard.setSelectedServiceName(alert.name)
+      serviceDashboard.setSelectedServiceName(alert.resource_key ?? alert.name)
       onNavigate('services')
       return
     }
 
     if (alert.source === 'action') {
       actionDashboard.setIncludeIdleActions(true)
-      actionDashboard.setSelectedActionName(alert.name)
+      actionDashboard.setSelectedActionName(alert.resource_key ?? alert.name)
       onNavigate('actions')
       return
     }
@@ -147,7 +147,7 @@ export function OverviewPage({
     if (alert.source === 'node' || alert.code === 'node_stale') {
       nodeDashboard.setIncludeInternalNodes(true)
       nodeDashboard.setStatusFilter('all')
-      nodeDashboard.setSelectedNodeName(alert.name)
+      nodeDashboard.setSelectedNodeName(alert.resource_key ?? alert.name)
       onNavigate('nodes')
       return
     }
