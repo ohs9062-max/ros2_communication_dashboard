@@ -32,15 +32,22 @@ function fixture(receiveMode = 'action') {
     visibleMessages: [{ message_type: 'std_msgs/msg/String' }],
   }
   const receive = {
+    actions: action.actions,
     actionSearch: '', activeActionKey: 'active-action', activeServiceKey: 'active-service',
     changeTopic: noop, filteredActions: action.actions, filteredServices: service.services,
-    filteredTopics: ['/chatter'], load: noop, mode: receiveMode, qosMode: 'manual',
+    filteredTopics: ['/chatter'], load: noop, messageImportableOnly: true, mode: receiveMode, qosMode: 'manual',
     qosProfile: { depth: 3 }, resetActions: noop, resetAllTopics: noop,
     resetSelectedTopic: noop, resetServices: noop, selectedTopic: '/chatter',
     selectedTopicReceiving: true, serviceSearch: '', setActionSearch: noop,
-    setServiceSearch: noop, setTopicSearch: noop, startAction: noop, startService: noop,
+    setMessageImportableOnly: () => 'receive-importable', setServiceSearch: noop,
+    setTopicSearch: noop, startAction: noop, startService: noop,
     startTopic: noop, stopAction: noop, stopService: noop, stopTopic: noop, topicSearch: '',
-    topics: ['/chatter'], visibleActionHistory: [], visibleServiceHistory: [], visibleTopicHistory: [],
+    messages: topic.messages, selectedMessage: topic.selected, selectedMessageKey: 'receive-topic-key',
+    selectedReceiveActionKey: 'receive-action-key', selectedReceiveServiceKey: 'receive-service-key',
+    services: service.services, setSelectedMessageKey: () => 'receive-message',
+    setSelectedReceiveActionKey: () => 'receive-action',
+    setSelectedReceiveServiceKey: () => 'receive-service', topics: ['/chatter'], visibleActionHistory: [],
+    visibleMessages: topic.messages, visibleServiceHistory: [], visibleTopicHistory: [],
   }
   const panel = {
     closeExecutionPanels: noop, closeReceivePanel: noop, expanded: false,
@@ -66,8 +73,6 @@ function fixture(receiveMode = 'action') {
       topicQosLink,
     },
     receive,
-    selectedReceiveActionKey: 'receive-action-key',
-    selectedReceiveServiceKey: 'receive-service-key',
     service,
     topic,
   }
@@ -87,6 +92,14 @@ test('maps controller state to the existing execution and receive View contracts
   assert.equal(views.receive.mode, 'action')
   assert.equal(views.receive.action.qosControls, state.qos.linkedActionReceiveQosControls)
   assert.equal(views.receive.topic.selectedTopic, '/chatter')
+  assert.equal(views.receive.action.onSelect, state.receive.setSelectedReceiveActionKey)
+  assert.notEqual(views.receive.action.onSelect, state.action.select)
+  assert.equal(views.receive.service.onSelect, state.receive.setSelectedReceiveServiceKey)
+  assert.notEqual(views.receive.service.onSelect, state.service.select)
+  assert.equal(views.receive.topic.onMessageSelect, state.receive.setSelectedMessageKey)
+  assert.notEqual(views.receive.topic.onMessageSelect, state.topic.select)
+  assert.equal(views.receive.topic.onImportableOnlyChange, state.receive.setMessageImportableOnly)
+  assert.notEqual(views.receive.topic.onImportableOnlyChange, state.topic.setImportableOnly)
 })
 
 test('shows the expand affordance only for the execution panel matching the receive mode', () => {

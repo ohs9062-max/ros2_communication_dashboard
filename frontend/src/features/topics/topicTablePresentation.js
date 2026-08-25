@@ -8,11 +8,15 @@ export function createTopicSortColumns(hzByTopic) {
     type: { value: (topic) => topic.types?.[0] },
     publisher_count: { defaultDirection: 'desc', value: (topic) => topic.publisher_node_count ?? topic.publisher_count ?? 0 },
     subscriber_count: { defaultDirection: 'desc', value: (topic) => topic.subscriber_node_count ?? topic.subscriber_count ?? 0 },
-    hz: { defaultDirection: 'desc', value: (topic) => hzByTopic[topic.name]?.data?.hz },
+    hz: { defaultDirection: 'desc', value: (topic) => hzByTopic[topicHzKey(topic)]?.data?.hz },
     dashboard_communication: { defaultDirection: 'desc', value: (topic) => dashboardCommunicationCount(topic.dashboard_communication) },
     latest: { value: (topic) => compactDataPreview(topic.last_message_preview) },
-    last_updated: { defaultDirection: 'desc', value: (topic) => topicLastCheckedAt(topic, hzByTopic[topic.name]?.data) },
+    last_updated: { defaultDirection: 'desc', value: (topic) => topicLastCheckedAt(topic, hzByTopic[topicHzKey(topic)]?.data) },
   }
+}
+
+export function topicHzKey(topic) {
+  return topic?.resource_key ?? topic?.name ?? ''
 }
 
 export function topicDashboardCommunicationItems(topic) {

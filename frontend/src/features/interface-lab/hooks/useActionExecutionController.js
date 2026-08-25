@@ -10,6 +10,7 @@ import {
   defaultRequestValues,
   domainIdFromResource,
   normalizeNumericValues,
+  preferredExecutable,
 } from '../model/interfaceUploadModel.js'
 import { useActionExecutionQos } from './useExecutionQos.js'
 
@@ -51,8 +52,10 @@ export function useActionExecutionController({
       if (selectedKey) select('')
       return
     }
-    if (visibleActions.some((action) => actionKey(action) === selectedKey)) return
-    select(actionKey(visibleActions[0]))
+    const current = visibleActions.find((action) => actionKey(action) === selectedKey)
+    const preferred = preferredExecutable(visibleActions)
+    if (current && (current.callable || !preferred?.callable)) return
+    select(actionKey(preferred))
   }, [select, selectedKey, visibleActions])
 
   const replace = useCallback((nextActions, nextHistory = null) => {

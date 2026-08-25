@@ -389,3 +389,31 @@
   표시한다. ROS_DOMAIN_ID, 99, 첫 Domain 및 UI Domain 선택은 추가하지 않았다.
 - helper의 resource-key 우선·범위/누락 거부 unit test와 Frontend `npm run lint`, `npm run test:unit`,
   `npm run build`, `git diff --check`를 통과했다. HTTPS 정적 실행 경로 동기화는 수행하지 않았다.
+
+## 2026-08-25 - Interface Lab 실행/수신 controller state 완전 분리
+
+- 실행 panel을 연 직후 `loadReceiveState({ silent: true })`가 실행되면서 수신용 callable Message/Service/Action
+  조회 결과를 실행 controller의 목록에 `replace`하고, 수신 selector도 실행 selector를 직접 호출하고 있었다.
+  이 때문에 수신 load/선택이 Topic `import_available`과 Action `selected.callable`을 바꿔 실행 버튼을 잠그고
+  Topic click handler 및 POST 전에 차단될 수 있었다.
+- 수신 controller가 Message/Service/Action 목록과 각 selected key를 자체 보유하도록 분리했다. 수신 load/선택은
+  더 이상 Topic Publish, Service Call, Action Goal controller의 목록·선택·busy를 변경하지 않는다. 기존 실행
+  controller는 선택 resource의 `resource_key`/`domain_id`를 유지하고 POST payload에 확정 `domain_id`를 보내는
+  경로를 그대로 사용한다. ROS_DOMAIN_ID/99/첫 Domain fallback과 Domain 선택 UI는 추가하지 않았다.
+- Frontend `npm run test:unit`, `npm run lint`, `npm run build`, `git diff --check`를 통과했다. 샌드박스에서 실행 중인
+  로컬 HTTPS/Backend에 접속할 수 없어 Browser Network의 실제 POST와 ROS 통신은 코드 검증과 구분해 미검증으로
+  남겼고, HTTPS 정적 실행 경로 동기화도 수행하지 않았다.
+
+## 2026-08-25 - Multi-domain Topic Hz 및 Interface Lab 실행 기본 대상 회귀 수정
+
+- Domain별 child Topic callback은 각 runtime의 name-key subscription에 timestamp/latest를 함께 저장하고 있었지만,
+  Frontend 목록 Hz polling만 모든 Topic을 name-only로 조회하고 결과도 `topic.name` key에 저장했다. 목록 polling을
+  `{resource_key, domain_id, name}` 대상으로 바꾸고 `/ros/topics/hz`에 Domain을 전달하며, Monitor 응답에도
+  `domain_id/resource_key`를 붙여 선택 전환 중 다른 Domain의 동일 이름 응답까지 거부하도록 수정했다.
+- Multi-domain callable API에는 등록 type마다 Domain별 `서버 없음` placeholder와 실제 callable 항목이 함께 존재할 수
+  있다. 실행 controller가 배열 첫 항목을 기본 선택해 `selected.callable=false`, `server_available=false`가 되던 것을
+  실제 `callable=true` 항목 우선 선택으로 변경했다. 버튼의 기존 `busy || !selected.callable` 조건은 유지하며 수신
+  controller와 실행 controller의 분리도 그대로 유지했다.
+- Frontend unit/lint/build와 `git diff --check`, Monitor 관련 21 tests, Monitor 전체 279 tests 및 Monitor package
+  symlink build가 통과했다. 로컬 HTTPS 정적 경로 동기화와 Monitor 재시작은 `sudo -n` credential이 없어 실행 전에
+  중단됐으며 실제 로컬 HTTPS/service 상태는 변경되지 않았다.

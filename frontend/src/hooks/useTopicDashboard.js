@@ -104,30 +104,38 @@ export function useTopicDashboard({
       resetKey: selectedTopicName,
     },
   )
-  const hzTopicNames = useMemo(
+  const hzTopicTargets = useMemo(
     () =>
-      Array.from(new Set(topicItems
+      topicItems
         .filter(isTopicDetailCandidate)
         .filter((topic) => topic.deep_monitoring)
-        .map((topic) => topic.name)
-        .filter((name) => name && name !== selectedTopicName))).sort(),
+        .filter((topic) => topic.name && topicName(topic) !== selectedTopicName)
+        .map((topic) => ({
+          domainId: topic.domain_id,
+          key: topicName(topic),
+          name: topic.name,
+        }))
+        .sort((left, right) => left.key.localeCompare(right.key)),
     [selectedTopicName, topicItems],
   )
-  const hzTopicNamesKey = useMemo(() => hzTopicNames.join('\n'), [hzTopicNames])
+  const hzTopicTargetsKey = useMemo(() => JSON.stringify(hzTopicTargets), [hzTopicTargets])
   const displayedTopicHzByName = useMemo(() => {
-    if (hz.data?.data?.name !== selectedTopicName) {
+    if (
+      !selectedTopicForRequest
+      || hz.data?.data?.resource_key !== topicName(selectedTopicForRequest)
+    ) {
       return topicHzByName
     }
 
     return {
       ...topicHzByName,
-      [selectedTopicName]: hz.data,
+      [topicName(selectedTopicForRequest)]: hz.data,
     }
-  }, [hz.data, selectedTopicName, topicHzByName])
+  }, [hz.data, selectedTopicForRequest, topicHzByName])
 
   useEffect(() => {
-    const names = hzTopicNamesKey ? hzTopicNamesKey.split('\n') : []
-    if (!names.length) {
+    const targets = hzTopicTargetsKey ? JSON.parse(hzTopicTargetsKey) : []
+    if (!targets.length) {
       setTopicHzByName({})
       return undefined
     }
@@ -143,7 +151,10 @@ export function useTopicDashboard({
       pollInFlight = true
       try {
         const results = await Promise.allSettled(
-          names.map(async (name) => [name, await fetchTopicHz(name)]),
+          targets.map(async (target) => [
+            target.key,
+            await fetchTopicHz(target.name, target.domainId),
+          ]),
         )
 
         if (cancelled) {
@@ -174,7 +185,7 @@ export function useTopicDashboard({
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [hzTopicNamesKey])
+  }, [hzTopicTargetsKey])
 
   const lastUpdated =
     topics.lastUpdated ??

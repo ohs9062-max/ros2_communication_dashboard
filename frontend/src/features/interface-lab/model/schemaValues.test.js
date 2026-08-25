@@ -15,6 +15,7 @@ import {
   defaultFieldValue,
   defaultRequestValues,
   domainIdFromResource,
+  preferredExecutable,
   normalizeNumericValues as normalizeLegacyNumericValues,
 } from './interfaceUploadModel.js'
 
@@ -89,4 +90,11 @@ test('takes a monitored Domain only from the selected resource identity', () => 
   assert.equal(domainIdFromResource({ domain_id: 7 }), 7)
   assert.equal(domainIdFromResource({ resource_key: 'invalid:/add', domain_id: undefined }), null)
   assert.equal(domainIdFromResource({ resource_key: '233:/outside' }), null)
+})
+
+test('prefers a callable execution target over multi-domain serverless placeholders', () => {
+  const placeholder = { domain_id: 0, callable: false, service_name: '' }
+  const callable = { domain_id: 99, callable: true, service_name: '/control' }
+  assert.equal(preferredExecutable([placeholder, callable]), callable)
+  assert.equal(preferredExecutable([placeholder]), placeholder)
 })

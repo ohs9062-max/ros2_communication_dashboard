@@ -46,6 +46,10 @@ export function domainIdFromResource(resource) {
   return Number.isInteger(domainId) && domainId >= 0 && domainId <= 232 ? domainId : null
 }
 
+export function preferredExecutable(items = []) {
+  return items.find((item) => item?.callable === true) ?? items[0]
+}
+
 export function topicStatusLabel(message) {
   return message.import_available ? 'Publish 가능' : 'Publish 불가'
 }

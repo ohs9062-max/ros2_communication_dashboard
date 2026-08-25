@@ -33,6 +33,9 @@ class _Runtime:
     def topic_publish_history(self, **_kwargs):
         return {'history': [{'topic_name': '/same', 'topic_type': 'demo/msg/Value'}]}
 
+    def topic_hz(self, name):
+        return {'success': True, 'data': {'name': name, 'hz': self.domain_id}}
+
 
 @pytest.fixture
 def monitor(monkeypatch):
@@ -73,6 +76,19 @@ def test_execution_requires_domain_when_multiple_and_routes_selected_domain(moni
     assert {(item['domain_id'], item['resource_key']) for item in history} == {
         (0, '0:/same'),
         (2, '2:/same'),
+    }
+
+
+def test_topic_hz_response_keeps_selected_domain_resource_identity(monitor):
+    monitor.set_domain_ids([0, 2])
+
+    response = monitor.topic_hz('/same', domain_id=2)
+
+    assert response['data'] == {
+        'name': '/same',
+        'hz': 2,
+        'domain_id': 2,
+        'resource_key': '2:/same',
     }
 
 

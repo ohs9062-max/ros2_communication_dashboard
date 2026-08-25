@@ -4,37 +4,25 @@ import {
   fetchCallableActions,
   fetchCallableMessages,
   fetchCallableServices,
-  fetchContinuousTopicPublishes,
   fetchReceiveActionHistory,
   fetchReceiveServiceHistory,
   fetchReceiveTopicHistory,
   fetchReceiveTopics,
-  fetchTopicPublishHistory,
   resetReceiveActionHistory,
   resetReceiveServiceHistory,
 } from '../../../api/interfaceExecution.js'
 import { fetchTopics } from '../../../api/monitoring.js'
-import { actionKey, serviceKey } from '../model/interfaceUploadModel.js'
+import { actionKey, messageKey, serviceKey } from '../model/interfaceUploadModel.js'
 import { runSingleFlight } from '../model/singleFlight.js'
 import { useActionExecutionQos } from './useExecutionQos.js'
 import { useResourceReceiveObserver } from './useResourceReceiveObserver.js'
 import { useTopicReceiveController } from './useTopicReceiveController.js'
 
 export function useInterfaceReceiveController({
-  actions,
   availableTopics,
-  replaceActions,
-  replaceMessages,
-  replaceServices,
-  selectedMessage,
-  selectedReceiveActionKey,
-  selectedReceiveServiceKey,
-  services,
   setAvailableTopics,
   setBusy,
   setFeedback,
-  setSelectedReceiveActionKey,
-  setSelectedReceiveServiceKey,
 }) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('topic')
@@ -42,6 +30,13 @@ export function useInterfaceReceiveController({
   const [topicHistory, setTopicHistory] = useState([])
   const [serviceHistory, setServiceHistory] = useState([])
   const [actionHistory, setActionHistory] = useState([])
+  const [messages, setMessages] = useState([])
+  const [services, setServices] = useState([])
+  const [actions, setActions] = useState([])
+  const [messageImportableOnly, setMessageImportableOnly] = useState(false)
+  const [selectedMessageKey, setSelectedMessageKey] = useState('')
+  const [selectedReceiveServiceKey, setSelectedReceiveServiceKey] = useState('')
+  const [selectedReceiveActionKey, setSelectedReceiveActionKey] = useState('')
   const pollInFlightRef = useRef(false)
   const actionQos = useActionExecutionQos()
 
@@ -55,8 +50,6 @@ export function useInterfaceReceiveController({
         servicePayload,
         actionPayload,
         messagesPayload,
-        publishHistoryPayload,
-        continuousPublishPayload,
         servicesPayload,
         actionsPayload,
       ] = await Promise.all([
@@ -66,8 +59,6 @@ export function useInterfaceReceiveController({
         fetchReceiveServiceHistory(),
         fetchReceiveActionHistory(),
         fetchCallableMessages(),
-        fetchTopicPublishHistory({ limit: 100 }),
-        fetchContinuousTopicPublishes(),
         fetchCallableServices(),
         fetchCallableActions(),
       ])
@@ -80,18 +71,17 @@ export function useInterfaceReceiveController({
       setTopicHistory(topicHistoryPayload.data ?? [])
       setServiceHistory(servicePayload.data ?? [])
       setActionHistory(actionPayload.data ?? [])
-      replaceMessages(
-        nextMessages,
-        publishHistoryPayload.data ?? [],
-        continuousPublishPayload.data ?? [],
-      )
-      replaceServices(nextServices)
-      replaceActions(nextActions)
-      if (!selectedReceiveServiceKey && nextServices[0]) {
-        setSelectedReceiveServiceKey(serviceKey(nextServices[0]))
+      setMessages(nextMessages)
+      setServices(nextServices)
+      setActions(nextActions)
+      if (!nextMessages.some((message) => messageKey(message) === selectedMessageKey)) {
+        setSelectedMessageKey(nextMessages[0] ? messageKey(nextMessages[0]) : '')
       }
-      if (!selectedReceiveActionKey && nextActions[0]) {
-        setSelectedReceiveActionKey(actionKey(nextActions[0]))
+      if (!nextServices.some((service) => serviceKey(service) === selectedReceiveServiceKey)) {
+        setSelectedReceiveServiceKey(nextServices[0] ? serviceKey(nextServices[0]) : '')
+      }
+      if (!nextActions.some((action) => actionKey(action) === selectedReceiveActionKey)) {
+        setSelectedReceiveActionKey(nextActions[0] ? actionKey(nextActions[0]) : '')
       }
     } catch (error) {
       if (!silent) setFeedback({ tone: 'error', text: error.message })
@@ -99,9 +89,7 @@ export function useInterfaceReceiveController({
       if (!silent) setBusy(false)
     }
   }, [
-    replaceActions,
-    replaceMessages,
-    replaceServices,
+    selectedMessageKey,
     selectedReceiveActionKey,
     selectedReceiveServiceKey,
     setAvailableTopics,
@@ -113,9 +101,15 @@ export function useInterfaceReceiveController({
     setTopics,
   ])
 
+  const selectedMessage = messages.find((message) => messageKey(message) === selectedMessageKey)
+  const visibleMessages = messageImportableOnly
+    ? messages.filter((message) => message.import_available)
+    : messages
+
   const topicController = useTopicReceiveController({
     availableTopics,
     load,
+    messageImportableOnly,
     selectedMessage,
     setFeedback,
     setTopicHistory,
@@ -195,6 +189,7 @@ export function useInterfaceReceiveController({
   }, [mode, open, pollReceiveState])
 
   return {
+    actions,
     actionSearch,
     actionQosControls: actionQos.qosControls,
     activeActionKey,
@@ -203,19 +198,30 @@ export function useInterfaceReceiveController({
     filteredServices,
     load,
     mode,
+    messages,
     open,
     resetActions,
     resetServices,
     serviceSearch,
+    services,
     setActionSearch,
     setMode,
+    setMessageImportableOnly,
     setOpen,
     setServiceSearch,
+    setSelectedMessageKey,
+    setSelectedReceiveActionKey,
+    setSelectedReceiveServiceKey,
     startAction,
     startService,
     stopAction,
     stopService,
+    selectedMessage,
+    selectedMessageKey,
+    selectedReceiveActionKey,
+    selectedReceiveServiceKey,
     visibleActionHistory,
+    visibleMessages,
     visibleServiceHistory,
     ...topicController,
   }

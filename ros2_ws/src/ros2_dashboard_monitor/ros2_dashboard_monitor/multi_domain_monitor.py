@@ -130,7 +130,12 @@ class MultiDomainRosMonitor:
         return self._runtime(domain_id).latest_message(name)
 
     def topic_hz(self, name: str, *, domain_id: int | None = None) -> dict[str, Any]:
-        return self._runtime(domain_id).topic_hz(name)
+        result = deepcopy(self._runtime(domain_id).topic_hz(name))
+        if domain_id is not None:
+            data = result.setdefault('data', {})
+            data['domain_id'] = int(domain_id)
+            data['resource_key'] = f'{int(domain_id)}:{name}'
+        return result
 
     def topic_history(self, name: str, *, limit: int | None = None, domain_id: int | None = None) -> dict[str, Any]:
         return self._runtime(domain_id).topic_history(name, limit=limit)

@@ -34,8 +34,13 @@
   QoS·Alert·Overview와 Interface Lab 실행은 `domain_id`/`resource_key`를 유지해 동일 이름 리소스를 분리한다.
 - Interface Lab 상세에서 실행을 열면 Graph에서 선택한 단일 Topic/Service/Action resource의
   `resource_key`·`domain_id`·이름·type을 실행 loader까지 전달해 해당 Domain runtime으로 자동 실행한다.
-  수신 mode 전환은 실행 panel/busy state를 변경하지 않으며, 여러 동일 type 후보가 있으면 임의 Domain을
-  선택하지 않고 기존 Domain 표기 selector를 유지한다.
+  수신 controller는 별도 callable 목록과 selected key를 보유하므로 수신 load/선택/시작은 Topic Publish,
+  Service Call, Action Goal의 실행 목록·선택·busy state를 변경하지 않는다. 여러 동일 type 후보가 있으면 임의
+  Domain을 선택하지 않고 기존 Domain 표기 selector를 유지한다.
+- Topic 목록 Hz polling과 표시 cache는 `resource_key`로 구분하고 모든 Hz 요청에 선택 resource의 `domain_id`를
+  전달한다. Monitor Hz 응답도 `domain_id/resource_key`를 반환해 같은 이름 Topic의 다른 Domain 응답을 섞지 않는다.
+- Multi-domain Interface Lab 실행 목록에 Domain별 serverless placeholder가 앞서더라도 Service/Action controller는
+  실제 `callable=true` 항목을 기본 선택한다. 서버가 없는 type만 있을 때는 기존처럼 실행을 차단한다.
 - Interface Lab의 Topic Publish/Receive, Service Call, Action Goal/Cancel은 selected resource identity에서
   확정한 `domain_id`가 있을 때만 HTTP payload를 보낸다. 누락/범위 밖 값은 Browser에서 차단하며 multi-domain
   Monitor에 name-only 요청을 보내지 않는다.

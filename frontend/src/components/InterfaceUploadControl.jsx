@@ -23,8 +23,7 @@ export function InterfaceUploadControl({
     onStateChanged,
   })
   const {
-    action, availableTopics, receive, selectedReceiveActionKey,
-    selectedReceiveServiceKey, service, topic,
+    action, availableTopics, receive, service, topic,
   } = useInterfaceExecutionSuite({
     onStateChanged,
     setBusy: management.setBusy,
@@ -225,8 +224,6 @@ export function InterfaceUploadControl({
       topicQosLink,
     },
     receive,
-    selectedReceiveActionKey,
-    selectedReceiveServiceKey,
     service,
     topic,
   })

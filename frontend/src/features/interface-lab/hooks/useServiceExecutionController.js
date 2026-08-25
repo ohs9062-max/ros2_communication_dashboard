@@ -9,6 +9,7 @@ import {
   defaultRequestValues,
   domainIdFromResource,
   normalizeNumericValues,
+  preferredExecutable,
   serviceKey,
 } from '../model/interfaceUploadModel.js'
 import { useServiceExecutionQos } from './useExecutionQos.js'
@@ -51,8 +52,10 @@ export function useServiceExecutionController({
       if (selectedKey) select('')
       return
     }
-    if (visibleServices.some((service) => serviceKey(service) === selectedKey)) return
-    select(serviceKey(visibleServices[0]))
+    const current = visibleServices.find((service) => serviceKey(service) === selectedKey)
+    const preferred = preferredExecutable(visibleServices)
+    if (current && (current.callable || !preferred?.callable)) return
+    select(serviceKey(preferred))
   }, [select, selectedKey, visibleServices])
 
   const replace = useCallback((nextServices, nextHistory = null) => {

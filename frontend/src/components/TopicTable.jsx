@@ -44,7 +44,7 @@ export function TopicTable({
         <tbody>
           {sortedTopics.map((topic) => (
             <TopicTableRow
-              hz={hzByTopic[topic.name]}
+              hz={hzByTopic[topic.resource_key ?? topic.name]}
               isPriorityPending={isPriorityPending}
               key={topic.resource_key ?? topic.name}
               onPreview={setPreviewTopic}
