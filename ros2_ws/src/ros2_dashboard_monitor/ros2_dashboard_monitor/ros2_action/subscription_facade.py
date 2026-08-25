@@ -15,6 +15,7 @@ from ros2_dashboard_monitor.ros2_action.subscription_lifecycle import (
     update_action_topic_subscriptions,
 )
 from ros2_dashboard_monitor.ros2_action.subscriptions import (
+    action_history_snapshot,
     action_entry_matches,
     build_action_subscription_entry,
     runtime_snapshot,
@@ -61,7 +62,9 @@ class ActionSubscriptionFacade:
                 self._destroy_entry_subscriptions(entry)
 
             entry = build_action_subscription_entry(
+                action_name=name,
                 action_type=action_type,
+                history_limit=self._config.actions_history_limit,
             )
             self._subscriptions[name] = entry
 
@@ -128,6 +131,35 @@ class ActionSubscriptionFacade:
     def _runtime_snapshot(self, name: str) -> dict[str, Any]:
         with self._lock:
             return runtime_snapshot(self._subscriptions.get(name))
+
+    def history_for_action(
+        self,
+        *,
+        action_name: str,
+        action_type: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        history_limit = max(1, min(
+            int(limit or self._config.actions_history_limit),
+            self._config.actions_history_limit,
+        ))
+        with self._lock:
+            entry = self._subscriptions.get(action_name)
+            if (
+                entry is not None
+                and action_type
+                and entry.get('type') != action_type
+            ):
+                entry = None
+            history = action_history_snapshot(entry, limit=history_limit)
+        return {
+            'history': history,
+            'meta': {
+                'count': len(history),
+                'limit': self._config.actions_history_limit,
+                'source': 'monitor_observed',
+            },
+        }
 
     def _status_callback(self, name: str):
         def callback(message: Any) -> None:

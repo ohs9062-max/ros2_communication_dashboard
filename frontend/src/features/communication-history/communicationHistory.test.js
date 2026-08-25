@@ -25,6 +25,7 @@ assert.equal(historyStatus({ success: true, status_label: 'canceled' }, 'action'
 assert.deepEqual(
   historyPayload({ goal: { id: 1 }, feedback: [{ step: 1 }], result: { ok: true } }, 'action'),
   {
+    source: 'interface_lab', event_type: 'goal_execution', goal_id: null,
     goal: { id: 1 }, accepted: null, feedback: [{ step: 1 }], result: { ok: true },
     status: null, success: false, duration_ms: null, error_type: null, error: null,
   },
@@ -67,5 +68,19 @@ assert.match(actionRow.formattedPayload, /"goal": \{/)
 assert.match(actionRow.formattedPayload, /"feedback": \[/)
 assert.match(actionRow.formattedPayload, /"result": \{/)
 assert.equal(actionRow.status, '성공')
+
+const [observedFeedback] = buildHistoryRows([{
+  action_name: '/CanControl',
+  action_type: 'pkg/action/Demo',
+  execution_source: 'monitor_observed',
+  event_type: 'feedback',
+  goal_id: '01ab',
+  received_at: 6,
+  feedback: [{ progress: 75 }],
+}], 'action')
+assert.equal(observedFeedback.timestamp, 6)
+assert.equal(observedFeedback.status, 'Feedback')
+assert.match(observedFeedback.formattedPayload, /"source": "monitor_observed"/)
+assert.match(observedFeedback.formattedPayload, /"goal_id": "01ab"/)
 
 console.log('Communication history tests passed')

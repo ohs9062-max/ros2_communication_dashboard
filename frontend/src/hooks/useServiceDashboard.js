@@ -5,7 +5,7 @@ import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
 import { useUserPriority } from './useUserPriority.js'
 
-const serviceName = (service) => service.name
+const serviceName = (service) => service.resource_key ?? service.name
 
 export function useServiceDashboard({ enabled = true } = {}) {
   const [includeHidden, setIncludeHidden] = useState(false)
@@ -62,7 +62,7 @@ export function useServiceDashboard({ enabled = true } = {}) {
   )
   const selectedService = useMemo(
     () =>
-      services.find((service) => service.name === selectedServiceName) ??
+      services.find((service) => (service.resource_key ?? service.name) === selectedServiceName) ??
       null,
     [selectedServiceName, services],
   )

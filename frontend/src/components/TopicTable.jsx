@@ -46,11 +46,11 @@ export function TopicTable({
             <TopicTableRow
               hz={hzByTopic[topic.name]}
               isPriorityPending={isPriorityPending}
-              key={topic.name}
+              key={topic.resource_key ?? topic.name}
               onPreview={setPreviewTopic}
               onSelect={onSelectTopic}
               onTogglePriority={onTogglePriority}
-              selected={topic.name === selectedTopicName}
+              selected={(topic.resource_key ?? topic.name) === selectedTopicName}
               topic={topic}
             />
           ))}

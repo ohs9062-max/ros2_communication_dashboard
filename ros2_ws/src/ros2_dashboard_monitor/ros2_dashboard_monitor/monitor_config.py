@@ -96,6 +96,7 @@ class MonitorConfig:
     actions_auto_monitor_status: bool = True
     actions_auto_monitor_feedback: bool = True
     actions_auto_fetch_result_for_observed_goals: bool = True
+    actions_history_limit: int = 100
     fastdds_observer: FastDdsObserverConfig = field(
         default_factory=FastDdsObserverConfig,
     )
@@ -198,6 +199,10 @@ def build_monitor_config(
         ),
         actions_auto_fetch_result_for_observed_goals=boolean(
             actions.get('auto_fetch_result_for_observed_goals'), default=True,
+        ),
+        actions_history_limit=bounded_integer(
+            actions.get('history_limit'), default=100,
+            minimum=1, maximum=500,
         ),
         fastdds_observer=FastDdsObserverConfig(
             enabled=boolean(fastdds_observer.get('enabled'), default=True),

@@ -66,13 +66,13 @@ export function ServiceTable({
         <tbody>
           {sortedServices.map((service) => {
             const presentation = servicePresentation(service)
-            const selected = service.name === selectedServiceName
+            const selected = (service.resource_key ?? service.name) === selectedServiceName
             return (
               <tr
                 className={selected ? 'selected' : ''}
                 data-monitor-name={service.name}
-                key={service.name}
-                onClick={() => onSelectService(service.name)}
+                key={service.resource_key ?? service.name}
+                onClick={() => onSelectService(service.resource_key ?? service.name)}
               >
                 <td className="priority-cell">
                   <PriorityStarButton
@@ -91,7 +91,7 @@ export function ServiceTable({
                     <QosStatusBadge qos={service} />
                   </div>
                 </td>
-                <td className="topic-name service-name service-name-cell ellipsis-cell" title={service.name}>{service.name}</td>
+                <td className="topic-name service-name service-name-cell ellipsis-cell" title={service.name}>{service.name} <span className="muted">· D{service.domain_id ?? 0}</span></td>
                 <td className="topic-type service-type service-type-cell ellipsis-cell" title={service.type ?? '-'}>{service.type ?? '-'}</td>
                 <td className="diagnostic-count-cell">{presentation.serverNodeCount}</td>
                 <td className="diagnostic-count-cell">{presentation.clientNodeCount}</td>

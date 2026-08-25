@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from time import time
 from typing import Any, Callable
 
 from ros2_dashboard_monitor.ros2_action.result import (
@@ -203,6 +204,7 @@ class ActionResultRuntime:
                     entry,
                     goal_id=goal_id,
                     state=state,
+                    received_at=time(),
                 )
             self._action_result_pending.pop(key, None)
 
@@ -220,6 +222,7 @@ class ActionResultRuntime:
                     entry,
                     goal_id=goal_id,
                     state=build_result_error_state(message),
+                    received_at=time(),
                 )
             self._action_result_pending.pop((action_name, goal_id), None)
 

@@ -28,6 +28,10 @@ class _Monitor:
         self.calls.append('actions')
         return self.actions
 
+    def domain_snapshot(self):
+        self.calls.append('domains')
+        return {'active_domain_id': 0, 'status': 'monitoring'}
+
     def node_snapshot(self, **snapshots):
         self.calls.append(('nodes', snapshots))
         return self.nodes
@@ -61,4 +65,5 @@ def test_transport_snapshot_reuses_each_resource_snapshot(monkeypatch) -> None:
     assert response['data']['services']['meta']['hidden_count'] == 1
     assert sum(call == 'topics' for call in monitor.calls) == 1
     assert sum(call == 'actions' for call in monitor.calls) == 1
+    assert response['data']['domains'] == {'active_domain_id': 0, 'status': 'monitoring'}
     assert sum(call == ('services', True) for call in monitor.calls) == 1

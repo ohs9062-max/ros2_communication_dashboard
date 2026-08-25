@@ -84,6 +84,7 @@ export function useActionExecutionController({
         goal: normalizeNumericValues(goalValues, selected.goal_schema),
         timeout_sec: timeoutSec,
         qos: qos.qosSelection,
+        domain_id: selected.domain_id,
       })
       setResult(payload)
       const historyPayload = await fetchActionGoalHistory()

@@ -98,6 +98,8 @@ https://<장비 LAN IP>[:설정 port]/
 - Nginx/TLS: `config/nginx/dashboard.env.example`, `/etc/nginx/ssl/`
 
 `backend/.env`의 ROS Domain/RMW 변경은 runtime env 동기화가 필요하므로 `start.sh`로 반영한다.
+Domains 화면의 여러 ID 입력은 저장된 감시 대상 후보이며, 현재 Monitor runtime은 하나의 `ROS_DOMAIN_ID`만 실제로
+감시한다. 따라서 실제 감시 Domain 변경은 `start.sh` 또는 설치 runtime 환경 변경이 필요하다.
 Backend/DB 설정만 바꾼 경우에는 Backend service를 재시작한다.
 
 ```bash
@@ -119,7 +121,7 @@ MariaDB
 
 - Topic missing/stale/disconnected, Pub/Sub, Hz/latest/age, bounded 최근 데이터와 Camera Preview
 - Service Server/Client, 사용자 Call과 요청형 Interface Lab Request/Response 이력
-- Action Goal/Feedback/Result/Cancel, 요청형 Interface Lab 실행 이력과 5개 채널 QoS
+- Action Goal/Feedback/Result/Cancel, Interface Lab 실행 및 실제 관찰한 Status/Feedback/Result 이력, 5개 채널 QoS
 - Node 통신 역할과 Graph 이탈 감지
 - Graph/Fast DDS/RMW 근거를 구분한 QoS 진단과 Alert
 - Interface Lab의 등록·build/apply, Topic Publish/Receive, Service Call, Action Goal

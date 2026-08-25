@@ -29,7 +29,7 @@ export function TopicTableRow({
     <tr
       className={[selected ? 'selected' : '', missing ? 'message-missing' : ''].join(' ')}
       data-monitor-name={topic.name}
-      onClick={() => onSelect(topic.name)}
+      onClick={() => onSelect(topic.resource_key ?? topic.name)}
     >
       <td className="priority-cell">
         <PriorityStarButton item={topic} name={topic.name} onToggle={onTogglePriority} pending={isPriorityPending(topic.name)} />
@@ -42,7 +42,7 @@ export function TopicTableRow({
             : <QosStatusBadge qos={topic} />}
         </div>
       </td>
-      <td className="topic-name ellipsis-cell" title={topic.name}>{topic.name}</td>
+      <td className="topic-name ellipsis-cell" title={topic.name}>{topic.name} <span className="muted">· D{topic.domain_id ?? 0}</span></td>
       <td className="topic-type ellipsis-cell" title={topic.types?.[0] ?? '-'}>{topic.types?.[0] ?? '-'}</td>
       <td className="diagnostic-count-cell">{topic.publisher_node_count ?? topic.publisher_count ?? 0}</td>
       <td className="diagnostic-count-cell">{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</td>

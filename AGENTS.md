@@ -222,6 +222,11 @@ MARIADB_CONNECT_TIMEOUT_SEC      2
 MARIADB_RETRY_INTERVAL_SEC       5
 ```
 
+현재 Monitor는 rclpy Context 하나로 단일 `ROS_DOMAIN_ID`만 실제 감시한다. Backend `/ros/domains`는 그 실제 Domain을
+Monitor snapshot에서 반환하고, Domains 화면의 여러 입력값은 `user_preferences.yaml`의 `domains.ids`에 저장한다. 저장한
+ID 중 실제 Context와 같은 값만 `감시 중`이며 나머지는 runtime 미적용이다. 여러 Domain을 동시에 감시하는 Monitor runtime은
+구현되어 있지 않으므로 설정 저장만으로 runtime을 바꾸거나 추가 감시를 시작했다고 표시하지 않는다.
+
 ### Monitor 설정
 
 기본 source는 `ros2_ws/src/ros2_dashboard_monitor/config/monitor.yaml`이다. 설치 package share 설정은
@@ -239,6 +244,7 @@ fastdds_observer.request_timeout_sec               0.2
 topics.auto_discover                              true
 topics.auto_subscribe_supported_types             true
 topics.history_limit                              100
+actions.history_limit                             100
 topics.required_stream_names                      /imu, /joint_states, /odom, /scan
 topics.command_names                              /cmd_vel, /cmd_vel_smoothed
 topics.include_names / exclude_names / prefixes   배포별 필터
@@ -323,9 +329,10 @@ Service 상세 history는 Interface Lab이 실제 실행해 메모리에 보존�
 Action Server 발견과 Goal/Result/Cancel Service, Feedback/Status Topic을 조립한다. Feedback/Status는 Graph Topic
 QoS와 자동 Subscription을 사용하고, 설정이 켜진 경우 관찰한 Goal의 Result를 조회한다. 사용자가 명시한 Goal의
 accept, feedback, result, cancel과 실행 이력을 Interface Lab runtime에서 관리한다. Client 없음은 정상 대기다.
-Action 상세 history는 Interface Lab Goal 최대 30건만 `/ros/actions/history`에서 resource별로 반환한다. 자동 Action
-monitoring에서 부분적으로 관찰하는 외부 Status/Feedback/Result를 외부 Goal payload가 포함된 완전한 실행 로그처럼
-합성하지 않는다.
+Action 상세 history는 Interface Lab Goal 최대 30건과 자동 Action monitoring이 실제 관찰한 Status/Feedback/Result를
+합쳐 `/ros/actions/history`에서 resource별 최신 `actions.history_limit`건을 반환한다. 외부 Goal payload와 rejected
+응답은 Service payload라 현재 observer로 볼 수 없으므로 `goal=null`과 관찰 source를 명시하고 완전한 실행 로그처럼
+합성하지 않는다. 외부 Result는 terminal Status를 관찰한 뒤 기존 GetResult 경로로 실제 payload를 조회한 값이다.
 
 ### Node
 
@@ -625,7 +632,10 @@ WebSocket snapshot은 Backend의 마지막 Monitor cache를 전송하며 Camera 
 WebSocket 연결 실패 시에도 화면의 상태 조회 경로로 유지한다. Topic/Service/Action 최근 통신 history 전체도
 snapshot에 포함하지 않고 사용자가 상세의 접힌 로그를 열 때만 localhost Monitor proxy를 통해 조회한다. 불러온
 history는 항목별 클릭 카드가 아니라 최신순 단일 고정 높이 로그 영역에 pretty JSON을 바로 표시하며, 로그 영역
-내부만 세로 스크롤한다.
+내부만 세로 스크롤한다. 개별 JSON payload에는 `max-height`나 `overflow:auto`를 두지 않고 내용 높이로 펼치며 긴
+값은 가로 scroll 대신 `pre-wrap`과 word break로 줄바꿈한다. Topic/Service/Action 공통 History 영역은 펼쳐져 있는
+동안 `VITE_TOPIC_POLL_INTERVAL_MS` 주기로 상세 API를 갱신하고, 접으면 polling을 중단한다. 느린 요청이 겹치지 않게
+이전 요청이 진행 중이면 다음 주기를 건너뛴다.
 
 ## 13. API와 transport 경계
 
@@ -634,6 +644,7 @@ history는 항목별 클릭 카드가 아니라 최신순 단일 고정 높이 �
 ```text
 GET  /health
 GET  /ros/topics, /ros/services, /ros/actions, /ros/nodes
+GET/PUT /ros/domains
 GET  /ros/alerts, /ros/alerts/history
 POST /ros/alerts/current/reset, /ros/alerts/history/reset
 GET/PUT/DELETE /user-preferences/...
@@ -691,6 +702,11 @@ frontend/dist/index.html의 asset hash
 동일 장비의 HTTPS 실행 파일 반영이며, Monitor Python 변경이 포함됐을 때만 Monitor 재시작도 필요하다. Backend나
 Nginx 설정이 바뀌지 않았다면 두 서비스를 관성적으로 재시작하지 않는다. 실제 동기화나 재시작 전에는 변경 범위를
 알리고 필요한 권한 승인을 받되, 사용자에게 별도 production 배포가 필요한 것처럼 설명하지 않는다.
+
+Codex의 비대화형 PTY에서 `sudo` 암호 prompt는 사용자 입력창으로 전달되지 않는다. 따라서 HTTPS 실행 파일 동기화처럼
+sudo가 필요한 작업은 암호 입력을 기다리는 명령을 먼저 실행하지 말고, 사용자에게 인증이 필요함을 명확히 알린다.
+이미 유효한 sudo credential을 확인할 수 있을 때만 `sudo -n`으로 진행하며, 그렇지 않으면 사용자가 터미널에서
+`sudo -v`를 완료한 뒤 재시도를 요청하도록 안내한다.
 
 개발 통합 실행은 `./scripts/run_dashboard_stack.sh`, 종료는 `./scripts/stop_dashboard_stack.sh`를 사용한다. Vite는
 5173 strict port를 사용하며 제품 서비스와 동시에 실행하지 않는다. ROS demo는 다음 package launch를 사용한다.

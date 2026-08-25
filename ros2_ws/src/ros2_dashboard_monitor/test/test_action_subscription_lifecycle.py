@@ -1,8 +1,16 @@
 """Action status/feedback subscription lifecycle 회귀 테스트입니다."""
 
 from rclpy.qos import QoSProfile
+from types import SimpleNamespace
 
 from ros2_dashboard_monitor.ros2_action import subscription_lifecycle as lifecycle
+from ros2_dashboard_monitor.ros2_action.subscriptions import (
+    action_history_snapshot,
+    build_action_subscription_entry,
+    update_feedback_runtime,
+    update_goal_result,
+    update_status_runtime,
+)
 
 
 class _Node:
@@ -175,3 +183,54 @@ def test_update_action_topic_subscriptions_updates_incompatible_qos_in_place_whe
     assert len(node.created) == 0
     assert entry['qos']['status']['qos_status'] == 'compatible'
     assert entry['qos']['feedback']['qos_status'] == 'compatible'
+
+
+def test_observed_action_history_is_bounded_and_records_real_events() -> None:
+    class Feedback:
+        __slots__ = ('_progress',)
+
+        def __init__(self, progress: int) -> None:
+            self._progress = progress
+
+    goal_id = SimpleNamespace(uuid=[1, 2, 3, 4])
+    goal_info = SimpleNamespace(goal_id=goal_id)
+    entry = build_action_subscription_entry(
+        action_name='/work',
+        action_type='pkg/action/Work',
+        history_limit=3,
+    )
+
+    accepted = SimpleNamespace(
+        status_list=[SimpleNamespace(goal_info=goal_info, status=1)],
+    )
+    update_status_runtime(entry, message=accepted, received_at=1.0)
+    update_status_runtime(entry, message=accepted, received_at=1.1)
+    update_feedback_runtime(
+        entry,
+        message=SimpleNamespace(goal_id=goal_id, feedback=Feedback(50)),
+        received_at=2.0,
+    )
+    succeeded = SimpleNamespace(
+        status_list=[SimpleNamespace(goal_info=goal_info, status=4)],
+    )
+    update_status_runtime(entry, message=succeeded, received_at=3.0)
+    update_goal_result(
+        entry,
+        goal_id='01020304',
+        state={
+            'result_status': 'success',
+            'result_preview': {'done': True},
+            'result_error': None,
+        },
+        received_at=4.0,
+    )
+
+    history = action_history_snapshot(entry, limit=10)
+    assert [item['event_type'] for item in history] == [
+        'result', 'status', 'feedback',
+    ]
+    assert history[0]['result'] == {'done': True}
+    assert history[1]['status_label'] == 'succeeded'
+    assert history[2]['feedback'] == [{'progress': 50}]
+    assert all(item['execution_source'] == 'monitor_observed' for item in history)
+    assert all(item['goal'] is None for item in history)

@@ -53,6 +53,7 @@ async def call_registered_service(request: Request) -> dict[str, Any]:
             request_data=request_data,
             timeout_sec=payload.get('timeout_sec'),
             qos_selection=payload.get('qos'),
+            domain_id=payload.get('domain_id'),
         )
     except ServiceCallError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

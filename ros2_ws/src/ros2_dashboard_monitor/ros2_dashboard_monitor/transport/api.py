@@ -41,12 +41,14 @@ app.include_router(action_execution.router)
 
 class PriorityPayload(BaseModel):
     priority: dict[str, list[str]]
+    domain_ids: list[int] = []
 
 
 @app.put('/transport/priority')
 def update_priority(payload: PriorityPayload) -> dict[str, Any]:
     priority_state.replace(payload.priority)
-    return {'success': True}
+    domains = ros_monitor.set_domain_ids(payload.domain_ids) if payload.domain_ids else ros_monitor.domain_snapshot()
+    return {'success': True, 'data': {'domains': domains}}
 
 
 @app.get('/health')
@@ -86,6 +88,7 @@ def transport_snapshot() -> dict[str, Any]:
             'services': services,
             'actions': actions,
             'nodes': nodes,
+            'domains': ros_monitor.domain_snapshot(),
             'alerts': alerts,
             'websocket': ros_monitor.websocket_snapshot(
                 topic_snapshot=topics,

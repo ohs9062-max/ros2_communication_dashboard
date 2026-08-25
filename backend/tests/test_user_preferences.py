@@ -46,3 +46,20 @@ def test_user_preferences_reject_unknown_kind(tmp_path: Path) -> None:
         assert 'Unsupported resource kind' in str(exc)
     else:
         raise AssertionError('unknown kind must be rejected')
+
+
+def test_domain_preferences_deduplicate_validate_and_persist(tmp_path: Path) -> None:
+    path = tmp_path / 'user_preferences.yaml'
+    store = UserPreferencesStore(path)
+
+    assert store.set_domain_ids([99, 0, 99, 2]) == {
+        'domain_ids': [0, 2, 99], 'changed': True,
+    }
+    assert UserPreferencesStore(path).domain_ids() == [0, 2, 99]
+
+    try:
+        store.set_domain_ids([233])
+    except UserPreferencesError as exc:
+        assert '0 to 232' in str(exc)
+    else:
+        raise AssertionError('out-of-range Domain ID must be rejected')

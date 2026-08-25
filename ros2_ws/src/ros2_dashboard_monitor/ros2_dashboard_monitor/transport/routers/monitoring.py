@@ -29,30 +29,30 @@ def get_ros_topics() -> dict[str, Any]:
 
 
 @router.get('/ros/topics/latest')
-def get_latest_ros_topic(name: str = Query(...)) -> dict[str, Any]:
+def get_latest_ros_topic(name: str = Query(...), domain_id: int | None = Query(None)) -> dict[str, Any]:
     """요청한 Topic의 최신 수신 메시지를 반환합니다."""
-    return ros_monitor.latest_message(name)
+    return ros_monitor.latest_message(name, domain_id=domain_id)
 
 
 @router.get('/ros/topics/hz')
-def get_ros_topic_hz(name: str = Query(...)) -> dict[str, Any]:
+def get_ros_topic_hz(name: str = Query(...), domain_id: int | None = Query(None)) -> dict[str, Any]:
     """요청한 Topic의 최근 수신 Hz를 반환합니다."""
-    return ros_monitor.topic_hz(name)
+    return ros_monitor.topic_hz(name, domain_id=domain_id)
 
 
 @router.get('/ros/topics/history')
 def get_ros_topic_history(
     name: str = Query(...),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=500), domain_id: int | None = Query(None),
 ) -> dict[str, Any]:
     """실제 Monitor Subscription이 수신한 최근 Topic preview를 반환합니다."""
-    return ros_monitor.topic_history(name, limit=limit)
+    return ros_monitor.topic_history(name, limit=limit, domain_id=domain_id)
 
 
 @router.get('/ros/topics/image-preview')
-def get_ros_topic_image_preview(name: str = Query(...)) -> dict[str, Any]:
+def get_ros_topic_image_preview(name: str = Query(...), domain_id: int | None = Query(None)) -> dict[str, Any]:
     """선택한 Camera Topic의 작은 요청형 image preview를 반환합니다."""
-    return ros_monitor.image_preview(name)
+    return ros_monitor.image_preview(name, domain_id=domain_id)
 
 
 @router.get('/ros/services')
@@ -76,13 +76,13 @@ def get_ros_services(
 def get_ros_service_history(
     name: str = Query(...),
     service_type: str | None = Query(None),
-    limit: int = Query(30, ge=1, le=30),
+    limit: int = Query(30, ge=1, le=30), domain_id: int | None = Query(None),
 ) -> dict[str, Any]:
     """한 Service의 실제 Interface Lab Call 이력만 반환합니다."""
     snapshot = ros_monitor.service_history(
         service_name=name,
         service_type=service_type,
-        limit=limit,
+        limit=limit, domain_id=domain_id,
     )
     return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
 
@@ -104,13 +104,13 @@ def get_ros_actions() -> dict[str, Any]:
 def get_ros_action_history(
     name: str = Query(...),
     action_type: str | None = Query(None),
-    limit: int = Query(30, ge=1, le=30),
+    limit: int = Query(100, ge=1, le=500), domain_id: int | None = Query(None),
 ) -> dict[str, Any]:
-    """한 Action의 실제 Interface Lab Goal 실행 이력만 반환합니다."""
+    """한 Action의 Interface Lab 실행과 실제 관찰 event 이력을 반환합니다."""
     snapshot = ros_monitor.action_history(
         action_name=name,
         action_type=action_type,
-        limit=limit,
+        limit=limit, domain_id=domain_id,
     )
     return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
 

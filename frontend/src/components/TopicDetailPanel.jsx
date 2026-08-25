@@ -90,6 +90,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
       )}
 
       <CommunicationHistory
+        domainId={topic.domain_id}
         kind="topic"
         name={topic.name}
         resourceType={topic.types?.[0]}

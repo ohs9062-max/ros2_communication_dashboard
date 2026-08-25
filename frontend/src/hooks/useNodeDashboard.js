@@ -4,7 +4,7 @@ import { DASHBOARD_POLL_INTERVAL_MS } from '../config/polling.js'
 import { usePolling } from './usePolling.js'
 import { useUserPriority } from './useUserPriority.js'
 
-const nodeName = (node) => node.full_name ?? node.name
+const nodeName = (node) => node.resource_key ?? node.full_name ?? node.name
 
 export function useNodeDashboard({ enabled = true } = {}) {
   const [selectedNodeName, setSelectedNodeName] = useState('')
@@ -42,7 +42,7 @@ export function useNodeDashboard({ enabled = true } = {}) {
   )
   const selectedNode = useMemo(
     () =>
-      nodes.find((node) => node.full_name === selectedNodeName) ?? null,
+      nodes.find((node) => (node.resource_key ?? node.full_name) === selectedNodeName) ?? null,
     [nodes, selectedNodeName],
   )
 

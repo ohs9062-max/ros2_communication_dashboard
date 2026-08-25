@@ -1,7 +1,8 @@
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime import ActionGoalRuntime
 from ros2_dashboard_monitor.interface_lab.execution.service_call_runtime import ServiceCallRuntime
 from ros2_dashboard_monitor.interface_lab.execution.service_discovery import discover_service_graph
-from ros2_dashboard_monitor.ros_monitor import _service_effective_status
+from ros2_dashboard_monitor.monitor_config import MonitorConfig
+from ros2_dashboard_monitor.ros_monitor import RosMonitor, _service_effective_status
 
 
 def test_service_history_summary_includes_validation_not_sent():
@@ -251,6 +252,41 @@ def test_action_detail_history_filters_resource_and_adds_status_label():
 
     assert detail['meta'] == {'count': 1, 'limit': 30, 'source': 'interface_lab'}
     assert detail['history'][0]['status_label'] == 'succeeded'
+
+
+def test_action_detail_history_merges_interface_and_observed_events_newest_first():
+    class Runtime:
+        def __init__(self, history):
+            self.history = history
+
+        def history_for_action(self, **_kwargs):
+            return {'history': self.history, 'meta': {'count': len(self.history)}}
+
+    monitor = object.__new__(RosMonitor)
+    monitor._config = MonitorConfig(actions_history_limit=100)
+    monitor._action_goal_runtime = Runtime([
+        {'execution_source': 'interface_lab', 'sent_at': 10.0},
+    ])
+    monitor._action_runtime = Runtime([
+        {'execution_source': 'monitor_observed', 'received_at': 11.0},
+    ])
+
+    history = monitor.action_history(
+        action_name='/CanControl',
+        action_type='pkg/action/Demo',
+        limit=100,
+    )
+
+    assert [item['execution_source'] for item in history['history']] == [
+        'monitor_observed', 'interface_lab',
+    ]
+    assert history['meta'] == {
+        'count': 2,
+        'limit': 100,
+        'source': 'interface_lab_and_monitor_observed',
+        'interface_lab_count': 1,
+        'monitor_observed_count': 1,
+    }
 
 
 def test_action_client_cache_is_keyed_by_name_and_type():

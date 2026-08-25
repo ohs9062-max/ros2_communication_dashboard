@@ -91,6 +91,8 @@ nodes:
 actions:
   # 순간 Discovery 누락을 장애로 확정하기 전 확인 시간입니다.
   graph_missing_timeout_sec: 5.0
+  # 실제 Monitor가 관찰한 Action Feedback/Status/Result의 Action별 최대 보존 수입니다.
+  history_limit: 100
   primary_names: []
   include_names: []
   exclude_names: []

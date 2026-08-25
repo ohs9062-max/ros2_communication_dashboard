@@ -70,13 +70,13 @@ export function ActionTable({
         </thead>
         <tbody>
           {sortedActions.map((action) => {
-            const selected = action.name === selectedActionName
+            const selected = (action.resource_key ?? action.name) === selectedActionName
             return (
               <tr
                 className={selected ? 'selected' : ''}
                 data-monitor-name={action.name}
-                key={action.name}
-                onClick={() => onSelectAction(action.name)}
+                key={action.resource_key ?? action.name}
+                onClick={() => onSelectAction(action.resource_key ?? action.name)}
               >
                 <td className="priority-cell">
                   <PriorityStarButton
@@ -92,7 +92,7 @@ export function ActionTable({
                     <QosStatusBadge qos={action.qos} />
                   </div>
                 </td>
-                <td className="topic-name action-name ellipsis-cell" title={action.name}>{action.name}</td>
+                <td className="topic-name action-name ellipsis-cell" title={action.name}>{action.name} <span className="muted">· D{action.domain_id ?? 0}</span></td>
                 <td className="topic-type action-type ellipsis-cell" title={action.type ?? '-'}>{action.type ?? '-'}</td>
                 <td className="diagnostic-count-cell">{action.server_node_count ?? action.server_count ?? 0}</td>
                 <td className="diagnostic-count-cell">{action.client_node_count ?? action.client_count ?? 0}</td>

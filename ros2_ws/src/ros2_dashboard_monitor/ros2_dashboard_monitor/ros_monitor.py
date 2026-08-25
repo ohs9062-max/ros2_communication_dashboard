@@ -6,6 +6,7 @@ from threading import Lock, Thread
 from time import time
 from typing import Any
 
+from rclpy.context import Context
 from rclpy.node import Node
 from rclpy.utilities import get_rmw_implementation_identifier
 
@@ -49,6 +50,19 @@ from ros2_dashboard_monitor.service_snapshot import assemble_service_snapshot
 from ros2_dashboard_monitor.snapshot_assembler import enrich_topic_snapshot
 
 
+def _action_history_timestamp(item: dict[str, Any]) -> float:
+    value = (
+        item.get('result_received_at')
+        or item.get('received_at')
+        or item.get('sent_at')
+        or 0.0
+    )
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 class RosMonitor(InterfaceLabFacade):
     """RosMonitor coordinator의 RosMonitor 역할을 담당하는 클래스입니다."""
 
@@ -63,11 +77,15 @@ class RosMonitor(InterfaceLabFacade):
         config: MonitorConfig | None = None,
         *,
         priority_state: PriorityState | None = None,
+        domain_id: int | None = None,
+        observer_port: int | None = None,
     ) -> None:
         """공통 Lock과 Topic·Service·Action·Node Runtime을 조립합니다."""
         self._config = config or MonitorConfig()
         self._priority_state = priority_state
         self._node: Node | None = None
+        self._context = Context()
+        self._domain_id = domain_id
         self._thread: Thread | None = None
         self._lock = Lock()
         self._retained_alerts: dict[str, dict[str, Any]] = {}
@@ -75,9 +93,11 @@ class RosMonitor(InterfaceLabFacade):
         self._dismissed_alert_ids: set[str] = set()
         self._visible_alert_ids: set[str] = set()
         self._qos_alert_confirmation_state: dict[str, dict[str, Any]] = {}
-        self._dds_qos_observer = FastDdsQosObserver(
-            self._config.fastdds_observer,
-        )
+        observer_config = self._config.fastdds_observer
+        if observer_port is not None:
+            from dataclasses import replace
+            observer_config = replace(observer_config, port=observer_port)
+        self._dds_qos_observer = FastDdsQosObserver(observer_config)
         self._action_runtime = ActionRuntime(
             config=self._config,
             lock=self._lock,
@@ -130,6 +150,8 @@ class RosMonitor(InterfaceLabFacade):
         self._node = create_monitor_node(
             poll_interval_sec=self._config.poll_interval_sec,
             update_callback=self._update_graph,
+            context=self._context,
+            domain_id=self._domain_id,
         )
         self._dds_qos_observer.start(
             get_rmw_implementation_identifier(),
@@ -144,7 +166,7 @@ class RosMonitor(InterfaceLabFacade):
         self._receive_runtime.stop_all_continuous_publishes()
         self._dds_qos_observer.stop()
 
-        shutdown_monitor_node(node, self._thread)
+        shutdown_monitor_node(node, self._thread, context=self._context)
 
         self._thread = None
         self._node = None
@@ -188,6 +210,19 @@ class RosMonitor(InterfaceLabFacade):
 
     def action_snapshot(self) -> dict[str, Any]:
         return assemble_action_snapshot(self)
+
+    def domain_snapshot(self) -> dict[str, Any]:
+        """Return the single ROS Domain actually bound to this rclpy Context."""
+        node = self._node
+        if node is None:
+            return {'active_domain_id': None, 'status': 'stopped'}
+        try:
+            return {
+                'active_domain_id': int(node.context.get_domain_id()),
+                'status': 'monitoring',
+            }
+        except Exception:  # rclpy Context may be shutting down during snapshot.
+            return {'active_domain_id': None, 'status': 'unavailable'}
 
     def node_snapshot(
         self,
@@ -277,6 +312,46 @@ class RosMonitor(InterfaceLabFacade):
         """Return recent Topic previews outside the periodic snapshot path."""
         return self._topic_runtime.topic_history(name, limit=limit)
 
+    def action_history(
+        self,
+        *,
+        action_name: str,
+        action_type: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """Return Interface Lab executions and actually observed Action events."""
+        history_limit = max(1, min(
+            int(limit), self._config.actions_history_limit,
+        ))
+        interface_history = self._action_goal_runtime.history_for_action(
+            action_name=action_name,
+            action_type=action_type,
+            limit=history_limit,
+        )
+        observed_history = self._action_runtime.history_for_action(
+            action_name=action_name,
+            action_type=action_type,
+            limit=history_limit,
+        )
+        combined = sorted(
+            [
+                *interface_history['history'],
+                *observed_history['history'],
+            ],
+            key=_action_history_timestamp,
+            reverse=True,
+        )[:history_limit]
+        return {
+            'history': combined,
+            'meta': {
+                'count': len(combined),
+                'limit': self._config.actions_history_limit,
+                'source': 'interface_lab_and_monitor_observed',
+                'interface_lab_count': len(interface_history['history']),
+                'monitor_observed_count': len(observed_history['history']),
+            },
+        }
+
     def image_preview(self, name: str) -> dict[str, Any]:
         """선택한 Camera Topic의 요청형 Browser preview를 반환합니다."""
         return self._topic_runtime.image_preview(name)
@@ -347,7 +422,7 @@ class RosMonitor(InterfaceLabFacade):
         return {'cleared': len(dismissed_ids)}
 
     def _spin(self) -> None:
-        spin_monitor_node(self._node)
+        spin_monitor_node(self._node, context=self._context)
 
     def _update_graph(self) -> None:
         self._node_runtime.update()

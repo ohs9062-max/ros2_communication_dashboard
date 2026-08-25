@@ -60,13 +60,13 @@ export function NodeTable({
         </thead>
         <tbody>
           {sortedNodes.map((node) => {
-            const selected = node.full_name === selectedNodeName
+            const selected = (node.resource_key ?? node.full_name) === selectedNodeName
             return (
               <tr
                 className={selected ? 'selected' : ''}
                 data-monitor-name={node.full_name}
-                key={node.full_name}
-                onClick={() => onSelectNode(node.full_name)}
+                key={node.resource_key ?? node.full_name}
+                onClick={() => onSelectNode(node.resource_key ?? node.full_name)}
               >
                 <td className="priority-cell">
                   <PriorityStarButton
@@ -79,7 +79,7 @@ export function NodeTable({
                 <td className="node-status-cell">
                   <NodeStatusBadge status={node.status} />
                 </td>
-                <td className="topic-name node-name ellipsis-cell" title={node.full_name}>{node.full_name ?? node.name ?? '-'}</td>
+                <td className="topic-name node-name ellipsis-cell" title={node.full_name}>{node.full_name ?? node.name ?? '-'} <span className="muted">· D{node.domain_id ?? 0}</span></td>
                 <td className="diagnostic-count-cell">{node.publisher_count ?? 0}</td>
                 <td className="diagnostic-count-cell">{node.subscriber_count ?? 0}</td>
                 <td className="diagnostic-count-cell">{node.service_server_count ?? 0}</td>

@@ -48,7 +48,7 @@ export function ServicesPage({ dashboard }) {
   }, [setIncludeHidden, statusFilter])
 
   const detailService = filteredServices.some(
-    (service) => service.name === selectedServiceName,
+    (service) => (service.resource_key ?? service.name) === selectedServiceName,
   )
     ? selectedService
     : null
@@ -56,11 +56,11 @@ export function ServicesPage({ dashboard }) {
     setIncludeHidden(true)
     setSearch('')
     setStatusFilter('all')
-    setSelectedServiceName(alert.name)
+    setSelectedServiceName(alert.resource_key ?? alert.name)
     if (alert.code === 'service_qos_incompatible') {
-      focusQosDetails(alert.name, qosAlertChannel(alert))
+      focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
     }
-    focusMonitorRow(alert.name, setSelectedServiceName)
+    focusMonitorRow(alert.resource_key ?? alert.name, setSelectedServiceName)
   }
 
   return (

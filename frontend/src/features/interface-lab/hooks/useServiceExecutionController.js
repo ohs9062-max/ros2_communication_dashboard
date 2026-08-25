@@ -83,6 +83,7 @@ export function useServiceExecutionController({
         request: normalizeNumericValues(requestValues, selected.request_schema),
         timeout_sec: timeoutSec,
         qos: qos.qosSelection,
+        domain_id: selected.domain_id,
       })
       setResult(payload)
       const historyPayload = await fetchServiceCallHistory()

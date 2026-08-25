@@ -1,7 +1,7 @@
 export function historyTimestamp(item, kind) {
   if (kind === 'topic') return item?.received_at
   if (kind === 'service') return item?.called_at
-  return item?.result_received_at ?? item?.sent_at
+  return item?.result_received_at ?? item?.received_at ?? item?.sent_at
 }
 
 export function historyStatus(item, kind) {
@@ -11,6 +11,8 @@ export function historyStatus(item, kind) {
     if (item?.error_type === 'timeout') return '시간 초과'
     return '실패'
   }
+  if (item?.event_type === 'feedback') return 'Feedback'
+  if (item?.event_type === 'result' && item?.error) return 'Result 실패'
   if (item?.accepted === false) return 'Goal 거절'
   const status = actionStatus(item)
   if (status) return actionStatusLabel(status)
@@ -34,6 +36,9 @@ export function historyPayload(item, kind) {
     }
   }
   return {
+    source: item?.execution_source ?? 'interface_lab',
+    event_type: item?.event_type ?? 'goal_execution',
+    goal_id: item?.goal_id ?? null,
     goal: item?.goal ?? null,
     accepted: item?.accepted ?? null,
     feedback: Array.isArray(item?.feedback) ? item.feedback : [],
@@ -76,9 +81,13 @@ function actionStatus(item) {
 
 function actionStatusLabel(status) {
   return {
+    accepted: '수락됨',
     succeeded: '성공',
     canceled: '취소됨',
     aborted: '중단됨',
+    canceling: '취소 중',
     executing: '실행 중',
+    feedback: 'Feedback',
+    success: '성공',
   }[status] ?? status
 }

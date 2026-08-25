@@ -116,6 +116,7 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
       <ActionConnectionSection action={action} participants={participants} />
       <ActionExecutionSection action={action} goalSummary={goalSummary} presentation={presentation} runtime={runtime} />
       <CommunicationHistory
+        domainId={action.domain_id}
         kind="action"
         name={action.name}
         resourceType={action.type}

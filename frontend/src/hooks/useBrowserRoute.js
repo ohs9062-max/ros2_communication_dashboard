@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 const PAGE_PATHS = {
   actions: '/actions',
   alerts: '/alerts',
+  domains: '/domains',
   interfaceLab: '/interface-lab',
   nodes: '/nodes',
   overview: '/',

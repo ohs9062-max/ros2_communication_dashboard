@@ -155,6 +155,7 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
       </DetailSection>
 
       <CommunicationHistory
+        domainId={service.domain_id}
         kind="service"
         name={service.name}
         resourceType={service.type}

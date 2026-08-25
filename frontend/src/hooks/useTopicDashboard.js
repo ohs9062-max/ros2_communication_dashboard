@@ -16,7 +16,7 @@ import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
 import { useUserPriority } from './useUserPriority.js'
 
-const topicName = (topic) => topic.name
+const topicName = (topic) => topic.resource_key ?? topic.name
 
 export function useTopicDashboard({
   enabled = true,
@@ -46,14 +46,18 @@ export function useTopicDashboard({
     enabled,
     initialData: { data: { nodes: [], meta: {} } },
   })
+  const selectedTopicForRequest = useMemo(
+    () => (topics.data?.data ?? []).find((topic) => (topic.resource_key ?? topic.name) === selectedTopicName) ?? null,
+    [selectedTopicName, topics.data],
+  )
 
   const latestFetcher = useCallback(
-    () => fetchTopicLatest(selectedTopicName),
-    [selectedTopicName],
+    () => fetchTopicLatest(selectedTopicForRequest?.name ?? '', selectedTopicForRequest?.domain_id),
+    [selectedTopicForRequest],
   )
   const hzFetcher = useCallback(
-    () => fetchTopicHz(selectedTopicName),
-    [selectedTopicName],
+    () => fetchTopicHz(selectedTopicForRequest?.name ?? '', selectedTopicForRequest?.domain_id),
+    [selectedTopicForRequest],
   )
 
   const latest = usePolling(latestFetcher, TOPIC_POLL_INTERVAL_MS, {
@@ -82,12 +86,12 @@ export function useTopicDashboard({
     [nodeItems],
   )
   const selectedTopic = useMemo(
-    () => topicItems.find((topic) => topic.name === selectedTopicName) ?? null,
+    () => topicItems.find((topic) => (topic.resource_key ?? topic.name) === selectedTopicName) ?? null,
     [selectedTopicName, topicItems],
   )
   const cameraPreviewFetcher = useCallback(
-    () => fetchTopicImagePreview(selectedTopicName),
-    [selectedTopicName],
+    () => fetchTopicImagePreview(selectedTopicForRequest?.name ?? '', selectedTopicForRequest?.domain_id),
+    [selectedTopicForRequest],
   )
   const cameraPreview = usePolling(
     cameraPreviewFetcher,

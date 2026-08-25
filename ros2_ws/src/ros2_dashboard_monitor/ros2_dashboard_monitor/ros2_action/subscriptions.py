@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections import deque
 from typing import Any
 
 from ros2_dashboard_monitor.ros2_action.models import (
     GOAL_STATUS_ACCEPTED,
+    GOAL_STATUS_CANCELING,
     GOAL_STATUS_EXECUTING,
+    RESULT_STATUS_SUCCESS,
     TERMINAL_GOAL_STATUSES,
     default_runtime,
     goal_id_to_hex,
@@ -25,13 +28,16 @@ from ros2_dashboard_monitor.ros2_action.message_preview import message_to_previe
 def build_action_subscription_entry(
     *,
     action_type: str | None,
+    action_name: str | None = None,
     status_subscription: Any = None,
     feedback_subscription: Any = None,
     status_supported: bool = False,
     feedback_supported: bool = False,
+    history_limit: int = 100,
 ) -> dict[str, Any]:
     """status·feedback subscription과 관찰 초기값을 하나의 Cache entry로 만듭니다."""
     return {
+        'name': action_name,
         'type': action_type,
         'status_subscription': status_subscription,
         'feedback_subscription': feedback_subscription,
@@ -43,6 +49,7 @@ def build_action_subscription_entry(
         'result_reason': None,
         'goals': {},
         'runtime': default_runtime(),
+        'history': deque(maxlen=max(1, int(history_limit))),
     }
 
 
@@ -89,7 +96,18 @@ def update_status_runtime(
 
         status_label = goal_status_label(getattr(status_item, 'status', None))
         goal = _goal_state(entry, goal_key, goal_id)
+        previous_status = goal.get('status')
         _update_goal_status(goal, status_label, received_at)
+        if status_label != previous_status:
+            _append_history(entry, {
+                'event_type': 'status',
+                'goal_id': goal_key,
+                'accepted': _accepted_from_status(status_label),
+                'feedback': [],
+                'result': None,
+                'status_label': status_label,
+                'received_at': received_at,
+            })
         latest_goal_id = goal_key
         latest_status = status_label
 
@@ -118,8 +136,19 @@ def update_feedback_runtime(
 ) -> None:
     """Action 모니터링에서 runtime 상태를 갱신하는 함수입니다."""
     feedback = getattr(message, 'feedback', message)
+    feedback_preview = message_to_preview(feedback)
+    goal_key = goal_id_to_hex(getattr(message, 'goal_id', None))
     entry['runtime']['last_feedback_at'] = received_at
-    entry['runtime']['feedback_preview'] = message_to_preview(feedback)
+    entry['runtime']['feedback_preview'] = feedback_preview
+    _append_history(entry, {
+        'event_type': 'feedback',
+        'goal_id': goal_key,
+        'accepted': True if goal_key else None,
+        'feedback': [feedback_preview],
+        'result': None,
+        'status_label': 'feedback',
+        'received_at': received_at,
+    })
 
 
 def terminal_goals_ready_for_result(
@@ -154,6 +183,7 @@ def update_goal_result(
     *,
     goal_id: str,
     state: dict[str, Any],
+    received_at: float | None = None,
 ) -> None:
     """Action 모니터링에서 runtime 상태를 갱신하는 함수입니다."""
     goal = entry.get('goals', {}).get(goal_id)
@@ -161,7 +191,32 @@ def update_goal_result(
         return
 
     goal.update(state)
+    if received_at is not None:
+        _append_history(entry, {
+            'event_type': 'result',
+            'goal_id': goal_id,
+            'accepted': True,
+            'feedback': [],
+            'result': state.get('result_preview'),
+            'status_label': goal.get('status') or state.get('result_status'),
+            'success': state.get('result_status') == RESULT_STATUS_SUCCESS,
+            'error': state.get('result_error'),
+            'received_at': received_at,
+        })
     _sync_runtime_result(entry, goal)
+
+
+def action_history_snapshot(
+    entry: dict[str, Any] | None,
+    *,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if entry is None:
+        return []
+    history = entry.get('history')
+    if history is None:
+        return []
+    return [dict(item) for item in list(history)[:max(1, int(limit))]]
 
 
 def _goal_state(
@@ -221,6 +276,30 @@ def _elapsed_time_ms(goal: dict[str, Any]) -> float | None:
         return None
 
     return (finished_at - started_at) * 1000.0
+
+
+def _append_history(entry: dict[str, Any], item: dict[str, Any]) -> None:
+    history = entry.get('history')
+    if history is None:
+        return
+    history.appendleft({
+        'execution_source': 'monitor_observed',
+        'action_name': entry.get('name'),
+        'action_type': entry.get('type'),
+        'goal': None,
+        **item,
+    })
+
+
+def _accepted_from_status(status: str) -> bool | None:
+    if status in {
+        GOAL_STATUS_ACCEPTED,
+        GOAL_STATUS_CANCELING,
+        GOAL_STATUS_EXECUTING,
+        *TERMINAL_GOAL_STATUSES,
+    }:
+        return True
+    return None
 
 
 def _sync_runtime_result(

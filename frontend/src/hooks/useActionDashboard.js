@@ -5,7 +5,7 @@ import { buildParticipantMaps } from '../utils/participants.js'
 import { usePolling } from './usePolling.js'
 import { useUserPriority } from './useUserPriority.js'
 
-const actionName = (action) => action.name
+const actionName = (action) => action.resource_key ?? action.name
 
 export function useActionDashboard({ enabled = true } = {}) {
   const [includeIdleActions, setIncludeIdleActions] = useState(false)
@@ -57,7 +57,7 @@ export function useActionDashboard({ enabled = true } = {}) {
   )
   const selectedAction = useMemo(
     () =>
-      actions.find((action) => action.name === selectedActionName) ??
+      actions.find((action) => (action.resource_key ?? action.name) === selectedActionName) ??
       null,
     [selectedActionName, actions],
   )

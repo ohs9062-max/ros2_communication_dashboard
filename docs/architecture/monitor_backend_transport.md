@@ -51,6 +51,11 @@ selector로 표시합니다. Camera binary/data URL과 Topic/Service/Action rece
 WebSocket에 포함하지 않습니다. Camera는 `/ros/topics/image-preview`, 최근 통신값은 각 resource의
 `/ros/.../history` 상세 요청 경로로만 전달합니다.
 
+Service history는 Monitor가 실제 값을 확보하는 Interface Lab Call만 반환합니다. Fast DDS observer는 endpoint
+discovery/QoS만 수집하므로 외부 Client의 Request/Response payload를 만들지 않습니다. Action history는 Interface Lab
+Goal과 실제 Status/Feedback Subscription, terminal Status 뒤 GetResult로 얻은 Result를 합칩니다. 외부 Goal과 rejected
+응답은 Service payload라 관찰할 수 없으며, 관찰 event는 source와 `goal=null`을 명시합니다.
+
 ## Commands
 
 기존 `/ros/interfaces/*` request body와 response key를 유지한 채 Backend가 raw body,

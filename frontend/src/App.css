@@ -2502,6 +2502,91 @@ h3 {
   min-width: 0;
 }
 
+.domains-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.domains-card {
+  overflow: visible;
+}
+
+.domains-form,
+.domains-list {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.domains-form > label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.domains-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.domains-input-row input {
+  background: #0b1119;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.domains-input-row button {
+  flex: 0 0 auto;
+}
+
+.domains-row {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.domains-row:first-child {
+  padding-top: 0;
+}
+
+.domains-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.domains-status {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+}
+
+.domains-status.good { color: var(--green); }
+.domains-status.warn { color: var(--yellow); }
+.domains-status.muted { color: var(--muted); }
+.domains-status .dot { height: 7px; width: 7px; }
+.domains-status.good .dot { background: var(--green); }
+.domains-status.warn .dot { background: var(--yellow); }
+.domains-status.muted .dot { background: #64748b; }
+
+.domains-message {
+  margin: 0;
+  padding: 16px;
+}
+
+@media (max-width: 640px) {
+  .domains-input-row { align-items: stretch; flex-direction: column; }
+  .domains-row { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
+
 .summary-grid {
   display: grid;
   gap: 12px;
@@ -4535,8 +4620,8 @@ details summary {
   background: rgba(8, 13, 19, 0.58);
   border: 1px solid rgba(48, 68, 92, 0.72);
   border-radius: var(--radius-control);
-  height: min(52vh, 520px);
-  min-height: 180px;
+  height: min(64vh, 640px);
+  min-height: 260px;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -4576,17 +4661,28 @@ details summary {
   background: rgba(15, 23, 42, 0.74);
   border: 0;
   border-radius: 6px;
+  box-sizing: border-box;
   color: var(--muted);
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.5;
   margin: 0;
+  max-height: none;
   max-width: 100%;
-  overflow: hidden;
+  min-width: 0;
+  overflow: visible;
   overflow-wrap: anywhere;
   padding: 10px;
   white-space: pre-wrap;
+  width: 100%;
   word-break: break-word;
+}
+
+.interface-receive-history pre,
+.communication-history-entry pre {
+  max-height: none;
+  overflow-x: visible;
+  overflow-y: visible;
 }
 
 .metric,

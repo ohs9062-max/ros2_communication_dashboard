@@ -4,3 +4,9 @@ priority:
   - /_ros2cli_requester_nav2_msgs_ClearEntireCostmap/describe_parameters
   actions: []
   nodes: []
+domains:
+  ids:
+  - 0
+  - 1
+  - 2
+  - 99

@@ -72,7 +72,7 @@ export function ActionsPage({ dashboard }) {
   }, [actions, includeIdleActions, primaryActions, search, statusFilter])
 
   const detailAction = filteredActions.some(
-    (action) => action.name === selectedActionName,
+    (action) => (action.resource_key ?? action.name) === selectedActionName,
   )
     ? selectedAction
     : null
@@ -80,11 +80,11 @@ export function ActionsPage({ dashboard }) {
     setIncludeIdleActions(true)
     setSearch('')
     setStatusFilter('all')
-    setSelectedActionName(alert.name)
+    setSelectedActionName(alert.resource_key ?? alert.name)
     if (alert.code === 'action_qos_incompatible') {
-      focusQosDetails(alert.name, qosAlertChannel(alert))
+      focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
     }
-    focusMonitorRow(alert.name, setSelectedActionName)
+    focusMonitorRow(alert.resource_key ?? alert.name, setSelectedActionName)
   }
 
   return (

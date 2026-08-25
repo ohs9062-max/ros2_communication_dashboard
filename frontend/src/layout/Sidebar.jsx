@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { id: 'nodes', label: 'Nodes' },
   { id: 'visualization', label: 'Visualization' },
   { id: 'alerts', label: 'Alerts' },
+  { id: 'domains', label: 'Domains' },
   { id: 'interfaceLab', label: 'Interface Lab' },
 ]
 

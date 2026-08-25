@@ -89,7 +89,7 @@ export function TopicsPage({ dashboard }) {
   }, [activeTopics, includeAllTopics, search, statusFilter, topicItems])
 
   const detailTopic = filteredTopics.some(
-    (topic) => topic.name === selectedTopicName,
+    (topic) => (topic.resource_key ?? topic.name) === selectedTopicName,
   )
     ? selectedTopic
     : null
@@ -97,11 +97,11 @@ export function TopicsPage({ dashboard }) {
     setIncludeAllTopics(true)
     setSearch('')
     setStatusFilter('all')
-    setSelectedTopicName(alert.name)
+    setSelectedTopicName(alert.resource_key ?? alert.name)
     if (alert.code === 'topic_qos_incompatible') {
-      focusQosDetails(alert.name, qosAlertChannel(alert))
+      focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
     }
-    focusMonitorRow(alert.name, setSelectedTopicName)
+    focusMonitorRow(alert.resource_key ?? alert.name, setSelectedTopicName)
   }
 
   return (

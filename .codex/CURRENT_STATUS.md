@@ -27,13 +27,21 @@
   `frontend/dist` build만으로 실제 화면에 반영되지 않고 `/var/lib/ros2-dashboard/frontend`와 동기화돼야 한다.
   이 동작은 “운영 배포”가 아니라 “로컬 HTTPS 실행 파일 반영”으로 부르며, UI 미반영 시 source dist·설치 정적
   파일·HTTPS 응답의 asset hash를 먼저 대조한다.
+- 좌측 `Domains` 화면은 쉼표 구분 0~232 Domain ID 목록을 Backend `user_preferences.yaml`에 저장하고 재진입 시
+  복원한다. Monitor는 Domain별 rclpy Context/Node/Fast DDS observer runtime을 만들기 시작했으며 snapshot resource에
+  `domain_id`/`resource_key`를 붙여 집계한다. 동일 이름 resource의 상세 선택과 Interface Lab의 Domain 선택은 아직
+  domain-aware로 전환 중이므로 multi-domain 기능 전체 완료 전에는 기존 기본 Domain 실행 경로를 유지한다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Topic Monitor Subscription은 resource별 실제 수신 preview를 기본 100개 bounded memory history로 보존한다.
-  Service와 Action 상세은 기존 Interface Lab Call/Goal 최대 30건을 resource별로 조회한다. 전체 history는 정기
+  Service 상세은 기존 Interface Lab Call 최대 30건만 조회한다. Action은 Interface Lab Goal 최대 30건과 실제
+  monitoring Subscription/GetResult가 관찰한 Status·Feedback·Result를 합쳐 resource별 기본 100건을 조회한다. 외부
+  Action Goal/rejected payload와 외부 Service Request/Response는 현재 discovery observer로 관찰하지 않는다. 전체 history는 정기
   snapshot/WebSocket에 넣지 않고 상세의 접힌 로그를 열 때 `/ros/topics|services|actions/history`로 가져온다.
   불러온 항목은 최신순 단일 고정 높이 영역에서 클릭 없이 pretty JSON으로 이어 표시하고 영역 내부만 스크롤한다.
-  Camera history에는 binary/Base64 없이 metadata와 payload size만 남긴다.
+  세 통신 History는 영역을 펼친 동안 기본 1초마다 자동 갱신하고 접으면 polling을 중단하며, 요청이 겹치지 않는다.
+  각 JSON payload는 별도 높이 제한이나 scroll 없이 내용 높이로 펼치고 긴 값은 줄바꿈한다. Camera history에는
+  binary/Base64 없이 metadata와 payload size만 남긴다.
 - Service와 Action 내부 Service QoS는 Fast DDS passive observer가 제공한다. QoS 확인을 위해 Service Call,
   Action Goal 또는 사용자 데이터 endpoint를 만들지 않는다.
 - Interface Lab의 Topic/Service/Action 실행은 Auto/Manual QoS를 지원한다. Topic Auto는 Graph endpoint의
@@ -87,6 +95,22 @@ docs/                            설계·운영 문서
 `frontend/dist/`, `.runtime/`이며 소스처럼 수정하거나 Git에 포함하지 않는다.
 
 ## 최근 완료 작업
+
+- Domains sidebar/page와 `/ros/domains` GET/PUT를 추가했다. `99, 0, 1, 2, 3` 저장 시 `[0, 1, 2, 3, 99]`로
+  중복 제거·정렬되고, 범위 밖 `233`은 HTTP 400으로 차단됨을 로컬 HTTPS API에서 확인했다. 실제 Monitor context의
+  Domain 99만 `감시 중`이며, 여러 Domain 동시 감시나 UI 적용으로 Monitor runtime 변경은 구현하지 않았다.
+
+- Action 상세 history에 Interface Lab Goal과 실제 외부 통신에서 관찰한 Status 전이·Feedback·terminal Result를
+  합쳐 resource별 기본 100건까지 제공한다. 외부 `/CanControlFailure` 실행에서 Interface Lab 이력 0건인 상태로
+  executing/aborted Status, Feedback 3건과 실제 실패 Result가 총 6건 기록됨을 HTTPS API에서 확인했다. Service는
+  Fast DDS observer가 discovery/QoS만 수집하므로 외부 payload를 만들지 않고 Interface Lab Call 이력만 유지한다.
+  Monitor pytest 274 passed, colcon 292 tests·0 failures·1 skipped, Frontend unit/lint/build를 통과했고 로컬 HTTPS
+  실행 파일 동기화와 Monitor 재시작 후 새 asset 및 `monitor_connected=true`를 확인했다.
+
+- Topic/Service/Action 공통 최근 데이터 로그를 펼친 동안 기존 Topic polling 주기인 기본 1초로 History API를
+  자동 갱신하고, 접으면 timer를 정리한다. 이전 요청이 진행 중이면 다음 요청을 건너뛰어 느린 API 응답이 누적되지
+  않는다. Frontend unit/lint/build를 통과했고 새 build를 로컬 HTTPS 경로에 동기화해 source/install index SHA-256,
+  실제 HTTPS `index-D2YI1jPV.js`와 health `monitor_connected=true`를 확인했다.
 
 - Topic/Service/Action 상세에 요청형 `최근 데이터 로그`를 추가했다. 실제 `/cmd_vel` 100건 bounded 수신과
   `/RobotControl` Request/Response, `/CanControl` Goal/Feedback/Result/succeeded를 임시 Monitor 8875에서 확인했고,

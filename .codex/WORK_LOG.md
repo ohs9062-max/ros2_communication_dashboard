@@ -394,3 +394,76 @@
 - Frontend unit 전체, oxlint, Vite build와 `git diff --check`가 통과했다. 최종 build를 로컬 HTTPS 경로에 동기화해
   source/install index SHA-256이 일치했고 HTTPS는 `index-D-owj5Ln.js`, `index-BDTxWnW4.css`를 HTTP 200으로
   제공했다. CSS의 고정 높이·내부 scroll·pre-wrap과 Backend `monitor_connected=true`를 확인했다.
+
+## 2026-08-25 - 최근 데이터 로그 payload 중첩 스크롤 제거
+
+- Interface Lab Receive의 payload처럼 공통 History JSON `<pre>`에 `max-height:none`, `overflow-x/y:visible`,
+  `pre-wrap`, word break를 명시했다. 각 payload는 내용 높이만큼 펼쳐지고 내부 세로·가로 scrollbar를 만들지 않는다.
+  100% 폭과 padding이 상세 폭을 넘지 않도록 `box-sizing:border-box`도 적용했다.
+- 실제 스크롤 대상인 `.communication-history-stream`만 `overflow-y:auto`를 유지하고 높이를 기존 52vh/520px에서
+  64vh/640px, 최소 높이를 180px에서 260px로 넓혔다. Topic/Service/Action이 같은 공통 컴포넌트를 사용하므로
+  세 화면에 일괄 적용되며 Backend/Monitor/API는 수정하지 않았다.
+- Headless Chrome의 실제 `/cmd_vel` 100건 상세에서 로그 영역은 clientHeight 278px, scrollHeight 29,218px,
+  `overflow-y:auto`였고, 앞 3개 JSON은 각각 clientHeight=scrollHeight 236px, clientWidth=scrollWidth 470px,
+  `overflow-x/y:visible`, `max-height:none`이었다. payload 내부 scrollbar와 가로 overflow가 없음을 계산 스타일로 확인했다.
+- Frontend unit 전체, oxlint, Vite build 341 modules/111ms와 `git diff --check`가 통과했다. 최종 build를 로컬 HTTPS에
+  동기화했고 source/install index SHA-256 일치, HTTPS `index-EPe7zMci.js`와 `index-DjgbK4V3.css` HTTP 200,
+  Backend `monitor_connected=true`를 확인했다. Frontend-only 변경이라 service 재시작은 하지 않았다.
+
+## 2026-08-25 - Action 실제 관찰 데이터 상세 History 병합
+
+- Service 외부 Request/Response는 Fast DDS observer가 `DomainParticipantListener`의 discovery endpoint/GUID/type/QoS만
+  수집하고 DataReader·deserialization을 하지 않아 현재 구조로 관찰할 수 없음을 확인했다. Service 상세은 실제 값이
+  있는 Interface Lab Call 최대 30건만 유지하며 외부 payload를 합성하지 않는다.
+- Action 자동 Subscription의 실제 Status 전이와 Feedback callback, terminal Status 뒤 기존 GetResult future로 얻은
+  Result를 resource별 bounded deque에 기록한다. Interface Lab Goal 이력과 최신순으로 합쳐 기본 100건을
+  `/ros/actions/history`에서 반환하고 `monitor_observed` source, event type, goal ID를 명시한다. 외부 Goal payload와
+  rejected 응답은 Service payload라 관찰할 수 없어 `goal=null`로 정확히 구분한다.
+- 외부 demo client로 `/CanControlFailure`를 실행해 Interface Lab 이력 0건인 상태에서도 executing/aborted Status,
+  Feedback 3건과 실제 실패 Result가 HTTPS API에 총 6건 기록됨을 확인했다. 정기 `/transport/snapshot`에는 history key가
+  없었다. source/install index SHA-256은 동일했고 HTTPS 새 asset, health `monitor_connected=true`를 확인했다.
+- Monitor targeted 33 passed, ROS overlay를 적용한 package pytest 274 passed, colcon 292 tests·0 failures·1 skipped,
+  Python compileall, Frontend unit 전체, oxlint, Vite build 341 modules/133ms와 `git diff --check`를 통과했다. 첫 package
+  pytest의 9 failures는 overlay 미적용으로 `rths_interfaces`를 import하지 못한 실행 환경 문제였고 source 후 전부 통과했다.
+- 후속으로 Topic/Service/Action 공통 `CommunicationHistory`가 펼쳐진 동안 기본 1초마다 각 History API를 자동
+  갱신하도록 했다. 접힌 동안에는 요청하지 않고, request in-flight guard로 응답이 느릴 때 polling 요청이 겹치지
+  않으며 수동 새로고침은 유지한다. 정기 WebSocket snapshot에 history를 넣지 않는 경계도 그대로다.
+- Frontend unit 전체, oxlint, Vite build 341 modules/123ms와 diff check를 통과했다. 최신 build를 로컬 HTTPS 실행
+  경로에 동기화해 source/install index SHA-256 `b5ae862e29fb4a00ba1c4ea656388483f1b4c94cb8373ad451f121e4b2327327`가
+  일치했고 실제 HTTPS는 `index-D2YI1jPV.js`를 HTTP 200으로 제공하며 health `monitor_connected=true`였다.
+- `Domains` sidebar/page와 `/ros/domains` GET/PUT를 추가했다. 입력은 쉼표 기준 공백 허용, 정수 0~232 검증,
+  중복 제거·정렬 후 Backend `user_preferences.yaml`에 영속한다. Monitor snapshot은 실제 rclpy Context의 단일
+  `active_domain_id`와 상태만 제공하며, 저장 Domain 중 그 값만 `감시 중`, 나머지는 `저장됨 · runtime 미적용`으로
+  표시한다. 다중 Domain runtime을 구현하거나 UI 적용으로 ROS runtime을 바꾸지는 않았다.
+- 실제 HTTPS API에서 `99,0,1,2,3,99`가 `[0,1,2,3,99]`로 저장·재조회되고 테스트 뒤 기존 빈 설정으로 복원됨을
+  확인했다. 현재 실제 Domain 99는 `monitoring`, 233은 HTTP 400으로 거부됐다. Backend pytest 7 passed, Frontend
+  unit/lint/build(343 modules/123ms), Monitor transport pytest 1 passed, colcon build와 diff check를 통과했고
+  Monitor·Backend 재시작 및 로컬 HTTPS 정적 파일 동기화를 완료했다.
+
+## 2026-08-25 - Multi-domain runtime 기반 추가 (진행 중)
+
+- Monitor의 기존 단일 global rclpy Context 대신, Domain별 `Context.init(domain_id=...)`와 `RosMonitor` runtime을
+  보유하는 `MultiDomainRosMonitor` 기반을 추가했다. Jazzy에서 Domain 0과 99 Context를 동시에 초기화해 각각의
+  `get_domain_id()`가 반환됨을 확인했다. 각 runtime은 별도 Fast DDS observer loopback port를 사용하며 첫 Domain은
+  기존 observer 기본 port를 유지한다.
+- Backend Domain 설정 저장 뒤 `/transport/priority`로 `domain_ids`를 즉시 동기화해 추가 Domain은 start, 제거 Domain은
+  stop하도록 연결했다. aggregate Topic/Service/Action/Node/Alert 항목에 `domain_id`와 `resource_key`를 붙여
+  snapshot 단계의 이름 충돌을 구분한다. 기존 Interface Lab 실행 route는 의도치 않은 multi-domain broadcast를 피하기
+  위해 기존 기본 Domain으로 유지한다.
+- Frontend Domains 화면은 저장됨/runtime 미적용 문구를 제거하고 Monitor가 반환한 Domain별 실제 status를 표시하도록
+  갱신했다. 동일 이름 Topic/Service/Action의 상세 선택과 Interface Lab의 명시 Domain 선택까지 완성하기 전에는
+  다중 Domain 기능을 완료로 간주하지 않는다. Frontend lint/build, Backend user preferences test, Monitor transport
+  test와 diff check는 통과했고, 샌드박스 네트워크 제한 때문에 실제 DDS discovery 동시 관찰은 미검증이다.
+- 후속으로 Domains 입력을 단일 ID `추가`/행별 `삭제` 방식으로 변경했다. 목록과 상세 선택은 aggregate
+  `resource_key`를 우선 사용하고 History/latest API에는 선택 resource의 `domain_id`를 전달한다. callable
+  Service/Action에도 Domain ID를 붙이고 실행 payload가 이를 자동 전달하도록 연결했다. Topic Interface Lab의
+  graph target과 Node/Overview Alert click의 resource key 전환은 아직 남아 있으므로 실제 multi-domain UI 전체
+  완료 전에는 운영 Monitor 재시작을 하지 않았다.
+- HTTPS UI 반영 중 Codex 비대화형 PTY의 `sudo` password prompt가 사용자 입력 UI에 전달되지 않는 것을 재확인했다.
+  암호 대기 명령은 취소했고 HTTPS 정적 파일은 변경되지 않았다. 이후에는 유효 credential을 `sudo -n`으로 확인할 수
+  있을 때만 동기화하고, 그렇지 않으면 먼저 사용자가 별도 터미널에서 `sudo -v`를 수행하도록 알리는 정책을
+  `AGENTS.md` HTTPS 절에 기록했다.
+- MultiDomainRosMonitor이 명시 `domain_id` 없는 기존 Interface Lab graph 조회를 정렬된 첫 Domain(예: 0)으로
+  보내 기존 `ROS_DOMAIN_ID`(예: 99)의 Topic candidate가 비어 자동 Topic명 입력이 사라진 회귀를 확인했다.
+  Topic 입력 controller는 변경하지 않았으며, legacy route의 fallback을 기존 default Domain 우선으로 고쳐
+  자동 입력 동작을 복원했다. Monitor workspace build와 service restart가 필요한 변경이다.

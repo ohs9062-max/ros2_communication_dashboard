@@ -261,3 +261,6 @@ cd ~/rang/ros2_dashboard
 ```bash
 journalctl -u ros2-dashboard-monitor.service -u ros2-dashboard-backend.service -n 100 --no-pager
 ```
+
+# 도메인 확인
+curl -sk https://127.0.0.1/ros/domains | jq

@@ -11,6 +11,7 @@ import { useBrowserRoute } from './hooks/useBrowserRoute.js'
 const OverviewPage = lazy(() => import('./pages/OverviewPage.jsx').then(({ OverviewPage: Page }) => ({ default: Page })))
 const TopicsPage = lazy(() => import('./pages/TopicsPage.jsx').then(({ TopicsPage: Page }) => ({ default: Page })))
 const AlertsPage = lazy(() => import('./pages/AlertsPage.jsx').then(({ AlertsPage: Page }) => ({ default: Page })))
+const DomainsPage = lazy(() => import('./pages/DomainsPage.jsx').then(({ DomainsPage: Page }) => ({ default: Page })))
 const NodesPage = lazy(() => import('./pages/NodesPage.jsx').then(({ NodesPage: Page }) => ({ default: Page })))
 const ServicesPage = lazy(() => import('./pages/ServicesPage.jsx').then(({ ServicesPage: Page }) => ({ default: Page })))
 const ActionsPage = lazy(() => import('./pages/ActionsPage.jsx').then(({ ActionsPage: Page }) => ({ default: Page })))
@@ -59,6 +60,7 @@ function App() {
           serviceDashboard={serviceDashboard}
         />
       )}
+      {activePage === 'domains' && <DomainsPage />}
       {activePage === 'nodes' && (
         <NodesPage
           actions={actionDashboard.actions}

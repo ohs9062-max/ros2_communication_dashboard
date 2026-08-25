@@ -93,6 +93,12 @@ def test_topic_history_limit_is_loaded_and_bounded() -> None:
     assert _monitor_config({'topics': {'history_limit': 1000}}).topics_history_limit == 100
 
 
+def test_action_history_limit_is_loaded_and_bounded() -> None:
+    assert _monitor_config({}).actions_history_limit == 100
+    assert _monitor_config({'actions': {'history_limit': 12}}).actions_history_limit == 12
+    assert _monitor_config({'actions': {'history_limit': 1000}}).actions_history_limit == 100
+
+
 def test_qos_alert_confirmation_count_uses_default_and_config_value() -> None:
     assert _monitor_config({}).qos_alerts.incompatible_confirmation_count == 3
     configured = _monitor_config({
