@@ -81,6 +81,8 @@ timezone 없는 `DATETIME`을 KST로 해석합니다. 따라서 DB 직접 조회
 
 1. Backend가 Monitor에서 Alert 후보를 받습니다.
 2. 같은 `alert_key`이며 `resolved_at IS NULL`인 행이 있는지 확인합니다.
+
+
 3. 없으면 `detected_at`을 최초 감지 시각으로 하여 새 row를 INSERT합니다.
 
 ### 장애 지속

@@ -44,7 +44,9 @@ Backend는 `rclpy`를 import하거나 ROS2 Node를 만들지 않는다.
 | 5 | `backend/app/routers/alerts.py` L13-L47 | 현재 Alert, DB 이력, 확인·이력 초기화 |
 | 6 | `backend/app/routers/monitor_proxy.py` L35-L54 | Interface Lab과 Camera 요청을 method/body/content-type 보존해 Monitor로 전달 |
 
-Backend가 Monitor보다 먼저 시작해도 종료되지 않는다. Monitor가 끊기면 cache의 마지막 정상 snapshot과
+Backend가 Monitor보다 먼저 시작해도 종료되지 않는다. Monitor가 끊기면 ca
+
+che의 마지막 정상 snapshot과
 `monitor_error`를 함께 유지하고 재연결 시 사용자 별표를 `PUT /transport/priority`로 다시 보낸다.
 
 ## Frontend 흐름
