@@ -50,7 +50,7 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
         </p>
       )}
 
-      <DetailSection title="상태 요약">
+      <DetailSection collapsible defaultOpen title="상태 요약">
         <DetailLine label="이름" value={service.name} />
         <DetailLine label="타입" value={service.type ?? '-'} />
         <DetailLine label="분류" value={displayText(service.category)} />
@@ -80,11 +80,11 @@ export function ServiceDetailPanel({ onClose, participants, service, qosFocusReq
 
       <DetailSection collapsible title="연결 정보">
         <DetailLine
-          label="Server Node 수 (Dashboard 제외)"
+          label="Server"
           value={presentation.serverNodeCount}
         />
         <DetailLine
-          label="Client Node 수 (Dashboard 제외)"
+          label="Client"
           value={presentation.clientNodeCount}
         />
         <DetailLine

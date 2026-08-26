@@ -92,9 +92,14 @@ export function ActionsPage({ dashboard }) {
         <ActionSummaryCards actions={actions} activeActions={primaryActions} meta={meta} />
         <AlertsPreview
           alerts={actionAlerts}
+          collapsible
+          compactItems
+          collapsedItems={3}
           emptyMessage="Action 알림 없음"
           error={alerts.error}
+          maxItems={Infinity}
           onAlertClick={openActionAlert}
+          showSource={false}
           title="Action Alert"
         />
 

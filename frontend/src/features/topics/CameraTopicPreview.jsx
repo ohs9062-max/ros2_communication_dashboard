@@ -4,50 +4,64 @@ import { DetailSection } from '../../components/DetailSection.jsx'
 import { formatNumber, formatRelativeTime } from '../../utils/format.js'
 import { centeredScrollPosition, nextCameraZoom } from './cameraPreviewModel.js'
 
-export function CameraTopicPreview({ data, hz, metadata, topicName, topicType }) {
+export function CameraTopicPreview({ data, hz, metadata, onOpenChange, topicName, topicType }) {
   const [expanded, setExpanded] = useState(false)
+  const [sectionOpen, setSectionOpen] = useState(false)
   const image = data?.preview
   const ready = image?.status === 'ready' && image.data_url
   const encoding = metadata?.encoding ?? metadata?.format ?? '-'
 
+  useEffect(() => {
+    if (!sectionOpen) setExpanded(false)
+  }, [sectionOpen])
+
+  const handleSectionToggle = (open) => {
+    setSectionOpen(open)
+    onOpenChange?.(open)
+  }
+
   return (
-    <DetailSection title="Image Preview">
-      <div className="camera-preview-frame">
-        {ready ? (
-          <button
-            aria-label="Camera 이미지 크게 보기"
-            className="camera-preview-open"
-            onClick={() => setExpanded(true)}
-            title="클릭하여 크게 보기"
-            type="button"
-          >
-            <img alt="Camera Topic preview" src={image.data_url} />
-          </button>
-        ) : (
-          <div className="camera-preview-empty">{cameraPreviewMessage(image)}</div>
-        )}
-      </div>
-      {ready && <p className="camera-preview-hint">이미지를 클릭하면 크게 볼 수 있습니다.</p>}
-      <div className="camera-preview-meta">
-        <CameraMetaLine label="Type" value={topicType ?? '-'} />
-        {metadata?.width != null && <CameraMetaLine label="Width" value={metadata.width} />}
-        {metadata?.height != null && <CameraMetaLine label="Height" value={metadata.height} />}
-        <CameraMetaLine label="Encoding / Format" value={encoding} />
-        <CameraMetaLine
-          label="수신 시각"
-          value={formatRelativeTime(data?.frame_received_at ?? data?.last_received_at)}
-        />
-        <CameraMetaLine label="Hz" value={formatNumber(hz)} />
-        {metadata?.header?.frame_id && (
-          <CameraMetaLine label="Frame ID" value={metadata.header.frame_id} />
-        )}
-      </div>
-      {expanded && ready && (
-        <CameraPreviewModal
-          dataUrl={image.data_url}
-          onClose={() => setExpanded(false)}
-          topicName={topicName}
-        />
+    <DetailSection collapsible onToggle={handleSectionToggle} title="Image Preview">
+      {sectionOpen && (
+        <>
+          <div className="camera-preview-frame">
+            {ready ? (
+              <button
+                aria-label="Camera 이미지 크게 보기"
+                className="camera-preview-open"
+                onClick={() => setExpanded(true)}
+                title="클릭하여 크게 보기"
+                type="button"
+              >
+                <img alt="Camera Topic preview" src={image.data_url} />
+              </button>
+            ) : (
+              <div className="camera-preview-empty">{cameraPreviewMessage(image)}</div>
+            )}
+          </div>
+          {ready && <p className="camera-preview-hint">이미지를 클릭하면 크게 볼 수 있습니다.</p>}
+          <div className="camera-preview-meta">
+            <CameraMetaLine label="Type" value={topicType ?? '-'} />
+            {metadata?.width != null && <CameraMetaLine label="Width" value={metadata.width} />}
+            {metadata?.height != null && <CameraMetaLine label="Height" value={metadata.height} />}
+            <CameraMetaLine label="Encoding / Format" value={encoding} />
+            <CameraMetaLine
+              label="수신 시각"
+              value={formatRelativeTime(data?.frame_received_at ?? data?.last_received_at)}
+            />
+            <CameraMetaLine label="Hz" value={formatNumber(hz)} />
+            {metadata?.header?.frame_id && (
+              <CameraMetaLine label="Frame ID" value={metadata.header.frame_id} />
+            )}
+          </div>
+          {expanded && ready && (
+            <CameraPreviewModal
+              dataUrl={image.data_url}
+              onClose={() => setExpanded(false)}
+              topicName={topicName}
+            />
+          )}
+        </>
       )}
     </DetailSection>
   )

@@ -6,10 +6,8 @@ import { QosDetails } from './QosDetails.jsx'
 import { QosSummaryNotice } from './QosSummary.jsx'
 import { StatusBadge } from './StatusBadge.jsx'
 import {
-  ActionCapabilitySection,
   ActionConnectionSection,
   ActionExecutionSection,
-  ActionPreviewSections,
   DetailLine,
 } from '../features/actions/ActionDetailSections.jsx'
 import {
@@ -44,58 +42,7 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
       <h2>{action.name}</h2>
       <p className="muted">{action.type ?? '-'}</p>
 
-      <QosSummaryNotice
-        kind="action"
-        qos={action.qos}
-      />
-
-      {action.result_policy === 'observed_goal_only' && (
-        <p className="notice-text">
-          결과 조회 정책: 관찰된 Goal만 조회합니다. 대시보드는 Goal을 직접
-          보내지 않고, 상태 topic에서 관찰한 Goal이 종료되었을 때만 결과를
-          조회합니다.
-        </p>
-      )}
-      {presentation.goalUnobserved && (
-        <p className="notice-text">
-          아직 관찰된 Goal이 없어 피드백도 수신되지 않았습니다. 외부 Action
-          Client가 Goal을 보내면 상태, 피드백, 결과, 실행 시간이 여기에
-          표시됩니다.
-        </p>
-      )}
-      {presentation.feedbackWaiting && (
-        <p className="notice-text">
-          현재 Goal이 실행 중이지만 아직 피드백 미리보기는 없습니다.
-        </p>
-      )}
-      {presentation.feedbackReceived && (
-        <p className="notice-text">
-          최근 수신한 피드백 미리보기입니다.
-        </p>
-      )}
-      {presentation.goalExecuting && (
-        <p className="notice-text">
-          현재 Goal이 실행 중이므로 최종 결과는 아직 없습니다. 실행이 끝나면
-          결과가 표시됩니다.
-        </p>
-      )}
-      {action.feedback_supported === false && (
-        <p className="notice-text">
-          The Feedback type cannot be interpreted in the current Monitor environment.
-        </p>
-      )}
-      {action.result_supported === false && (
-        <p className="notice-text">
-          The Result type cannot be interpreted in the current Monitor environment.
-        </p>
-      )}
-      {presentation.goalStatus === 'aborted' && (
-        <p className="error-text">
-          The Action ended with an aborted result. Check the Feedback or Result message for details.
-        </p>
-      )}
-
-      <DetailSection title="상태 요약">
+      <DetailSection collapsible defaultOpen title="상태 요약">
         <DetailLine label="이름" value={action.name} />
         <DetailLine label="타입" value={action.type ?? '-'} />
         <DetailLine
@@ -106,6 +53,11 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
         <DetailLine label="상태 이유" value={displayText(action.reason)} />
         <DetailLine label="마지막 갱신" value={formatTime(action.last_updated)} />
       </DetailSection>
+
+      <QosSummaryNotice
+        kind="action"
+        qos={action.qos}
+      />
 
       <QosDetails
         focusRequest={qosFocusRequest?.name === (action.resource_key ?? action.name) ? qosFocusRequest : null}
@@ -121,8 +73,6 @@ export function ActionDetailPanel({ action, onClose, participants, qosFocusReque
         name={action.name}
         resourceType={action.type}
       />
-      <ActionCapabilitySection action={action} />
-      <ActionPreviewSections goalSummary={goalSummary} runtime={runtime} />
     </aside>
   )
 }

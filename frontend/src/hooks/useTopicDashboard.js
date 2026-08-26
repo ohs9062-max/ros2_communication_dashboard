@@ -26,7 +26,8 @@ export function useTopicDashboard({
   pollSelectedTopicDetails = true,
 } = {}) {
   const [includeAllTopics, setIncludeAllTopics] = useState(false)
-  const [selectedTopicName, setSelectedTopicName] = useState('')
+  const [selectedTopicName, setSelectedTopicNameState] = useState('')
+  const [cameraPreviewResourceKey, setCameraPreviewResourceKey] = useState('')
   const [topicHzByName, setTopicHzByName] = useState({})
   const [qosFocusRequest, setQosFocusRequest] = useState(null)
   const focusQosDetails = useCallback((name, channel = null) => {
@@ -91,6 +92,15 @@ export function useTopicDashboard({
     () => topicItems.find((topic) => (topic.resource_key ?? topic.name) === selectedTopicName) ?? null,
     [selectedTopicName, topicItems],
   )
+  const cameraPreviewOpen = Boolean(selectedTopicName)
+    && cameraPreviewResourceKey === selectedTopicName
+  const setCameraPreviewOpen = useCallback((open) => {
+    setCameraPreviewResourceKey(open ? selectedTopicName : '')
+  }, [selectedTopicName])
+  const setSelectedTopicName = useCallback((nextTopicName) => {
+    setCameraPreviewResourceKey('')
+    setSelectedTopicNameState(nextTopicName)
+  }, [])
   const cameraPreviewFetcher = useCallback(
     () => fetchTopicImagePreview(selectedTopicForRequest?.name ?? '', selectedTopicForRequest?.domain_id),
     [selectedTopicForRequest],
@@ -102,6 +112,7 @@ export function useTopicDashboard({
       enabled:
         enabled &&
         pollSelectedTopicDetails &&
+        cameraPreviewOpen &&
         isCameraTopicType(selectedTopic?.types?.[0]),
       resetKey: selectedTopicName,
     },
@@ -109,6 +120,7 @@ export function useTopicDashboard({
   const activeCameraPreview =
     enabled
     && pollSelectedTopicDetails
+    && cameraPreviewOpen
     && isCameraTopicType(selectedTopic?.types?.[0])
     ? selectedTopic
     : null
@@ -216,6 +228,7 @@ export function useTopicDashboard({
   return {
     alerts,
     cameraPreview,
+    cameraPreviewOpen,
     health,
     hz,
     includeAllTopics,
@@ -226,6 +239,7 @@ export function useTopicDashboard({
     qosFocusRequest,
     focusQosDetails,
     setIncludeAllTopics,
+    setCameraPreviewOpen,
     setSelectedTopicName,
     topicHzByName: displayedTopicHzByName,
     topicItems,

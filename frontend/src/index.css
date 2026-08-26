@@ -1,12 +1,12 @@
 :root {
-  --bg: #080d13;
-  --panel: #101821;
-  --panel-strong: #172331;
-  --panel-soft: #0c141d;
-  --border: #223247;
-  --border-strong: #30445c;
-  --text: #dce5ef;
-  --muted: #8c9bad;
+  --bg: #060b14;
+  --panel: #0d1726;
+  --panel-strong: #13243a;
+  --panel-soft: #091321;
+  --border: #1d3954;
+  --border-strong: #2c6084;
+  --text: #e1edf8;
+  --muted: #91a6ba;
   --green: #36c995;
   --green-bg: rgba(52, 211, 153, 0.14);
   --yellow: #eeb64a;
@@ -15,21 +15,27 @@
   --red-bg: rgba(251, 113, 133, 0.14);
   --gray: #94a3b8;
   --gray-bg: rgba(148, 163, 184, 0.12);
-  --blue: #6aa9f4;
-  --blue-bg: rgba(96, 165, 250, 0.12);
+  --blue: #72c9f8;
+  --blue-bg: rgba(80, 190, 245, 0.12);
+  --cyan: #61d9f7;
+  --cyan-bg: rgba(97, 217, 247, 0.1);
   --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     'Segoe UI', sans-serif;
   --mono: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
   --radius-card: 12px;
   --radius-control: 9px;
-  --shadow-card: 0 10px 28px rgba(0, 0, 0, 0.16);
-  --shadow-raised: 0 16px 36px rgba(0, 0, 0, 0.24);
+  --shadow-card: 0 12px 30px rgba(0, 0, 0, 0.23), 0 1px 0 rgba(112, 203, 248, 0.045) inset;
+  --shadow-raised: 0 16px 38px rgba(0, 0, 0, 0.3), 0 0 22px rgba(68, 183, 240, 0.07);
 
   color: var(--text);
   background:
-    radial-gradient(circle at 82% 0%, rgba(59, 130, 246, 0.07), transparent 32%),
-    linear-gradient(180deg, #0a1017 0%, var(--bg) 38%);
+    radial-gradient(circle at 82% 0%, rgba(64, 167, 235, 0.13), transparent 34%),
+    radial-gradient(circle at 12% 100%, rgba(25, 111, 164, 0.08), transparent 36%),
+    linear-gradient(rgba(93, 189, 238, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(93, 189, 238, 0.026) 1px, transparent 1px),
+    linear-gradient(180deg, #09111d 0%, var(--bg) 42%);
   background-attachment: fixed;
+  background-size: auto, auto, 42px 42px, 42px 42px, auto;
   font-family: var(--font);
   font-synthesis: none;
   line-height: 1.45;
@@ -46,7 +52,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--bg);
+  background: transparent;
 }
 
 button,

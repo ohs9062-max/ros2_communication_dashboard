@@ -16,7 +16,7 @@ import { topicEffectiveStatus } from '../utils/status.js'
 import { CameraTopicPreview } from '../features/topics/CameraTopicPreview.jsx'
 import { isCameraTopicType } from '../features/topics/cameraPreviewModel.js'
 
-export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, participants, qosFocusRequest }) {
+export function TopicDetailPanel({ cameraPreview, cameraPreviewOpen, topic, latest, hz, onCameraPreviewOpenChange, onClose, participants, qosFocusRequest }) {
   if (!topic) {
     return (
       <aside className="detail-panel">
@@ -59,7 +59,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
 
       {latest.error && <p className="error-text">{latest.error}</p>}
       {hz.error && <p className="error-text">{hz.error}</p>}
-      {cameraType && cameraPreview?.error && (
+      {cameraType && cameraPreviewOpen && cameraPreview?.error && (
         <p className="error-text">{cameraPreview.error}</p>
       )}
       {neverReceived && (
@@ -69,7 +69,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
         <ReceptionDiagnosis diagnosis={topic.reception_diagnosis} />
       )}
 
-      <DetailSection title="상태 요약">
+      <DetailSection collapsible defaultOpen title="상태 요약">
         <DetailLine label="이름" value={topic.name} />
         <DetailLine label="타입" value={topic.types?.[0] ?? '-'} />
         <DetailLine label="상태" tone={statusTone(effectiveStatus)} value={displayText(effectiveStatus)} />
@@ -84,7 +84,9 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
         <CameraTopicPreview
           data={cameraData}
           hz={hzData?.hz}
+          key={topic.resource_key ?? topic.name}
           metadata={cameraData?.metadata ?? preview}
+          onOpenChange={onCameraPreviewOpenChange}
           topicName={topic.name}
           topicType={topic.types?.[0]}
         />
@@ -105,11 +107,11 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
 
       <DetailSection collapsible title="연결 정보">
         <div className="detail-line">
-          <span>Publisher Node 수 (Dashboard 제외)</span>
+          <span>Pub 노드</span>
           <strong>{topic.publisher_node_count ?? topic.publisher_count ?? 0}</strong>
         </div>
         <div className="detail-line">
-          <span>Subscriber Node 수 (Dashboard 제외)</span>
+          <span>Sub 노드</span>
           <strong>{topic.subscriber_node_count ?? topic.subscriber_count ?? 0}</strong>
         </div>
         <div className="detail-line">
@@ -128,7 +130,7 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
         </div>
         {(topic.internal_subscriber_node_count ?? 0) > 0 && (
           <p className="detail-help-text">
-            Dashboard 자체 구독만 있는 경우 Subscriber Node 수는 0으로
+            Dashboard 자체 구독만 있는 경우 Sub 노드는 0으로
             표시됩니다. Endpoint 수는 Dashboard 통신을 포함한 Graph 원본
             진단값입니다.
           </p>

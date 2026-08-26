@@ -487,3 +487,45 @@
 - 같은 페이지 범위에서 추가 버튼만 녹색, 삭제 버튼만 붉은 색조·hover·disabled 상태로 구분했다. 다른 버튼과
   동작은 변경하지 않았고, Frontend lint/build와 diff check 후 GUI `pkexec` 인증으로 로컬 HTTPS 정적 경로를 다시
   동기화했다.
+
+## 2026-08-26 - 실제 브라우저 실화면 기반 전수 UX/UI 정밀 검수
+
+- Headless Chrome 및 CDP(Chrome DevTools Protocol)를 통해 실제 구동 중인 로컬 HTTPS(`https://192.168.1.123/`)의
+  9개 전체 페이지(`/overview`, `/topics`, `/services`, `/actions`, `/nodes`, `/visualization`, `/alerts`,
+  `/domains`, `/interface-lab`)를 1920×1080 및 1440×900 해상도, 상세 패널 오픈/인터랙션 상태에서 전수 캡처 및 검수했다.
+- 검수 결과 코드는 수정하지 않고 실제 화면 기준의 개선점을 우선순위(P0 긴급, P1 주요, P2 개선)별로 정리하여
+  `gemini_ui.md`에 저장했다. 주요 발견 결함은 1440×900 노트북 해상도에서의 상단 카드/Alert 수직 과밀로 인한
+  메인 테이블 가림, 상세 패널 오픈 시 테이블 컬럼 겹침 및 가로 스크롤 버그, Visualization 노드 그래프 오버랩,
+  입력 폼 가로 폭 과다 및 상세 패널 이중 스크롤 등이다.
+- 후속 공통 UI 작업으로 기능·레이아웃은 유지한 채 CSS theme 변수와 공유 panel selector를 navy/cyan 계열로 정리했다.
+  전체 배경은 저대비 42px grid와 radial blue depth를 사용하고, Overview·통신 목록·상세·Alerts·Domains·Interface Lab은
+  같은 얇은 cyan border, 미세 gradient와 shadow를 적용한다. Visualization의 흰색 React Flow 컨트롤도 다크 톤으로
+  통일했다. Frontend lint/unit/build와 diff check를 통과했고 GUI `pkexec` 인증으로 로컬 HTTPS static 경로에 동기화했다.
+- Topic/Service/Action의 목록·상세 연결 수 표기를 `Pub 노드`·`Sub 노드`·`Server`·`Client`로 축약하고, table heading과
+  안내/연결 label에 한글 단어 중간 줄바꿈을 막는 CSS를 적용했다. 최근 데이터 로그를 열면 상세 패널의 별도 max-height
+  scroll을 해제해 로그 stream만 bounded scroll을 유지하도록 정리했다. Frontend lint/unit/build와 diff check 후
+  GUI `pkexec` 인증으로 local HTTPS static 경로에 다시 동기화했다.
+- Service/Action 상세 History의 500은 `CommunicationHistory`가 `(name, type, domain_id)`로 호출하면서 API의 세 번째
+  positional 인자인 `limit`에 Domain 값을 넣고 실제 `domain_id`를 생략한 것이 원인이다. 각 요청을 Service
+  `limit=30`, Action `limit=100`과 선택 resource의 `domain_id`를 네 번째 인자로 명시하도록 한 파일만 수정했다.
+  Backend proxy와 Monitor route는 query를 그대로 전달하고 name/type/domain으로 runtime을 선택하므로 변경하지 않았다.
+  Frontend lint/unit/build·diff check를 통과했고 GUI `pkexec` 인증으로 local HTTPS static 경로에 동기화했다. 이
+  sandbox에서는 Backend/Monitor 8000 listener가 없어 실제 HTTP 재현은 하지 못했다.
+- Topic·Service·Action 전용 탭 Alert preview만 기본 3건과 `펼치기`/`접기`로 변경했다. 세 탭은 펼친 상태에서
+  `maxItems=Infinity`로 전체 Alert를 표시하고 source 분류 label을 숨겨 상태 배지·resource 이름·메시지만 남긴다.
+  Overview/전체 Alerts는 기존 source label, 개수와 동작을 유지한다. 전용 compact class로 항목 padding·badge·문자
+  크기만 줄였으며 Alert 생성/Backend는 변경하지 않았다. Frontend lint/unit/build·diff check 후 GUI `pkexec`
+  인증으로 local HTTPS static 경로에 동기화했다.
+- Topic·Service·Action 상세의 `상태 요약`을 기본 펼침, 나머지 기존 주요 section(QoS, 연결, Node, 실행/측정,
+  상세 데이터, History, 원본 JSON 등)을 기본 접힘으로 통일했다. 공통 `DetailSection`의 toggle callback만 확장해
+  기존 데이터 요청·표시 구조는 바꾸지 않았다. Camera `Image Preview`도 같은 section으로 바꾸고, 선택 resource의
+  Preview polling은 그 section을 실제로 열었을 때만 시작하며 닫기/상세 전환 때 기존 release API로 즉시 정리한다.
+  Frontend lint/unit/build·diff check를 통과했고 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- Node 탭도 Topic·Service·Action과 같은 Alert preview 옵션(기본 3건, 전체 펼치기/접기, compact item,
+  source 분류 라벨 숨김)을 사용하게 했다. 공통 toggle 버튼은 네 탭에 함께 적용되는 cyan accent·32px 최소 높이·
+  동일 문구/위치로 조정했으며 Alert 데이터와 1열 목록 구조는 변경하지 않았다. Frontend lint/unit/build·diff check를
+  통과했고 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- Action 상세 화면은 제목 아래에 `상태 요약`을 바로 두고, 상단의 결과 조회 정책·관찰 Goal/피드백/결과 안내문과
+  `상세 데이터`, 마지막 Goal/Feedback/Result·History·피드백/결과 JSON 미리보기 section을 제거했다. QoS, 연결,
+  실행/측정, 최근 데이터 로그는 유지하며 Monitor/Backend의 수집·저장·API는 변경하지 않았다. Frontend
+  lint/unit/build·diff check를 통과했고 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.

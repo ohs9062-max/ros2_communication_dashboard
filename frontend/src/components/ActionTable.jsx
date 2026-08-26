@@ -59,8 +59,8 @@ export function ActionTable({
             <SortableHeader columnKey="status" headerClassName="resource-status-column" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" headerClassName="action-name-column" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" headerClassName="action-type-column" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="server_count" headerClassName="diagnostic-count-column" label={['Server Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="client_count" headerClassName="diagnostic-count-column" label={['Client Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="server_count" headerClassName="diagnostic-count-column" label="Server" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" headerClassName="diagnostic-count-column" label="Client" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_goal_status" label="마지막 Goal 상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="feedback" headerClassName="diagnostic-data-column" label="마지막 Feedback" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="result" headerClassName="diagnostic-data-column" label="마지막 Result" onSort={onSort} sort={sort} />

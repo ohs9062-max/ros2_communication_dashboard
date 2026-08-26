@@ -20,6 +20,7 @@ export function TopicsPage({ dashboard }) {
   const {
     alerts,
     cameraPreview,
+    cameraPreviewOpen,
     health,
     hz,
     includeAllTopics,
@@ -29,6 +30,7 @@ export function TopicsPage({ dashboard }) {
     selectedTopic,
     selectedTopicName,
     setIncludeAllTopics,
+    setCameraPreviewOpen,
     setSelectedTopicName,
     topicHzByName,
     topicItems,
@@ -126,9 +128,14 @@ export function TopicsPage({ dashboard }) {
 
         <AlertsPreview
           alerts={topicAlerts}
+          collapsible
+          compactItems
+          collapsedItems={3}
           emptyMessage="Topic 알림 없음"
           error={alerts.error}
+          maxItems={Infinity}
           onAlertClick={openTopicAlert}
+          showSource={false}
           title="Topic Alert"
         />
 
@@ -174,9 +181,11 @@ export function TopicsPage({ dashboard }) {
       {detailTopic && (
         <TopicDetailPanel
           cameraPreview={cameraPreview}
+          cameraPreviewOpen={cameraPreviewOpen}
           hz={hz}
           latest={latest}
           onClose={() => setSelectedTopicName('')}
+          onCameraPreviewOpenChange={setCameraPreviewOpen}
           participants={topicParticipants[detailTopic.resource_key ?? detailTopic.name] ?? null}
           qosFocusRequest={qosFocusRequest}
           topic={detailTopic}

@@ -74,9 +74,14 @@ export function ServicesPage({ dashboard }) {
         />
         <AlertsPreview
           alerts={serviceAlerts}
+          collapsible
+          compactItems
+          collapsedItems={3}
           emptyMessage="Service 알림 없음"
           error={alerts.error}
+          maxItems={Infinity}
           onAlertClick={openServiceAlert}
+          showSource={false}
           title="Service Alert"
         />
 

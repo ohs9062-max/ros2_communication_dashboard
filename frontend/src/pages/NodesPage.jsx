@@ -110,9 +110,14 @@ export function NodesPage({ actions, dashboard, services, topics }) {
 
         <AlertsPreview
           alerts={nodeAlerts}
+          collapsible
+          compactItems
+          collapsedItems={3}
           emptyMessage="현재 Node Alert가 없습니다."
           error={alerts.error}
+          maxItems={Infinity}
           onAlertClick={openNodeAlert}
+          showSource={false}
           title="Node Alert"
         />
 

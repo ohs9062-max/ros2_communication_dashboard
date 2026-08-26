@@ -34,8 +34,8 @@ export function TopicTable({
             <SortableHeader columnKey="status" headerClassName="resource-status-column" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="publisher_count" headerClassName="diagnostic-count-column" label={['Publisher Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="subscriber_count" headerClassName="diagnostic-count-column" label={['Subscriber Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="publisher_count" headerClassName="diagnostic-count-column" label="Pub 노드" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="subscriber_count" headerClassName="diagnostic-count-column" label="Sub 노드" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="hz" headerClassName="metric-column" label="Hz" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="latest" headerClassName="diagnostic-data-column" label="마지막 값" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_updated" headerClassName="diagnostic-time-column" label="마지막 수신" onSort={onSort} sort={sort} />

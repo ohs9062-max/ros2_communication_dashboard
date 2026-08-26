@@ -11,7 +11,9 @@
 
 .sidebar {
   border-right: 1px solid var(--border);
-  background: linear-gradient(180deg, #0b1119 0%, #080c12 100%);
+  background:
+    linear-gradient(180deg, rgba(17, 43, 68, 0.24), transparent 22%),
+    linear-gradient(180deg, #0a1422 0%, #060b14 100%);
   height: 100vh;
   padding: 20px 14px;
   position: sticky;
@@ -79,8 +81,15 @@
 }
 
 .nav-item.active {
-  background: var(--panel-strong);
-  border-color: var(--border);
+  background: linear-gradient(90deg, rgba(67, 181, 237, 0.14), var(--panel-strong));
+  border-color: rgba(97, 217, 247, 0.34);
+  box-shadow: inset 2px 0 0 var(--cyan);
+  color: var(--text);
+}
+
+.nav-item:hover:not(.active) {
+  background: rgba(75, 180, 233, 0.055);
+  border-color: rgba(97, 217, 247, 0.16);
   color: var(--text);
 }
 
@@ -136,7 +145,10 @@
   justify-content: space-between;
   min-height: 86px;
   padding: 18px 24px;
-  background: rgba(8, 13, 19, 0.94);
+  background:
+    linear-gradient(90deg, rgba(38, 123, 177, 0.13), transparent 42%),
+    rgba(6, 11, 20, 0.94);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
 }
 
 .header-title-button {
@@ -2072,18 +2084,23 @@ h3 {
 }
 
 .alerts-preview-toggle {
-  background: #0d131b;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--muted);
+  background: rgba(14, 116, 144, 0.2);
+  border: 1px solid rgba(34, 211, 238, 0.62);
+  border-radius: 7px;
+  color: #a5f3fc;
   cursor: pointer;
-  font-size: 11px;
-  padding: 4px 7px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 32px;
+  padding: 7px 11px;
 }
 
 .alerts-preview-toggle:hover {
-  border-color: #475569;
-  color: var(--text);
+  background: rgba(8, 145, 178, 0.32);
+  border-color: #67e8f9;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+  color: #ecfeff;
 }
 
 .alert-tabs {
@@ -2829,6 +2846,7 @@ h3 {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  word-break: keep-all;
 }
 
 .sort-header {
@@ -3681,6 +3699,18 @@ h3 {
   top: 18px;
 }
 
+/* History owns the only bounded scroll region while it is open. */
+.detail-panel:has(.communication-history[open]) {
+  max-height: none;
+  overflow: visible;
+  position: static;
+}
+
+.detail-panel:has(.communication-history[open]) .communication-history-stream {
+  height: min(48vh, 480px);
+  min-height: 220px;
+}
+
 .detail-panel h2,
 .detail-panel > .muted {
   padding-inline: 16px;
@@ -3701,6 +3731,14 @@ h3 {
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
+}
+
+.detail-line > span,
+.metric > span,
+.detail-help-text,
+.notice-text {
+  overflow-wrap: break-word;
+  word-break: keep-all;
 }
 
 .detail-section {
@@ -4113,6 +4151,28 @@ h3 {
   margin: 3px 0;
 }
 
+.alerts-preview.compact-items .alert-item {
+  gap: 9px;
+  padding: 8px 12px;
+}
+
+.alerts-preview.compact-items .alert-item .badge {
+  font-size: 12px;
+  padding: 4px 7px;
+}
+
+.alerts-preview.compact-items .alert-item strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.alerts-preview.compact-items .alert-item p {
+  font-size: 13px;
+  line-height: 1.35;
+  margin: 1px 0 0;
+}
+
 .empty-state {
   color: var(--muted);
   padding: 28px 16px;
@@ -4387,17 +4447,17 @@ details summary {
 }
 
 .visualization-page .react-flow__controls {
-  background: #ffffff !important;
-  border: 2px solid #111827 !important;
+  background: rgba(8, 19, 32, 0.96) !important;
+  border: 1px solid rgba(97, 217, 247, 0.42) !important;
   border-radius: 10px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.48);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34), 0 0 16px rgba(67, 181, 237, 0.08);
   overflow: hidden;
 }
 
 .visualization-page .react-flow__controls-button {
-  background: #ffffff !important;
-  border-bottom: 2px solid #9ca3af !important;
-  color: #000000 !important;
+  background: rgba(11, 28, 46, 0.96) !important;
+  border-bottom: 1px solid rgba(44, 96, 132, 0.78) !important;
+  color: var(--text) !important;
   height: 52px !important;
   width: 52px !important;
 }
@@ -4407,22 +4467,22 @@ details summary {
 }
 
 .visualization-page .react-flow__controls-button:hover {
-  background: #dbeafe !important;
+  background: rgba(60, 161, 218, 0.2) !important;
 }
 
 .visualization-page .react-flow__controls-button svg {
-  fill: #000000 !important;
+  fill: #b9e9ff !important;
   max-height: 24px !important;
   max-width: 24px !important;
 }
 
 .visualization-page .react-flow__controls-button:disabled {
-  background: #e5e7eb !important;
-  opacity: 1 !important;
+  background: rgba(9, 19, 31, 0.9) !important;
+  opacity: 0.62 !important;
 }
 
 .visualization-page .react-flow__controls-button:disabled svg {
-  fill: #6b7280 !important;
+  fill: var(--muted) !important;
 }
 
 .react-flow__minimap {
@@ -4449,7 +4509,16 @@ details summary {
 .topic-section,
 .alerts-preview,
 .detail-panel,
-.placeholder-panel {
+.placeholder-panel,
+.interface-lab-hero,
+.interface-workbench-card,
+.interface-registry-browser,
+.interface-detail-panel,
+.interface-side-detail {
+  background:
+    linear-gradient(135deg, rgba(80, 190, 245, 0.075), transparent 43%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    var(--panel);
   border-color: var(--border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
@@ -4457,6 +4526,7 @@ details summary {
 
 .summary-card {
   background:
+    linear-gradient(135deg, rgba(80, 190, 245, 0.085), transparent 44%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 55%),
     var(--panel);
   min-height: 96px;
@@ -4530,7 +4600,10 @@ details summary {
 
 .section-heading,
 .panel-heading {
-  background: rgba(8, 13, 19, 0.26);
+  background:
+    linear-gradient(90deg, rgba(74, 182, 236, 0.075), transparent 48%),
+    rgba(5, 12, 21, 0.35);
+  border-bottom-color: rgba(44, 96, 132, 0.72);
   min-height: 54px;
 }
 
@@ -5093,7 +5166,10 @@ details summary {
 }
 
 .interface-side-detail {
-  background: var(--panel);
+  background:
+    linear-gradient(135deg, rgba(80, 190, 245, 0.075), transparent 43%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 58%),
+    var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
   max-height: calc(100vh - 40px);

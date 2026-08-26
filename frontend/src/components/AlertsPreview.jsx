@@ -7,10 +7,12 @@ export function AlertsPreview({
   alerts,
   collapsedItems = 3,
   collapsible = false,
+  compactItems = false,
   emptyMessage = '현재 Alert가 없습니다',
   error,
   maxItems = 5,
   onAlertClick,
+  showSource = true,
   title = '최근 Alert',
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -34,6 +36,7 @@ export function AlertsPreview({
       className={[
         'alerts-preview',
         tone,
+        compactItems ? 'compact-items' : '',
         collapsible ? 'collapsible' : '',
         expanded ? 'expanded' : 'collapsed',
       ].filter(Boolean).join(' ')}
@@ -75,7 +78,7 @@ export function AlertsPreview({
               <div>
                 <strong>{alert.name}</strong>
                 <p>{displayText(alert.message)}</p>
-                <span className="muted">{displayText(alert.source)}</span>
+                {showSource && <span className="muted">{displayText(alert.source)}</span>}
               </div>
             </button>
           ))}

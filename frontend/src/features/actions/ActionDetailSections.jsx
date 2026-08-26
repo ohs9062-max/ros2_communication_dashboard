@@ -5,8 +5,6 @@ import { withExecutionNode } from '../../utils/participants.js'
 import {
   actionStatusTone,
   goalStatusLabel,
-  resultLabel,
-  resultPolicyLabel,
   resultStatusLabel,
 } from './actionPresentation.js'
 
@@ -22,8 +20,8 @@ export function DetailLine({ label, tone, value }) {
 export function ActionConnectionSection({ action, participants }) {
   return (
     <DetailSection collapsible title="연결 정보">
-      <DetailLine label="Server Node 수 (Dashboard 제외)" value={action.server_node_count ?? action.server_count ?? 0} />
-      <DetailLine label="Client Node 수 (Dashboard 제외)" value={action.client_node_count ?? action.client_count ?? 0} />
+      <DetailLine label="Server" value={action.server_node_count ?? action.server_count ?? 0} />
+      <DetailLine label="Client" value={action.client_node_count ?? action.client_count ?? 0} />
       <DetailLine label="Server Endpoint 수" value={action.server_endpoint_count ?? action.server_count ?? 0} />
       <DetailLine label="Client Endpoint 수" value={action.client_endpoint_count ?? action.client_count ?? 0} />
       <DetailLine label="상태 Topic" value={action.status_topic ?? '-'} />
@@ -74,44 +72,6 @@ export function ActionExecutionSection({ action, goalSummary, presentation, runt
       <DetailLine label="마지막 실행 오류" value={goalSummary?.last_error ?? '-'} />
       <DetailLine label="Goal 수" value={action.goal_count ?? 0} />
       <DetailLine label="성공/실패" value={`${action.success_count ?? 0}/${action.failure_count ?? 0}`} />
-    </DetailSection>
-  )
-}
-
-export function ActionCapabilitySection({ action }) {
-  return (
-    <DetailSection collapsible title="상세 데이터">
-      <p className="muted detail-help-text">
-        피드백 구독 지원 여부는 이 Action 타입의 피드백 메시지를 대시보드가 해석할 수 있는지를 의미합니다.
-        실제 수신 여부는 실행 정보와 피드백 미리보기에서 확인합니다.
-      </p>
-      <DetailLine label="상태 구독" value={action.status_supported ? '지원' : '미지원'} />
-      <DetailLine label="피드백 구독" value={action.feedback_supported ? '지원' : '미지원'} />
-      <DetailLine label="피드백 이유" value={action.feedback_reason ?? '-'} />
-      <DetailLine label="결과" value={action.result_supported ? resultLabel(action) : '미지원'} />
-      <DetailLine label="결과 조회 정책" value={resultPolicyLabel(action.result_policy)} />
-      <DetailLine label="결과 이유" value={action.result_reason ?? '-'} />
-    </DetailSection>
-  )
-}
-
-export function ActionPreviewSections({ goalSummary, runtime }) {
-  return (
-    <>
-      <PreviewSection title="마지막 Goal JSON" value={goalSummary?.last_goal_preview} />
-      <PreviewSection title="마지막 Feedback JSON" value={goalSummary?.last_feedback_preview} />
-      <PreviewSection title="마지막 Result JSON" value={goalSummary?.last_result_preview} />
-      <PreviewSection title="최근 Goal History JSON" value={goalSummary?.history} />
-      <PreviewSection title="피드백 미리보기 JSON" value={runtime.feedback_preview} />
-      <PreviewSection title="결과 미리보기 JSON" value={runtime.result_preview} />
-    </>
-  )
-}
-
-function PreviewSection({ title, value }) {
-  return (
-    <DetailSection collapsible title={title}>
-      <pre className="preview-json">{value ? JSON.stringify(value, null, 2) : '데이터 없음'}</pre>
     </DetailSection>
   )
 }

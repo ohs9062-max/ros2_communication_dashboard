@@ -104,8 +104,10 @@ export function CommunicationHistory({ kind, name, resourceType, domainId }) {
 
 function historyFetcher(kind) {
   if (kind === 'topic') return (name, _type, domainId) => fetchTopicHistory(name, 100, domainId)
-  if (kind === 'service') return fetchServiceHistory
-  return fetchActionHistory
+  if (kind === 'service') {
+    return (name, serviceType, domainId) => fetchServiceHistory(name, serviceType, 30, domainId)
+  }
+  return (name, actionType, domainId) => fetchActionHistory(name, actionType, 100, domainId)
 }
 
 function historySourceText(kind) {

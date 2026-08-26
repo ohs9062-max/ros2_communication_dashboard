@@ -55,8 +55,8 @@ export function ServiceTable({
             <SortableHeader columnKey="status" headerClassName="resource-status-column" label="상태" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="name" headerClassName="service-name-column" label="이름" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="type" headerClassName="service-type-column" label="타입" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="server_count" headerClassName="diagnostic-count-column" label={['Server Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="client_count" headerClassName="diagnostic-count-column" label={['Client Node 수', '(Dashboard 제외)']} onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="server_count" headerClassName="diagnostic-count-column" label="Server" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="client_count" headerClassName="diagnostic-count-column" label="Client" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="request" headerClassName="diagnostic-data-column" label="마지막 Request" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="response" headerClassName="diagnostic-data-column" label="마지막 Response" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="response_time" headerClassName="diagnostic-time-column" label="마지막 응답 시간" onSort={onSort} sort={sort} />
