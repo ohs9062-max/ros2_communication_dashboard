@@ -545,3 +545,8 @@
   `DDS Discovery 관찰됨`과 `Graph 관찰됨`을 포함한 Service/Topic의 같은 관찰 상태는 파란 배경·테두리·텍스트를,
   `compatible`/정상은 기존 초록을 유지한다. QoS 판정값·문구·API는 변경하지 않았고 Frontend lint/unit/build·diff
   check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- Camera Topic의 큰 보기 modal은 좌측 image와 우측 embedded `최근 데이터 로그`를 함께 표시한다. modal History는
+  기존 Topic History fetcher·최신순 formatter·수동 새로고침·내부 stream scroll을 재사용하고, 선택 camera의
+  `domain_id/name/type`을 그대로 전달한다. 큰 보기를 닫으면 component와 1초 History polling도 함께 정리되며,
+  일반 Topic 상세 History와 Camera 10 FPS frame polling은 바꾸지 않았다. 넓은 화면은 2열, 960px 이하는 세로로
+  자연스럽게 전환한다. Frontend lint/unit/build·diff check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.

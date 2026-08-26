@@ -83,6 +83,7 @@ export function TopicDetailPanel({ cameraPreview, cameraPreviewOpen, topic, late
       {cameraType && (
         <CameraTopicPreview
           data={cameraData}
+          domainId={topic.domain_id}
           hz={hzData?.hz}
           key={topic.resource_key ?? topic.name}
           metadata={cameraData?.metadata ?? preview}

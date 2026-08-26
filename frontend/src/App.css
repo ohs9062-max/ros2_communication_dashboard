@@ -3149,9 +3149,9 @@ h3 {
   flex-direction: column;
   height: min(89.3vh, 1026px);
   max-height: 89.3vh;
-  max-width: 76.8vw;
+  max-width: min(94vw, 1600px);
   padding: 14px;
-  width: 76.8vw;
+  width: min(94vw, 1600px);
 }
 
 .camera-preview-modal-toolbar {
@@ -3203,6 +3203,44 @@ h3 {
   min-height: 0;
   min-width: 0;
   overflow: auto;
+}
+
+.camera-preview-modal-content {
+  display: grid;
+  flex: 1;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
+  min-height: 0;
+}
+
+.camera-preview-modal-history {
+  min-height: 0;
+  min-width: 0;
+}
+
+.communication-history-embedded {
+  background: rgba(8, 13, 19, 0.62);
+  border: 1px solid rgba(48, 68, 92, 0.8);
+  border-radius: var(--radius-control);
+  display: grid;
+  gap: 10px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  padding: 12px;
+}
+
+.communication-history-embedded .communication-history-heading {
+  align-items: center;
+}
+
+.communication-history-embedded .communication-history-stream {
+  height: auto;
+  min-height: 0;
+}
+
+.communication-history-embedded .detail-help-text {
+  margin: 0;
 }
 
 .camera-preview-modal-canvas {
@@ -3265,6 +3303,13 @@ h3 {
 
   .camera-preview-modal-toolbar output {
     min-width: 64px;
+  }
+}
+
+@media (max-width: 960px) {
+  .camera-preview-modal-content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(220px, 0.55fr);
   }
 }
 

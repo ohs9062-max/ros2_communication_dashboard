@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { DetailSection } from '../../components/DetailSection.jsx'
+import { CommunicationHistory } from '../../components/CommunicationHistory.jsx'
 import { formatNumber, formatRelativeTime } from '../../utils/format.js'
 import { centeredScrollPosition, nextCameraZoom } from './cameraPreviewModel.js'
 
-export function CameraTopicPreview({ data, hz, metadata, onOpenChange, topicName, topicType }) {
+export function CameraTopicPreview({ data, domainId, hz, metadata, onOpenChange, topicName, topicType }) {
   const [expanded, setExpanded] = useState(false)
   const [sectionOpen, setSectionOpen] = useState(false)
   const image = data?.preview
@@ -57,8 +58,10 @@ export function CameraTopicPreview({ data, hz, metadata, onOpenChange, topicName
           {expanded && ready && (
             <CameraPreviewModal
               dataUrl={image.data_url}
+              domainId={domainId}
               onClose={() => setExpanded(false)}
               topicName={topicName}
+              topicType={topicType}
             />
           )}
         </>
@@ -67,7 +70,7 @@ export function CameraTopicPreview({ data, hz, metadata, onOpenChange, topicName
   )
 }
 
-function CameraPreviewModal({ dataUrl, onClose, topicName }) {
+function CameraPreviewModal({ dataUrl, domainId, onClose, topicName, topicType }) {
   const [viewMode, setViewMode] = useState('fit')
   const [zoom, setZoom] = useState(100)
   const imageViewportRef = useRef(null)
@@ -169,17 +172,28 @@ function CameraPreviewModal({ dataUrl, onClose, topicName }) {
             중앙 정렬
           </button>
         </div>
-        <div className="camera-preview-modal-image" ref={imageViewportRef}>
-          <div
-            className={`camera-preview-modal-canvas camera-preview-modal-canvas-${viewMode}`}
-            style={viewMode === 'zoom' ? { width: `${zoom}%` } : undefined}
-          >
-            <img
-              alt={`${topicName} Camera 확대 preview`}
-              onLoad={centerImage}
-              src={dataUrl}
-            />
+        <div className="camera-preview-modal-content">
+          <div className="camera-preview-modal-image" ref={imageViewportRef}>
+            <div
+              className={`camera-preview-modal-canvas camera-preview-modal-canvas-${viewMode}`}
+              style={viewMode === 'zoom' ? { width: `${zoom}%` } : undefined}
+            >
+              <img
+                alt={`${topicName} Camera 확대 preview`}
+                onLoad={centerImage}
+                src={dataUrl}
+              />
+            </div>
           </div>
+          <aside className="camera-preview-modal-history">
+            <CommunicationHistory
+              domainId={domainId}
+              embedded
+              kind="topic"
+              name={topicName}
+              resourceType={topicType}
+            />
+          </aside>
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@ import {
   formatHistoryTime,
 } from '../features/communication-history/communicationHistory.js'
 
-export function CommunicationHistory({ kind, name, resourceType, domainId }) {
+export function CommunicationHistory({ embedded = false, kind, name, resourceType, domainId }) {
   const [items, setItems] = useState([])
   const [meta, setMeta] = useState({})
   const [loading, setLoading] = useState(false)
@@ -55,7 +55,7 @@ export function CommunicationHistory({ kind, name, resourceType, domainId }) {
   }, [domainId, kind, name, resourceType])
 
   useEffect(() => {
-    if (!isOpen) return undefined
+    if (!embedded && !isOpen) return undefined
 
     load()
     const timer = window.setInterval(
@@ -63,10 +63,54 @@ export function CommunicationHistory({ kind, name, resourceType, domainId }) {
       TOPIC_POLL_INTERVAL_MS,
     )
     return () => window.clearInterval(timer)
-  }, [isOpen, load])
+  }, [embedded, isOpen, load])
 
   function handleToggle(event) {
     setIsOpen(event.currentTarget.open)
+  }
+
+  const content = (
+    <>
+      {!embedded && <p className="detail-help-text">{historySourceText(kind)}</p>}
+      <button disabled={loading} onClick={() => load()} type="button">
+        {loading ? '불러오는 중…' : '새로고침'}
+      </button>
+    </>
+  )
+
+  const entries = (
+    <>
+      {error && <p className="error-text">{error}</p>}
+      {!loading && !error && loaded && items.length === 0 && (
+        <p className="muted">아직 기록된 통신 데이터가 없습니다.</p>
+      )}
+      {items.length > 0 && (
+        <div aria-label="최근 통신 데이터" className="communication-history-stream" role="log">
+          {rows.map((row) => (
+            <article className="communication-history-entry" key={row.key}>
+              <header>
+                <time>[{formatHistoryTime(row.timestamp)}]</time>
+                <strong>{row.status}</strong>
+              </header>
+              <pre>{row.formattedPayload}</pre>
+            </article>
+          ))}
+        </div>
+      )}
+      {loaded && <p className="detail-help-text">메모리 보존 한도: {meta.limit ?? items.length}개</p>}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <section className="communication-history communication-history-embedded">
+        <div className="communication-history-heading">
+          <strong>최근 데이터 로그 {loaded ? `(${items.length})` : ''}</strong>
+          {content}
+        </div>
+        {entries}
+      </section>
+    )
   }
 
   return (
@@ -74,29 +118,9 @@ export function CommunicationHistory({ kind, name, resourceType, domainId }) {
       <summary>최근 데이터 로그 {loaded ? `(${items.length})` : ''}</summary>
       <div className="detail-section-body">
         <div className="communication-history-heading">
-          <p className="detail-help-text">{historySourceText(kind)}</p>
-          <button disabled={loading} onClick={() => load()} type="button">
-            {loading ? '불러오는 중…' : '새로고침'}
-          </button>
+          {content}
         </div>
-        {error && <p className="error-text">{error}</p>}
-        {!loading && !error && loaded && items.length === 0 && (
-          <p className="muted">아직 기록된 통신 데이터가 없습니다.</p>
-        )}
-        {items.length > 0 && (
-          <div aria-label="최근 통신 데이터" className="communication-history-stream" role="log">
-            {rows.map((row) => (
-              <article className="communication-history-entry" key={row.key}>
-                <header>
-                  <time>[{formatHistoryTime(row.timestamp)}]</time>
-                  <strong>{row.status}</strong>
-                </header>
-                <pre>{row.formattedPayload}</pre>
-              </article>
-            ))}
-          </div>
-        )}
-        {loaded && <p className="detail-help-text">메모리 보존 한도: {meta.limit ?? items.length}개</p>}
+        {entries}
       </div>
     </details>
   )
