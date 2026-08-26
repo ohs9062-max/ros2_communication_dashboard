@@ -62,30 +62,55 @@ export function AlertsPreview({
       ) : (
         <div className="alert-list">
           {items.map((alert) => (
-            <button
-              className="alert-item"
+            <AlertItem
+              alert={alert}
               key={alert.id}
-              onClick={() => onAlertClick?.(alert)}
-              type="button"
-            >
-              <StatusBadge
-                value={
-                  alert.alert_state === 'resolved'
-                    ? 'resolved'
-                    : alert.level
-                }
-              />
-              <div>
-                <strong>{alert.name}</strong>
-                <p>{displayText(alert.message)}</p>
-                {showSource && <span className="muted">{displayText(alert.source)}</span>}
-              </div>
-            </button>
+              onClick={onAlertClick}
+              showSource={showSource}
+            />
           ))}
         </div>
       )}
     </section>
   )
+}
+
+function AlertItem({ alert, onClick, showSource }) {
+  const domainId = alertDomainId(alert)
+  const resourceLabel = domainId === null
+    ? alert.name
+    : `${alert.name} · D${domainId}`
+
+  return (
+    <button
+      className="alert-item"
+      onClick={() => onClick?.(alert)}
+      type="button"
+    >
+      <StatusBadge
+        value={
+          alert.alert_state === 'resolved'
+            ? 'resolved'
+            : alert.level
+        }
+      />
+      <div className="alert-item-content">
+        <strong title={resourceLabel}>{resourceLabel}</strong>
+        <p>{displayText(alert.message)}</p>
+        {showSource && <span className="muted">{displayText(alert.source)}</span>}
+      </div>
+    </button>
+  )
+}
+
+function alertDomainId(alert) {
+  const direct = Number(alert?.domain_id)
+  if (Number.isInteger(direct) && direct >= 0 && direct <= 232) {
+    return direct
+  }
+
+  const domainText = String(alert?.resource_key ?? '').split(':', 1)[0]
+  return /^\d+$/.test(domainText) ? Number(domainText) : null
 }
 
 function alertTone(alerts) {

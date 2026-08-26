@@ -529,3 +529,19 @@
   `상세 데이터`, 마지막 Goal/Feedback/Result·History·피드백/결과 JSON 미리보기 section을 제거했다. QoS, 연결,
   실행/측정, 최근 데이터 로그는 유지하며 Monitor/Backend의 수집·저장·API는 변경하지 않았다. Frontend
   lint/unit/build·diff check를 통과했고 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- Topic·Service·Action·Node 탭의 compact Alert item을 공통 3열 grid(상태 배지, 180~280px 이름, 나머지 메시지)로
+  정렬했다. resource 이름은 title hover와 말줄임을 적용하고, Alert 메시지는 넓은 화면에서 한 줄을 유지한다. 700px
+  이하에서만 이름/메시지를 같은 내용 열 안에서 자연스럽게 줄바꿈한다. Alert 데이터·접기/펼치기·Overview 표시에는
+  변경이 없으며, build 중 확인된 기존 여분 CSS 중괄호도 제거했다. Frontend lint/unit/build·diff check를 통과했고
+  GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- 네 통신/Node 탭의 compact Alert에서 상태 배지는 12→16px, resource 이름은 14→18px, 메시지는 13→17px로
+  약 30% 확대했다. grid·말줄임·접기/펼치기와 Alert 데이터는 그대로이며, Frontend lint/build·diff check를 통과한 뒤
+  GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- Alert 공통 표시가 snapshot/DB API의 실제 `domain_id`를 우선 읽어 resource 이름 뒤에 ` · D99`처럼 붙인다.
+  domain_id가 없는 이전 형식은 `resource_key`의 숫자 Domain 접두사만 사용하며 임의 기본 Domain을 만들지 않는다.
+  이름+Domain 열은 220~340px으로 넓혀 같은 이름의 다른 Domain Alert를 한 줄에서 구분한다. Alert 생성/Backend는
+  변경하지 않았고, Frontend lint/unit/build·diff check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- 공통 `QosDetails`에서 `qos_status=observed`의 표시 tone을 파란 `info`로 통일했다. 따라서 Action의
+  `DDS Discovery 관찰됨`과 `Graph 관찰됨`을 포함한 Service/Topic의 같은 관찰 상태는 파란 배경·테두리·텍스트를,
+  `compatible`/정상은 기존 초록을 유지한다. QoS 판정값·문구·API는 변경하지 않았고 Frontend lint/unit/build·diff
+  check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.

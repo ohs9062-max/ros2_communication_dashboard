@@ -322,12 +322,9 @@ function statusTone(qos) {
   if (qos.qos_status === 'incompatible') return 'bad'
   if (qos.qos_status === 'partial') return 'warn'
   if (qos.qos_status === 'compatible') return 'good'
-  if (qos.qos_detection_source === 'fastdds_discovery' && qos.qos_status === 'observed') {
-    return 'good'
-  }
   if (qos.qos_visibility === 'graph_unavailable') return 'warn'
   if (qos.qos_status === 'unknown') return 'warn'
-  if (qos.qos_status === 'observed') return 'warn'
+  if (qos.qos_status === 'observed') return 'info'
   return 'muted'
 }
 
