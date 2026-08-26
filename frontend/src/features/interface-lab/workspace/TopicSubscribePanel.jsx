@@ -36,7 +36,7 @@ export function TopicSubscribePanel({
         onModeChange={onSubscribeQosModeChange}
       />
       <details className="interface-advanced-section"><summary>고급 설정</summary><p className="muted">
-        Subscription key는 topic_name + full_type입니다. 같은 이름이라도 package/type이 다르면 별도 구독입니다.
+        구독 기준은 토픽 이름과 메시지 타입입니다. 같은 이름이라도 package/type이 다르면 별도 구독입니다.
       </p></details>
       <div className="interface-inline-actions">
         <button disabled={!item.importAvailable} onClick={activeSubscription ? onSubscribeStop : onSubscribeStart} type="button">

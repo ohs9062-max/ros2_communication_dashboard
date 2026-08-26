@@ -44,11 +44,11 @@ export function TopicReceivePanel({
       </label>
       <label className="interface-filter-check">
         <input checked={importableOnly} onChange={(event) => onImportableOnlyChange(event.target.checked)} type="checkbox" />
-        <span>Message import됨만 보기</span>
+        <span>import된 메시지만 보기</span>
         <small>{visibleMessages.length}/{allMessages.length}</small>
       </label>
       <label className="interface-service-field">
-        <span>Message full_type · {visibleMessages.length}/{allMessages.length}개</span>
+        <span>메시지 타입 · {visibleMessages.length}/{allMessages.length}개</span>
         <select value={selectedMessageKey} onChange={(event) => onMessageSelect(event.target.value)}>
           {visibleMessages.map((message) => (
             <option key={messageKey(message)} value={messageKey(message)}>
@@ -90,7 +90,7 @@ export function TopicReceivePanel({
         onModeLinkChange={onModeLinkChange}
       />
       <p className="interface-package-help">
-        Topic 수신은 선택한 Message full_type과 Subscribe Topic name 조합으로 시작합니다.
+        Topic 수신은 선택한 메시지 타입과 Subscribe Topic name 조합으로 시작합니다.
         Publish payload 입력과 Publish 버튼은 왼쪽 Topic 실행 창에서 처리합니다.
       </p>
       <div className="interface-receive-actions">

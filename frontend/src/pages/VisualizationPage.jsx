@@ -116,7 +116,6 @@ export function VisualizationPage({ websocket }) {
                 운영 화면에서 바로 훑어봅니다.
               </p>
             </div>
-            <RealtimePill websocket={websocket} />
           </div>
         </section>
 
@@ -243,15 +242,5 @@ export function VisualizationPage({ websocket }) {
         />
       )}
     </main>
-  )
-}
-
-function RealtimePill({ websocket }) {
-  const connected = websocket?.connected
-  return (
-    <span className={connected ? 'ws-status connected' : 'ws-status fallback'}>
-      <span className={connected ? 'dot connected' : 'dot fallback'} />
-      {connected ? 'WebSocket 실시간 연결' : 'REST polling 기반 표시'}
-    </span>
   )
 }

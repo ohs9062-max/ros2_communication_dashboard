@@ -41,7 +41,7 @@ export function ServiceExecutionPanel({
         <>
           <label className="interface-filter-check">
             <input checked={importableOnly} onChange={(event) => onImportableOnlyChange(event.target.checked)} type="checkbox" />
-            <span>Service import됨만 보기</span><small>{visibleServices.length}/{services.length}</small>
+            <span>import된 서비스만 보기</span><small>{visibleServices.length}/{services.length}</small>
           </label>
           <label className="interface-service-field">
             <span>Service · {visibleServices.length}/{services.length}개</span>
@@ -53,7 +53,7 @@ export function ServiceExecutionPanel({
                 </option>
               ))}
             </select>
-            {!visibleServices.length && <small>Service import됨 항목이 없습니다. 적용하기 또는 import-check 이후 다시 확인하세요.</small>}
+            {!visibleServices.length && <small>import된 서비스 항목이 없습니다. 적용하기 또는 import 확인 후 다시 시도하세요.</small>}
           </label>
           {selected && <div className={`interface-service-state ${selected.callable ? 'success' : 'warning'}`}>{serviceStatusLabel(selected)}{selected.reason ? ` · ${selected.reason}` : ''}</div>}
           {selected && <div className="interface-package-help">선택 타입 {selected.service_type}의 Request schema {selected.request_schema?.length ?? 0}개 필드로 폼을 생성합니다.</div>}

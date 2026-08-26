@@ -550,3 +550,55 @@
   `domain_id/name/type`을 그대로 전달한다. 큰 보기를 닫으면 component와 1초 History polling도 함께 정리되며,
   일반 Topic 상세 History와 Camera 10 FPS frame polling은 바꾸지 않았다. 넓은 화면은 2열, 960px 이하는 세로로
   자연스럽게 전환한다. Frontend lint/unit/build·diff check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
+- Domains UI는 등록 Domain/감시 중 Domain 요약, 최대 400px의 추가 입력, 최대 980px 4열 표(Domain·상태·발견된
+  리소스·관리)로 정리했다. `/ros/domains`는 Backend cache의 실제 snapshot만 Domain별로 집계한 `resource_counts`를
+  반환하며 resource가 0이면 UI는 `없음`으로 표시하되 runtime 상태와 섞지 않는다. GUI `pkexec` 인증으로 Frontend를
+  local HTTPS 정적 파일에 동기화하고 checkout 소스를 쓰는 Backend service를 재시작했다. 실제 API에서 D5
+  `Topic 9 · Service 3 · Action 1 · Node 6`, D99 `Topic 139 · Service 106 · Action 17 · Node 32`를 확인했다.
+  Backend pytest 17 passed·2 skipped, Frontend lint/unit/build·diff check를 통과했다.
+
+## 2026-08-26 - 최근 UI 수정사항 반영 결과 실화면 2차 정밀 재검수
+
+- Headless Chrome 및 CDP를 통해 최신 로컬 HTTPS(`https://192.168.1.123/`) 환경의 9개 전체 페이지를
+  1920×1080 및 1440×900 해상도, 상세 패널 오픈/인터랙션 상태에서 재검수했다.
+- 최근 패치로 Alert 3열 그리드 및 접기/펼치기, 상세 패널 기본 접힘/상태 요약 노출, Camera 큰 보기 2열 모달,
+  1920px 테이블 헤더 축약이 정상 개선됨을 확인했다.
+- 코드는 수정하지 않고 실제 화면 기준의 잔여 결함(1440×900 Services/Actions 상세 오픈 시 가로 스크롤, Overview
+  카드 타이틀 한글 쪼개짐, 상단 누적 높이, Domains 입력 폭 과다 등)을 우선순위별로 정리하여 `gemini_ui2.md`에 저장했다.
+
+## 2026-08-26 - Domains 감시 중 Domain 테이블 가로폭 및 레이아웃 최적화
+
+- Domains 페이지의 `감시 중 Domain` 테이블이 카드 가로폭 전체를 자연스럽게 사용하도록 `App.css`를 수정했다.
+- 컬럼 비율을 `Domain 15% (15fr)`, `상태 20% (20fr)`, `발견된 리소스 50% (50fr)`, `관리 15% (15fr)`로 설정하여
+  `발견된 리소스` 컬럼을 가장 넓게 배치하고, 삭제 버튼은 우측 끝 정렬, 상태는 일정한 위치에 정렬되도록 했다.
+- 잉여 여백을 자연스럽게 채우기 위해 행 패딩(`18px 20px`), 컬럼 간격(`24px`), 행 최소 높이(`62px`)로 간격을 더욱
+  넓히고, Domain 이름(18px mono bold), 상태(15px semibold, 10px dot), 리소스 요약(15px), 헤더(14px), 삭제 버튼(14px,
+  min-height 36px)으로 폰트와 컨트롤을 확대했다.
+- 페이지 전체 max-width 제한을 두지 않고 다크 테마 및 추가/삭제 로직을 온전히 유지했다.
+- Frontend lint/unit/build 및 diff check를 통과했으며, GUI `pkexec` 인증으로 로컬 HTTPS 정적 파일에 동기화한 뒤
+  Headless Chrome CDP로 1920×1080 및 1440×900 실화면 렌더링을 재검증했다.
+
+## 2026-08-26 - 실사용성 핵심 UI/UX 결함 6개 항목 집중 개선
+
+- Services/Actions 화면에서 1440×900 상세 패널 오픈 시 발생하던 테이블 가로 스크롤 결함을 해결했다.
+  테이블의 하드코딩된 min-width(1300px, 1540px)를 제거하고 컬럼 폭을 유연화해 주요 데이터가 한 화면에 보이도록 했다.
+- Overview 요약 카드 제목(`Node 미리보기`, `Topic 미리보기`)에 `white-space: nowrap; word-break: keep-all; font-size: 20px;`를
+  적용하여 1440×900에서 한글 단어 중간 줄바꿈 깨짐을 제거했다.
+- Topics/Services/Actions/Nodes의 상단 설명·요약 카드·Alert 패딩과 간격을 컴팩트화해 1440×900에서 테이블의
+  첫 화면 가시성을 추가 확보했다.
+- Visualization 화면에서 본문 우측 상단의 중복 WebSocket 상태 표시를 제거하고, 상단 툴바를 검색/필터 행과 화면 조작
+  버튼 행으로 시각적 2단 분리하여 검색창 잘림을 해소했다.
+- Interface Lab에서 `Message full_type`, `Message import됨만 보기` 등 내부 변수명 스타일 라벨을 `메시지 타입`,
+  `import된 메시지만 보기` 등 직관적인 한글 명칭으로 정제했다.
+- Frontend lint/unit/build 및 diff check를 통과했으며, Nginx 정적 파일 동기화 후 실화면을 검증했다.
+
+## 2026-08-26 - Domains 감시 중 Domain 발견된 리소스 항목 간 이격(Spacing) 개선
+
+- Domains 페이지의 `감시 중 Domain` 목록에서 `발견된 리소스` 컬럼의 각 통신 항목(Topic, Service, Action, Node)을
+  개별 래퍼 태그(`domains-resource-item`) 구조로 분리 렌더링하도록 `DomainsPage.jsx`를 개선했다.
+- `App.css`에 flex 컨테이너와 `gap: 36px`를 적용하여 `Topic 0        Service 0        Action 0        Node 1` 형태로
+  통신 항목 간에 넓고 쾌적한 이격을 부여했다.
+- 통신 카운트 숫자는 시인성 높은 청록색 모노스페이스 볼드(`color: #38bdf8; font-weight: 700;`)로 강조했다.
+- 모바일(640px 이하)에서는 `gap: 16px` 및 `flex-wrap`으로 줄바꿈되도록 반응형을 처리했다.
+- Frontend lint/unit/build 및 diff check를 통과하고 정적 배포 후 1920×1080 및 1440×900 실화면에서 검증했다.
+

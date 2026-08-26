@@ -57,9 +57,9 @@ export function ServiceTable({
             <SortableHeader columnKey="type" headerClassName="service-type-column" label="타입" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="server_count" headerClassName="diagnostic-count-column" label="Server" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="client_count" headerClassName="diagnostic-count-column" label="Client" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="request" headerClassName="diagnostic-data-column" label="마지막 Request" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="response" headerClassName="diagnostic-data-column" label="마지막 Response" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="response_time" headerClassName="diagnostic-time-column" label="마지막 응답 시간" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="request" headerClassName="diagnostic-data-column" label="Request" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="response" headerClassName="diagnostic-data-column" label="Response" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="response_time" headerClassName="diagnostic-time-column" label="응답 시간" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="last_call" headerClassName="service-last-call-column" label="마지막 호출" onSort={onSort} sort={sort} />
           </tr>
         </thead>

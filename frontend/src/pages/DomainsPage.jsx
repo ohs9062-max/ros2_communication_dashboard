@@ -19,6 +19,14 @@ export function DomainsPage() {
     () => Array.isArray(data.active_domain_ids) ? data.active_domain_ids : [],
     [data.active_domain_ids],
   )
+  const resourceCountsByDomain = useMemo(
+    () => new Map(
+      (Array.isArray(data.resource_counts) ? data.resource_counts : [])
+        .filter((item) => Number.isInteger(item?.domain_id))
+        .map((item) => [item.domain_id, item]),
+    ),
+    [data.resource_counts],
+  )
 
   const add = async () => {
     const value = Number(input.trim())
@@ -66,6 +74,17 @@ export function DomainsPage() {
         </p>
       </section>
 
+      <div className="domains-summary" aria-label="Domain 감시 요약">
+        <div className="domains-summary-item">
+          <span>등록 Domain</span>
+          <strong>{configuredDomainIds.length}</strong>
+        </div>
+        <div className="domains-summary-item good">
+          <span>감시 중 Domain</span>
+          <strong>{activeDomainIds.length}</strong>
+        </div>
+      </div>
+
       <section className="topic-section domains-card">
         <div className="section-heading">
           <div>
@@ -74,7 +93,7 @@ export function DomainsPage() {
           </div>
         </div>
         <div className="domains-form">
-          <label htmlFor="domain-ids">ROS Domain IDs</label>
+          <label htmlFor="domain-ids">ROS Domain ID</label>
           <div className="domains-input-row">
             <input
               id="domain-ids"
@@ -107,8 +126,15 @@ export function DomainsPage() {
         )}
         {!domains.error && domainIds.length > 0 && (
           <div className="domains-list">
+            <div className="domains-table-header" role="row">
+              <span>Domain</span>
+              <span>상태</span>
+              <span>발견된 리소스</span>
+              <span>관리</span>
+            </div>
             {domainIds.map((domainId) => {
               const runtime = (data.runtime_domains ?? []).find((item) => item.domain_id === domainId)
+              const resourceCounts = resourceCountsByDomain.get(domainId)
               const active = activeDomainIds.includes(domainId)
               const status = active && runtime?.status === 'monitoring'
                 ? { label: '감시 중', tone: 'good' }
@@ -117,11 +143,14 @@ export function DomainsPage() {
                   : { label: '시작 대기', tone: 'muted' }
               return (
                 <div className="domains-row" key={domainId}>
-                  <strong>Domain {domainId}</strong>
+                  <strong>D{domainId}</strong>
                   <span className={`domains-status ${status.tone}`}>
                     <span className="dot" />
                     {status.label}
                   </span>
+                  <div className="domains-resources">
+                    <ResourceCountsList counts={resourceCounts} />
+                  </div>
                   <button disabled={applying} onClick={() => remove(domainId)} type="button">삭제</button>
                 </div>
               )
@@ -130,6 +159,25 @@ export function DomainsPage() {
         )}
       </section>
     </main>
+  )
+}
+
+function ResourceCountsList({ counts }) {
+  const values = [
+    ['Topic', counts?.topics ?? 0],
+    ['Service', counts?.services ?? 0],
+    ['Action', counts?.actions ?? 0],
+    ['Node', counts?.nodes ?? 0],
+  ]
+  return (
+    <div className="domains-resources-list">
+      {values.map(([label, count]) => (
+        <span className="domains-resource-item" key={label}>
+          <span>{label}</span>
+          <strong>{count}</strong>
+        </span>
+      ))}
+    </div>
   )
 }
 

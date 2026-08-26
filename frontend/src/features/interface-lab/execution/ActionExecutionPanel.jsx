@@ -38,7 +38,7 @@ export function ActionExecutionPanel({
         <>
           <label className="interface-filter-check">
             <input checked={importableOnly} onChange={(event) => onImportableOnlyChange(event.target.checked)} type="checkbox" />
-            <span>Action import됨만 보기</span><small>{visibleActions.length}/{actions.length}</small>
+            <span>import된 액션만 보기</span><small>{visibleActions.length}/{actions.length}</small>
           </label>
           <label className="interface-service-field">
             <span>Action · {visibleActions.length}/{actions.length}개</span>
@@ -50,7 +50,7 @@ export function ActionExecutionPanel({
                 </option>
               ))}
             </select>
-            {!visibleActions.length && <small>Action import됨 항목이 없습니다. 적용하기 또는 import-check 이후 다시 확인하세요.</small>}
+            {!visibleActions.length && <small>import된 액션 항목이 없습니다. 적용하기 또는 import 확인 후 다시 시도하세요.</small>}
           </label>
           {selected && <div className={`interface-service-state ${selected.callable ? 'success' : 'warning'}`}>{actionStatusLabel(selected)}{selected.reason ? ` · ${selected.reason}` : ''}</div>}
           {selected && <div className="interface-package-help">선택 타입 {selected.action_type}의 Goal schema {selected.goal_schema?.length ?? 0}개 필드로 폼을 생성합니다.</div>}

@@ -21,15 +21,22 @@ class DomainIdsRequest(BaseModel):
 @router.get('')
 def domains() -> dict[str, Any]:
     cache = monitor_cache.snapshot()
-    runtime = cache['data'].get('domains') or {}
+    cache_data = cache['data']
+    runtime = cache_data.get('domains') or {}
     active_domain_ids = runtime.get('active_domain_ids') or []
+    configured_domain_ids = user_preferences.domain_ids()
+    domain_ids = sorted({
+        *configured_domain_ids,
+        *(domain_id for domain_id in active_domain_ids if isinstance(domain_id, int)),
+    })
     return {
         'success': True,
         'data': {
-            'configured_domain_ids': user_preferences.domain_ids(),
+            'configured_domain_ids': configured_domain_ids,
             'active_domain_ids': active_domain_ids,
             'runtime_status': runtime.get('status', 'unavailable'),
             'runtime_domains': runtime.get('domains') or [],
+            'resource_counts': _resource_counts(cache_data, domain_ids),
             'multiple_domain_runtime_supported': bool(runtime.get('multiple_domain_runtime_supported')),
         },
         'meta': {
@@ -37,6 +44,28 @@ def domains() -> dict[str, Any]:
             'monitor_error': cache['error'],
         },
     }
+
+
+def _resource_counts(cache_data: dict[str, Any], domain_ids: list[int]) -> list[dict[str, int]]:
+    collections = {
+        'topics': ('topics', 'topics'),
+        'services': ('services', 'services'),
+        'actions': ('actions', 'actions'),
+        'nodes': ('nodes', 'nodes'),
+    }
+    result = []
+    for domain_id in domain_ids:
+        counts = {'domain_id': domain_id}
+        for output_key, (snapshot_key, items_key) in collections.items():
+            snapshot = cache_data.get(snapshot_key) or {}
+            items = snapshot.get(items_key, []) if isinstance(snapshot, dict) else []
+            counts[output_key] = sum(
+                1
+                for item in items
+                if isinstance(item, dict) and item.get('domain_id') == domain_id
+            )
+        result.append(counts)
+    return result
 
 
 @router.put('')

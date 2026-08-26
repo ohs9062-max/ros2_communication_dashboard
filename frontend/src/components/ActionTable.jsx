@@ -61,11 +61,11 @@ export function ActionTable({
             <SortableHeader columnKey="type" headerClassName="action-type-column" label="타입" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="server_count" headerClassName="diagnostic-count-column" label="Server" onSort={onSort} sort={sort} />
             <SortableHeader columnKey="client_count" headerClassName="diagnostic-count-column" label="Client" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="last_goal_status" label="마지막 Goal 상태" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="feedback" headerClassName="diagnostic-data-column" label="마지막 Feedback" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="result" headerClassName="diagnostic-data-column" label="마지막 Result" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="execution_time" headerClassName="diagnostic-time-column" label="마지막 실행 시간" onSort={onSort} sort={sort} />
-            <SortableHeader columnKey="last_goal" headerClassName="diagnostic-time-column" label="마지막 Goal 시각" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="last_goal_status" label="Goal 상태" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="feedback" headerClassName="diagnostic-data-column" label="Feedback" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="result" headerClassName="diagnostic-data-column" label="Result" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="execution_time" headerClassName="diagnostic-time-column" label="실행 시간" onSort={onSort} sort={sort} />
+            <SortableHeader columnKey="last_goal" headerClassName="diagnostic-time-column" label="Goal 시각" onSort={onSort} sort={sort} />
           </tr>
         </thead>
         <tbody>

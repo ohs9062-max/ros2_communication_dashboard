@@ -67,7 +67,7 @@ export function TopicPublishPanel({
       ))}
       <QosModeControl groups={[{ key: 'topic', label: 'Topic Publish QoS', profile: publishQosProfile, onChange: onPublishQosProfileChange }]} mode={publishQosMode} onModeChange={onPublishQosModeChange} />
       <details className="interface-advanced-section"><summary>고급 설정</summary>
-      <p className="muted">full_type {item.fullType} · QoS {item.qos?.mode === 'adaptive' ? '상대 endpoint 자동 적용' : '실행 결과에서 확인'}</p>
+      <p className="muted">타입 {item.fullType} · QoS {item.qos?.mode === 'adaptive' ? '상대 endpoint 자동 적용' : '실행 결과에서 확인'}</p>
       <label className="interface-service-field">
         <span>지속 발행 주기 (Hz)</span>
         <input

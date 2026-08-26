@@ -54,10 +54,10 @@ export function TopicExecutionPanel({
         <>
           <label className="interface-filter-check">
             <input checked={importableOnly} onChange={(event) => onImportableOnlyChange(event.target.checked)} type="checkbox" />
-            <span>Message import됨만 보기</span><small>{visibleMessages.length}/{messages.length}</small>
+            <span>import된 메시지만 보기</span><small>{visibleMessages.length}/{messages.length}</small>
           </label>
           <label className="interface-service-field">
-            <span>Message full_type · {visibleMessages.length}/{messages.length}개</span>
+            <span>메시지 타입 · {visibleMessages.length}/{messages.length}개</span>
             <select value={selectedKey} onChange={(event) => onSelect(event.target.value)}>
               {visibleMessages.map((message) => (
                 <option key={messageKey(message)} value={messageKey(message)}>
@@ -65,7 +65,7 @@ export function TopicExecutionPanel({
                 </option>
               ))}
             </select>
-            {!visibleMessages.length && <small>Message import됨 항목이 없습니다. 적용하기 또는 import-check 이후 다시 확인하세요.</small>}
+            {!visibleMessages.length && <small>import된 메시지 항목이 없습니다. 적용하기 또는 import 확인 후 다시 시도하세요.</small>}
           </label>
           {selected && (
             <div className={`interface-service-state ${selected.import_available ? 'success' : 'warning'}`}>
