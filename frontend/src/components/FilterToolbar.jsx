@@ -23,7 +23,7 @@ export function FilterToolbar({
       <input
         aria-label="Topic 검색"
         onChange={(event) => onSearchChange(event.target.value)}
-        placeholder="Topic 이름 또는 타입 검색"
+        placeholder="이름 또는 타입, Domain 검색"
         type="search"
         value={search}
       />

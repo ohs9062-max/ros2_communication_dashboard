@@ -9,6 +9,7 @@ import {
   actionSearchValues,
   matchesActionStatusFilter,
 } from '../features/actions/actionPresentation.js'
+import { matchesResourceSearch } from '../utils/resourceSearch.js'
 
 const ACTION_FILTERS = [
   { id: 'primary', label: '주요 항목' },
@@ -61,12 +62,10 @@ export function ActionsPage({ dashboard }) {
         return false
       }
 
-      if (!normalizedSearch) {
-        return true
-      }
-
-      return actionSearchValues(action).some((field) =>
-        String(field ?? '').toLowerCase().includes(normalizedSearch),
+      return matchesResourceSearch(
+        action,
+        normalizedSearch,
+        actionSearchValues(action),
       )
     })
   }, [actions, includeIdleActions, primaryActions, search, statusFilter])
@@ -116,7 +115,7 @@ export function ActionsPage({ dashboard }) {
             <input
               aria-label="Action 검색"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Action 이름, 타입, 상태 검색"
+              placeholder="이름 또는 타입, Domain 검색"
               type="search"
               value={search}
             />

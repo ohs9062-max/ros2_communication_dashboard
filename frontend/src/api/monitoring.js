@@ -6,6 +6,7 @@ const domainQuery = (domainId) => Number.isInteger(domainId) ? `&domain_id=${dom
 export const fetchTopicLatest = (name, domainId) => requestJson(`/ros/topics/latest?name=${encodeURIComponent(name)}${domainQuery(domainId)}`)
 export const fetchTopicHz = (name, domainId) => requestJson(`/ros/topics/hz?name=${encodeURIComponent(name)}${domainQuery(domainId)}`)
 export const fetchTopicImagePreview = (name, domainId) => requestJson(`/ros/topics/image-preview?name=${encodeURIComponent(name)}${domainQuery(domainId)}`)
+export const stopTopicImagePreview = (name, domainId) => requestJson(`/ros/topics/image-preview?name=${encodeURIComponent(name)}${domainQuery(domainId)}`, { method: 'DELETE' })
 export const fetchTopicHistory = (name, limit = 100, domainId) =>
   requestJson(`/ros/topics/history?name=${encodeURIComponent(name)}&limit=${limit}${domainQuery(domainId)}`)
 export const fetchAlerts = () => requestJson('/ros/alerts')

@@ -11,7 +11,7 @@ export function ServiceFilterToolbar({ search, setSearch, setStatusFilter, statu
       <input
         aria-label="Service 검색"
         onChange={(event) => setSearch(event.target.value)}
-        placeholder="Service 이름, 타입, 상태 검색"
+        placeholder="이름 또는 타입, Domain 검색"
         type="search"
         value={search}
       />

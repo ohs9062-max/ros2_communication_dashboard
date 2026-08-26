@@ -55,9 +55,10 @@ topics:
     - ros2_dashboard_interfaces/msg/MonitorStatus
 
   camera_preview:
-    # Binary image data is encoded only while a Camera Topic detail is requested.
+    # Live Preview refreshes this lease while its detail is open. Closing the
+    # detail clears it immediately; the TTL only recovers abandoned browsers.
     demand_ttl_sec: 3.0
-    min_interval_sec: 0.5
+    min_interval_sec: 0.1
     max_source_bytes: 4000000
     max_width: 1920
     max_height: 1080

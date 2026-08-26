@@ -1,4 +1,5 @@
 import { isPrimaryService } from '../../utils/primaryFilters.js'
+import { matchesResourceSearch } from '../../utils/resourceSearch.js'
 import {
   matchesServicePresentationFilter,
   servicePresentation,
@@ -33,8 +34,10 @@ export function filterServices({ primaryServices, search, services, statusFilter
       : services.filter((service) => !isInternalOrManagementService(service))
 
   return baseServices.filter((service) => {
-    const matchesSearch = !normalizedSearch || serviceSearchValues(service).some(
-      (field) => String(field ?? '').toLowerCase().includes(normalizedSearch),
+    const matchesSearch = matchesResourceSearch(
+      service,
+      normalizedSearch,
+      serviceSearchValues(service),
     )
     return matchesSearch && matchesServiceFilter(service, statusFilter)
   })

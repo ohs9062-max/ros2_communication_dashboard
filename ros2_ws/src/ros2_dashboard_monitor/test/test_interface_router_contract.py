@@ -43,9 +43,13 @@ def test_interface_management_router_keeps_registry_and_manual_routes() -> None:
 
 
 def test_camera_preview_keeps_a_separate_topic_detail_route() -> None:
-    paths = {route.path for route in _routes(app)}
+    routes = {
+        (route.path, tuple(sorted(getattr(route, 'methods', None) or ())))
+        for route in _routes(app)
+    }
 
-    assert '/ros/topics/image-preview' in paths
+    assert ('/ros/topics/image-preview', ('GET',)) in routes
+    assert ('/ros/topics/image-preview', ('DELETE',)) in routes
 
 
 def test_monitoring_history_routes_are_demand_driven_endpoints() -> None:

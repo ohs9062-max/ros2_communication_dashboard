@@ -1,4 +1,5 @@
 import base64
+from threading import Lock
 from types import SimpleNamespace
 
 from sensor_msgs.msg import CompressedImage, Image
@@ -10,6 +11,7 @@ from ros2_dashboard_monitor.ros2_topic.camera_preview import (
     encode_camera_preview,
 )
 from ros2_dashboard_monitor.ros2_topic.preview import build_message_preview
+from ros2_dashboard_monitor.ros2_topic.query_facade import TopicQueryFacade
 from ros2_dashboard_monitor.ros2_topic.snapshot import copy_subscription_snapshots
 
 
@@ -116,6 +118,30 @@ def test_topic_snapshot_copy_excludes_cached_data_url() -> None:
 
     assert snapshots['/camera']['message_preview'] == {'width': 2}
     assert 'image_preview' not in snapshots['/camera']
+
+
+def test_stopping_live_preview_releases_only_cached_binary_frame() -> None:
+    facade = TopicQueryFacade.__new__(TopicQueryFacade)
+    facade._lock = Lock()
+    facade._subscriptions = {
+        '/camera': {
+            'message_preview': {'width': 2},
+            'image_preview_requested_until': 99.0,
+            'image_preview': {'data_url': 'data:image/png;base64,large'},
+            'image_preview_encoded_at': 98.0,
+            'image_preview_frame_received_at': 98.0,
+        },
+    }
+
+    result = facade.stop_image_preview('/camera')
+    entry = facade._subscriptions['/camera']
+
+    assert result['success'] is True
+    assert entry['message_preview'] == {'width': 2}
+    assert 'image_preview_requested_until' not in entry
+    assert 'image_preview' not in entry
+    assert 'image_preview_encoded_at' not in entry
+    assert 'image_preview_frame_received_at' not in entry
 
 
 def test_compressed_metadata_contains_header_and_format_only() -> None:

@@ -523,15 +523,17 @@ Raw Image 지원 encoding은 `rgb8`, `bgr8`, `mono8`이다. Raw frame은 브라�
 
 ```text
 GET /ros/topics/image-preview?name=<topic>
-→ demand TTL 활성화
-→ 다음 수신 frame을 rate/size 제한 안에서 변환
+→ 열린 Camera 상세 화면이 100ms마다 live preview lease를 갱신
+→ callback이 최신 frame만 최대 10 FPS로 rate/size 제한 안에서 변환
 → image/png 또는 image/jpeg base64 data URL 응답
+DELETE /ros/topics/image-preview?name=<topic>
+→ 화면 닫기/Topic 전환 시 encode demand와 cached data URL을 즉시 제거
 ```
 
-`topics.camera_preview` 현재 기본 제한은 TTL 3초, 최소 encode 간격 0.5초, source 4,000,000 bytes,
-1920×1080이다. 요청 TTL이 끝나면 저장된 data URL을 제거한다. 이미지 전체는 정기
+`topics.camera_preview` 현재 기본 제한은 비정상 Browser 종료를 위한 TTL 3초, 최소 encode 간격 0.1초, source
+4,000,000 bytes, 1920×1080이다. 정상 화면 닫기는 DELETE로 data URL을 즉시 제거한다. 이미지 전체는 정기
 `/transport/snapshot`, Backend Runtime Cache, `/ws/monitor` payload에 포함하지 않는다. 따라서 Preview는 Topic
-상세 화면이 endpoint를 polling할 때만 생성되는 demand-driven 경로다.
+상세 화면이 열려 있을 때만 최신 frame 하나를 요청·전송하는 live demand-driven 경로다.
 
 Frontend `TopicDetailPanel`은 metadata, 수신 시각, Hz와 이미지를 표시한다. 이미지를 클릭하면 닫기, 확대/축소,
 맞춤/원본 보기 기능이 있는 크게 보기 overlay를 연다.

@@ -4,35 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-21 - Topic/Service/Action `compatible` 판정 의미 검수
-
-- Topic Graph 상태는 rclpy endpoint API의 Publisher×Subscription 전체 조합을 `qos_check_compatible()`로 비교하며,
-  Dashboard local entity가 없어도 양쪽 Graph endpoint에 ERROR가 없으면 `compatible`이 된다. Topic Auto 실행은
-  선택 candidate와 반대편 remote endpoint를 실제 비교하지만 Manual 실행은 현재 Graph aggregate 상태에 local
-  profile만 덧붙여 사전 local-vs-remote 비교를 하지 않고, 생성 뒤 RMW incompatible event로만 불일치를 보완한다.
-- Service/Action Service 채널 Auto는 Fast DDS Request Reader/Response Writer의 공통 호환 범위를 계산해 profile을
-  만든 뒤 계산 성공을 `compatible`로 기록하는 A 방식이며, 생성 후 같은 profile을 다시 비교하는 B 방식은 아니다.
-  Manual은 `_is_service_profile_compatible()`로 local profile을 remote와 명시 비교한다. Call/Goal 성공 여부는
-  compatibility 입력이 아니고 Client 생성 여부는 계산된 execution state를 공개 snapshot에 병합하는 gate다.
-- Action Goal/Result/Cancel은 위 Service 방식, Feedback/Status는 Topic 방식이다. UI 대표 상태는 5채널 전부가
-  compatible일 때만 compatible이다. 따라서 “QoS 호환은 항상 Dashboard local/remote 실제 비교 결과”라는 무조건적
-  표현은 성립하지 않는다. 관련 QoS/lifecycle 테스트 43건이 통과했고 기능 코드는 변경하지 않았다.
-
-## 2026-08-21 - Interface Lab 실행 전 QoS 선계산 trigger 구조 검수
-
-- Service/Action QoS resolver는 Client 생성과 실제 Call/Goal 전송 전 호출되며 계산 자체는 entity 생성, DB 변경,
-  observer 재시작 같은 side effect가 없다. 따라서 기본 Auto selection은 endpoint QoS signature 변경 시 미리 계산해
-  state에 저장하는 구조로 옮길 수 있다. 현재 정기 Graph update에도 이미 Client가 있는 resource만 signature 변경 시
-  재계산하는 `refresh_qos()`/`refresh_service_qos()` 패턴이 존재한다.
-- 단순 호출 위치 이동만으로 끝나지는 않는다. 현재 Service `_last_state`와 Action `_qos_by_key`는 생성된 Client를
-  기준으로만 보관하고, Manual 선택값은 실행 전까지 Frontend `useState`에만 있다. 실행 전 Auto 표시에는 Client와
-  독립된 precomputed state cache가 필요하고, Manual까지 즉시 표시하려면 설정 변경 preview API 또는 선택값 동기화와
-  selection fingerprint 기반 무효화가 필요하다.
-- 최적 trigger는 remote endpoint QoS signature 변경이고 Manual은 설정값 변경 trigger를 함께 써야 한다. snapshot마다
-  계산하는 방식은 기존 성능 회귀를 되살릴 수 있어 피해야 하며, 실행 직전에는 cached signature/selection을 확인해
-  같으면 재사용하고 다르면 한 번 재계산하는 안전장치가 필요하다. 관련 QoS/lifecycle 테스트 43건이 통과했고 기능
-  코드는 변경하지 않았다.
-
 ## 2026-08-24 - QoS 무제한 duration 표시 문구 변경
 
 - 공통 `QosDetails.durationValue()`의 infinite duration 표시만 변경해 Deadline은 `주기 제한 없음`, Lifespan은
@@ -478,3 +449,41 @@
   인증으로 HTTPS 정적 경로에 새 build를 동기화했고 `InterfaceLabPage-CmHlNQ4t.js` source/install SHA-256은
   `f17a28a209286102d93794cf513376bda1006964e98b8a59a794633dcaa5f101`로 일치한다. Monitor 코드 변경은 없어
   service restart는 하지 않았다.
+
+## 2026-08-26 - Camera Topic live Preview
+
+- 기존 1초 상세 polling과 callback의 0.5초 encode 간격을 Camera Preview 전용 100ms polling과 0.1초 minimum
+  encode interval로 바꿨다. callback은 기존처럼 최신 metadata를 계속 갱신하며, live lease가 있을 때만 최신
+  frame 하나를 Base64로 보관·응답한다. frame history, snapshot, Backend cache와 WebSocket에는 binary/Base64를
+  넣지 않았다.
+- `DELETE /ros/topics/image-preview`를 추가해 Camera 상세를 닫거나 다른 resource로 전환할 때 해당
+  `domain_id/resource_key` runtime의 lease, encoded frame과 timestamp를 즉시 제거한다. 3초 lease는 browser가
+  비정상 종료된 경우에만 cleanup fallback으로 남겼으며 MultiDomain 응답에도 Domain/resource key를 명시한다.
+- Camera/Monitor config/router pytest 24건, Frontend unit·oxlint·Vite build, Monitor symlink build와 diff check를
+  통과했다. GUI `pkexec` 인증으로 local HTTPS 실행 파일을 동기화하고 Monitor를 재시작했다. host에서 Monitor와
+  Nginx가 모두 `active`이며 실제 Domain 99 `/image_raw`가 HTTPS GET에서 `ready` Base64 frame과
+  `resource_key=99:/image_raw`를 반환하고 DELETE로 cache 해제 응답을 반환함을 확인했다.
+
+## 2026-08-26 - 목록 Domain 검색
+
+- Topic·Service·Action·Node의 기존 검색 값에 공통 `matchesResourceSearch()`를 적용했다. `D99`/`D5`처럼
+  `D`+정수 전체를 입력하면 `domain_id`가 같은 resource만 남기고, 그 밖의 입력은 기존 이름/type 및 화면별
+  보조 필드 substring 검색을 그대로 사용한다. Domain ID가 누락된 legacy resource가 `D0`으로 오인되지 않게
+  명시적으로 제외했다.
+- 네 목록의 검색 placeholder를 `이름 또는 타입, Domain 검색`으로 통일했다. 상태/주요/숨김·대기 등의 기존
+  필터와 resource 선택 경로는 변경하지 않았다.
+- 새 helper의 D99/D5·name/type·legacy D0 case unit test를 포함해 Frontend unit, oxlint, Vite build와 diff check를
+  통과했다. GUI `pkexec` 인증으로 새 build를 local HTTPS 정적 경로에 동기화했다.
+
+## 2026-08-26 - Domains 페이지 레이아웃 정렬
+
+- Domain 설정 페이지의 기능과 JSX는 변경하지 않고, Topics와 같은 `padding: 18px` page container 규칙으로
+  맞췄다. 별도 중앙 `max-width` 제한을 제거해 Sidebar 오른쪽 가용 폭 전체를 사용하며, 두 카드는 동일 폭을
+  유지한다. 입력 행은 가용 폭을 사용하고 감시 목록은 Domain·상태·삭제의 3열 grid로 정렬했다. 좁은 화면에서는
+  입력 행과 목록 grid가 한 번만 자연스럽게 줄어든다.
+- Frontend `npm run lint`, `npm run test:unit`, `npm run build`, `git diff --check`를 통과했다. GUI `pkexec`
+  인증으로 최종 build를 로컬 HTTPS 정적 경로에 동기화했다. 이 sandbox에서는 `127.0.0.1:443` listener가 없어
+  실제 HTTPS 응답 asset 확인은 수행하지 못했다.
+- 같은 페이지 범위에서 추가 버튼만 녹색, 삭제 버튼만 붉은 색조·hover·disabled 상태로 구분했다. 다른 버튼과
+  동작은 변경하지 않았고, Frontend lint/build와 diff check 후 GUI `pkexec` 인증으로 로컬 HTTPS 정적 경로를 다시
+  동기화했다.

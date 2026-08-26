@@ -45,8 +45,10 @@ class FastDdsObserverConfig:
 
 @dataclass(frozen=True)
 class CameraPreviewConfig:
+    # A request lease is only a fail-safe for a browser that disconnects
+    # without sending stop; normal Preview close clears it immediately.
     demand_ttl_sec: float = 3.0
-    min_interval_sec: float = 0.5
+    min_interval_sec: float = 0.1
     max_source_bytes: int = 4_000_000
     max_width: int = 1920
     max_height: int = 1080
@@ -148,7 +150,7 @@ def build_monitor_config(
                 camera_preview.get('demand_ttl_sec'), default=3.0,
             ),
             min_interval_sec=positive_float(
-                camera_preview.get('min_interval_sec'), default=0.5,
+                camera_preview.get('min_interval_sec'), default=0.1,
             ),
             max_source_bytes=bounded_integer(
                 camera_preview.get('max_source_bytes'), default=4_000_000,

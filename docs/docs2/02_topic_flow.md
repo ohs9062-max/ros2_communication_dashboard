@@ -60,9 +60,10 @@ raw payload 전체, endpoint와 QoS profile은 클릭 preview나 우측 상세�
 
 ```text
 선택한 Topic 상세
-→ GET /ros/topics/image-preview?name=...
-→ demand TTL 동안 다음 frame 변환
+→ GET /ros/topics/image-preview?name=... 를 100ms 간격으로 요청
+→ callback이 최신 frame 하나만 최대 10 FPS로 변환
 → PNG/JPEG data URL
+→ 상세 닫기/다른 Topic 선택 시 DELETE /ros/topics/image-preview
 ```
 
 구현은 `ros2_topic/camera_preview.py`, Monitor route는

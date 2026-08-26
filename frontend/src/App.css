@@ -2503,20 +2503,36 @@ h3 {
 }
 
 .domains-page {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 18px;
+  padding: 18px;
+  width: 100%;
+}
+
+.domains-page .page-intro {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  width: 100%;
+}
+
+.domains-page .page-intro > * {
+  margin: 0;
 }
 
 .domains-card {
   overflow: visible;
+  width: 100%;
 }
 
 .domains-form,
 .domains-list {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 20px 24px;
+  width: 100%;
 }
 
 .domains-form > label {
@@ -2526,8 +2542,10 @@ h3 {
 }
 
 .domains-input-row {
+  align-items: stretch;
   display: flex;
   gap: 10px;
+  width: 100%;
 }
 
 .domains-input-row input {
@@ -2541,15 +2559,45 @@ h3 {
 }
 
 .domains-input-row button {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.48);
+  border-radius: 7px;
+  color: var(--green);
   flex: 0 0 auto;
+  font-weight: 700;
+  min-width: 92px;
+}
+
+.domains-input-row button:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.24);
 }
 
 .domains-row {
   align-items: center;
   border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.45fr) auto;
   padding: 12px 0;
+  width: 100%;
+}
+
+.domains-row button {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.38);
+  border-radius: 7px;
+  color: var(--red);
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.domains-row button:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.domains-input-row button:disabled,
+.domains-row button:disabled {
+  opacity: 0.55;
 }
 
 .domains-row:first-child {
@@ -2579,12 +2627,23 @@ h3 {
 
 .domains-message {
   margin: 0;
-  padding: 16px;
+  padding: 20px 24px;
 }
 
 @media (max-width: 640px) {
-  .domains-input-row { align-items: stretch; flex-direction: column; }
-  .domains-row { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .domains-page { padding: 16px; }
+  .domains-form,
+  .domains-list,
+  .domains-message { padding-left: 16px; padding-right: 16px; }
+  .domains-input-row { flex-direction: column; }
+  .domains-input-row button { min-height: 40px; }
+  .domains-row {
+    align-items: center;
+    gap: 6px 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .domains-status { grid-column: 1; }
+  .domains-row button { grid-column: 2; grid-row: 1 / span 2; justify-self: end; }
 }
 
 .summary-grid {

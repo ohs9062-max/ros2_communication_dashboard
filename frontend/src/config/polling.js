@@ -10,6 +10,10 @@ export const TOPIC_POLL_INTERVAL_MS = parsePositiveInt(
   1000,
 )
 
+// Camera data is requested only while a Camera Topic detail is selected.  It
+// is intentionally independent of the normal one-second Topic status poll.
+export const CAMERA_PREVIEW_POLL_INTERVAL_MS = 100
+
 export const DASHBOARD_POLL_INTERVAL_MS = parsePositiveInt(
   import.meta.env?.VITE_DASHBOARD_POLL_INTERVAL_MS,
   3000,

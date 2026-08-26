@@ -68,6 +68,7 @@ def test_explicit_topic_exclude_names_uses_only_configured_values() -> None:
 
 
 def test_camera_preview_limits_are_loaded_and_bounded() -> None:
+    assert _monitor_config({}).camera_preview.min_interval_sec == 0.1
     config = _monitor_config({
         'topics': {
             'camera_preview': {

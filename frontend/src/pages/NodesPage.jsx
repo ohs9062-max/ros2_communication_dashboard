@@ -4,6 +4,7 @@ import { NodeDetailPanel } from '../components/NodeDetailPanel.jsx'
 import { NodeSummaryCards } from '../components/NodeSummaryCards.jsx'
 import { NodeTable } from '../components/NodeTable.jsx'
 import { isInternalNode, isPrimaryNode } from '../utils/nodeFilters.js'
+import { matchesResourceSearch } from '../utils/resourceSearch.js'
 
 const NODE_FILTERS = [
   { id: 'primary', label: '주요 항목' },
@@ -120,7 +121,7 @@ export function NodesPage({ actions, dashboard, services, topics }) {
             <input
               aria-label="Node 검색"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Node, namespace, topic, service, action 검색"
+              placeholder="이름 또는 타입, Domain 검색"
               type="search"
               value={search}
             />
@@ -185,9 +186,7 @@ function nodeMatchesSearch(node, search) {
     ...entitySearchFields(node.action_clients),
   ]
 
-  return fields.some((field) =>
-    String(field ?? '').toLowerCase().includes(search),
-  )
+  return matchesResourceSearch(node, search, fields)
 }
 
 function entitySearchFields(items = []) {

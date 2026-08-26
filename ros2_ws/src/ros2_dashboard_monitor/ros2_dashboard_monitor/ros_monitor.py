@@ -358,6 +358,10 @@ class RosMonitor(InterfaceLabFacade):
         """선택한 Camera Topic의 요청형 Browser preview를 반환합니다."""
         return self._topic_runtime.image_preview(name)
 
+    def stop_image_preview(self, name: str) -> dict[str, Any]:
+        """선택한 Camera Topic의 live preview encoding을 즉시 중단합니다."""
+        return self._topic_runtime.stop_image_preview(name)
+
     def alerts(
         self,
         *,

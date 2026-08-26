@@ -167,7 +167,20 @@ class MultiDomainRosMonitor:
         return self._runtime(domain_id).topic_history(name, limit=limit)
 
     def image_preview(self, name: str, *, domain_id: int | None = None) -> dict[str, Any]:
-        return self._runtime(domain_id).image_preview(name)
+        result = self._runtime(domain_id).image_preview(name)
+        if domain_id is not None:
+            data = result.setdefault('data', {})
+            data['domain_id'] = int(domain_id)
+            data['resource_key'] = f'{int(domain_id)}:{name}'
+        return result
+
+    def stop_image_preview(self, name: str, *, domain_id: int | None = None) -> dict[str, Any]:
+        result = self._runtime(domain_id).stop_image_preview(name)
+        if domain_id is not None:
+            data = result.setdefault('data', {})
+            data['domain_id'] = int(domain_id)
+            data['resource_key'] = f'{int(domain_id)}:{name}'
+        return result
 
     def service_history(self, *, service_name: str, service_type: str | None = None, limit: int = 30, domain_id: int | None = None) -> dict[str, Any]:
         return self._runtime(domain_id).service_history(service_name=service_name, service_type=service_type, limit=limit)

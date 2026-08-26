@@ -7,8 +7,10 @@ import {
   fetchTopicImagePreview,
   fetchTopicLatest,
   fetchTopics,
+  stopTopicImagePreview,
 } from '../api/rosApi.js'
 import {
+  CAMERA_PREVIEW_POLL_INTERVAL_MS,
   DASHBOARD_POLL_INTERVAL_MS,
   TOPIC_POLL_INTERVAL_MS,
 } from '../config/polling.js'
@@ -95,7 +97,7 @@ export function useTopicDashboard({
   )
   const cameraPreview = usePolling(
     cameraPreviewFetcher,
-    TOPIC_POLL_INTERVAL_MS,
+    CAMERA_PREVIEW_POLL_INTERVAL_MS,
     {
       enabled:
         enabled &&
@@ -104,6 +106,24 @@ export function useTopicDashboard({
       resetKey: selectedTopicName,
     },
   )
+  const activeCameraPreview =
+    enabled
+    && pollSelectedTopicDetails
+    && isCameraTopicType(selectedTopic?.types?.[0])
+    ? selectedTopic
+    : null
+  const activeCameraPreviewName = activeCameraPreview?.name ?? ''
+  const activeCameraPreviewDomainId = activeCameraPreview?.domain_id
+  const activeCameraPreviewResourceKey = activeCameraPreview?.resource_key ?? ''
+
+  useEffect(() => {
+    if (!activeCameraPreviewName) return undefined
+    return () => {
+      // Closing/switching the detail releases Monitor-side Base64 immediately.
+      // The request lease remains a fallback if the browser disappears first.
+      void stopTopicImagePreview(activeCameraPreviewName, activeCameraPreviewDomainId).catch(() => {})
+    }
+  }, [activeCameraPreviewDomainId, activeCameraPreviewName, activeCameraPreviewResourceKey])
   const hzTopicTargets = useMemo(
     () =>
       topicItems

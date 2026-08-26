@@ -46,6 +46,15 @@
 - Interface Lab의 Topic Publish/Receive, Service Call, Action Goal/Cancel은 selected resource identity에서
   확정한 `domain_id`가 있을 때만 HTTP payload를 보낸다. 누락/범위 밖 값은 Browser에서 차단하며 multi-domain
   Monitor에 name-only 요청을 보내지 않는다.
+- Topic·Service·Action·Node 목록 검색은 기존 이름/type(및 각 화면의 기존 보조 검색 필드)를 유지하면서,
+  `D`+정수 전체 입력(`D99`, `D5`)이면 resource의 `domain_id`만 정확히 필터링한다. Domain ID가 없는 legacy
+  resource는 Domain 검색 결과에 포함하지 않는다.
+- Camera Preview는 Camera Topic 상세가 열린 동안만 `GET /ros/topics/image-preview`를 100ms 간격으로 호출해 최신
+  frame 하나를 최대 10 FPS로 갱신한다. 상세를 닫거나 다른 resource로 바꾸면 DELETE가 해당
+  `domain_id/resource_key`의 encode lease와 cached Base64를 즉시 제거하며, 3초 TTL은 browser 비정상 종료의
+  cleanup fallback일 뿐이다. Preview binary는 snapshot/WebSocket/history에 포함하지 않는다. 실제 Domain 99
+  `/image_raw`는 local HTTPS GET에서 `ready` frame과 `resource_key=99:/image_raw`를 반환하고 DELETE가
+  정상 해제됨을 확인했다.
 - Topic QoS는 rclpy Graph endpoint 정보를 표시하고 Monitor Subscription 생성 시 외부 Publisher와 호환되는
   profile을 우선 적용한다. fallback은 실제 관찰값과 구분한다.
 - Topic Monitor Subscription은 resource별 실제 수신 preview를 기본 100개 bounded memory history로 보존한다.

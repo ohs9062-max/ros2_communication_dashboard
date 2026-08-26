@@ -12,6 +12,7 @@ import {
 } from '../utils/status.js'
 import { isPrimaryTopic } from '../utils/primaryFilters.js'
 import { qosAlertChannel } from '../utils/qosAlerts.js'
+import { matchesResourceSearch } from '../utils/resourceSearch.js'
 
 export function TopicsPage({ dashboard }) {
   const [search, setSearch] = useState('')
@@ -69,10 +70,10 @@ export function TopicsPage({ dashboard }) {
       : activeTopics
     return sortTopicsByHealth(baseTopics).filter((topic) => {
       const type = topic.types?.[0] ?? ''
-      const matchesSearch =
-        !normalizedSearch ||
-        topic.name.toLowerCase().includes(normalizedSearch) ||
-        type.toLowerCase().includes(normalizedSearch)
+      const matchesSearch = matchesResourceSearch(topic, normalizedSearch, [
+        topic.name,
+        type,
+      ])
       const matchesStatus =
         statusFilter === 'primary' || statusFilter === 'all'
           ? true

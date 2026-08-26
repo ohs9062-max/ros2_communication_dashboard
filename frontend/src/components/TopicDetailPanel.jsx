@@ -32,10 +32,11 @@ export function TopicDetailPanel({ cameraPreview, topic, latest, hz, onClose, pa
   const preview = latestData?.message_preview ?? topic.last_message_preview
   const values = preview?.values
   const cameraType = isCameraTopicType(topic.types?.[0])
+  const previewData = cameraPreview?.data?.data
   const cameraData =
-    cameraPreview?.data?.data?.name === topic.name
-      ? cameraPreview.data.data
-      : null
+    previewData?.resource_key
+      ? previewData.resource_key === topic.resource_key ? previewData : null
+      : previewData?.name === topic.name ? previewData : null
   const effectiveStatus = topicEffectiveStatus(topic)
   const neverReceived = effectiveStatus === 'never_received'
 

@@ -155,6 +155,10 @@ v4l2-ctl -d /dev/video0 \
 # 3. ROS2 카메라 드라이버 실행
 ros2 run v4l2_camera v4l2_camera_node --ros-args -p video_device:=/dev/video0
 
+ros2 run v4l2_camera v4l2_camera_node \
+--ros-args \
+-p video_device:=/dev/video1
+
 # 4. ROS2 카메라 Topic 확인
 ros2 topic list -t | grep -Ei 'image|camera'
 

@@ -161,7 +161,7 @@ class TopicQueryFacade:
         }
 
     def image_preview(self, name: str) -> dict[str, Any]:
-        """Enable short-lived Camera encoding and return its latest bounded frame."""
+        """Refresh a live Camera preview lease and return its newest frame."""
         if self._node_getter() is None:
             return self._image_preview_response(
                 success=False, name=name, message='ROS2 monitor is not running',
@@ -216,6 +216,21 @@ class TopicQueryFacade:
             image_preview=image_preview,
             message='Camera Topic preview fetched successfully',
         )
+
+    def stop_image_preview(self, name: str) -> dict[str, Any]:
+        """Immediately release one Browser live-preview demand and its frame."""
+        with self._lock:
+            entry = self._subscriptions.get(name)
+            if entry is not None:
+                entry.pop('image_preview_requested_until', None)
+                entry.pop('image_preview', None)
+                entry.pop('image_preview_encoded_at', None)
+                entry.pop('image_preview_frame_received_at', None)
+        return {
+            'success': True,
+            'data': {'name': name},
+            'message': 'Camera Topic live preview stopped',
+        }
 
     def _topic_hz_snapshot(
         self,

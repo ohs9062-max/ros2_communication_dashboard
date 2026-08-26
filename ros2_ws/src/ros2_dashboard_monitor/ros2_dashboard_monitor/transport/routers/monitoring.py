@@ -51,8 +51,14 @@ def get_ros_topic_history(
 
 @router.get('/ros/topics/image-preview')
 def get_ros_topic_image_preview(name: str = Query(...), domain_id: int | None = Query(None)) -> dict[str, Any]:
-    """선택한 Camera Topic의 작은 요청형 image preview를 반환합니다."""
+    """선택한 Camera Topic live preview의 최신 frame을 반환합니다."""
     return ros_monitor.image_preview(name, domain_id=domain_id)
+
+
+@router.delete('/ros/topics/image-preview')
+def stop_ros_topic_image_preview(name: str = Query(...), domain_id: int | None = Query(None)) -> dict[str, Any]:
+    """상세 화면을 닫은 Camera Topic의 encode demand를 즉시 해제합니다."""
+    return ros_monitor.stop_image_preview(name, domain_id=domain_id)
 
 
 @router.get('/ros/services')
