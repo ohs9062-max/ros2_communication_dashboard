@@ -3,6 +3,7 @@ import { ActionDetailPanel } from '../components/ActionDetailPanel.jsx'
 import { ActionSummaryCards } from '../components/ActionSummaryCards.jsx'
 import { ActionTable } from '../components/ActionTable.jsx'
 import { AlertsPreview } from '../components/AlertsPreview.jsx'
+import { DomainFilterButtons } from '../components/DomainFilterButtons.jsx'
 import { isPrimaryAction } from '../utils/primaryFilters.js'
 import { qosAlertChannel } from '../utils/qosAlerts.js'
 import {
@@ -10,6 +11,8 @@ import {
   matchesActionStatusFilter,
 } from '../features/actions/actionPresentation.js'
 import { matchesResourceSearch } from '../utils/resourceSearch.js'
+import { matchesDomainFilter } from '../utils/domainFilter.js'
+import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
 const ACTION_FILTERS = [
   { id: 'primary', label: '주요 항목' },
@@ -17,19 +20,18 @@ const ACTION_FILTERS = [
   { id: 'running', label: '실행 중' },
   { id: 'succeeded', label: '성공' },
   { id: 'failed', label: '실패/취소' },
-  { id: 'unobserved', label: 'Goal 미관찰' },
 ]
 
-export function ActionsPage({ dashboard }) {
+export function ActionsPage({ dashboard, domainIds }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('primary')
+  const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     actionAlerts,
     actionParticipants,
     actions,
     alerts,
     error,
-    includeIdleActions,
     loading,
     focusQosDetails,
     qosFocusRequest,
@@ -50,17 +52,14 @@ export function ActionsPage({ dashboard }) {
 
   const filteredActions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    const baseActions =
-      includeIdleActions ||
-      statusFilter === 'all' ||
-      statusFilter === 'unobserved'
-      ? actions
-      : primaryActions
+    const baseActions = statusFilter === 'primary' ? primaryActions : actions
 
     return baseActions.filter((action) => {
       if (!matchesActionStatusFilter(action, statusFilter)) {
         return false
       }
+
+      if (!matchesDomainFilter(action, selectedDomainId)) return false
 
       return matchesResourceSearch(
         action,
@@ -68,7 +67,7 @@ export function ActionsPage({ dashboard }) {
         actionSearchValues(action),
       )
     })
-  }, [actions, includeIdleActions, primaryActions, search, statusFilter])
+  }, [actions, primaryActions, search, selectedDomainId, statusFilter])
 
   const detailAction = filteredActions.some(
     (action) => (action.resource_key ?? action.name) === selectedActionName,
@@ -125,13 +124,6 @@ export function ActionsPage({ dashboard }) {
               value={search}
             />
             <div className="service-filter-actions">
-              <button
-                className={includeIdleActions ? 'filter active' : 'filter'}
-                onClick={() => setIncludeIdleActions(!includeIdleActions)}
-                type="button"
-              >
-                대기 Action 포함
-              </button>
               <div
                 aria-label="Action 상태 필터"
                 className="filter-buttons"
@@ -150,15 +142,20 @@ export function ActionsPage({ dashboard }) {
                   </button>
                 ))}
               </div>
+              <DomainFilterButtons
+                domainIds={domainIds}
+                onChange={setSelectedDomainId}
+                selectedDomainId={selectedDomainId}
+              />
             </div>
           </div>
 
           <ActionTable
             actions={filteredActions}
             emptyMessage={
-              includeIdleActions
-                ? '표시할 Action이 없습니다'
-                : "현재 관찰된 Action Goal이 없습니다. 대기 Action을 보려면 '대기 Action 포함'을 켜세요."
+              statusFilter === 'primary'
+                ? '현재 주요 Action이 없습니다'
+                : '표시할 Action이 없습니다'
             }
             onSelectAction={setSelectedActionName}
             selectedActionName={selectedActionName}

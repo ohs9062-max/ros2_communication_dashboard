@@ -18,6 +18,9 @@ assert.equal(topicEffectiveStatus(topics[1]), 'never_received')
 assert.equal(topicDisplayStatus(topics[1]), 'never_received')
 assert.equal(topicSeverity(topics[1]), 0)
 assert.equal(matchesStatusFilter(topics[1], 'error'), true)
+assert.equal(matchesStatusFilter(topics[0], 'issues'), false)
+assert.equal(matchesStatusFilter(topics[1], 'issues'), true)
+assert.equal(matchesStatusFilter({ name: '/unsupported', status: 'active', supported_type: false }, 'issues'), true)
 assert.deepEqual(getTopicSummary(topics), {
   total: 3,
   active: 1,

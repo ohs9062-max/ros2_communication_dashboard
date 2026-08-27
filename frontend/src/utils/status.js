@@ -154,6 +154,9 @@ export function matchesStatusFilter(topic, filter) {
   if (filter === 'all') {
     return true
   }
+  if (filter === 'issues') {
+    return status !== 'active' || topic.supported_type === false
+  }
   if (filter === 'warning') {
     return WARNING_STATUSES.has(status)
   }

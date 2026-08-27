@@ -1,11 +1,12 @@
 const SERVICE_FILTERS = [
   { id: 'primary', label: '주요 항목' },
-  { id: 'issues', label: '대기/오류' },
   { id: 'all', label: '전체' },
-  { id: 'internal', label: '내부/관리 포함' },
+  { id: 'waiting', label: '대기 중' },
+  { id: 'active', label: '정상' },
+  { id: 'issues', label: '오류' },
 ]
 
-export function ServiceFilterToolbar({ search, setSearch, setStatusFilter, statusFilter }) {
+export function ServiceFilterToolbar({ domainIds, onDomainChange, search, selectedDomainId, setSearch, setStatusFilter, statusFilter }) {
   return (
     <div className="filter-toolbar service-toolbar">
       <input
@@ -28,7 +29,13 @@ export function ServiceFilterToolbar({ search, setSearch, setStatusFilter, statu
             </button>
           ))}
         </div>
+        <DomainFilterButtons
+          domainIds={domainIds}
+          onChange={onDomainChange}
+          selectedDomainId={selectedDomainId}
+        />
       </div>
     </div>
   )
 }
+import { DomainFilterButtons } from '../../components/DomainFilterButtons.jsx'

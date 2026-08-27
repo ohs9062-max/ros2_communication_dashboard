@@ -96,7 +96,7 @@ function AlertItem({ alert, onClick, showSource }) {
       />
       <div className="alert-item-content">
         <strong title={resourceLabel}>{resourceLabel}</strong>
-        <p>{displayText(alert.message)}</p>
+        <p>{alert.message}</p>
         {showSource && <span className="muted">{displayText(alert.source)}</span>}
       </div>
     </button>

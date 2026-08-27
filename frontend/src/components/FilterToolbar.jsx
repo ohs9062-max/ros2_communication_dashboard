@@ -3,20 +3,17 @@ const FILTERS = [
   { id: 'all', label: '전체' },
   { id: 'waiting', label: '대기 중' },
   { id: 'active', label: '정상' },
-  { id: 'warning', label: '주의' },
-  { id: 'error', label: '오류' },
-  { id: 'missing', label: '미수신' },
-  { id: 'no_subscriber', label: '구독자 없음' },
-  { id: 'unsupported', label: '미지원' },
+  { id: 'issues', label: '오류' },
 ]
 
 export function FilterToolbar({
-  includeAllTopics = false,
   search,
   statusFilter,
-  onIncludeAllTopicsChange,
   onSearchChange,
   onStatusFilterChange,
+  domainIds,
+  selectedDomainId,
+  onDomainChange,
 }) {
   return (
     <div className="filter-toolbar topic-toolbar">
@@ -28,13 +25,6 @@ export function FilterToolbar({
         value={search}
       />
       <div className="service-filter-actions">
-        <button
-          className={includeAllTopics ? 'filter active' : 'filter'}
-          onClick={() => onIncludeAllTopicsChange?.(!includeAllTopics)}
-          type="button"
-        >
-          숨김 포함
-        </button>
         <div className="filter-buttons" role="group" aria-label="상태 필터">
           {FILTERS.map((filter) => (
             <button
@@ -49,7 +39,13 @@ export function FilterToolbar({
             </button>
           ))}
         </div>
+        <DomainFilterButtons
+          domainIds={domainIds}
+          onChange={onDomainChange}
+          selectedDomainId={selectedDomainId}
+        />
       </div>
     </div>
   )
 }
+import { DomainFilterButtons } from './DomainFilterButtons.jsx'

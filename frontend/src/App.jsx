@@ -7,6 +7,7 @@ import { useNodeDashboard } from './hooks/useNodeDashboard.js'
 import { useServiceDashboard } from './hooks/useServiceDashboard.js'
 import { useTopicDashboard } from './hooks/useTopicDashboard.js'
 import { useBrowserRoute } from './hooks/useBrowserRoute.js'
+import { useConfiguredDomains } from './hooks/useConfiguredDomains.js'
 
 const OverviewPage = lazy(() => import('./pages/OverviewPage.jsx').then(({ OverviewPage: Page }) => ({ default: Page })))
 const TopicsPage = lazy(() => import('./pages/TopicsPage.jsx').then(({ TopicsPage: Page }) => ({ default: Page })))
@@ -31,6 +32,9 @@ function App() {
   const serviceDashboard = useServiceDashboard({ enabled: serviceDashboardEnabled })
   const actionDashboard = useActionDashboard({ enabled: actionDashboardEnabled })
   const nodeDashboard = useNodeDashboard({ enabled: nodeDashboardEnabled })
+  const configuredDomains = useConfiguredDomains({
+    enabled: ['topics', 'services', 'actions', 'nodes'].includes(activePage),
+  })
   const monitorWebSocket = useMonitorWebSocket()
 
   return (
@@ -50,7 +54,7 @@ function App() {
           serviceDashboard={serviceDashboard}
         />
       )}
-      {activePage === 'topics' && <TopicsPage dashboard={dashboard} />}
+      {activePage === 'topics' && <TopicsPage dashboard={dashboard} domainIds={configuredDomains.domainIds} />}
       {activePage === 'alerts' && (
         <AlertsPage
           actionDashboard={actionDashboard}
@@ -65,15 +69,16 @@ function App() {
         <NodesPage
           actions={actionDashboard.actions}
           dashboard={nodeDashboard}
+          domainIds={configuredDomains.domainIds}
           services={serviceDashboard.services}
           topics={dashboard.topicItems}
         />
       )}
       {activePage === 'services' && (
-        <ServicesPage dashboard={serviceDashboard} />
+        <ServicesPage dashboard={serviceDashboard} domainIds={configuredDomains.domainIds} />
       )}
       {activePage === 'actions' && (
-        <ActionsPage dashboard={actionDashboard} />
+        <ActionsPage dashboard={actionDashboard} domainIds={configuredDomains.domainIds} />
       )}
       {activePage === 'visualization' && (
         <VisualizationPage websocket={monitorWebSocket} />

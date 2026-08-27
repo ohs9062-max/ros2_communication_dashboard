@@ -13,27 +13,30 @@ import {
 import { isPrimaryTopic } from '../utils/primaryFilters.js'
 import { qosAlertChannel } from '../utils/qosAlerts.js'
 import { matchesResourceSearch } from '../utils/resourceSearch.js'
+import { matchesDomainFilter } from '../utils/domainFilter.js'
+import { mapNodeAlertsToTopics } from '../features/topics/topicAlertMapping.js'
+import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
-export function TopicsPage({ dashboard }) {
+export function TopicsPage({ dashboard, domainIds }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('primary')
+  const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     alerts,
     cameraPreview,
     cameraPreviewOpen,
     health,
     hz,
-    includeAllTopics,
     latest,
     focusQosDetails,
     qosFocusRequest,
     selectedTopic,
     selectedTopicName,
-    setIncludeAllTopics,
     setCameraPreviewOpen,
     setSelectedTopicName,
     topicHzByName,
     topicItems,
+    nodeItems,
     topicParticipants,
     topics,
     priorityError,
@@ -59,17 +62,24 @@ export function TopicsPage({ dashboard }) {
     [topicItems],
   )
   const topicAlerts = useMemo(
-    () =>
-      (alerts.data?.data ?? []).filter((alert) =>
-        ['topic', 'monitor_status'].includes(alert.source),
-      ),
-    [alerts.data],
+    () => {
+      const allAlerts = alerts.data?.data ?? []
+      return [
+        ...allAlerts.filter((alert) =>
+          ['topic', 'monitor_status'].includes(alert.source),
+        ),
+        ...mapNodeAlertsToTopics({
+          alerts: allAlerts,
+          nodes: nodeItems,
+          topics: topicItems,
+        }),
+      ]
+    },
+    [alerts.data, nodeItems, topicItems],
   )
   const filteredTopics = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    const baseTopics = includeAllTopics || statusFilter !== 'primary'
-      ? topicItems
-      : activeTopics
+    const baseTopics = statusFilter === 'primary' ? activeTopics : topicItems
     return sortTopicsByHealth(baseTopics).filter((topic) => {
       const type = topic.types?.[0] ?? ''
       const matchesSearch = matchesResourceSearch(topic, normalizedSearch, [
@@ -86,10 +96,11 @@ export function TopicsPage({ dashboard }) {
               : matchesStatusFilter(topic, statusFilter)
       return (
         matchesSearch &&
+        matchesDomainFilter(topic, selectedDomainId) &&
         matchesStatus
       )
     })
-  }, [activeTopics, includeAllTopics, search, statusFilter, topicItems])
+  }, [activeTopics, search, selectedDomainId, statusFilter, topicItems])
 
   const detailTopic = filteredTopics.some(
     (topic) => (topic.resource_key ?? topic.name) === selectedTopicName,
@@ -97,7 +108,6 @@ export function TopicsPage({ dashboard }) {
     ? selectedTopic
     : null
   const openTopicAlert = (alert) => {
-    setIncludeAllTopics(true)
     setSearch('')
     setStatusFilter('all')
     setSelectedTopicName(alert.resource_key ?? alert.name)
@@ -154,19 +164,20 @@ export function TopicsPage({ dashboard }) {
             )}
           </div>
           <FilterToolbar
-            includeAllTopics={includeAllTopics}
-            onIncludeAllTopicsChange={setIncludeAllTopics}
-            onSearchChange={setSearch}
-            onStatusFilterChange={setStatusFilter}
-            search={search}
+          onSearchChange={setSearch}
+          domainIds={domainIds}
+          onDomainChange={setSelectedDomainId}
+          onStatusFilterChange={setStatusFilter}
+          search={search}
+          selectedDomainId={selectedDomainId}
             statusFilter={statusFilter}
           />
           {priorityError && <p className="error-text">{priorityError}</p>}
           <TopicTable
             emptyMessage={
-              includeAllTopics
-                ? '표시할 Topic이 없습니다'
-                : "현재 활동 중인 Topic이 없습니다. 숨김 Topic을 보려면 '숨김 Topic 포함'을 켜세요."
+              statusFilter === 'primary'
+                ? '현재 주요 Topic이 없습니다'
+                : '표시할 Topic이 없습니다'
             }
             hzByTopic={topicHzByName}
             onSelectTopic={setSelectedTopicName}

@@ -6,10 +6,12 @@ import { ServiceTable } from '../components/ServiceTable.jsx'
 import { ServiceFilterToolbar } from '../features/services/ServiceFilterToolbar.jsx'
 import { filterServices, getPrimaryServices, getServiceUiSummary } from '../features/services/serviceFilters.js'
 import { qosAlertChannel } from '../utils/qosAlerts.js'
+import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
-export function ServicesPage({ dashboard }) {
+export function ServicesPage({ dashboard, domainIds }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('primary')
+  const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     alerts,
     error,
@@ -40,11 +42,11 @@ export function ServicesPage({ dashboard }) {
   )
 
   const filteredServices = useMemo(() => {
-    return filterServices({ primaryServices, search, services, statusFilter })
-  }, [primaryServices, search, services, statusFilter])
+    return filterServices({ primaryServices, search, selectedDomainId, services, statusFilter })
+  }, [primaryServices, search, selectedDomainId, services, statusFilter])
 
   useEffect(() => {
-    setIncludeHidden(statusFilter === 'internal')
+    setIncludeHidden(statusFilter !== 'primary')
   }, [setIncludeHidden, statusFilter])
 
   const detailService = filteredServices.some(
@@ -100,7 +102,10 @@ export function ServicesPage({ dashboard }) {
           </div>
 
           <ServiceFilterToolbar
+            domainIds={domainIds}
+            onDomainChange={setSelectedDomainId}
             search={search}
+            selectedDomainId={selectedDomainId}
             setSearch={setSearch}
             setStatusFilter={setStatusFilter}
             statusFilter={statusFilter}
@@ -108,9 +113,9 @@ export function ServicesPage({ dashboard }) {
 
           <ServiceTable
             emptyMessage={
-              statusFilter === 'internal' || includeHidden
-                ? '표시할 Service가 없습니다'
-                : "현재 주요 Service가 없습니다. 전체 목록은 '전체' 또는 '내부/관리 포함' 탭에서 확인하세요."
+              statusFilter === 'primary' && !includeHidden
+                ? '현재 주요 Service가 없습니다'
+                : '표시할 Service가 없습니다'
             }
             onSelectService={setSelectedServiceName}
             selectedServiceName={selectedServiceName}

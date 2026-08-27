@@ -98,8 +98,8 @@ export function AlertsList({
               </td>
               <td className="alert-source-cell">{displayText(alert.source)}</td>
               <td className="alert-name-cell topic-name" title={alert.name}>{alert.name}</td>
-              <td className="alert-message-cell" title={displayText(alert.message)}>
-                {displayText(alert.message)}
+              <td className="alert-message-cell" title={alert.message}>
+                {alert.message}
               </td>
               <td className="alert-code-cell" title={alert.code}>{alert.code}</td>
               <td>{formatTime(detectedAt(alert))}</td>

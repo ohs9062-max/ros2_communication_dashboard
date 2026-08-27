@@ -1,20 +1,23 @@
 import { useMemo } from 'react'
 import { AlertsPreview } from '../components/AlertsPreview.jsx'
+import { DomainFilterButtons } from '../components/DomainFilterButtons.jsx'
 import { NodeDetailPanel } from '../components/NodeDetailPanel.jsx'
 import { NodeSummaryCards } from '../components/NodeSummaryCards.jsx'
 import { NodeTable } from '../components/NodeTable.jsx'
 import { isInternalNode, isPrimaryNode } from '../utils/nodeFilters.js'
 import { matchesResourceSearch } from '../utils/resourceSearch.js'
+import { matchesDomainFilter } from '../utils/domainFilter.js'
+import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
 const NODE_FILTERS = [
   { id: 'primary', label: '주요 항목' },
   { id: 'all', label: '전체' },
-  { id: 'active', label: '실행 중' },
-  { id: 'disconnected', label: 'Graph 이탈' },
-  { id: 'hidden', label: '숨김 포함' },
+  { id: 'active', label: '정상' },
+  { id: 'issues', label: '오류' },
 ]
 
-export function NodesPage({ actions, dashboard, services, topics }) {
+export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
+  const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     alerts,
     error,
@@ -49,25 +52,27 @@ export function NodesPage({ actions, dashboard, services, topics }) {
 
   const filteredNodes = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    const baseNodes = includeInternalNodes
-      ? nodes
-      : nodes.filter((node) => (
+    const baseNodes = statusFilter === 'primary' && !includeInternalNodes
+      ? nodes.filter((node) => (
           !isInternalNode(node) ||
           (statusFilter === 'primary' && node.user_primary === true)
         ))
+      : nodes
 
     return baseNodes.filter((node) => {
       const matchesStatus = statusFilter === 'primary'
         ? isPrimaryNode(node, { actions, services, topics })
-        : statusFilter === 'all' || statusFilter === 'hidden'
+        : statusFilter === 'all'
           ? true
-          : node.status === statusFilter
+          : statusFilter === 'issues'
+            ? node.status !== 'active'
+            : node.status === statusFilter
       const matchesSearch =
         !normalizedSearch || nodeMatchesSearch(node, normalizedSearch)
 
-      return matchesStatus && matchesSearch
+      return matchesStatus && matchesSearch && matchesDomainFilter(node, selectedDomainId)
     })
-  }, [actions, includeInternalNodes, nodes, search, services, statusFilter, topics])
+  }, [actions, includeInternalNodes, nodes, search, selectedDomainId, services, statusFilter, topics])
 
   const detailNode = filteredNodes.some(
     (node) => (node.resource_key ?? node.full_name) === selectedNodeName,
@@ -143,7 +148,7 @@ export function NodesPage({ actions, dashboard, services, topics }) {
                     }
                     key={filter.id}
                     onClick={() => {
-                      setIncludeInternalNodes(filter.id === 'hidden')
+                      setIncludeInternalNodes(filter.id !== 'primary')
                       setStatusFilter(filter.id)
                     }}
                     type="button"
@@ -152,14 +157,19 @@ export function NodesPage({ actions, dashboard, services, topics }) {
                   </button>
                 ))}
               </div>
+              <DomainFilterButtons
+                domainIds={domainIds}
+                onChange={setSelectedDomainId}
+                selectedDomainId={selectedDomainId}
+              />
             </div>
           </div>
 
           <NodeTable
             emptyMessage={
-              statusFilter === 'hidden'
-                ? '표시할 Node가 없습니다.'
-                : "조건에 맞는 Node가 없습니다. 내부 Node는 '숨김 포함' 탭에서 확인하세요."
+              statusFilter === 'primary'
+                ? '현재 주요 Node가 없습니다.'
+                : '표시할 Node가 없습니다.'
             }
             nodes={filteredNodes}
             onSelectNode={setSelectedNodeName}

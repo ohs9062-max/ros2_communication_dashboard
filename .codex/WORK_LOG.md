@@ -599,3 +599,79 @@
 - `AGENTS.md`, `README.md`, `monitor_backend_transport.md`, `frontend/README.md`에서 multi-domain (`MultiDomainRosMonitor`) 및 snapshot `domains` 필드, Domains 화면 관련 설명이 실제 구현과 일치하도록 정정했다.
 - `start.md`를 포함한 설정·코드 파일은 일체 수정하지 않고 오직 `.md` 문서만 수정했다.
 
+## 2026-08-27 - Camera node 종료 Alert의 Topic 탭 표시 경로 점검
+
+- 코드만 점검했다. `TopicsPage`의 Topic Alert preview는 `source`가 `topic` 또는 `monitor_status`인 Alert만
+  표시하고, Overview/Alerts 탭은 전체 Alert를 표시한다. 따라서 camera node 종료로 발생한 `node_stale`
+  (`source=node`) Alert는 Overview와 Alerts에는 보이지만 Topic 탭에는 의도적으로 나타나지 않으며 Nodes 탭의
+  Alert preview 대상이다. 실행 중인 local Backend가 없어 당시 활성 Alert payload의 source/code는 API로 재확인하지
+  못했다.
+
+## 2026-08-27 - Node 종료 Alert를 관련 Topic Alert에 표시
+
+- Topic 탭은 `node_stale` Alert를 마지막으로 보존한 해당 Node의 Topic Publisher/Subscriber 관계에 투영해
+  함께 표시한다. 표시 항목은 연결된 Topic의 `resource_key`와 Domain을 사용하므로, 클릭하면 그 Topic 상세가
+  열리고 같은 이름의 다른 ROS Domain Topic으로 섞이지 않는다. Monitor/Backend Alert 원본과 Alert DB lifecycle은
+  변경하지 않았다.
+- Camera node 종료 및 multi-domain 분리 단위 test를 추가했고 Frontend `npm run test:unit`, `npm run lint`
+  (기존 VisualizationPage 미사용 인자 warning 1건), `npm run build`, `git diff --check`를 통과했다.
+- 빌드 산출물의 `/var/lib/ros2-dashboard/frontend` 동기화는 현재 세션에서 sudo 인증 TTY가 없어 완료하지 못했다.
+
+## 2026-08-27 - 네 통신 목록 Domain 필터
+
+- Topic·Service·Action·Node 목록에 공통 Domain 필터 그룹(기본 `전체`, `D<id>` 버튼)을 추가했다. 목록은 선택한
+  resource의 `domain_id`만 남기며 기존 이름·타입·`D<number>` 검색, 상태/숨김 필터는 그대로 함께 적용된다.
+- Frontend는 YAML을 읽지 않고 App-level `/ros/domains` polling의 `configured_domain_ids`로 버튼을 만들며,
+  Domains 화면에서 추가/삭제한 ID는 다음 polling에서 자동 반영된다. 선택된 Domain이 삭제되면 `전체`로 복귀한다.
+  Monitor·Backend·multi-domain runtime 로직은 변경하지 않았다.
+- Domain 필터 단위 test를 추가했고 Frontend `npm run test:unit`, `npm run lint`(기존 VisualizationPage warning 1건),
+  `npm run build`, `git diff --check`를 통과했다.
+
+## 2026-08-27 - Local HTTPS 정적 파일 반영
+
+- GUI `pkexec` 인증으로 절대 source 경로
+  `/home/hs/rang/ros2_dashboard/frontend/dist/`를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했다.
+  첫 상대경로 시도는 권한 상승 후 working directory가 `/root`가 되어 실패했으며, 두 번째 절대경로 반영은 성공했다.
+- source build의 entry asset은 `assets/index-BQEhk09P.js`다. 당시 `https://localhost/` 응답은 없어서 Nginx 실행 여부에
+  따른 실제 HTTPS asset 대조는 수행하지 못했다.
+
+## 2026-08-27 - Topic·Service·Action·Node 상태 필터 단순화
+
+- 상태 판정, Alert와 개별 상태 배지를 바꾸지 않고 목록 필터 UI만 큰 분류로 정리했다. Topic은
+  `주요 항목/전체/대기 중/정상/문제`, Action은 `주요 항목/전체/실행 중/성공/실패·취소`, Service는
+  `주요 항목/전체/대기 중/정상/문제`, Node는 `주요 항목/전체/정상/문제`로 표시한다.
+- Topic의 `전체`는 기존 숨김 포함 동작까지 합치고, `문제`는 active가 아닌 상태와 미지원 type을 모두 포함한다.
+  Service의 전체/상태 그룹은 기존 internal 포함 fetch를 사용하며, Node의 전체/상태 그룹도 내부 Node를 포함한다.
+  Domain 필터와 이름/type/Domain 검색은 그대로 조합된다.
+- Frontend unit test, lint(기존 VisualizationPage warning 1건), build, diff check를 통과했고 GUI `pkexec`으로
+  새 `frontend/dist`를 `/var/lib/ros2-dashboard/frontend/`에 동기화했다.
+
+## 2026-08-27 - Alert 영문 원문 표시 복구 및 오류 필터 표기 통일
+
+- 네 목록의 aggregate filter label `문제`를 모두 `오류`로 변경했다. 내부 filter ID와 상태 판정은 바꾸지 않았다.
+- Monitor의 Topic/Service/Node Alert source가 영어 `message`를 생성하는 것을 확인했다. 회귀 원인은 Node 종료
+  Alert를 Topic 탭에 투영할 때 Frontend가 새로운 한글 message를 덮어쓴 것이었다. 해당 mapping은 원본
+  `alert.message`를 그대로 보존하도록 고쳤고, Alert preview와 Alert 목록도 message에 `displayText` formatter를
+  적용하지 않고 raw Alert message를 렌더링하도록 수정했다. source/level 표기, Domain 표기와 3건+펼치기 UI는 유지했다.
+- mapping 원문 보존 unit test를 포함한 Frontend unit test, lint(기존 VisualizationPage warning 1건), build, diff
+  check를 통과했고 GUI `pkexec`으로 build를 로컬 HTTPS 정적 경로에 동기화했다.
+
+## 2026-08-27 - 네 목록 Filter toolbar 한 줄 배치
+
+- Topic·Service·Action·Node 공통 toolbar CSS만 변경했다. 검색 input은 좌측, Domain group은 가운데의 남는 flex 폭,
+  status group은 우측에 배치하며 Domain과 상태 사이에는 구분선·여백을 둔다. 760px 이하에서는 기존 반응형 세로
+  전환과 Domain 상단 구분선을 유지한다.
+- 필터 DOM/동작, Domain 목록 API/polling, resource filtering은 변경하지 않았다. Frontend lint(기존 VisualizationPage
+  warning 1건), build, diff check를 통과했고 GUI `pkexec`으로 build를 local HTTPS 정적 경로에 동기화했다.
+
+## 2026-08-27 - Alert message source 원문 직접 표시 재검증
+
+- 최근 Alert 관련 diff와 `e8a4d5b`(`alert 영문통일, ui`) 이력을 대조했다. Monitor의 code별 Alert source가
+  `Topic connection lost; it is no longer visible in the ROS2 graph.`,
+  `Monitored Node is confirmed absent from the ROS2 graph.` 등의 message를 생성하고 Backend/DB가 이를 재작성하지
+  않는 것을 확인했다.
+- `AlertsPreview`와 `AlertsList`는 formatter와 fallback 없이 `alert.message`를 직접 렌더링한다. Node Alert를 Topic에
+  투영하는 presentation mapping에서도 `message` key 재지정을 완전히 제거해 spread로 받은 원문만 유지한다.
+  Alert code/lifecycle/DB와 상태 배지, resource+Domain, 한 줄 배치, 3건+펼치기 UI는 변경하지 않았다.
+- Frontend unit test, lint(기존 VisualizationPage warning 1건), build, diff check를 통과했고 GUI `pkexec`으로
+  build를 local HTTPS 정적 경로에 동기화했다.
