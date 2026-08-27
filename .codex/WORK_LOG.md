@@ -675,3 +675,23 @@
   Alert code/lifecycle/DB와 상태 배지, resource+Domain, 한 줄 배치, 3건+펼치기 UI는 변경하지 않았다.
 - Frontend unit test, lint(기존 VisualizationPage warning 1건), build, diff check를 통과했고 GUI `pkexec`으로
   build를 local HTTPS 정적 경로에 동기화했다.
+
+## 2026-08-27 - Terra 이후 Topic Alert 중복 투영 원복
+
+- git history와 `git blame`을 대조해 `topic_disconnected`의
+  `Topic connection lost; it is no longer visible in the ROS2 graph.`와 `node_stale`의
+  `Monitored Node is confirmed absent from the ROS2 graph.`가 각각 2026-07-24 이전부터 존재한 원본 source message임을
+  확인했다. Monitor Topic/Service/Action/Node/QoS Alert 생성 문자열과 code/lifecycle은 수정하지 않았다.
+- 최근 `5cc0349`에서 추가된 `topicAlertMapping`이 `node_stale` Alert를 관련 Topic마다 새 id/resource로 복제해,
+  원래 `topic_disconnected`와 같은 Topic Alert preview에 함께 표시한 것이 중복 원인이었다. 이 mapping과 test,
+  TopicPage 호출 및 불필요한 nodeItems 공개만 제거해 Topic 탭은 원래 `topic|monitor_status` source만 사용한다.
+  UI에서 결과를 숨기는 조건이나 Alert source dedupe는 추가하지 않았다.
+- Alert message renderer는 source의 `alert.message`를 그대로 사용한다. Frontend unit test, lint(기존 VisualizationPage
+  warning 1건), build, diff check를 통과했고 GUI `pkexec`으로 local HTTPS 정적 경로에 동기화했다. 당시 localhost
+  Backend/Nginx 응답이 없어 live Alert payload 재확인은 수행하지 못했다.
+
+## 2026-08-27 - Alert 원복 build 재반영
+
+- 사용자 요청에 따라 GUI `pkexec` 인증을 다시 받아 현재 `frontend/dist`를 local HTTPS 정적 경로에 재동기화했다.
+  source/target `index.html` SHA-256이 `d681cda7107e0b9a9e62d822b0d752674565c4925504ec75b1e29fdf9965a722`,
+  entry asset이 `assets/index-BAzpAJCn.js`로 일치함을 확인했다.

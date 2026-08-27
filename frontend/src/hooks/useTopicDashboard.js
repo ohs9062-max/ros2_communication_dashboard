@@ -243,7 +243,6 @@ export function useTopicDashboard({
     setSelectedTopicName,
     topicHzByName: displayedTopicHzByName,
     topicItems,
-    nodeItems,
     topicParticipants,
     topics,
     priorityError: priority.priorityError,

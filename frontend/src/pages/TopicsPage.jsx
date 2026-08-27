@@ -14,7 +14,6 @@ import { isPrimaryTopic } from '../utils/primaryFilters.js'
 import { qosAlertChannel } from '../utils/qosAlerts.js'
 import { matchesResourceSearch } from '../utils/resourceSearch.js'
 import { matchesDomainFilter } from '../utils/domainFilter.js'
-import { mapNodeAlertsToTopics } from '../features/topics/topicAlertMapping.js'
 import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
 export function TopicsPage({ dashboard, domainIds }) {
@@ -36,7 +35,6 @@ export function TopicsPage({ dashboard, domainIds }) {
     setSelectedTopicName,
     topicHzByName,
     topicItems,
-    nodeItems,
     topicParticipants,
     topics,
     priorityError,
@@ -62,20 +60,11 @@ export function TopicsPage({ dashboard, domainIds }) {
     [topicItems],
   )
   const topicAlerts = useMemo(
-    () => {
-      const allAlerts = alerts.data?.data ?? []
-      return [
-        ...allAlerts.filter((alert) =>
-          ['topic', 'monitor_status'].includes(alert.source),
-        ),
-        ...mapNodeAlertsToTopics({
-          alerts: allAlerts,
-          nodes: nodeItems,
-          topics: topicItems,
-        }),
-      ]
-    },
-    [alerts.data, nodeItems, topicItems],
+    () =>
+      (alerts.data?.data ?? []).filter((alert) =>
+        ['topic', 'monitor_status'].includes(alert.source),
+      ),
+    [alerts.data],
   )
   const filteredTopics = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
