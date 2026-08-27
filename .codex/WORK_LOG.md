@@ -796,3 +796,15 @@
   local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
   `59b6918d3a325b46592939490d904525e3f656d757ca77bf07fe396421d8aa59`와 entry asset
   `assets/index-DjFfTfLX.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
+
+## 2026-08-27 - Service 실행 중에 주요/호출 이력 조건 추가
+
+- Service `실행 중` 필터에 기존 최종 `is_primary` 판정 또는 `last_call_summary` 기반 실제 호출 이력 조건을
+  추가했다. Graph 존재·Server endpoint·internal/management 제외 조건은 유지하며, 호출 성공/실패와 QoS 상태는
+  실행 중 포함 조건으로 사용하지 않는다. `전체`와 `오류`, 다른 resource 탭과 Alert/ROS/multi-domain 로직은
+  변경하지 않았다.
+- 미등록·미호출 제외, 주요 등록 포함, 실패 호출 이력 포함, QoS 불일치 주요 Service 포함을 unit test로 확인했고
+  Frontend 전체 unit test, lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다.
+- GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
+  `ed19d10354be3279b633015bcc3e1d125aba6be5902b8dbda80d0077a4038da6`와 entry asset
+  `assets/index-bYC2Yb4c.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.

@@ -50,8 +50,8 @@
   `D`+정수 전체 입력(`D99`, `D5`)이면 resource의 `domain_id`만 정확히 필터링한다. Domain ID가 없는 legacy
   resource는 Domain 검색 결과에 포함하지 않는다.
 - Topic·Service·Action·Node 목록의 기본 상태 필터는 공통으로 `실행 중/전체/오류` 세 개만 사용한다. Service는
-  기존 internal/management 판정을 통과한 사용자·운영 대상 중 현재 Graph Server가 있는 항목, Action은 현재
-  Action Server와 Graph 가용 상태, Node는 현재 Graph 존재 여부를 `실행 중`의
+  기존 internal/management 판정을 통과하고 현재 Graph Server가 있으면서 최종 `is_primary=true`이거나 실제
+  Call summary가 있는 항목, Action은 현재 Action Server와 Graph 가용 상태, Node는 현재 Graph 존재 여부를 `실행 중`의
   기준으로 사용하며 `오류`에는 Server 부재·Graph 이탈·통신 실패·확정 QoS 불일치 등 현재 resource 문제를
   묶는다. Action의 과거 Goal 성공·실패 결과는 이 목록 필터 기준에 포함하지 않는다.
 - Node 탭 table은 Monitor가 snapshot에 유지하는 Dashboard 내부 Node(`is_internal=true`)를 실행 중·전체·오류

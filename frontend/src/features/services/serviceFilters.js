@@ -65,7 +65,14 @@ function matchesServiceFilter(service, filter) {
   if (filter === 'primary') return isPrimaryService(service)
   if (filter === 'all') return true
   if (filter === 'running') {
-    return isRunningService(service) && !isInternalOrManagementService(service)
+    return (
+      isRunningService(service) &&
+      !isInternalOrManagementService(service) &&
+      (
+        isPrimaryService(service) ||
+        servicePresentation(service).hasCallHistory
+      )
+    )
   }
   if (filter === 'waiting') return servicePresentation(service).isWaiting
   if (filter === 'active') return servicePresentation(service).effectiveStatus === 'active'

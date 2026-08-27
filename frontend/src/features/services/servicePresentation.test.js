@@ -117,14 +117,31 @@ assert.equal(isIssueService({
 const internalRunningService = {
   ...runningService,
   category: 'parameter',
+  is_primary: true,
   name: '/node/get_parameters',
+}
+const primaryRunningService = {
+  ...runningService,
+  is_primary: true,
+  name: '/registered',
+  qos_status: 'incompatible',
+}
+const calledRunningService = {
+  ...called,
+  graph_present: true,
+  name: '/called',
 }
 assert.deepEqual(filterServices({
   primaryServices: [],
   search: '',
-  services: [runningService, internalRunningService],
+  services: [
+    runningService,
+    internalRunningService,
+    primaryRunningService,
+    calledRunningService,
+  ],
   statusFilter: 'running',
-}), [runningService])
+}), [primaryRunningService, calledRunningService])
 assert.deepEqual(filterServices({
   primaryServices: [],
   search: '',
