@@ -4,7 +4,12 @@ import { DomainFilterButtons } from '../components/DomainFilterButtons.jsx'
 import { NodeDetailPanel } from '../components/NodeDetailPanel.jsx'
 import { NodeSummaryCards } from '../components/NodeSummaryCards.jsx'
 import { NodeTable } from '../components/NodeTable.jsx'
-import { isIssueNode, isPrimaryNode, isRunningNode } from '../utils/nodeFilters.js'
+import {
+  isInternalNode,
+  isIssueNode,
+  isPrimaryNode,
+  isRunningNode,
+} from '../utils/nodeFilters.js'
 import { matchesResourceSearch } from '../utils/resourceSearch.js'
 import { matchesDomainFilter } from '../utils/domainFilter.js'
 import { useDomainFilter } from '../hooks/useDomainFilter.js'
@@ -51,6 +56,8 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
   const filteredNodes = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
     return nodes.filter((node) => {
+      if (isInternalNode(node)) return false
+
       const matchesStatus = statusFilter === 'all'
           ? true
           : statusFilter === 'running'

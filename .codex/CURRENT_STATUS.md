@@ -54,6 +54,9 @@
   Action Server와 Graph 가용 상태, Node는 현재 Graph 존재 여부를 `실행 중`의
   기준으로 사용하며 `오류`에는 Server 부재·Graph 이탈·통신 실패·확정 QoS 불일치 등 현재 resource 문제를
   묶는다. Action의 과거 Goal 성공·실패 결과는 이 목록 필터 기준에 포함하지 않는다.
+- Node 탭 table은 Monitor가 snapshot에 유지하는 Dashboard 내부 Node(`is_internal=true`)를 실행 중·전체·오류
+  모두에서 제외한다. 이 제외는 Frontend 목록 view에만 적용되며 Graph snapshot과 Topic/Service/Action 관계 계산은
+  내부 Node 정보를 계속 사용한다.
 - Camera Preview는 Camera Topic 상세가 열린 동안만 `GET /ros/topics/image-preview`를 100ms 간격으로 호출해 최신
   frame 하나를 최대 10 FPS로 갱신한다. 상세를 닫거나 다른 resource로 바꾸면 DELETE가 해당
   `domain_id/resource_key`의 encode lease와 cached Base64를 즉시 제거하며, 3초 TTL은 browser 비정상 종료의

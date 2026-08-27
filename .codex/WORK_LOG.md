@@ -740,3 +740,30 @@
 - GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
   `fe057e28ad1f4ac7178f8cc10de9a59ee00e02fc28220d968a5bc24a4494336b`와 entry asset
   `assets/index-CIf8VfR9.js`가 일치한다. 당시 `https://localhost/` 응답은 없어 실제 Nginx 응답 대조는 못 했다.
+
+## 2026-08-27 - Node 탭 이동 실패 원인 확인
+
+- 최근 Node 필터 변경에서 `NodesPage.jsx`의 `isInternalNode` import가 제거됐지만 주요 Node 요약 계산에는 호출이
+  남아 있었다. Node 탭 lazy chunk가 렌더링될 때 `ReferenceError: isInternalNode is not defined`가 발생해 페이지
+  이동이 완료되지 않는 원인임을 source diff와 배포 build chunk에서 확인했다.
+- 진단 요청 범위에 따라 코드는 수정하거나 재배포하지 않았다. 필요한 수정은 기존 `nodeFilters.js`의
+  `isInternalNode`를 `NodesPage.jsx` import에 다시 포함하는 것이다.
+
+## 2026-08-27 - Node 탭 이동 런타임 오류 수정·반영
+
+- `NodesPage.jsx`에서 주요 Node 요약이 사용하는 기존 `isInternalNode` import를 복구해 Node 탭 lazy render의
+  `ReferenceError`를 제거했다. Node 필터·상태·Alert 로직은 변경하지 않았다.
+- Frontend 전체 unit test, lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다. GUI
+  `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
+  `e67b1e76f985a09f1222a25b8df32adfa2595cf5d915985158ed6e90efcc9cb6`와 entry asset
+  `assets/index-C15xcW-U.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
+
+## 2026-08-27 - Node 목록에서 Dashboard 내부 Node 제외
+
+- Node 탭 `filteredNodes`에 기존 `isInternalNode` helper를 적용해 Monitor snapshot의 `is_internal=true` Dashboard
+  Node를 실행 중·전체·오류 모든 table view에서 제외했다. 새 이름/prefix 규칙은 만들지 않았고, 원본 Node snapshot,
+  Topic/Service/Action 관계 계산, Alert·ROS·multi-domain 로직은 변경하지 않았다.
+- 기존 내부 Node 판정값 unit assertion을 추가했고 Frontend 전체 unit test, lint(기존 `VisualizationPage` warning
+  1건), build와 diff check를 통과했다. GUI `pkexec`으로 local HTTPS 정적 경로에 반영했으며 source/target
+  `index.html` SHA-256은 `33f7f7c3d7a837fd1b7404e886aeee32441df5fb76bb1bd529a8e25fdd99d2b7`, entry asset은
+  `assets/index-gZFj05xN.js`로 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.

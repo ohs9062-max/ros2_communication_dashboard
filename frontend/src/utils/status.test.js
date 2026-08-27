@@ -8,7 +8,7 @@ import {
   topicSeverity,
 } from './status.js'
 import { topicDisplayStatus } from '../features/topics/topicTablePresentation.js'
-import { isIssueNode, isRunningNode } from './nodeFilters.js'
+import { isInternalNode, isIssueNode, isRunningNode } from './nodeFilters.js'
 
 const topics = [
   { name: '/active', status: 'active', effective_status: 'active' },
@@ -72,5 +72,7 @@ assert.equal(isRunningNode({ graph_present: false, status: 'active' }), false)
 assert.equal(isRunningNode({ status: 'active' }), true)
 assert.equal(isIssueNode({ graph_present: false, status: 'disconnected' }), true)
 assert.equal(isIssueNode({ graph_present: true, status: 'active' }), false)
+assert.equal(isInternalNode({ is_internal: true }), true)
+assert.equal(isInternalNode({ is_internal: false, name: '/external_node' }), false)
 
 console.log('status tests passed')
