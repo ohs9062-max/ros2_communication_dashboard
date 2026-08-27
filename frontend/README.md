@@ -3,7 +3,7 @@
 React와 Vite로 구성된 Dashboard 화면이다. ROS2, Monitor, Fast DDS observer 또는 MariaDB에 직접 연결하지 않고
 FastAPI Backend의 REST API와 `/ws/monitor`만 사용한다.
 
-주요 화면은 Overview, Topic, Service, Action, Node, Alert, Visualization, Interface Lab이다. 기본 목록은 빠른
+주요 화면은 Overview, Topic, Service, Action, Node, Alert, Domains, Visualization, Interface Lab이다. 기본 목록은 빠른
 상태 판단을, 선택 상세는 QoS·endpoint·payload·실행 결과의 원인 분석을 담당한다.
 
 - Topic은 `effective_status`, Service는 `servicePresentation`, Action은 `actionPresentation`의 Goal·Feedback·Result

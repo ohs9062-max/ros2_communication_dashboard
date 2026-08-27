@@ -35,6 +35,7 @@ ROS2 Graph
     "services": {},
     "actions": {},
     "nodes": {},
+    "domains": {},
     "alerts": {},
     "websocket": {},
     "interface_apply": {}

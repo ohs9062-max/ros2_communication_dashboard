@@ -97,9 +97,9 @@ https://<장비 LAN IP>[:설정 port]/
 - Backend/DB: `backend/.env` (설치 시 최초 생성, 권한 `0600`)
 - Nginx/TLS: `config/nginx/dashboard.env.example`, `/etc/nginx/ssl/`
 
-`backend/.env`의 ROS Domain/RMW 변경은 runtime env 동기화가 필요하므로 `start.sh`로 반영한다.
-Domains 화면의 여러 ID 입력은 저장된 감시 대상 후보이며, 현재 Monitor runtime은 하나의 `ROS_DOMAIN_ID`만 실제로
-감시한다. 따라서 실제 감시 Domain 변경은 `start.sh` 또는 설치 runtime 환경 변경이 필요하다.
+`backend/.env`의 기본 ROS Domain/RMW 변경은 runtime env 동기화가 필요하므로 `start.sh`로 반영한다.
+Domains 화면에서는 여러 `ROS_DOMAIN_ID`를 동적으로 추가·관리할 수 있으며, Monitor의 `MultiDomainRosMonitor`가
+각 Domain별 runtime을 생성하여 다중 Domain 통신 상태를 동시에 감시한다.
 Backend/DB 설정만 바꾼 경우에는 Backend service를 재시작한다.
 
 ```bash

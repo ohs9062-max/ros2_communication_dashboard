@@ -18,9 +18,9 @@ get_node_names_and_namespaces()
 | 3 | `ros2_node/runtime.py _action_servers_by_node()` L196-L214 | Action Server 조회 |
 | 4 | `ros2_node/runtime.py _action_clients_by_node()` L217-L235 | Action Client 조회 |
 | 5 | `node_snapshot.py assemble_node_snapshot()` L13-L65 | 리소스 snapshot과 Node 연결, primary/internal 표시 |
-| 6 | `transport/routers/monitoring.py get_ros_nodes()` L80-L89 | Monitor Node API |
+| 6 | `transport/routers/monitoring.py get_ros_nodes()` L124-L134 | Monitor Node API |
 | 7 | `frontend/src/hooks/useNodeDashboard.js` L9-L69 | 목록·Alert polling, 검색·선택 상태 |
-| 8 | `frontend/src/pages/NodesPage.jsx` L16-L170 | 주요/전체/실행/종료/내부 filter와 목록·상세 |
+| 8 | `frontend/src/pages/NodesPage.jsx` L17-L179 | 주요/전체/실행/종료/내부 filter와 목록·상세 |
 
 Node는 Graph에서 보이면 `active`, 이전에 보였으나 확인 횟수/시간 debounce 뒤 사라졌으면
 `disconnected`다. 재등장하면 active로 복귀한다. 별도 process heartbeat가 없으므로 실제 프로세스 사망과

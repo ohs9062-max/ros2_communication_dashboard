@@ -15,11 +15,11 @@ rclpy Service Graph
 |---:|---|---|
 | 1 | `ros2_service/runtime.py ServiceRuntime.update()` L93-L157 | Graph Service/type/filter 수집, 상태와 disconnected debounce |
 | 2 | `ros2_service/discovery.py build_service_item()` L17-L57 | Server/Client count와 기본 상태 item |
-| 3 | `service_snapshot.py assemble_service_snapshot()` L16-L112 | 외부 Node 관계, Call 요약, Registry/primary, QoS 병합 |
-| 4 | `service_snapshot.py visible_service_snapshot()` L115-L131 | hidden 정책을 적용한 공개 목록 |
-| 5 | `transport/routers/monitoring.py get_ros_services()` L50-L63 | Monitor Service API |
+| 3 | `service_snapshot.py assemble_service_snapshot()` L16-L114 | 외부 Node 관계, Call 요약, Registry/primary, QoS 병합 |
+| 4 | `service_snapshot.py visible_service_snapshot()` L117-L133 | hidden 정책을 적용한 공개 목록 |
+| 5 | `transport/routers/monitoring.py get_ros_services()` L64-L78 | Monitor Service API |
 | 6 | `frontend/src/hooks/useServiceDashboard.js` L10-L87 | 목록·Alert·Node polling과 상세 선택 |
-| 7 | `frontend/src/pages/ServicesPage.jsx` L10-L130 | 주요/전체, 검색·상태 filter와 목록·상세 |
+| 7 | `frontend/src/pages/ServicesPage.jsx` L10-L135 | 주요/전체, 검색·상태 filter와 목록·상세 |
 
 유효한 type에서 Server가 있으면 `active`, Server 없이 Client만 있으면 `waiting_server`, 둘 다 없으면
 `inactive`다. type이 유효하지 않으면 `unknown`이다. Client 없음은 요청 대기형 Service의 정상 상태다.
@@ -39,13 +39,13 @@ POST /ros/interfaces/service-call
 → response/error + history
 ```
 
-- route: `transport/routers/service_execution.py` L27-L67
-- runtime entry: `interface_lab/execution/service_call_runtime.py call_service()` L83-L129
-- callable 후보: 같은 파일 `callable_services()` L76-L81
-- history/reset: 같은 파일 L131-L154
+- route: `transport/routers/service_execution.py` L27-L68
+- runtime entry: `interface_lab/execution/service_call_runtime.py call_service()` L84-L156
+- callable 후보: 같은 파일 `callable_services()` L77-L82
+- history/reset: 같은 파일 L158-L203
 
 호출은 사용자가 명시할 때만 수행한다. 자동 active check는 기본 비활성화이며
-`RosMonitor._update_graph()` L355-L357에서 호출하지 않는다. 최근 Call 결과는 일반 Monitor Alert에
+`RosMonitor._update_graph()` L441-L443에서 호출하지 않는다. 최근 Call 결과는 일반 Monitor Alert에
 `service_call_timeout` 또는 `service_call_failed`로 반영될 수 있다.
 
 ## QoS와 수
@@ -57,4 +57,4 @@ Service snapshot은 저장된 Client QoS 상태를 병합한다.
 
 `server_count/client_count`는 raw Graph endpoint 수고 기본 목록의 `server_node_count/client_node_count`는
 Dashboard 내부 Node를 제외한 고유 Node 수다. Lab Client 생성 여부는
-`ServiceCallRuntime.dashboard_state_by_service()` L160-L164에 별도로 유지한다.
+`ServiceCallRuntime.dashboard_state_by_service()` L209-L213에 별도로 유지한다.

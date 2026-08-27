@@ -222,10 +222,7 @@ MARIADB_CONNECT_TIMEOUT_SEC      2
 MARIADB_RETRY_INTERVAL_SEC       5
 ```
 
-현재 Monitor는 rclpy Context 하나로 단일 `ROS_DOMAIN_ID`만 실제 감시한다. Backend `/ros/domains`는 그 실제 Domain을
-Monitor snapshot에서 반환하고, Domains 화면의 여러 입력값은 `user_preferences.yaml`의 `domains.ids`에 저장한다. 저장한
-ID 중 실제 Context와 같은 값만 `감시 중`이며 나머지는 runtime 미적용이다. 여러 Domain을 동시에 감시하는 Monitor runtime은
-구현되어 있지 않으므로 설정 저장만으로 runtime을 바꾸거나 추가 감시를 시작했다고 표시하지 않는다.
+Monitor는 `MultiDomainRosMonitor`를 통해 `user_preferences.yaml`의 `domains.ids`에 저장된 여러 `ROS_DOMAIN_ID`를 동시에 감시한다. Backend `/ros/domains`는 설정된 Domain 목록과 각 Domain의 런타임 상태를 Monitor snapshot에서 반환하며, Domains 화면에서 Domain ID를 추가·삭제하면 Monitor가 해당 Domain의 rclpy Context/Node/observer runtime을 즉시 생성·종료하여 동적으로 반영한다. 각 리소스는 `domain_id`와 `resource_key`로 구분되어 다중 Domain 환경을 통합 지원한다.
 
 ### Monitor 설정
 

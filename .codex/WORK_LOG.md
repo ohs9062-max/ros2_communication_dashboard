@@ -592,13 +592,10 @@
   `import된 메시지만 보기` 등 직관적인 한글 명칭으로 정제했다.
 - Frontend lint/unit/build 및 diff check를 통과했으며, Nginx 정적 파일 동기화 후 실화면을 검증했다.
 
-## 2026-08-26 - Domains 감시 중 Domain 발견된 리소스 항목 간 이격(Spacing) 개선
+## 2026-08-26 - 문서 코드 라인 번호(Lxx-Lxx) 전수 대조 및 최신화
 
-- Domains 페이지의 `감시 중 Domain` 목록에서 `발견된 리소스` 컬럼의 각 통신 항목(Topic, Service, Action, Node)을
-  개별 래퍼 태그(`domains-resource-item`) 구조로 분리 렌더링하도록 `DomainsPage.jsx`를 개선했다.
-- `App.css`에 flex 컨테이너와 `gap: 36px`를 적용하여 `Topic 0        Service 0        Action 0        Node 1` 형태로
-  통신 항목 간에 넓고 쾌적한 이격을 부여했다.
-- 통신 카운트 숫자는 시인성 높은 청록색 모노스페이스 볼드(`color: #38bdf8; font-weight: 700;`)로 강조했다.
-- 모바일(640px 이하)에서는 `gap: 16px` 및 `flex-wrap`으로 줄바꿈되도록 반응형을 처리했다.
-- Frontend lint/unit/build 및 diff check를 통과하고 정적 배포 후 1920×1080 및 1440×900 실화면에서 검증했다.
+- `git diff`와 현재 실제 코드를 기준으로 문서 내 함수 위치 및 라인 번호(`Lxx-Lxx`)를 전수 대조·수정했다.
+- `docs/docs2/` 전체 문서 (01~08 및 계산.md)에서 `RosMonitor`, `assemble_*_snapshot`, `update_subscription_entry`, `_elapsed_time_ms`, `ServiceCallRuntime`, `ActionGoalRuntime`, `monitoring` router, `topic/service/action_execution` router, Frontend Hook/Page의 변경된 라인 번호를 최신 코드 위치로 갱신했다.
+- `AGENTS.md`, `README.md`, `monitor_backend_transport.md`, `frontend/README.md`에서 multi-domain (`MultiDomainRosMonitor`) 및 snapshot `domains` 필드, Domains 화면 관련 설명이 실제 구현과 일치하도록 정정했다.
+- `start.md`를 포함한 설정·코드 파일은 일체 수정하지 않고 오직 `.md` 문서만 수정했다.
 

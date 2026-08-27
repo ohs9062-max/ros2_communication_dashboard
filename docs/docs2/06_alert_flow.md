@@ -15,14 +15,14 @@ Topic / Service / Action / Node / QoS 상태
 
 | 단계 | 현재 코드 위치 | 역할 |
 |---:|---|---|
-| 1 | `ros_monitor.py RosMonitor.alerts()` L278-L324 | 동일 snapshot에서 source별 후보 수집과 lifecycle 반영 |
+| 1 | `ros_monitor.py RosMonitor.alerts()` L366-L412 | 동일 snapshot에서 source별 후보 수집과 lifecycle 반영 |
 | 2 | `alert_assembler.py collect_runtime_alerts()` | source builder와 QoS Alert 결과 결합 |
 | 3 | `alert_assembler.py reconcile_alert_state()` | active/resolved, dismiss와 memory history 관리 |
-| 4 | `transport/api.py transport_snapshot()` L64-L99 | Alert를 같은 coherent snapshot에 포함 |
+| 4 | `transport/api.py transport_snapshot()` L66-L102 | Alert를 같은 coherent snapshot에 포함 |
 | 5 | `backend/app/monitor_client/event_consumer.py` | snapshot polling과 cache 갱신 |
 | 6 | `backend/app/alerts/service.py` | DB active/resolved/recurrence 동기화와 fallback |
 | 7 | `backend/app/routers/alerts.py` L13-L47 | 현재 Alert와 페이지 이력 API |
-| 8 | `frontend/src/pages/AlertsPage.jsx` L11-L273 | 현재/이전 Alert, 검색·페이지·초기화·대상 이동 |
+| 8 | `frontend/src/pages/AlertsPage.jsx` L11-L277 | 현재/이전 Alert, 검색·페이지·초기화·대상 이동 |
 
 ## Source builder
 
@@ -31,7 +31,7 @@ Topic / Service / Action / Node / QoS 상태
 | Topic | `ros2_topic/alerts.py` L28-L218 | waiting, missing, stale, disconnected |
 | MonitorStatus | `ros2_topic/monitor_status_alerts.py` | warning, error, critical |
 | Service | `ros2_service/alerts.py build_service_alerts()` L10-L97 | Call timeout/fail, disconnected |
-| Action | `ros2_action/alerts.py build_action_alerts()` L21-L176 | disconnected, Goal/Result 상태 |
+| Action | `ros2_action/alerts.py build_action_alerts()` L21-L177 | disconnected, Goal/Result 상태 |
 | Node | `ros2_node/alerts.py build_node_alerts()` L13-L44 | Graph에서 사라진 Node |
 | QoS | `qos_alerts.py` | 확정 incompatible만, Action은 채널별 |
 

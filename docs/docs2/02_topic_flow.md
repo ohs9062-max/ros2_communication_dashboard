@@ -18,18 +18,18 @@ rclpy Graph topic/endpoint
 | 1 | `ros2_topic/runtime.py TopicRuntime.update()` L103-L140 | Graph 수집 결과를 현재 cache와 병합하고 사라진 Topic 처리 |
 | 2 | `ros2_topic/graph_collector.py` | 이름/type/filter, endpoint와 QoS, 감시 대상 수집 |
 | 3 | `ros2_topic/subscription_lifecycle.py` | 지원·등록 type의 자동 Subscription 생성·정리 |
-| 4 | `ros2_topic/subscriptions.py update_subscription_entry()` L41-L56 | callback timestamp와 preview cache 갱신 |
+| 4 | `ros2_topic/subscriptions.py update_subscription_entry()` L46-L68 | callback timestamp와 preview cache 갱신 |
 | 5 | `ros2_topic/hz.py` L14-L71 | window timestamp, Hz, age, stale 계산 |
 | 6 | `ros2_topic/snapshot.py` | lightweight latest metadata와 진단 상태 조립 |
 | 7 | `snapshot_assembler.py enrich_topic_snapshot()` L21-L85 | Node 관계, primary, Interface Lab 상태 병합 |
-| 8 | `transport/routers/monitoring.py` L16-L46 | Topic 목록/latest/Hz/image-preview API |
-| 9 | `frontend/src/hooks/useTopicDashboard.js` L21-L203 | 목록·Alert·Node·latest·Hz·Camera polling |
-| 10 | `frontend/src/pages/TopicsPage.jsx` L16-L186 | 주요/전체, 검색, 상태 필터, 목록·상세 표시 |
+| 8 | `transport/routers/monitoring.py` L16-L63 | Topic 목록/latest/Hz/image-preview API |
+| 9 | `frontend/src/hooks/useTopicDashboard.js` L23-L257 | 목록·Alert·Node·latest·Hz·Camera polling |
+| 10 | `frontend/src/pages/TopicsPage.jsx` L17-L196 | 주요/전체, 검색, 상태 필터, 목록·상세 표시 |
 
 ## 상태와 Alert
 
 Graph 원본 `status`는 `ros2_topic/models.py topic_status()` L49-L67에서 계산하고, 목록 대표
-`effective_status`는 `ros2_topic/snapshot.py _effective_status()` L157-L177에서 실제 수신 상태를 합친다.
+`effective_status`는 `ros2_topic/snapshot.py _effective_status()` L157-L178에서 실제 수신 상태를 합친다.
 
 - Graph status: `active`, `no_subscriber`, `waiting_publisher`, `inactive`
 - Effective status `never_received`: deep monitoring Subscription이 stale timeout 동안 한 번도 받지 못함
