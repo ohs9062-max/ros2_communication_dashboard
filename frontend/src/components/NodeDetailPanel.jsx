@@ -38,7 +38,7 @@ export function NodeDetailPanel({ node, onClose }) {
         </p>
       )}
 
-      <DetailSection title="상태 요약">
+      <DetailSection collapsible defaultOpen title="상태 요약">
         <DetailLine label="전체 이름" value={node.full_name ?? '-'} />
         <DetailLine label="이름" value={node.name ?? '-'} />
         <DetailLine label="네임스페이스" value={node.namespace ?? '-'} />

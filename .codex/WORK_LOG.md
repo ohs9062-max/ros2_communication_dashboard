@@ -787,3 +787,12 @@
   GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
   `22613c2803bdf1c1772f649fbdfb20efb9e995110fb89be97ede71fddcf45599`와 entry asset
   `assets/index-B_3fliEm.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
+
+## 2026-08-27 - Node 상세 상태 요약 접기 지원
+
+- Node 상세의 `상태 요약`만 기존 공통 `DetailSection`의 collapsible mode로 변경했다. 기본은 열림이며 상태 값과
+  다른 상세/Node 로직은 변경하지 않았다.
+- Frontend lint(기존 `VisualizationPage` 미사용 인자 warning 1건), build와 diff check를 통과했다. GUI `pkexec`으로
+  local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
+  `59b6918d3a325b46592939490d904525e3f656d757ca77bf07fe396421d8aa59`와 entry asset
+  `assets/index-DjFfTfLX.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
