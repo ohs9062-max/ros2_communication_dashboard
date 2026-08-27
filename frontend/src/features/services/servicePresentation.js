@@ -48,6 +48,21 @@ export function serviceCallStatus(service) {
   )
 }
 
+export function isRunningService(service) {
+  if (service?.graph_present === false) return false
+  return Number(service?.server_endpoint_count ?? service?.server_count ?? 0) > 0
+}
+
+export function isIssueService(service) {
+  const presentation = servicePresentation(service)
+  return (
+    !isRunningService(service) ||
+    presentation.isIssue ||
+    service?.qos_status === 'incompatible' ||
+    service?.graph_qos_status === 'incompatible'
+  )
+}
+
 export function serviceStatusLabel(
   service,
   effectiveStatus = serviceEffectiveStatus(service),

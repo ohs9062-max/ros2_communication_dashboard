@@ -97,14 +97,31 @@ export function actionLastResponseAt(action) {
 }
 
 export function matchesActionStatusFilter(action, statusFilter) {
-  if (statusFilter === 'primary' || statusFilter === 'all') return true
-
-  const presentation = actionPresentation(action)
-  if (statusFilter === 'running') return presentation.isRunning
-  if (statusFilter === 'succeeded') return presentation.isSucceeded
-  if (statusFilter === 'failed') return presentation.isFailedOrCanceled
-  if (statusFilter === 'unobserved') return presentation.goalUnobserved
+  if (statusFilter === 'all') return true
+  if (statusFilter === 'running') return isRunningAction(action)
+  if (statusFilter === 'issues') return isIssueAction(action)
   return true
+}
+
+export function isRunningAction(action) {
+  if (action?.graph_present === false) return false
+  return (
+    normalizeStatus(action?.status) === 'active' &&
+    Number(action?.server_endpoint_count ?? action?.server_count ?? 0) > 0
+  )
+}
+
+export function isIssueAction(action) {
+  return !isRunningAction(action) || hasIncompatibleActionQos(action?.qos)
+}
+
+function hasIncompatibleActionQos(qos) {
+  return Object.values(qos ?? {}).some(
+    (channel) => channel && typeof channel === 'object' && (
+      channel.qos_status === 'incompatible' ||
+      channel.graph_qos_status === 'incompatible'
+    ),
+  )
 }
 
 export function actionSearchValues(action) {

@@ -715,3 +715,28 @@
   다시 동기화했다. source/target `index.html` SHA-256이
   `df6222511a027c5fb37d28850ca0290618912c375136c34948a272a4575a09c5`, entry asset이
   `assets/index-DTrSSv7l.js`로 일치함을 확인했다.
+
+## 2026-08-27 - Service·Action·Node 필터를 Topic 형식으로 통일
+
+- Service·Action·Node 상태 필터를 Topic과 동일한 `실행 중/전체/오류` 세 버튼과 기본 `실행 중` 선택으로
+  통일했다. 검색·Domain·상태 그룹의 toolbar class/배치도 Topic과 같게 맞췄으며 기존 행 상태/QoS 배지는 유지했다.
+- Service 실행 중은 현재 Graph Server endpoint 존재, Action 실행 중은 Graph에 Action Server가 존재하고 상태가
+  active, Node 실행 중은 현재 Graph 존재를 기준으로 판정한다. 오류에는 Server 부재·Graph 이탈·통신 실패·확정
+  QoS 불일치를 포함하며 Action의 과거 Goal 성공/실패는 필터 판정에서 제외했다. Alert·Monitor·multi-domain
+  로직은 변경하지 않았다.
+- Frontend unit test, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), build와 diff check를 통과했다. GUI
+  `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
+  `b6bee3dcf810f3374d7e5e7f6adac05669a03ed8510ef4cd5dc737f595ed6a58`와 entry asset
+  `assets/index-0_VBVV8q.js`가 일치한다. 당시 `https://localhost/` 응답은 없어 실제 Nginx 응답 대조는 못 했다.
+
+## 2026-08-27 - Service 실행 중에서 내부·관리 Service 제외
+
+- Service `실행 중` 필터에만 기존 `isInternalOrManagementService` 판정을 재사용해 Graph Server가 있더라도
+  ROS2 내부·관리용 Service는 제외했다. 새 이름/prefix 규칙은 추가하지 않았으며 `전체`는 내부·관리 Service를
+  계속 포함하고 `오류`는 기존 문제 상태 판정을 그대로 사용한다. Topic·Action·Node와 Alert/상태 원천은 수정하지
+  않았다.
+- 내부 Service가 `실행 중`에서는 제외되고 `전체`에는 남는 unit test를 추가했다. Frontend 전체 unit test,
+  lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다.
+- GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
+  `fe057e28ad1f4ac7178f8cc10de9a59ee00e02fc28220d968a5bc24a4494336b`와 entry asset
+  `assets/index-CIf8VfR9.js`가 일치한다. 당시 `https://localhost/` 응답은 없어 실제 Nginx 응답 대조는 못 했다.

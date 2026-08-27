@@ -15,16 +15,14 @@ import { matchesDomainFilter } from '../utils/domainFilter.js'
 import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
 const ACTION_FILTERS = [
-  { id: 'primary', label: '주요 항목' },
-  { id: 'all', label: '전체' },
   { id: 'running', label: '실행 중' },
-  { id: 'succeeded', label: '성공' },
-  { id: 'failed', label: '실패/취소' },
+  { id: 'all', label: '전체' },
+  { id: 'issues', label: '오류' },
 ]
 
 export function ActionsPage({ dashboard, domainIds }) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('primary')
+  const [statusFilter, setStatusFilter] = useState('running')
   const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     actionAlerts,
@@ -52,9 +50,7 @@ export function ActionsPage({ dashboard, domainIds }) {
 
   const filteredActions = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    const baseActions = statusFilter === 'primary' ? primaryActions : actions
-
-    return baseActions.filter((action) => {
+    return actions.filter((action) => {
       if (!matchesActionStatusFilter(action, statusFilter)) {
         return false
       }
@@ -67,7 +63,7 @@ export function ActionsPage({ dashboard, domainIds }) {
         actionSearchValues(action),
       )
     })
-  }, [actions, primaryActions, search, selectedDomainId, statusFilter])
+  }, [actions, search, selectedDomainId, statusFilter])
 
   const detailAction = filteredActions.some(
     (action) => (action.resource_key ?? action.name) === selectedActionName,
@@ -115,7 +111,7 @@ export function ActionsPage({ dashboard, domainIds }) {
             {error && <span className="error-text">Failed to connect to the Action API.</span>}
           </div>
 
-          <div className="filter-toolbar">
+          <div className="filter-toolbar topic-toolbar">
             <input
               aria-label="Action 검색"
               onChange={(event) => setSearch(event.target.value)}
@@ -153,8 +149,8 @@ export function ActionsPage({ dashboard, domainIds }) {
           <ActionTable
             actions={filteredActions}
             emptyMessage={
-              statusFilter === 'primary'
-                ? '현재 주요 Action이 없습니다'
+              statusFilter === 'running'
+                ? '현재 실행 중인 Action이 없습니다'
                 : '표시할 Action이 없습니다'
             }
             onSelectAction={setSelectedActionName}

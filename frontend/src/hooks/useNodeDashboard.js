@@ -9,7 +9,7 @@ const nodeName = (node) => node.resource_key ?? node.full_name ?? node.name
 export function useNodeDashboard({ enabled = true } = {}) {
   const [selectedNodeName, setSelectedNodeName] = useState('')
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('primary')
+  const [statusFilter, setStatusFilter] = useState('running')
   const [includeInternalNodes, setIncludeInternalNodes] = useState(false)
 
   const nodesState = usePolling(fetchNodes, DASHBOARD_POLL_INTERVAL_MS, {

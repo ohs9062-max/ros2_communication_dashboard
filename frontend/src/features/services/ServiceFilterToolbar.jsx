@@ -1,14 +1,12 @@
 const SERVICE_FILTERS = [
-  { id: 'primary', label: '주요 항목' },
+  { id: 'running', label: '실행 중' },
   { id: 'all', label: '전체' },
-  { id: 'waiting', label: '대기 중' },
-  { id: 'active', label: '정상' },
   { id: 'issues', label: '오류' },
 ]
 
 export function ServiceFilterToolbar({ domainIds, onDomainChange, search, selectedDomainId, setSearch, setStatusFilter, statusFilter }) {
   return (
-    <div className="filter-toolbar service-toolbar">
+    <div className="filter-toolbar topic-toolbar">
       <input
         aria-label="Service 검색"
         onChange={(event) => setSearch(event.target.value)}

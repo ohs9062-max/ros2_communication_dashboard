@@ -11,3 +11,12 @@ export function isInternalNode(node) {
 export function isPrimaryNode(node) {
   return node.is_primary === true
 }
+
+export function isRunningNode(node) {
+  if (node?.graph_present != null) return node.graph_present === true
+  return String(node?.status ?? '').toLowerCase() === 'active'
+}
+
+export function isIssueNode(node) {
+  return !isRunningNode(node)
+}

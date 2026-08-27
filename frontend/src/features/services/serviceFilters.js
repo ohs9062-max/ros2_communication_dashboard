@@ -2,6 +2,8 @@ import { isPrimaryService } from '../../utils/primaryFilters.js'
 import { matchesResourceSearch } from '../../utils/resourceSearch.js'
 import { matchesDomainFilter } from '../../utils/domainFilter.js'
 import {
+  isIssueService,
+  isRunningService,
   matchesServicePresentationFilter,
   servicePresentation,
   serviceSearchValues,
@@ -28,9 +30,7 @@ const MANAGEMENT_SERVICE_MARKERS = ['/load_node', '/unload_node', '/load_map', '
 
 export function filterServices({ primaryServices, search, services, statusFilter, selectedDomainId = null }) {
   const normalizedSearch = search.trim().toLowerCase()
-  const baseServices = statusFilter === 'primary'
-      ? primaryServices
-      : services
+  const baseServices = statusFilter === 'primary' ? primaryServices : services
 
   return baseServices.filter((service) => {
     const matchesSearch = matchesResourceSearch(
@@ -64,14 +64,13 @@ export function getServiceUiSummary(services, primaryServices, meta) {
 function matchesServiceFilter(service, filter) {
   if (filter === 'primary') return isPrimaryService(service)
   if (filter === 'all') return true
+  if (filter === 'running') {
+    return isRunningService(service) && !isInternalOrManagementService(service)
+  }
   if (filter === 'waiting') return servicePresentation(service).isWaiting
   if (filter === 'active') return servicePresentation(service).effectiveStatus === 'active'
   if (filter === 'issues') return isIssueService(service)
   return matchesServicePresentationFilter(service, filter)
-}
-
-function isIssueService(service) {
-  return servicePresentation(service).isIssue
 }
 
 export function isInternalOrManagementService(service) {

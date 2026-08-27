@@ -4,15 +4,14 @@ import { DomainFilterButtons } from '../components/DomainFilterButtons.jsx'
 import { NodeDetailPanel } from '../components/NodeDetailPanel.jsx'
 import { NodeSummaryCards } from '../components/NodeSummaryCards.jsx'
 import { NodeTable } from '../components/NodeTable.jsx'
-import { isInternalNode, isPrimaryNode } from '../utils/nodeFilters.js'
+import { isIssueNode, isPrimaryNode, isRunningNode } from '../utils/nodeFilters.js'
 import { matchesResourceSearch } from '../utils/resourceSearch.js'
 import { matchesDomainFilter } from '../utils/domainFilter.js'
 import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
 const NODE_FILTERS = [
-  { id: 'primary', label: '주요 항목' },
+  { id: 'running', label: '실행 중' },
   { id: 'all', label: '전체' },
-  { id: 'active', label: '정상' },
   { id: 'issues', label: '오류' },
 ]
 
@@ -21,7 +20,6 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
   const {
     alerts,
     error,
-    includeInternalNodes,
     loading,
     meta,
     nodeAlerts,
@@ -52,27 +50,20 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
 
   const filteredNodes = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    const baseNodes = statusFilter === 'primary' && !includeInternalNodes
-      ? nodes.filter((node) => (
-          !isInternalNode(node) ||
-          (statusFilter === 'primary' && node.user_primary === true)
-        ))
-      : nodes
-
-    return baseNodes.filter((node) => {
-      const matchesStatus = statusFilter === 'primary'
-        ? isPrimaryNode(node, { actions, services, topics })
-        : statusFilter === 'all'
+    return nodes.filter((node) => {
+      const matchesStatus = statusFilter === 'all'
           ? true
+          : statusFilter === 'running'
+            ? isRunningNode(node)
           : statusFilter === 'issues'
-            ? node.status !== 'active'
-            : node.status === statusFilter
+            ? isIssueNode(node)
+            : true
       const matchesSearch =
         !normalizedSearch || nodeMatchesSearch(node, normalizedSearch)
 
       return matchesStatus && matchesSearch && matchesDomainFilter(node, selectedDomainId)
     })
-  }, [actions, includeInternalNodes, nodes, search, selectedDomainId, services, statusFilter, topics])
+  }, [nodes, search, selectedDomainId, statusFilter])
 
   const detailNode = filteredNodes.some(
     (node) => (node.resource_key ?? node.full_name) === selectedNodeName,
@@ -127,7 +118,7 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
         />
 
         <section className="topic-section">
-          <div className="filter-toolbar node-filter-bar">
+          <div className="filter-toolbar topic-toolbar">
             <input
               aria-label="Node 검색"
               onChange={(event) => setSearch(event.target.value)}
@@ -148,7 +139,6 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
                     }
                     key={filter.id}
                     onClick={() => {
-                      setIncludeInternalNodes(filter.id !== 'primary')
                       setStatusFilter(filter.id)
                     }}
                     type="button"
@@ -167,8 +157,8 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
 
           <NodeTable
             emptyMessage={
-              statusFilter === 'primary'
-                ? '현재 주요 Node가 없습니다.'
+              statusFilter === 'running'
+                ? '현재 실행 중인 Node가 없습니다.'
                 : '표시할 Node가 없습니다.'
             }
             nodes={filteredNodes}

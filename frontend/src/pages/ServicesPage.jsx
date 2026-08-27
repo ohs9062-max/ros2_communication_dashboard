@@ -10,12 +10,11 @@ import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
 export function ServicesPage({ dashboard, domainIds }) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('primary')
+  const [statusFilter, setStatusFilter] = useState('running')
   const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     alerts,
     error,
-    includeHidden,
     loading,
     focusQosDetails,
     qosFocusRequest,
@@ -46,8 +45,8 @@ export function ServicesPage({ dashboard, domainIds }) {
   }, [primaryServices, search, selectedDomainId, services, statusFilter])
 
   useEffect(() => {
-    setIncludeHidden(statusFilter !== 'primary')
-  }, [setIncludeHidden, statusFilter])
+    setIncludeHidden(true)
+  }, [setIncludeHidden])
 
   const detailService = filteredServices.some(
     (service) => (service.resource_key ?? service.name) === selectedServiceName,
@@ -113,8 +112,8 @@ export function ServicesPage({ dashboard, domainIds }) {
 
           <ServiceTable
             emptyMessage={
-              statusFilter === 'primary' && !includeHidden
-                ? '현재 주요 Service가 없습니다'
+              statusFilter === 'running'
+                ? '현재 실행 중인 Service가 없습니다'
                 : '표시할 Service가 없습니다'
             }
             onSelectService={setSelectedServiceName}

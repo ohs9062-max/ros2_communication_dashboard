@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 
 import {
   actionPresentation,
+  isIssueAction,
+  isRunningAction,
   matchesActionStatusFilter,
 } from './actionPresentation.js'
 
@@ -38,7 +40,6 @@ assert.equal(completed.lastResponseAt, 120)
 assert.deepEqual(completed.feedbackPreview, { source: 'summary' })
 assert.deepEqual(completed.resultPreview, { source: 'summary' })
 assert.equal(matchesActionStatusFilter(conflicting, 'running'), false)
-assert.equal(matchesActionStatusFilter(conflicting, 'succeeded'), true)
 
 const runtimeOnly = {
   runtime: {
@@ -54,12 +55,10 @@ assert.equal(running.goalStatus, 'executing')
 assert.equal(running.isRunning, true)
 assert.equal(running.feedbackWaiting, true)
 assert.equal(running.executionTimeMs, 25)
-assert.equal(matchesActionStatusFilter(runtimeOnly, 'running'), true)
 
 const unobserved = actionPresentation({ runtime: { last_goal_status: 'unknown', observed_goal_count: 0 } })
 assert.equal(unobserved.goalStatus, 'goal_unobserved')
 assert.equal(unobserved.goalUnobserved, true)
-assert.equal(matchesActionStatusFilter({ runtime: { last_goal_status: 'unknown' } }, 'unobserved'), true)
 
 const failed = {
   last_goal_summary: {
@@ -69,8 +68,6 @@ const failed = {
   runtime: { last_goal_status: 'executing', result_status: 'success' },
 }
 assert.equal(actionPresentation(failed).isFailedOrCanceled, true)
-assert.equal(matchesActionStatusFilter(failed, 'failed'), true)
-assert.equal(matchesActionStatusFilter(failed, 'succeeded'), false)
 
 const inconsistentSuccess = {
   last_goal_summary: {
@@ -82,5 +79,35 @@ const inconsistentSuccess = {
 assert.equal(actionPresentation(inconsistentSuccess).result.value, 'failed')
 assert.equal(actionPresentation(inconsistentSuccess).isSucceeded, false)
 assert.equal(actionPresentation(inconsistentSuccess).isFailedOrCanceled, true)
+
+const availableWithPastFailure = {
+  graph_present: true,
+  server_count: 1,
+  status: 'active',
+  last_goal_summary: {
+    last_goal_status: 'aborted',
+  },
+}
+assert.equal(isRunningAction(availableWithPastFailure), true)
+assert.equal(isIssueAction(availableWithPastFailure), false)
+assert.equal(matchesActionStatusFilter(availableWithPastFailure, 'running'), true)
+assert.equal(matchesActionStatusFilter(availableWithPastFailure, 'issues'), false)
+
+const actionWithoutServer = {
+  graph_present: true,
+  server_count: 0,
+  status: 'waiting_server',
+}
+assert.equal(isRunningAction(actionWithoutServer), false)
+assert.equal(isIssueAction(actionWithoutServer), true)
+
+const actionWithQosIssue = {
+  graph_present: true,
+  server_count: 1,
+  status: 'active',
+  qos: { goal: { qos_status: 'incompatible' } },
+}
+assert.equal(isRunningAction(actionWithQosIssue), true)
+assert.equal(isIssueAction(actionWithQosIssue), true)
 
 console.log('Action presentation tests passed')

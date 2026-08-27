@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 
 import {
+  isIssueService,
+  isRunningService,
   matchesServicePresentationFilter,
   servicePresentation,
 } from './servicePresentation.js'
+import { filterServices } from './serviceFilters.js'
 
 const called = {
   call_status: 'not_called',
@@ -95,5 +98,38 @@ assert.equal(legacy.effectiveStatus, 'active')
 assert.equal(legacy.lastCalledAt, 10)
 assert.deepEqual(legacy.requestPreview, { legacy: true })
 assert.equal(legacy.responseTimeMs, 5)
+
+const runningService = {
+  effective_status: 'active',
+  graph_present: true,
+  server_count: 1,
+  status: 'active',
+}
+assert.equal(isRunningService(runningService), true)
+assert.equal(isIssueService(runningService), false)
+assert.equal(isRunningService({ graph_present: true, server_count: 0 }), false)
+assert.equal(isIssueService({ graph_present: true, server_count: 0, status: 'inactive' }), true)
+assert.equal(isIssueService({
+  ...runningService,
+  qos_status: 'incompatible',
+}), true)
+
+const internalRunningService = {
+  ...runningService,
+  category: 'parameter',
+  name: '/node/get_parameters',
+}
+assert.deepEqual(filterServices({
+  primaryServices: [],
+  search: '',
+  services: [runningService, internalRunningService],
+  statusFilter: 'running',
+}), [runningService])
+assert.deepEqual(filterServices({
+  primaryServices: [],
+  search: '',
+  services: [runningService, internalRunningService],
+  statusFilter: 'all',
+}), [runningService, internalRunningService])
 
 console.log('Service presentation tests passed')
