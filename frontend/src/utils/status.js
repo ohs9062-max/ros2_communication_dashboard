@@ -12,6 +12,24 @@ export function topicEffectiveStatus(topic) {
   return String(topic?.effective_status ?? topic?.status ?? 'unknown').toLowerCase()
 }
 
+export function isRunningTopic(topic) {
+  if (topic?.graph_present === false || topic?.deep_monitoring !== true) {
+    return false
+  }
+
+  const publisherEndpoints = Number(
+    topic.publisher_endpoint_count ?? topic.publisher_count ?? 0,
+  )
+  const subscriberEndpoints = Number(
+    topic.subscriber_endpoint_count ?? topic.subscriber_count ?? 0,
+  )
+  const hasEndpoint = publisherEndpoints > 0 || subscriberEndpoints > 0
+  const receivingNormally =
+    topicEffectiveStatus(topic) === 'active' && topic.last_received_at != null
+
+  return hasEndpoint || receivingNormally
+}
+
 export function getTopicSummary(topics) {
   const summary = {
     total: topics.length,

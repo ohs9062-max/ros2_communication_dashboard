@@ -1,8 +1,6 @@
 const FILTERS = [
-  { id: 'primary', label: '주요 항목' },
+  { id: 'running', label: '실행 중' },
   { id: 'all', label: '전체' },
-  { id: 'waiting', label: '대기 중' },
-  { id: 'active', label: '정상' },
   { id: 'issues', label: '오류' },
 ]
 

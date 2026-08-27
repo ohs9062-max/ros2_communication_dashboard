@@ -6,6 +6,7 @@ import { TopicDetailPanel } from '../components/TopicDetailPanel.jsx'
 import { TopicTable } from '../components/TopicTable.jsx'
 import {
   getTopicSummary,
+  isRunningTopic,
   matchesStatusFilter,
   sortTopicsByHealth,
   topicEffectiveStatus,
@@ -18,7 +19,7 @@ import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
 export function TopicsPage({ dashboard, domainIds }) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('primary')
+  const [statusFilter, setStatusFilter] = useState('running')
   const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     alerts,
@@ -68,28 +69,25 @@ export function TopicsPage({ dashboard, domainIds }) {
   )
   const filteredTopics = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    const baseTopics = statusFilter === 'primary' ? activeTopics : topicItems
-    return sortTopicsByHealth(baseTopics).filter((topic) => {
+    return sortTopicsByHealth(topicItems).filter((topic) => {
       const type = topic.types?.[0] ?? ''
       const matchesSearch = matchesResourceSearch(topic, normalizedSearch, [
         topic.name,
         type,
       ])
       const matchesStatus =
-        statusFilter === 'primary' || statusFilter === 'all'
+        statusFilter === 'all'
           ? true
-          : statusFilter === 'waiting'
-            ? isWaitingTopic(topic)
-            : statusFilter === 'missing'
-              ? isTopicMissingMessages(topic)
-              : matchesStatusFilter(topic, statusFilter)
+          : statusFilter === 'running'
+            ? isRunningTopic(topic)
+            : matchesStatusFilter(topic, statusFilter)
       return (
         matchesSearch &&
         matchesDomainFilter(topic, selectedDomainId) &&
         matchesStatus
       )
     })
-  }, [activeTopics, search, selectedDomainId, statusFilter, topicItems])
+  }, [search, selectedDomainId, statusFilter, topicItems])
 
   const detailTopic = filteredTopics.some(
     (topic) => (topic.resource_key ?? topic.name) === selectedTopicName,
@@ -164,8 +162,8 @@ export function TopicsPage({ dashboard, domainIds }) {
           {priorityError && <p className="error-text">{priorityError}</p>}
           <TopicTable
             emptyMessage={
-              statusFilter === 'primary'
-                ? '현재 주요 Topic이 없습니다'
+              statusFilter === 'running'
+                ? '현재 실행 중인 Topic이 없습니다'
                 : '표시할 Topic이 없습니다'
             }
             hzByTopic={topicHzByName}
@@ -223,10 +221,4 @@ function findMonitorRow(name) {
 
 function isTopicMissingMessages(topic) {
   return topicEffectiveStatus(topic) === 'never_received'
-}
-
-function isWaitingTopic(topic) {
-  return ['waiting_publisher', 'no_subscriber'].includes(
-    String(topic.status || '').toLowerCase(),
-  )
 }

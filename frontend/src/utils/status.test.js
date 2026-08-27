@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 
 import {
   getTopicSummary,
+  isRunningTopic,
   matchesStatusFilter,
   topicEffectiveStatus,
   topicSeverity,
@@ -21,6 +22,32 @@ assert.equal(matchesStatusFilter(topics[1], 'error'), true)
 assert.equal(matchesStatusFilter(topics[0], 'issues'), false)
 assert.equal(matchesStatusFilter(topics[1], 'issues'), true)
 assert.equal(matchesStatusFilter({ name: '/unsupported', status: 'active', supported_type: false }, 'issues'), true)
+assert.equal(isRunningTopic({
+  deep_monitoring: true,
+  graph_present: true,
+  publisher_endpoint_count: 1,
+  status: 'active',
+}), true)
+assert.equal(isRunningTopic({
+  deep_monitoring: true,
+  graph_present: false,
+  publisher_endpoint_count: 1,
+  status: 'active',
+}), false)
+assert.equal(isRunningTopic({
+  deep_monitoring: false,
+  graph_present: true,
+  publisher_endpoint_count: 1,
+  status: 'active',
+}), false)
+assert.equal(isRunningTopic({
+  deep_monitoring: true,
+  effective_status: 'active',
+  graph_present: true,
+  last_received_at: 100,
+  publisher_endpoint_count: 0,
+  subscriber_endpoint_count: 0,
+}), true)
 assert.deepEqual(getTopicSummary(topics), {
   total: 3,
   active: 1,
