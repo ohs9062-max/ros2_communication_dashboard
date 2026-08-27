@@ -1,19 +1,15 @@
 import { isHiddenGraphNode, nodeConnectionCount } from '../../utils/graphTransform.js'
-import { isInternalNode, isPrimaryNode } from '../../utils/nodeFilters.js'
+import { isInternalNode } from '../../utils/nodeFilters.js'
 
 export function selectVisualizationNodes({
-  actions,
   includeHidden,
   nodeFilterMode,
   nodes,
   search,
-  services,
-  topics,
 }) {
   const normalizedSearch = search.trim().toLowerCase()
   return nodes
     .filter((node) => {
-      if (nodeFilterMode === 'primary') return isPrimaryNode(node, { actions, services, topics })
       if (nodeFilterMode === 'active') return node.status === 'active' && !isInternalNode(node)
       return includeHidden || !isHiddenGraphNode(node)
     })

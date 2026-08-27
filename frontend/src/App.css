@@ -5604,17 +5604,18 @@ details summary {
 }
 
 .topic-table th.resource-status-column {
-  width: 118px;
+  text-align: center !important;
+  width: 100px !important;
 }
 
 .topic-table th.resource-status-column .sort-header {
-  justify-content: flex-start;
-  text-align: left;
+  justify-content: center !important;
+  text-align: center !important;
 }
 
 .status-qos-cell,
 .service-status-cell {
-  text-align: left !important;
+  text-align: center !important;
   vertical-align: middle !important;
 }
 

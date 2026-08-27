@@ -5,13 +5,11 @@ export function VisualizationToolbar({
   isActiveNodeFilter,
   isAllNodeFilter,
   isNodeMode,
-  isPrimaryNodeFilter,
   loading,
   onActiveOnlyChange,
   onFitView,
   onGlobalView,
   onIncludeHiddenChange,
-  onNodeView,
   onRefresh,
   onResetLayout,
   onSearchChange,
@@ -29,7 +27,6 @@ export function VisualizationToolbar({
     <section className="topic-section visualization-toolbar">
       <div className="filter-toolbar">
         <div aria-label="시각화 모드" className="visualization-mode-tabs" role="group">
-          <ToggleButton active={isPrimaryNodeFilter} label="주요 노드" onClick={onNodeView} />
           <ToggleButton active={isActiveNodeFilter} label="실행 노드" onClick={onConnectedView} />
           <ToggleButton active={isAllNodeFilter} label="전체 노드" onClick={onGlobalView} />
         </div>

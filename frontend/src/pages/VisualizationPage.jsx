@@ -62,12 +62,6 @@ export function VisualizationPage({ websocket }) {
     setSelectedGraphNodeId('')
     setViewMode('nodes')
   }
-  const showNodeView = () => {
-    setNodeFilterMode('primary')
-    setViewMode('nodes')
-    setSelectedNodeName('')
-    setSelectedGraphNodeId('')
-  }
   const selectNode = (nodeName) => {
     setSelectedNodeName(nodeName)
     setSelectedGraphNodeId(`node:${nodeName}`)
@@ -94,7 +88,6 @@ export function VisualizationPage({ websocket }) {
   const isNodeMode = viewMode === 'nodes'
   const isConnectedMode = viewMode === 'connected'
   const isAllMode = viewMode === 'all'
-  const isPrimaryNodeFilter = nodeFilterMode === 'primary'
   const isActiveNodeFilter = nodeFilterMode === 'active'
   const isAllNodeFilter = nodeFilterMode === 'all'
 
@@ -166,14 +159,12 @@ export function VisualizationPage({ websocket }) {
           isActiveNodeFilter={isActiveNodeFilter}
           isAllNodeFilter={isAllNodeFilter}
           isNodeMode={isNodeMode}
-          isPrimaryNodeFilter={isPrimaryNodeFilter}
           loading={loading}
           onActiveOnlyChange={setActiveOnly}
           onConnectedView={showConnectedView}
           onFitView={() => fitViewRef.current?.()}
           onGlobalView={showGlobalView}
           onIncludeHiddenChange={setIncludeHidden}
-          onNodeView={showNodeView}
           onRefresh={refresh}
           onResetLayout={() => resetLayoutRef.current?.()}
           onSearchChange={setSearch}

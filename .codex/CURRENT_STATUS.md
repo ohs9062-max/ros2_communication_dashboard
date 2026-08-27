@@ -57,6 +57,8 @@
 - Node 탭 table은 Monitor가 snapshot에 유지하는 Dashboard 내부 Node(`is_internal=true`)를 실행 중·전체·오류
   모두에서 제외한다. 이 제외는 Frontend 목록 view에만 적용되며 Graph snapshot과 Topic/Service/Action 관계 계산은
   내부 Node 정보를 계속 사용한다.
+- 시각화 탭 Node 선택 모드는 `실행 노드`와 `전체 노드`만 제공하며, 기본은 `실행 노드`다. 이전 `주요 노드`
+  선택 UI와 primary 전용 분기는 사용하지 않는다.
 - Camera Preview는 Camera Topic 상세가 열린 동안만 `GET /ros/topics/image-preview`를 100ms 간격으로 호출해 최신
   frame 하나를 최대 10 FPS로 갱신한다. 상세를 닫거나 다른 resource로 바꾸면 DELETE가 해당
   `domain_id/resource_key`의 encode lease와 cached Base64를 즉시 제거하며, 3초 TTL은 browser 비정상 종료의

@@ -15,7 +15,7 @@ import { usePolling } from './usePolling.js'
 export function useVisualizationGraph() {
   const [activeOnly, setActiveOnly] = useState(true)
   const [includeHidden, setIncludeHidden] = useState(false)
-  const [nodeFilterMode, setNodeFilterMode] = useState('primary')
+  const [nodeFilterMode, setNodeFilterMode] = useState('active')
   const [search, setSearch] = useState('')
   const [selectedGraphNodeId, setSelectedGraphNodeId] = useState('')
   const [selectedNodeName, setSelectedNodeName] = useState('')
@@ -124,8 +124,8 @@ export function useVisualizationGraph() {
   }, [graph.nodes, selectedGraphNodeId, viewMode])
 
   const selectableNodes = useMemo(() => {
-    return selectVisualizationNodes({ actions, includeHidden, nodeFilterMode, nodes, search, services, topics })
-  }, [actions, includeHidden, nodeFilterMode, nodes, search, services, topics])
+    return selectVisualizationNodes({ includeHidden, nodeFilterMode, nodes, search })
+  }, [includeHidden, nodeFilterMode, nodes, search])
 
   const refresh = () => {
     nodeState.refresh()

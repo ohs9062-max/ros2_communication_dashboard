@@ -767,3 +767,23 @@
   1건), build와 diff check를 통과했다. GUI `pkexec`으로 local HTTPS 정적 경로에 반영했으며 source/target
   `index.html` SHA-256은 `33f7f7c3d7a837fd1b7404e886aeee32441df5fb76bb1bd529a8e25fdd99d2b7`, entry asset은
   `assets/index-gZFj05xN.js`로 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
+
+## 2026-08-27 - Topic·Service·Action 상태 열을 Node 기준으로 정렬
+
+- Node 탭을 기준으로 Topic·Service·Action의 상태 header와 상태/QoS stack 셀을 가운데 정렬하고 상태 열 폭을
+  100px로 통일했다. Node 탭은 수정하지 않았고 상태 값·QoS badge·필터·Alert·ROS/multi-domain 로직도 바꾸지
+  않았다.
+- Frontend lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다. GUI `pkexec`으로 local
+  HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
+  `459f156011ba20ec8caf87a3c53018d8d36e103c522a27a3f434d9ae54309fa8`와 entry asset
+  `assets/index-ByJwGTif.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
+
+## 2026-08-27 - 시각화 탭 주요 노드 항목 제거
+
+- 시각화 Node mode에서 `주요 노드` toggle과 primary 전용 선택 handler/state 분기를 제거했다. 기본 Node filter는
+  `실행 노드`로 바뀌었고 남은 선택지는 `실행 노드/전체 노드`다. Topic/Service/Action/Node 탭과 Graph 수집·상태
+  판정은 변경하지 않았다.
+- Frontend 전체 unit test, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), build와 diff check를 통과했다.
+  GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
+  `22613c2803bdf1c1772f649fbdfb20efb9e995110fb89be97ede71fddcf45599`와 entry asset
+  `assets/index-B_3fliEm.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
