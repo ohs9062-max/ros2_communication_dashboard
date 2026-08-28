@@ -14,19 +14,19 @@ import { QosModeControl } from './QosModeControl.jsx'
 export function TopicExecutionPanel({
   activeContinuousPublish,
   busy,
+  domainIds = [],
   expanded,
   history,
-  importableOnly,
   messageValues,
-  messages,
+  messages = [],
   modeLinked,
+  onClose,
   onContinuousStart,
   onContinuousStop,
+  onDomainChange = () => {},
   onFieldChange,
   onHzChange,
-  onImportableOnlyChange,
   onModeLinkChange,
-  onClose,
   onPublish,
   onQosModeChange,
   onQosProfileChange,
@@ -34,38 +34,42 @@ export function TopicExecutionPanel({
   onSelect,
   onTopicNameChange,
   onToggleExpanded,
-  publishGraphTopics,
-  publishDomainId,
-  publishName,
+  publishDomainId = null,
+  publishGraphTopics = [],
+  publishHz,
+  publishName = '',
   publishResult,
   publishWarning,
   qosMode,
   qosProfile,
-  publishHz,
   selected,
   selectedKey,
   showExpand,
-  visibleMessages,
+  visibleMessages = [],
 }) {
   return (
     <div className="interface-service-panel interface-execution-panel">
       <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="Topic 발행" />
       {messages.length ? (
         <>
-          <label className="interface-filter-check">
-            <input checked={importableOnly} onChange={(event) => onImportableOnlyChange(event.target.checked)} type="checkbox" />
-            <span>import된 메시지만 보기</span><small>{visibleMessages.length}/{messages.length}</small>
+          <label className="interface-service-field">
+            <span>Domain</span>
+            <select onChange={(event) => onDomainChange(event.target.value)} value={publishDomainId ?? ''}>
+              <option value="">Domain 선택</option>
+              {domainIds.map((domainId) => <option key={domainId} value={domainId}>D{domainId}</option>)}
+            </select>
           </label>
           <label className="interface-service-field">
-            <span>메시지 타입 · {visibleMessages.length}/{messages.length}개</span>
+            <span>Message type · D{publishDomainId ?? '-'}</span>
             <select value={selectedKey} onChange={(event) => onSelect(event.target.value)}>
+              <option value="">발행 Message 타입 선택</option>
               {visibleMessages.map((message) => (
                 <option key={messageKey(message)} value={messageKey(message)}>
-                  {message.import_available ? 'import됨' : 'import 안됨'} · {topicStatusLabel(message)} · {topicGraphStatusLabel(message)} · {message.message_type ?? message.full_type}
+                  {message.message_type ?? message.full_type}
                 </option>
               ))}
             </select>
-            {!visibleMessages.length && <small>import된 메시지 항목이 없습니다. 적용하기 또는 import 확인 후 다시 시도하세요.</small>}
+            {!visibleMessages.length && <small>선택 Domain에 import 가능한 메시지 항목이 없습니다.</small>}
           </label>
           {selected && (
             <div className={`interface-service-state ${selected.import_available ? 'success' : 'warning'}`}>
@@ -73,14 +77,16 @@ export function TopicExecutionPanel({
               {selected.import_error ? ` · ${selected.import_error}` : ''}
             </div>
           )}
-          <label className="interface-service-field">
-            <span>기존 Graph Topic 후보</span>
-            <select value={publishGraphTopics.find((topic) => topic.name === publishName && topic.domain_id === publishDomainId)?.resource_key ?? ''} onChange={(event) => onTopicNameChange(event.target.value, 'graph')}>
-              <option value="">직접 입력</option>
-              {publishGraphTopics.map((topic) => <option key={topic.resource_key} value={topic.resource_key}>{topic.name} · D{topic.domain_id} · {topic.type ?? topic.types?.[0] ?? '-'}</option>)}
-            </select>
-            <small>선택하면 해당 Topic에 추가 Publisher로 발행합니다. 새 Topic을 만들려면 Publish Topic name을 직접 입력하세요.</small>
-          </label>
+          {publishGraphTopics.length > 0 && (
+            <label className="interface-service-field">
+              <span>기존 Graph Topic 후보</span>
+              <select value={publishGraphTopics.find((topic) => topic.name === publishName && topic.domain_id === publishDomainId)?.resource_key ?? ''} onChange={(event) => onTopicNameChange(event.target.value, 'graph')}>
+                <option value="">직접 입력 또는 후보 선택</option>
+                {publishGraphTopics.map((topic) => <option key={topic.resource_key} value={topic.resource_key}>{topic.name} · D{topic.domain_id} · {topic.type ?? topic.types?.[0] ?? '-'}</option>)}
+              </select>
+              <small>선택하면 해당 Topic에 추가 Publisher로 발행합니다. 새 Topic을 만들려면 Publish Topic name을 직접 입력하세요.</small>
+            </label>
+          )}
           <label className="interface-service-field">
             <span>Publish Topic name</span>
             <input placeholder="/interface_lab_topic_test" value={publishName} onChange={(event) => onTopicNameChange(event.target.value, 'user')} />

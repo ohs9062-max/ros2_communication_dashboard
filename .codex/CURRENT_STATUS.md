@@ -142,9 +142,9 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
-- Interface Lab Service/Action Server의 전체 생명주기 및 이력 리셋을 실기기로 검증하고, Server 개설 패널의 버튼을 상단 서버 상태 영역으로 통합해 `[서버 개설 시작] [서버 종료] [이력 리셋] [새로고침]` 4개 버튼을 한 줄로 일렬 배치했다.
-  서버 중지 상태에서는 개설 시작 활성·종료 비활성, 실행 상태에서는 종료 활성·개설 시작 비활성이 적용되며 이력 리셋과 새로고침은 동일한 위치를 유지한다. ReceiveHistory 우측 중복 버튼을 제거해 컴팩트한 레이아웃을 구성했다.
-  Frontend unit test 20개 모듈·lint·build를 통과했고, 로컬 HTTPS 정적 배포(`assets/index-CT9qQqIj.js`)와 실화면 렌더링을 확인했다.
+- Interface Lab 클라이언트 실행 탭(Topic 발행, Service 호출, Action Goal)에 서버 개설 탭과 동일한 `Domain → 통신 타입 → 통신명` 3단계 선택 UI 및 로직을 적용했다.
+  선택된 Domain 기준으로 사용 가능한 타입을 필터링하고 실제 Graph 후보를 선택/직접 입력할 수 있도록 구성했으며, QoS/schema/history/실행 동작을 온전히 유지했다.
+  Frontend unit test 20개 모듈·lint·build를 통과했고, 로컬 HTTPS 정적 배포(`assets/index-CknMlnQ2.js`)와 실화면 렌더링 및 Service Call 실행을 확인했다.
 
 
 - Action 상세 history에 Interface Lab Goal과 실제 외부 통신에서 관찰한 Status 전이·Feedback·terminal Result를

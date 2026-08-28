@@ -9,51 +9,83 @@ import { QosModeControl } from './QosModeControl.jsx'
 
 export function ServiceExecutionPanel({
   busy,
-  calls,
-  importableOnly,
+  calls = [],
+  domainIds = [],
+  expanded,
+  graphCandidates = [],
   modeLinked,
+  onClose,
+  onDomainChange = () => {},
   onExecute,
   onFieldChange,
-  onImportableOnlyChange,
   onModeLinkChange,
-  onClose,
   onRequestQosModeChange,
   onRequestQosProfileChange,
   onSelect,
+  onServiceNameChange = () => {},
   onTimeoutChange,
   onToggleExpanded,
-  requestValues,
-  result,
   requestQosMode,
   requestQosProfile,
+  requestValues,
+  result,
   selected,
+  selectedDomainId = null,
   selectedKey,
-  services,
+  serviceName = '',
+  services = [],
   showExpand,
   timeoutSec,
-  visibleServices,
-  expanded,
+  visibleServices = [],
 }) {
   return (
     <div className="interface-service-panel interface-execution-panel">
       <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="Service 호출" />
       {services.length ? (
         <>
-          <label className="interface-filter-check">
-            <input checked={importableOnly} onChange={(event) => onImportableOnlyChange(event.target.checked)} type="checkbox" />
-            <span>import된 서비스만 보기</span><small>{visibleServices.length}/{services.length}</small>
+          <label className="interface-service-field">
+            <span>Domain</span>
+            <select onChange={(event) => onDomainChange(event.target.value)} value={selectedDomainId ?? ''}>
+              <option value="">Domain 선택</option>
+              {domainIds.map((domainId) => <option key={domainId} value={domainId}>D{domainId}</option>)}
+            </select>
           </label>
           <label className="interface-service-field">
-            <span>Service · {visibleServices.length}/{services.length}개</span>
+            <span>Service type · D{selectedDomainId ?? '-'}</span>
             <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
-              <option value="">호출 Service 선택</option>
+              <option value="">호출 Service 타입 선택</option>
               {visibleServices.map((service) => (
                 <option key={serviceKey(service)} value={serviceKey(service)}>
-                  {service.service_name} · D{service.domain_id} · {service.service_type} · {service.import_available ? 'import됨' : 'import 안됨'} · {serviceStatusLabel(service)}
+                  {service.service_type}
                 </option>
               ))}
             </select>
-            {!visibleServices.length && <small>import된 서비스 항목이 없습니다. 적용하기 또는 import 확인 후 다시 시도하세요.</small>}
+            {!visibleServices.length && <small>선택 Domain에 import 가능한 Service 타입이 없습니다.</small>}
+          </label>
+          {graphCandidates.length > 0 && (
+            <label className="interface-service-field">
+              <span>기존 Graph Service 후보</span>
+              <select
+                onChange={(event) => onServiceNameChange(event.target.value)}
+                value={graphCandidates.some((s) => s.service_name === serviceName) ? serviceName : ''}
+              >
+                <option value="">직접 입력 또는 후보 선택</option>
+                {graphCandidates.map((service) => (
+                  <option key={service.resource_key} value={service.service_name}>
+                    {service.service_name} · D{service.domain_id} · {serviceStatusLabel(service)}
+                  </option>
+                ))}
+              </select>
+              <small>Graph에 등록된 Service를 선택하거나 아래에서 직접 이름을 수정하세요.</small>
+            </label>
+          )}
+          <label className="interface-service-field">
+            <span>호출 Service name</span>
+            <input
+              placeholder="/service_name"
+              value={serviceName}
+              onChange={(event) => onServiceNameChange(event.target.value)}
+            />
           </label>
           {selected && <div className={`interface-service-state ${selected.callable ? 'success' : 'warning'}`}>{serviceStatusLabel(selected)}{selected.reason ? ` · ${selected.reason}` : ''}</div>}
           {selected && <div className="interface-package-help">선택 타입 {selected.service_type}의 Request schema {selected.request_schema?.length ?? 0}개 필드로 폼을 생성합니다.</div>}

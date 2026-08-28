@@ -456,6 +456,72 @@ h3 {
   gap: 8px;
 }
 
+.interface-server-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.interface-server-form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.interface-server-receive-column {
+  background: rgba(8, 13, 19, 0.45);
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.interface-server-receive-header {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+
+.interface-server-receive-header > strong {
+  color: var(--blue);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.interface-server-receive-column .interface-receive-history {
+  border-top: none;
+  padding-top: 0;
+}
+
+.interface-service-panel.interface-execution-panel.interface-server-panel {
+  flex: 1 0 100%;
+  height: auto;
+  max-height: none;
+  width: 100%;
+}
+
+.interface-upload-control.topic-workbench-expanded .interface-service-panel.interface-execution-panel.interface-server-panel {
+  flex: 1 0 100%;
+  height: min(900px, 86vh);
+  max-height: none;
+  width: 100%;
+}
+
+@media (max-width: 1180px) {
+  .interface-server-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .interface-server-actions {
   align-items: center;
   display: flex;

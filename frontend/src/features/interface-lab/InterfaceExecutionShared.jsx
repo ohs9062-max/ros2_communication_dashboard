@@ -112,9 +112,9 @@ export function ReceiveHistory({
           {onReset && <button
             className="interface-receive-action-button warning"
             disabled={busy || resetDisabled}
-            onClick={() => window.confirm('현재 선택한 Server의 이력을 초기화할까요?') && onReset()}
+            onClick={onReset}
             type="button"
-          >이력 리셋</button>}
+          >{busy ? '처리 중…' : '이력 리셋'}</button>}
         </div>}
       </div>
       {items.length ? (

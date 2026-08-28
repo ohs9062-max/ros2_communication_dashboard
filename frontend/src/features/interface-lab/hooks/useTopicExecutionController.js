@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
+import { fetchDomains } from '../../../api/monitoring.js'
 import {
   fetchCallableMessages,
   fetchTopicPublishHistory,
@@ -12,6 +13,9 @@ import {
   messageKey,
   normalizeNumericValues,
 } from '../model/interfaceUploadModel.js'
+import {
+  configuredServerDomainIds,
+} from '../model/serverSelection.js'
 import {
   graphPublishTopicCandidates,
   topicNameTypeWarning,
@@ -27,6 +31,7 @@ export function useTopicExecutionController({
   setFeedback,
 }) {
   const [messages, setMessages] = useState([])
+  const [domainIds, setDomainIds] = useState([])
   const [selectedKey, setSelectedKey] = useState('')
   const [importableOnly, setImportableOnly] = useState(false)
   const [publishName, setPublishName] = useState('')
@@ -39,81 +44,80 @@ export function useTopicExecutionController({
   const [history, setHistory] = useState([])
   const qos = useExecutionQos()
 
-  const visibleMessages = useMemo(
-    () => importableOnly
+  const visibleMessages = useMemo(() => {
+    const list = importableOnly
       ? messages.filter((message) => message.import_available)
-      : messages,
-    [importableOnly, messages],
-  )
+      : messages
+    const map = new Map()
+    for (const item of list) {
+      const type = item.message_type ?? item.full_type
+      if (type && !map.has(type)) {
+        map.set(type, item)
+      }
+    }
+    return [...map.values()].sort((a, b) =>
+      String(a.message_type ?? a.full_type).localeCompare(String(b.message_type ?? b.full_type))
+    )
+  }, [importableOnly, messages])
+
   const selected = useMemo(
-    () => messages.find((message) => messageKey(message) === selectedKey),
+    () => messages.find((message) => messageKey(message) === selectedKey)
+      ?? messages.find((message) => (message.message_type ?? message.full_type) === selectedKey),
     [messages, selectedKey],
   )
-  const publishGraphTopics = useMemo(
-    () => graphPublishTopicCandidates(availableTopics, selected?.message_type),
-    [availableTopics, selected?.message_type],
-  )
+
+  const publishGraphTopics = useMemo(() => {
+    const candidates = graphPublishTopicCandidates(availableTopics, selected?.message_type)
+    return publishDomainId != null
+      ? candidates.filter((topic) => topic.domain_id === publishDomainId)
+      : candidates
+  }, [availableTopics, publishDomainId, selected?.message_type])
+
   const publishWarning = topicNameTypeWarning(
     availableTopics,
     publishName,
     selected?.message_type,
   )
+
   const visibleHistory = history.filter((event) =>
     (!publishName || event.topic_name === publishName)
     && (publishDomainId === null || event.domain_id === publishDomainId)
     && (!selected?.message_type || event.topic_type === selected.message_type),
   )
 
-  const select = useCallback((key) => {
-    const message = messages.find((item) => messageKey(item) === key)
-    setSelectedKey(key)
-    onMessageSelectionChange?.(key)
+  const suggestedName = useCallback((message, domainId, topics = availableTopics) => {
+    const msgType = message?.message_type ?? message?.full_type
+    const graphResource = topics.find((item) => (
+      item.domain_id === domainId
+      && (item.type === msgType || item.types?.includes(msgType))
+      && String(item.name ?? '').trim()
+    ))
+    if (graphResource) return String(graphResource.name).trim()
+    const typeName = String(msgType ?? '').split('/').filter(Boolean).at(-1)
+    return typeName ? `/${typeName}` : ''
+  }, [availableTopics])
+
+  const applySelection = useCallback((message, domainId, topics) => {
+    setSelectedKey(message ? messageKey(message) : '')
+    onMessageSelectionChange?.(message ? messageKey(message) : '')
     setMessageValues(defaultRequestValues(message?.message_schema ?? []))
+    setPublishName(message ? suggestedName(message, domainId, topics) : '')
     setResult(null)
-  }, [messages, onMessageSelectionChange])
+  }, [onMessageSelectionChange, suggestedName])
 
-  useEffect(() => {
-    if (!visibleMessages.length) {
-      if (selectedKey) select('')
-      return
+  const select = useCallback((key) => {
+    const message = visibleMessages.find((item) => messageKey(item) === key)
+      ?? visibleMessages.find((item) => (item.message_type ?? item.full_type) === key)
+    applySelection(message, publishDomainId, availableTopics)
+  }, [applySelection, availableTopics, publishDomainId, visibleMessages])
+
+  const selectDomain = useCallback((value) => {
+    const domainId = value === '' ? null : Number(value)
+    setPublishDomainId(domainId)
+    if (selected) {
+      setPublishName(suggestedName(selected, domainId, availableTopics))
     }
-    if (visibleMessages.some((message) => messageKey(message) === selectedKey)) return
-    select(messageKey(visibleMessages[0]))
-  }, [select, selectedKey, visibleMessages])
-
-  useEffect(() => {
-    if (!selected?.message_type) return
-    const currentName = publishName.trim()
-    const currentIsCandidate = publishGraphTopics.some((topic) =>
-      topic.name === currentName && topic.domain_id === publishDomainId)
-    const source = publishNameSourceRef.current
-
-    if (source === 'user') {
-      if (currentName) return
-    } else if (source === 'graph') {
-      if (currentIsCandidate) return
-      publishNameSourceRef.current = 'empty'
-      setPublishName('')
-      setPublishDomainId(null)
-      setPublishResourceKey('')
-      return
-    } else if (source === 'auto' && publishGraphTopics.length !== 1) {
-      publishNameSourceRef.current = 'empty'
-      setPublishName('')
-      setPublishDomainId(null)
-      setPublishResourceKey('')
-      return
-    }
-
-    if (publishGraphTopics.length === 1) {
-      const nextName = publishGraphTopics[0].name
-      if (source === 'auto' && currentName === nextName) return
-      publishNameSourceRef.current = 'auto'
-      setPublishName(nextName)
-      setPublishDomainId(publishGraphTopics[0].domain_id ?? null)
-      setPublishResourceKey(publishGraphTopics[0].resource_key ?? '')
-    }
-  }, [publishDomainId, publishGraphTopics, publishName, selected?.message_type])
+  }, [availableTopics, selected, suggestedName])
 
   const continuous = useContinuousTopicExecution({
     messageValues,
@@ -135,34 +139,36 @@ export function useTopicExecutionController({
   }, [setContinuousPublishes])
 
   const load = useCallback(async ({ target = null } = {}) => {
-    const [messagesPayload, historyPayload] = await Promise.all([
+    const [messagesPayload, domainsPayload, historyPayload] = await Promise.all([
       fetchCallableMessages(),
+      fetchDomains(),
       fetchTopicPublishHistory({ limit: 100 }),
     ])
     const nextMessages = messagesPayload.data ?? []
+    const nextDomains = configuredServerDomainIds(domainsPayload)
     replace(nextMessages, historyPayload.data ?? [])
+    setDomainIds(nextDomains)
+
+    const targetDomainId = target?.domainId ?? (nextDomains.includes(publishDomainId) ? publishDomainId : nextDomains[0] ?? null)
+    setPublishDomainId(targetDomainId)
+
     if (target) {
-      const message = nextMessages.find((item) => item.message_type === target.fullType)
+      const message = nextMessages.find((item) => (item.message_type ?? item.full_type) === target.fullType)
       if (message) {
         setSelectedKey(messageKey(message))
         onMessageSelectionChange?.(messageKey(message))
         setMessageValues(defaultRequestValues(message.message_schema ?? []))
       }
-      if (target.name && target.domainId !== null && target.domainId !== undefined) {
+      if (target.name) {
         publishNameSourceRef.current = 'graph'
         setPublishName(target.name)
-        setPublishDomainId(target.domainId)
         setPublishResourceKey(target.resourceKey ?? '')
-        onGraphTopicSelectionChange?.({
-          name: target.name,
-          domain_id: target.domainId,
-          resource_key: target.resourceKey ?? '',
-          type: target.fullType,
-        })
       }
+    } else if (!selectedKey && nextMessages.length > 0) {
+      applySelection(nextMessages[0], targetDomainId, availableTopics)
     }
     return nextMessages
-  }, [onGraphTopicSelectionChange, onMessageSelectionChange, replace])
+  }, [applySelection, availableTopics, onMessageSelectionChange, publishDomainId, replace, selectedKey])
 
   const changePublishName = useCallback((value, sourceKind) => {
     if (sourceKind === 'graph') {
@@ -250,6 +256,7 @@ export function useTopicExecutionController({
     ...qos,
     busy,
     changePublishName,
+    domainIds,
     history,
     importableOnly,
     load,
@@ -265,8 +272,10 @@ export function useTopicExecutionController({
     resetHistory,
     result,
     select,
+    selectDomain,
     selectGraphTopicFromReceive,
     selected,
+    selectedDomainId: publishDomainId,
     selectedKey,
     setHistory,
     setImportableOnly,
