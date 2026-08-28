@@ -3,7 +3,7 @@ import {
   ActionGoalResult,
 } from '../InterfaceExecutionShared.jsx'
 import { SchemaRequestField } from '../SchemaRequestField.jsx'
-import { actionKey, actionStatusLabel } from '../model/interfaceUploadModel.js'
+import { actionStatusLabel } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
 import { ActionQosControl } from './ActionQosControl.jsx'
 
@@ -52,7 +52,7 @@ export function ActionExecutionPanel({
             <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
               <option value="">Goal Action 타입 선택</option>
               {visibleActions.map((action) => (
-                <option key={actionKey(action)} value={actionKey(action)}>
+                <option key={action.action_type} value={action.action_type}>
                   {action.action_type}
                 </option>
               ))}

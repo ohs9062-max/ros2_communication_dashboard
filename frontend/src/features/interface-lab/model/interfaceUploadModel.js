@@ -59,6 +59,44 @@ export function executionCandidateForTarget(item, target, nameField, typeField) 
   return candidates.find(matches) ?? null
 }
 
+export function executionResourceForTarget(items, target, nameField, typeField) {
+  for (const item of items) {
+    const candidate = executionCandidateForTarget(item, target, nameField, typeField)
+    if (candidate) return candidate
+  }
+  return null
+}
+
+export function executionResourceForSelection(items, key, domainId, keyOf, typeField) {
+  return items.find((item) => keyOf(item) === key)
+    ?? items.find((item) => item.domain_id === domainId && item[typeField] === key)
+    ?? null
+}
+
+export function actionGoalPayload({
+  actionName,
+  actionType,
+  domainId,
+  goal,
+  qosSelection,
+  timeoutSec,
+}) {
+  return {
+    action_name: actionName,
+    action_type: actionType,
+    domain_id: domainId,
+    goal,
+    qos: qosSelection,
+    timeout_sec: timeoutSec,
+  }
+}
+
+export async function refreshServiceCallState({ fetchHistory, onStateChanged, setHistory }) {
+  const nextHistory = await fetchHistory()
+  setHistory(nextHistory.data ?? [])
+  onStateChanged?.()
+}
+
 export function executionResourceOptions(items = [], nameField, typeField) {
   const resources = new Map()
   for (const item of items) {

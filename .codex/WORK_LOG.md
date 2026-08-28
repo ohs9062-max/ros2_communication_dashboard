@@ -325,3 +325,11 @@
 - Frontend unit test 20개 모듈 전체 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 프로덕션 빌드(`assets/index-DbNgpCji.js`)를 완료했다.
 - 최신 빌드를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, Headless Chrome(1440×1200)을 통해 Service, Action, Topic 각각의 `Exec(99) ↔ Recv(99)` 및 `Recv(1) ↔ Exec(1)` 양방향 Domain 동기화 실화면 렌더링 및 동작을 검증했다.
 
+## 2026-08-28 - Domain 양방향 동기화 7개 회귀 최소 복구
+
+- Action Goal의 `qos.qosSelection`, Service/Action camelCase `executionTarget`, Topic Domain 변경 시 stale `resource_key` 제거 계약을 복구했다.
+- Service Receive Manual QoS profile handler와 실패 Call 이후 history/state 갱신을 복구하고, 같은 Domain·같은 type·다른 name의 Service/Action이 exact resource identity로 실행·수신 양방향 동기화되도록 보완했다.
+- Git history상 서버 UI 작업 커밋에서 근거 없이 바뀐 `domains.ids`를 `[0, 2, 3, 4, 22, 99]`로 복구했으며 Backend/Monitor 재동기화 후 6개 Domain runtime이 모두 monitoring 상태임을 확인했다.
+- Action QoS payload, camelCase target, Topic stale key, Service Receive QoS onChange, 동일 type 다중 name identity, Service 실패 refresh에 대한 Frontend 회귀 테스트를 추가했다.
+- Frontend unit 전체, oxlint(기존 VisualizationPage warning 1건), Vite production build, 관련 Monitor pytest 19건, `git diff --check`를 통과했다.
+- D0/D99에 동일한 demo Topic/Service/Action을 실행해 HTTPS API history가 각각 `0:/...`, `99:/...`로 분리됨을 확인했고, D99 Action의 5채널 Manual QoS depth 7 적용을 확인한 뒤 demo를 종료했다. 최종 build를 `/var/lib/ros2-dashboard/frontend/`에 반영했다.

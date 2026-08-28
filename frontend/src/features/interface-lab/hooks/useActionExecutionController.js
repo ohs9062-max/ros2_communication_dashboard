@@ -8,8 +8,11 @@ import {
 } from '../../../api/interfaceExecution.js'
 import {
   actionKey,
+  actionGoalPayload,
   defaultRequestValues,
   domainIdFromResource,
+  executionResourceForSelection,
+  executionResourceForTarget,
   normalizeNumericValues,
 } from '../model/interfaceUploadModel.js'
 import {
@@ -52,8 +55,7 @@ export function useActionExecutionController({
   }, [actions, importableOnly, selectedDomainId])
 
   const selected = useMemo(() => {
-    const candidate = visibleActions.find((item) => actionKey(item) === selectedKey)
-      ?? visibleActions.find((item) => item.action_type === selectedKey)
+    const candidate = visibleActions.find((item) => item.action_type === selectedKey)
     if (!candidate) return null
     const graphMatch = actions.find((item) => (
       item.domain_id === selectedDomainId
@@ -88,18 +90,37 @@ export function useActionExecutionController({
   }, [actions])
 
   const applySelection = useCallback((action, domainId, allActions) => {
-    setSelectedKey(action ? actionKey(action) : '')
+    setSelectedKey(action?.action_type ?? '')
     setGoalValues(defaultRequestValues(action?.goal_schema ?? []))
-    setActionName(action ? suggestedName(action, domainId, allActions) : '')
+    const exactName = action?.domain_id === domainId && String(action?.action_name ?? '').trim()
+      ? String(action.action_name).trim()
+      : ''
+    const nextName = action ? exactName || suggestedName(action, domainId, allActions) : ''
+    setActionName(nextName)
     setResult(null)
-    onSelectionChange?.(action ? actionKey(action) : '')
-  }, [onSelectionChange, suggestedName])
+    const exactResource = (allActions ?? actions).find((item) => (
+      item.domain_id === domainId
+      && item.action_type === action?.action_type
+      && item.action_name === nextName
+    ))
+    onSelectionChange?.(exactResource ? actionKey(exactResource) : '')
+  }, [actions, onSelectionChange, suggestedName])
 
   const select = useCallback((key) => {
-    const action = visibleActions.find((item) => actionKey(item) === key)
-      ?? visibleActions.find((item) => item.action_type === key)
-    applySelection(action, selectedDomainId)
-  }, [applySelection, selectedDomainId, visibleActions])
+    const action = executionResourceForSelection(
+      actions, key, selectedDomainId, actionKey, 'action_type',
+    )
+    const exact = action && actionKey(action) === key ? action : null
+    const domainId = exact?.domain_id ?? selectedDomainId
+    if (exact) setSelectedDomainId(domainId)
+    applySelection(action, domainId)
+  }, [actions, applySelection, selectedDomainId])
+
+  const changeActionName = useCallback((value) => {
+    setActionName(value)
+    const exact = graphCandidates.find((item) => item.action_name === value)
+    onSelectionChange?.(exact ? actionKey(exact) : '')
+  }, [graphCandidates, onSelectionChange])
 
   const selectDomain = useCallback((value, notify = true) => {
     const domainId = value === '' ? null : Number(value)
@@ -131,7 +152,7 @@ export function useActionExecutionController({
     replace(nextActions, historyPayload.data ?? [])
     setDomainIds(nextDomains)
 
-    const targetDomainId = target?.domain_id ?? (nextDomains.includes(selectedDomainId) ? selectedDomainId : nextDomains[0] ?? null)
+    const targetDomainId = target?.domainId ?? (nextDomains.includes(selectedDomainId) ? selectedDomainId : nextDomains[0] ?? null)
     setSelectedDomainId(targetDomainId)
 
     const available = nextActions.filter((item) => (
@@ -140,16 +161,20 @@ export function useActionExecutionController({
       && Boolean(item.action_type)
     ))
     const initialAction = (target
-      ? available.find((item) => item.action_type === target.action_type || item.action_name === target.action_name)
+      ? executionResourceForTarget(available, target, 'action_name', 'action_type')
       : null) ?? available[0]
 
     applySelection(initialAction, targetDomainId, nextActions)
-    if (target?.action_name) {
-      setActionName(target.action_name)
+    if (target?.name) {
+      setActionName(target.name)
+      const exact = executionResourceForTarget(
+        available, target, 'action_name', 'action_type',
+      )
+      onSelectionChange?.(exact ? actionKey(exact) : '')
     }
     onDomainChange?.(targetDomainId)
     return nextActions
-  }, [applySelection, onDomainChange, replace, selectedDomainId])
+  }, [applySelection, onDomainChange, onSelectionChange, replace, selectedDomainId])
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
@@ -168,14 +193,14 @@ export function useActionExecutionController({
     setBusy(true)
     setResult(null)
     try {
-      const payload = await sendActionGoal({
-        action_name: actionName.trim(),
-        action_type: selected.action_type,
+      const payload = await sendActionGoal(actionGoalPayload({
+        actionName: actionName.trim(),
+        actionType: selected.action_type,
+        domainId,
         goal: normalizeNumericValues(goalValues, selected.goal_schema),
-        timeout_sec: timeoutSec,
-        qos: qos.actionQosSelection,
-        domain_id: domainId,
-      })
+        qosSelection: qos.qosSelection,
+        timeoutSec,
+      }))
       const nextHistory = await fetchActionGoalHistory()
       setHistory(nextHistory.data ?? [])
       setResult(payload)
@@ -185,7 +210,7 @@ export function useActionExecutionController({
     } finally {
       setBusy(false)
     }
-  }, [actionName, goalValues, onStateChanged, qos.actionQosSelection, selected, selectedDomainId, timeoutSec])
+  }, [actionName, goalValues, onStateChanged, qos.qosSelection, selected, selectedDomainId, timeoutSec])
 
   return {
     ...qos,
@@ -208,7 +233,7 @@ export function useActionExecutionController({
     selected,
     selectedDomainId,
     selectedKey,
-    setActionName,
+    setActionName: changeActionName,
     setGoalValues,
     setImportableOnly,
     setTimeoutSec,

@@ -18,6 +18,7 @@ import {
 } from '../model/serverSelection.js'
 import {
   graphPublishTopicCandidates,
+  topicSelectionForDomain,
   topicNameTypeWarning,
 } from '../../../utils/interfaceTopics.js'
 import { useContinuousTopicExecution } from './useContinuousTopicExecution.js'
@@ -86,25 +87,29 @@ export function useTopicExecutionController({
     && (!selected?.message_type || event.topic_type === selected.message_type),
   )
 
+  const selectionForDomain = useCallback((message, domainId, topics = availableTopics) => {
+    return topicSelectionForDomain({ message, domainId, topics })
+  }, [availableTopics])
+
   const suggestedName = useCallback((message, domainId, topics = availableTopics) => {
+    const selection = topicSelectionForDomain({ message, domainId, topics })
+    if (selection.name) return selection.name
     const msgType = message?.message_type ?? message?.full_type
-    const graphResource = topics.find((item) => (
-      item.domain_id === domainId
-      && (item.type === msgType || item.types?.includes(msgType))
-      && String(item.name ?? '').trim()
-    ))
-    if (graphResource) return String(graphResource.name).trim()
     const typeName = String(msgType ?? '').split('/').filter(Boolean).at(-1)
     return typeName ? `/${typeName}` : ''
   }, [availableTopics])
 
   const applySelection = useCallback((message, domainId, topics) => {
+    const graphSelection = selectionForDomain(message, domainId, topics)
     setSelectedKey(message ? messageKey(message) : '')
     onMessageSelectionChange?.(message ? messageKey(message) : '')
     setMessageValues(defaultRequestValues(message?.message_schema ?? []))
-    setPublishName(message ? suggestedName(message, domainId, topics) : '')
+    setPublishName(message ? graphSelection.name || suggestedName(message, domainId, topics) : '')
+    setPublishResourceKey(graphSelection.resourceKey)
+    publishNameSourceRef.current = graphSelection.topic ? 'graph' : message ? 'auto' : 'empty'
+    if (graphSelection.topic) onGraphTopicSelectionChange?.(graphSelection.topic)
     setResult(null)
-  }, [onMessageSelectionChange, suggestedName])
+  }, [onGraphTopicSelectionChange, onMessageSelectionChange, selectionForDomain, suggestedName])
 
   const select = useCallback((key) => {
     const message = visibleMessages.find((item) => messageKey(item) === key)
@@ -114,12 +119,16 @@ export function useTopicExecutionController({
 
   const selectDomain = useCallback((value, notify = true) => {
     const domainId = value === '' ? null : Number(value)
+    const graphSelection = selectionForDomain(selected, domainId, availableTopics)
     setPublishDomainId(domainId)
     if (selected) {
-      setPublishName(suggestedName(selected, domainId, availableTopics))
+      setPublishName(graphSelection.name || suggestedName(selected, domainId, availableTopics))
     }
+    setPublishResourceKey(graphSelection.resourceKey)
+    publishNameSourceRef.current = graphSelection.topic ? 'graph' : selected ? 'auto' : 'empty'
+    if (graphSelection.topic) onGraphTopicSelectionChange?.(graphSelection.topic)
     if (notify) onDomainChange?.(domainId)
-  }, [availableTopics, onDomainChange, selected, suggestedName])
+  }, [availableTopics, onDomainChange, onGraphTopicSelectionChange, selected, selectionForDomain, suggestedName])
 
   const continuous = useContinuousTopicExecution({
     messageValues,

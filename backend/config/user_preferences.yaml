@@ -6,5 +6,9 @@ priority:
   nodes: []
 domains:
   ids:
-  - 1
+  - 0
+  - 2
+  - 3
+  - 4
+  - 22
   - 99

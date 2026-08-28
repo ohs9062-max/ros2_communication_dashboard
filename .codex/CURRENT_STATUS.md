@@ -459,6 +459,8 @@ git diff --check: 통과
 Interface Lab demo E2E에서 Topic Auto/Manual Publish·Subscribe, `/RobotControl` Service Auto와 Manual
 RELIABLE(depth 7→8), `/CanControl` Action Auto와 채널 그룹별 Manual Goal이 모두 성공했다. Service/Action
 Service 채널은 Fast DDS, Topic과 Action Feedback/Status는 Graph 관찰값을 사용한 실제 실행 QoS를 확인했다.
+추가 D0/D99 동일 이름 demo E2E에서 Topic Publish, Service Call, Action Goal history가 Domain별 `resource_key`로
+분리되고 D99 Action Goal의 5개 Manual QoS 채널에 depth 7이 적용됨을 재확인했다.
 
 Fast DDS passive E2E에서는 Call/Goal/Client 생성 없이 Service request Reader/response Writer와 Action
 Goal/Result/Cancel의 각 request Reader/response Writer를 발견했다. History/Depth는 `unknown`/`null`,

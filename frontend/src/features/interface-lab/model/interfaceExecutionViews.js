@@ -105,6 +105,7 @@ export function interfaceExecutionViews({
       setSelectedServiceKey: receive.setSelectedReceiveServiceKey,
       setServiceQosModeLinked: qos.serviceQosLink.linkFromReceive,
       setServiceResponseQosMode: qos.serviceQosLink.changeReceiveMode,
+      setServiceResponseQosProfile: (profile) => qos.serviceQosLink.changeReceiveProfile('service', profile),
       setTopicImportableOnly: receive.setMessageImportableOnly,
       setTopicQosMode: qos.topicQosLink.changeReceiveMode,
       setTopicQosModeLinked: qos.topicQosLink.linkFromReceive,

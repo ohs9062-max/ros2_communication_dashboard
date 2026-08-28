@@ -3,7 +3,7 @@ import {
   ServiceCallHistory,
 } from '../InterfaceExecutionShared.jsx'
 import { SchemaRequestField } from '../SchemaRequestField.jsx'
-import { serviceKey, serviceStatusLabel } from '../model/interfaceUploadModel.js'
+import { serviceStatusLabel } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from './ExecutionPanelHeading.jsx'
 import { QosModeControl } from './QosModeControl.jsx'
 
@@ -55,7 +55,7 @@ export function ServiceExecutionPanel({
             <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
               <option value="">호출 Service 타입 선택</option>
               {visibleServices.map((service) => (
-                <option key={serviceKey(service)} value={serviceKey(service)}>
+                <option key={service.service_type} value={service.service_type}>
                   {service.service_type}
                 </option>
               ))}

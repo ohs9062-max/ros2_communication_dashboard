@@ -27,6 +27,17 @@ export function graphPublishTopicCandidates(topics = [], fullType = '') {
   ))
 }
 
+export function topicSelectionForDomain({ message, domainId, topics = [] }) {
+  const messageType = message?.message_type ?? message?.full_type
+  const topic = graphPublishTopicCandidates(topics, messageType)
+    .find((item) => item.domain_id === domainId) ?? null
+  return {
+    name: topic ? String(topic.name ?? '').trim() : '',
+    resourceKey: topic?.resource_key ?? '',
+    topic,
+  }
+}
+
 export function topicNameTypeWarning(topics = [], topicName = '', fullType = '') {
   const normalizedName = topicName.trim()
   if (!normalizedName || !fullType) return null

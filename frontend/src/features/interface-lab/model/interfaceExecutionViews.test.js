@@ -121,6 +121,8 @@ test('maps controller state to the existing execution and receive View contracts
   assert.notEqual(views.receive.topic.onMessageSelect, state.topic.select)
   assert.equal(views.receive.topic.onImportableOnlyChange, state.receive.setMessageImportableOnly)
   assert.notEqual(views.receive.topic.onImportableOnlyChange, state.topic.setImportableOnly)
+  assert.equal(typeof views.receive.service.qosControls[0].onProfileChange, 'function')
+  assert.doesNotThrow(() => views.receive.service.qosControls[0].onProfileChange({ depth: 8 }))
   assert.equal(views.serviceServer.showExpand, true)
   assert.equal(views.actionServer.showExpand, true)
 })

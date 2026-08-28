@@ -9,7 +9,10 @@ import {
 import {
   defaultRequestValues,
   domainIdFromResource,
+  executionResourceForSelection,
+  executionResourceForTarget,
   normalizeNumericValues,
+  refreshServiceCallState,
   serviceKey,
 } from '../model/interfaceUploadModel.js'
 import {
@@ -52,8 +55,7 @@ export function useServiceExecutionController({
   }, [importableOnly, selectedDomainId, services])
 
   const selected = useMemo(() => {
-    const candidate = visibleServices.find((item) => serviceKey(item) === selectedKey)
-      ?? visibleServices.find((item) => item.service_type === selectedKey)
+    const candidate = visibleServices.find((item) => item.service_type === selectedKey)
     if (!candidate) return null
     const graphMatch = services.find((item) => (
       item.domain_id === selectedDomainId
@@ -88,18 +90,37 @@ export function useServiceExecutionController({
   }, [services])
 
   const applySelection = useCallback((service, domainId, allServices) => {
-    setSelectedKey(service ? serviceKey(service) : '')
+    setSelectedKey(service?.service_type ?? '')
     setRequestValues(defaultRequestValues(service?.request_schema ?? []))
-    setServiceName(service ? suggestedName(service, domainId, allServices) : '')
+    const exactName = service?.domain_id === domainId && String(service?.service_name ?? '').trim()
+      ? String(service.service_name).trim()
+      : ''
+    const nextName = service ? exactName || suggestedName(service, domainId, allServices) : ''
+    setServiceName(nextName)
     setResult(null)
-    onSelectionChange?.(service ? serviceKey(service) : '')
-  }, [onSelectionChange, suggestedName])
+    const exactResource = (allServices ?? services).find((item) => (
+      item.domain_id === domainId
+      && item.service_type === service?.service_type
+      && item.service_name === nextName
+    ))
+    onSelectionChange?.(exactResource ? serviceKey(exactResource) : '')
+  }, [onSelectionChange, services, suggestedName])
 
   const select = useCallback((key) => {
-    const service = visibleServices.find((item) => serviceKey(item) === key)
-      ?? visibleServices.find((item) => item.service_type === key)
-    applySelection(service, selectedDomainId)
-  }, [applySelection, selectedDomainId, visibleServices])
+    const service = executionResourceForSelection(
+      services, key, selectedDomainId, serviceKey, 'service_type',
+    )
+    const exact = service && serviceKey(service) === key ? service : null
+    const domainId = exact?.domain_id ?? selectedDomainId
+    if (exact) setSelectedDomainId(domainId)
+    applySelection(service, domainId)
+  }, [applySelection, selectedDomainId, services])
+
+  const changeServiceName = useCallback((value) => {
+    setServiceName(value)
+    const exact = graphCandidates.find((item) => item.service_name === value)
+    onSelectionChange?.(exact ? serviceKey(exact) : '')
+  }, [graphCandidates, onSelectionChange])
 
   const selectDomain = useCallback((value, notify = true) => {
     const domainId = value === '' ? null : Number(value)
@@ -131,7 +152,7 @@ export function useServiceExecutionController({
     replace(nextServices, historyPayload.data ?? [])
     setDomainIds(nextDomains)
 
-    const targetDomainId = target?.domain_id ?? (nextDomains.includes(selectedDomainId) ? selectedDomainId : nextDomains[0] ?? null)
+    const targetDomainId = target?.domainId ?? (nextDomains.includes(selectedDomainId) ? selectedDomainId : nextDomains[0] ?? null)
     setSelectedDomainId(targetDomainId)
 
     const available = nextServices.filter((item) => (
@@ -140,16 +161,20 @@ export function useServiceExecutionController({
       && Boolean(item.service_type)
     ))
     const initialService = (target
-      ? available.find((item) => item.service_type === target.service_type || item.service_name === target.service_name)
+      ? executionResourceForTarget(available, target, 'service_name', 'service_type')
       : null) ?? available[0]
 
     applySelection(initialService, targetDomainId, nextServices)
-    if (target?.service_name) {
-      setServiceName(target.service_name)
+    if (target?.name) {
+      setServiceName(target.name)
+      const exact = executionResourceForTarget(
+        available, target, 'service_name', 'service_type',
+      )
+      onSelectionChange?.(exact ? serviceKey(exact) : '')
     }
     onDomainChange?.(targetDomainId)
     return nextServices
-  }, [applySelection, onDomainChange, replace, selectedDomainId])
+  }, [applySelection, onDomainChange, onSelectionChange, replace, selectedDomainId])
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
@@ -176,12 +201,11 @@ export function useServiceExecutionController({
         qos: qos.qosSelection,
         domain_id: domainId,
       })
-      const nextHistory = await fetchServiceCallHistory()
-      setHistory(nextHistory.data ?? [])
+      await refreshServiceCallState({ fetchHistory: fetchServiceCallHistory, setHistory, onStateChanged })
       setResult(payload)
-      onStateChanged?.()
     } catch (error) {
       setResult({ success: false, error: error.message })
+      await refreshServiceCallState({ fetchHistory: fetchServiceCallHistory, setHistory, onStateChanged })
     } finally {
       setBusy(false)
     }
@@ -210,7 +234,7 @@ export function useServiceExecutionController({
     services,
     setImportableOnly,
     setRequestValues,
-    setServiceName,
+    setServiceName: changeServiceName,
     setTimeoutSec,
     timeoutSec,
     visibleServices,
