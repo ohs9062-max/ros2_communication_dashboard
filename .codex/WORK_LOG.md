@@ -4,155 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-26 - Camera Topic live Preview
-
-- 기존 1초 상세 polling과 callback의 0.5초 encode 간격을 Camera Preview 전용 100ms polling과 0.1초 minimum
-  encode interval로 바꿨다. callback은 기존처럼 최신 metadata를 계속 갱신하며, live lease가 있을 때만 최신
-  frame 하나를 Base64로 보관·응답한다. frame history, snapshot, Backend cache와 WebSocket에는 binary/Base64를
-  넣지 않았다.
-- `DELETE /ros/topics/image-preview`를 추가해 Camera 상세를 닫거나 다른 resource로 전환할 때 해당
-  `domain_id/resource_key` runtime의 lease, encoded frame과 timestamp를 즉시 제거한다. 3초 lease는 browser가
-  비정상 종료된 경우에만 cleanup fallback으로 남겼으며 MultiDomain 응답에도 Domain/resource key를 명시한다.
-- Camera/Monitor config/router pytest 24건, Frontend unit·oxlint·Vite build, Monitor symlink build와 diff check를
-  통과했다. GUI `pkexec` 인증으로 local HTTPS 실행 파일을 동기화하고 Monitor를 재시작했다. host에서 Monitor와
-  Nginx가 모두 `active`이며 실제 Domain 99 `/image_raw`가 HTTPS GET에서 `ready` Base64 frame과
-  `resource_key=99:/image_raw`를 반환하고 DELETE로 cache 해제 응답을 반환함을 확인했다.
-
-## 2026-08-26 - 목록 Domain 검색
-
-- Topic·Service·Action·Node의 기존 검색 값에 공통 `matchesResourceSearch()`를 적용했다. `D99`/`D5`처럼
-  `D`+정수 전체를 입력하면 `domain_id`가 같은 resource만 남기고, 그 밖의 입력은 기존 이름/type 및 화면별
-  보조 필드 substring 검색을 그대로 사용한다. Domain ID가 누락된 legacy resource가 `D0`으로 오인되지 않게
-  명시적으로 제외했다.
-- 네 목록의 검색 placeholder를 `이름 또는 타입, Domain 검색`으로 통일했다. 상태/주요/숨김·대기 등의 기존
-  필터와 resource 선택 경로는 변경하지 않았다.
-- 새 helper의 D99/D5·name/type·legacy D0 case unit test를 포함해 Frontend unit, oxlint, Vite build와 diff check를
-  통과했다. GUI `pkexec` 인증으로 새 build를 local HTTPS 정적 경로에 동기화했다.
-
-## 2026-08-26 - Domains 페이지 레이아웃 정렬
-
-- Domain 설정 페이지의 기능과 JSX는 변경하지 않고, Topics와 같은 `padding: 18px` page container 규칙으로
-  맞췄다. 별도 중앙 `max-width` 제한을 제거해 Sidebar 오른쪽 가용 폭 전체를 사용하며, 두 카드는 동일 폭을
-  유지한다. 입력 행은 가용 폭을 사용하고 감시 목록은 Domain·상태·삭제의 3열 grid로 정렬했다. 좁은 화면에서는
-  입력 행과 목록 grid가 한 번만 자연스럽게 줄어든다.
-- Frontend `npm run lint`, `npm run test:unit`, `npm run build`, `git diff --check`를 통과했다. GUI `pkexec`
-  인증으로 최종 build를 로컬 HTTPS 정적 경로에 동기화했다. 이 sandbox에서는 `127.0.0.1:443` listener가 없어
-  실제 HTTPS 응답 asset 확인은 수행하지 못했다.
-- 같은 페이지 범위에서 추가 버튼만 녹색, 삭제 버튼만 붉은 색조·hover·disabled 상태로 구분했다. 다른 버튼과
-  동작은 변경하지 않았고, Frontend lint/build와 diff check 후 GUI `pkexec` 인증으로 로컬 HTTPS 정적 경로를 다시
-  동기화했다.
-
-## 2026-08-26 - 실제 브라우저 실화면 기반 전수 UX/UI 정밀 검수
-
-- Headless Chrome 및 CDP(Chrome DevTools Protocol)를 통해 실제 구동 중인 로컬 HTTPS(`https://192.168.1.123/`)의
-  9개 전체 페이지(`/overview`, `/topics`, `/services`, `/actions`, `/nodes`, `/visualization`, `/alerts`,
-  `/domains`, `/interface-lab`)를 1920×1080 및 1440×900 해상도, 상세 패널 오픈/인터랙션 상태에서 전수 캡처 및 검수했다.
-- 검수 결과 코드는 수정하지 않고 실제 화면 기준의 개선점을 우선순위(P0 긴급, P1 주요, P2 개선)별로 정리하여
-  `gemini_ui.md`에 저장했다. 주요 발견 결함은 1440×900 노트북 해상도에서의 상단 카드/Alert 수직 과밀로 인한
-  메인 테이블 가림, 상세 패널 오픈 시 테이블 컬럼 겹침 및 가로 스크롤 버그, Visualization 노드 그래프 오버랩,
-  입력 폼 가로 폭 과다 및 상세 패널 이중 스크롤 등이다.
-- 후속 공통 UI 작업으로 기능·레이아웃은 유지한 채 CSS theme 변수와 공유 panel selector를 navy/cyan 계열로 정리했다.
-  전체 배경은 저대비 42px grid와 radial blue depth를 사용하고, Overview·통신 목록·상세·Alerts·Domains·Interface Lab은
-  같은 얇은 cyan border, 미세 gradient와 shadow를 적용한다. Visualization의 흰색 React Flow 컨트롤도 다크 톤으로
-  통일했다. Frontend lint/unit/build와 diff check를 통과했고 GUI `pkexec` 인증으로 로컬 HTTPS static 경로에 동기화했다.
-- Topic/Service/Action의 목록·상세 연결 수 표기를 `Pub 노드`·`Sub 노드`·`Server`·`Client`로 축약하고, table heading과
-  안내/연결 label에 한글 단어 중간 줄바꿈을 막는 CSS를 적용했다. 최근 데이터 로그를 열면 상세 패널의 별도 max-height
-  scroll을 해제해 로그 stream만 bounded scroll을 유지하도록 정리했다. Frontend lint/unit/build와 diff check 후
-  GUI `pkexec` 인증으로 local HTTPS static 경로에 다시 동기화했다.
-- Service/Action 상세 History의 500은 `CommunicationHistory`가 `(name, type, domain_id)`로 호출하면서 API의 세 번째
-  positional 인자인 `limit`에 Domain 값을 넣고 실제 `domain_id`를 생략한 것이 원인이다. 각 요청을 Service
-  `limit=30`, Action `limit=100`과 선택 resource의 `domain_id`를 네 번째 인자로 명시하도록 한 파일만 수정했다.
-  Backend proxy와 Monitor route는 query를 그대로 전달하고 name/type/domain으로 runtime을 선택하므로 변경하지 않았다.
-  Frontend lint/unit/build·diff check를 통과했고 GUI `pkexec` 인증으로 local HTTPS static 경로에 동기화했다. 이
-  sandbox에서는 Backend/Monitor 8000 listener가 없어 실제 HTTP 재현은 하지 못했다.
-- Topic·Service·Action 전용 탭 Alert preview만 기본 3건과 `펼치기`/`접기`로 변경했다. 세 탭은 펼친 상태에서
-  `maxItems=Infinity`로 전체 Alert를 표시하고 source 분류 label을 숨겨 상태 배지·resource 이름·메시지만 남긴다.
-  Overview/전체 Alerts는 기존 source label, 개수와 동작을 유지한다. 전용 compact class로 항목 padding·badge·문자
-  크기만 줄였으며 Alert 생성/Backend는 변경하지 않았다. Frontend lint/unit/build·diff check 후 GUI `pkexec`
-  인증으로 local HTTPS static 경로에 동기화했다.
-- Topic·Service·Action 상세의 `상태 요약`을 기본 펼침, 나머지 기존 주요 section(QoS, 연결, Node, 실행/측정,
-  상세 데이터, History, 원본 JSON 등)을 기본 접힘으로 통일했다. 공통 `DetailSection`의 toggle callback만 확장해
-  기존 데이터 요청·표시 구조는 바꾸지 않았다. Camera `Image Preview`도 같은 section으로 바꾸고, 선택 resource의
-  Preview polling은 그 section을 실제로 열었을 때만 시작하며 닫기/상세 전환 때 기존 release API로 즉시 정리한다.
-  Frontend lint/unit/build·diff check를 통과했고 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- Node 탭도 Topic·Service·Action과 같은 Alert preview 옵션(기본 3건, 전체 펼치기/접기, compact item,
-  source 분류 라벨 숨김)을 사용하게 했다. 공통 toggle 버튼은 네 탭에 함께 적용되는 cyan accent·32px 최소 높이·
-  동일 문구/위치로 조정했으며 Alert 데이터와 1열 목록 구조는 변경하지 않았다. Frontend lint/unit/build·diff check를
-  통과했고 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- Action 상세 화면은 제목 아래에 `상태 요약`을 바로 두고, 상단의 결과 조회 정책·관찰 Goal/피드백/결과 안내문과
-  `상세 데이터`, 마지막 Goal/Feedback/Result·History·피드백/결과 JSON 미리보기 section을 제거했다. QoS, 연결,
-  실행/측정, 최근 데이터 로그는 유지하며 Monitor/Backend의 수집·저장·API는 변경하지 않았다. Frontend
-  lint/unit/build·diff check를 통과했고 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- Topic·Service·Action·Node 탭의 compact Alert item을 공통 3열 grid(상태 배지, 180~280px 이름, 나머지 메시지)로
-  정렬했다. resource 이름은 title hover와 말줄임을 적용하고, Alert 메시지는 넓은 화면에서 한 줄을 유지한다. 700px
-  이하에서만 이름/메시지를 같은 내용 열 안에서 자연스럽게 줄바꿈한다. Alert 데이터·접기/펼치기·Overview 표시에는
-  변경이 없으며, build 중 확인된 기존 여분 CSS 중괄호도 제거했다. Frontend lint/unit/build·diff check를 통과했고
-  GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- 네 통신/Node 탭의 compact Alert에서 상태 배지는 12→16px, resource 이름은 14→18px, 메시지는 13→17px로
-  약 30% 확대했다. grid·말줄임·접기/펼치기와 Alert 데이터는 그대로이며, Frontend lint/build·diff check를 통과한 뒤
-  GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- Alert 공통 표시가 snapshot/DB API의 실제 `domain_id`를 우선 읽어 resource 이름 뒤에 ` · D99`처럼 붙인다.
-  domain_id가 없는 이전 형식은 `resource_key`의 숫자 Domain 접두사만 사용하며 임의 기본 Domain을 만들지 않는다.
-  이름+Domain 열은 220~340px으로 넓혀 같은 이름의 다른 Domain Alert를 한 줄에서 구분한다. Alert 생성/Backend는
-  변경하지 않았고, Frontend lint/unit/build·diff check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- 공통 `QosDetails`에서 `qos_status=observed`의 표시 tone을 파란 `info`로 통일했다. 따라서 Action의
-  `DDS Discovery 관찰됨`과 `Graph 관찰됨`을 포함한 Service/Topic의 같은 관찰 상태는 파란 배경·테두리·텍스트를,
-  `compatible`/정상은 기존 초록을 유지한다. QoS 판정값·문구·API는 변경하지 않았고 Frontend lint/unit/build·diff
-  check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- Camera Topic의 큰 보기 modal은 좌측 image와 우측 embedded `최근 데이터 로그`를 함께 표시한다. modal History는
-  기존 Topic History fetcher·최신순 formatter·수동 새로고침·내부 stream scroll을 재사용하고, 선택 camera의
-  `domain_id/name/type`을 그대로 전달한다. 큰 보기를 닫으면 component와 1초 History polling도 함께 정리되며,
-  일반 Topic 상세 History와 Camera 10 FPS frame polling은 바꾸지 않았다. 넓은 화면은 2열, 960px 이하는 세로로
-  자연스럽게 전환한다. Frontend lint/unit/build·diff check 후 GUI `pkexec` 인증으로 local HTTPS 정적 파일에 동기화했다.
-- Domains UI는 등록 Domain/감시 중 Domain 요약, 최대 400px의 추가 입력, 최대 980px 4열 표(Domain·상태·발견된
-  리소스·관리)로 정리했다. `/ros/domains`는 Backend cache의 실제 snapshot만 Domain별로 집계한 `resource_counts`를
-  반환하며 resource가 0이면 UI는 `없음`으로 표시하되 runtime 상태와 섞지 않는다. GUI `pkexec` 인증으로 Frontend를
-  local HTTPS 정적 파일에 동기화하고 checkout 소스를 쓰는 Backend service를 재시작했다. 실제 API에서 D5
-  `Topic 9 · Service 3 · Action 1 · Node 6`, D99 `Topic 139 · Service 106 · Action 17 · Node 32`를 확인했다.
-  Backend pytest 17 passed·2 skipped, Frontend lint/unit/build·diff check를 통과했다.
-
-## 2026-08-26 - 최근 UI 수정사항 반영 결과 실화면 2차 정밀 재검수
-
-- Headless Chrome 및 CDP를 통해 최신 로컬 HTTPS(`https://192.168.1.123/`) 환경의 9개 전체 페이지를
-  1920×1080 및 1440×900 해상도, 상세 패널 오픈/인터랙션 상태에서 재검수했다.
-- 최근 패치로 Alert 3열 그리드 및 접기/펼치기, 상세 패널 기본 접힘/상태 요약 노출, Camera 큰 보기 2열 모달,
-  1920px 테이블 헤더 축약이 정상 개선됨을 확인했다.
-- 코드는 수정하지 않고 실제 화면 기준의 잔여 결함(1440×900 Services/Actions 상세 오픈 시 가로 스크롤, Overview
-  카드 타이틀 한글 쪼개짐, 상단 누적 높이, Domains 입력 폭 과다 등)을 우선순위별로 정리하여 `gemini_ui2.md`에 저장했다.
-
-## 2026-08-26 - Domains 감시 중 Domain 테이블 가로폭 및 레이아웃 최적화
-
-- Domains 페이지의 `감시 중 Domain` 테이블이 카드 가로폭 전체를 자연스럽게 사용하도록 `App.css`를 수정했다.
-- 컬럼 비율을 `Domain 15% (15fr)`, `상태 20% (20fr)`, `발견된 리소스 50% (50fr)`, `관리 15% (15fr)`로 설정하여
-  `발견된 리소스` 컬럼을 가장 넓게 배치하고, 삭제 버튼은 우측 끝 정렬, 상태는 일정한 위치에 정렬되도록 했다.
-- 잉여 여백을 자연스럽게 채우기 위해 행 패딩(`18px 20px`), 컬럼 간격(`24px`), 행 최소 높이(`62px`)로 간격을 더욱
-  넓히고, Domain 이름(18px mono bold), 상태(15px semibold, 10px dot), 리소스 요약(15px), 헤더(14px), 삭제 버튼(14px,
-  min-height 36px)으로 폰트와 컨트롤을 확대했다.
-- 페이지 전체 max-width 제한을 두지 않고 다크 테마 및 추가/삭제 로직을 온전히 유지했다.
-- Frontend lint/unit/build 및 diff check를 통과했으며, GUI `pkexec` 인증으로 로컬 HTTPS 정적 파일에 동기화한 뒤
-  Headless Chrome CDP로 1920×1080 및 1440×900 실화면 렌더링을 재검증했다.
-
-## 2026-08-26 - 실사용성 핵심 UI/UX 결함 6개 항목 집중 개선
-
-- Services/Actions 화면에서 1440×900 상세 패널 오픈 시 발생하던 테이블 가로 스크롤 결함을 해결했다.
-  테이블의 하드코딩된 min-width(1300px, 1540px)를 제거하고 컬럼 폭을 유연화해 주요 데이터가 한 화면에 보이도록 했다.
-- Overview 요약 카드 제목(`Node 미리보기`, `Topic 미리보기`)에 `white-space: nowrap; word-break: keep-all; font-size: 20px;`를
-  적용하여 1440×900에서 한글 단어 중간 줄바꿈 깨짐을 제거했다.
-- Topics/Services/Actions/Nodes의 상단 설명·요약 카드·Alert 패딩과 간격을 컴팩트화해 1440×900에서 테이블의
-  첫 화면 가시성을 추가 확보했다.
-- Visualization 화면에서 본문 우측 상단의 중복 WebSocket 상태 표시를 제거하고, 상단 툴바를 검색/필터 행과 화면 조작
-  버튼 행으로 시각적 2단 분리하여 검색창 잘림을 해소했다.
-- Interface Lab에서 `Message full_type`, `Message import됨만 보기` 등 내부 변수명 스타일 라벨을 `메시지 타입`,
-  `import된 메시지만 보기` 등 직관적인 한글 명칭으로 정제했다.
-- Frontend lint/unit/build 및 diff check를 통과했으며, Nginx 정적 파일 동기화 후 실화면을 검증했다.
-
-## 2026-08-26 - 문서 코드 라인 번호(Lxx-Lxx) 전수 대조 및 최신화
-
-- `git diff`와 현재 실제 코드를 기준으로 문서 내 함수 위치 및 라인 번호(`Lxx-Lxx`)를 전수 대조·수정했다.
-- `docs/docs2/` 전체 문서 (01~08 및 계산.md)에서 `RosMonitor`, `assemble_*_snapshot`, `update_subscription_entry`, `_elapsed_time_ms`, `ServiceCallRuntime`, `ActionGoalRuntime`, `monitoring` router, `topic/service/action_execution` router, Frontend Hook/Page의 변경된 라인 번호를 최신 코드 위치로 갱신했다.
-- `AGENTS.md`, `README.md`, `monitor_backend_transport.md`, `frontend/README.md`에서 multi-domain (`MultiDomainRosMonitor`) 및 snapshot `domains` 필드, Domains 화면 관련 설명이 실제 구현과 일치하도록 정정했다.
-- `start.md`를 포함한 설정·코드 파일은 일체 수정하지 않고 오직 `.md` 문서만 수정했다.
-
 ## 2026-08-27 - Camera node 종료 Alert의 Topic 탭 표시 경로 점검
 
 - 코드만 점검했다. `TopicsPage`의 Topic Alert preview는 `source`가 `topic` 또는 `monitor_status`인 Alert만
@@ -406,3 +257,30 @@
   `pkexec`으로 local HTTPS 실행 파일에 동기화했고 source/target `index.html` SHA-256은
   `b10558bdcf52bc1fd2e1ade4012584b9657a4fea94d94ee84fd998b0c96c8150`, 실제 HTTPS entry asset은
   `assets/index-C9hX208L.js`, health는 `monitor_connected=true`로 확인했다.
+
+## 2026-08-28 - Action/Service Server 수명주기 및 이력 리셋 전과정 검증
+
+- ServiceServerRuntime과 ActionServerRuntime에 `reset_history` 메서드 및 HTTP 엔드포인트
+  `POST /ros/interfaces/service-servers/history/reset`, `POST /ros/interfaces/action-servers/history/reset`를 연결했다.
+  `MultiDomainRosMonitor`와 facade가 각 Domain별 Server 이력 리셋을 통합 라우팅하며 특정 Domain 또는 전체 Domain 리셋을 지원한다.
+- Frontend `useServiceServerController.js`, `useActionServerController.js`, `ServiceServerPanel.jsx`, `ActionServerPanel.jsx`에
+  서버 실행 중 상태 안내, 서버 종료 버튼, History 수동 새로고침 및 이력 리셋 버튼을 연결했다.
+- 격리 Domain 22 환경에서 Action Server `/TestCanControl` (`rths_interfaces/action/CanControl`)의 전체 생명주기를 실기기로 검증했다:
+  1. Start: `POST /ros/interfaces/action-servers/start`로 시작 후 Graph 등장 확인 (`get_action_names_and_types`)
+  2. 통신: 실제 rclpy ActionClient로 Goal 전송 -> Feedback 수신 -> Result (Status 4 SUCCEEDED) 완료 확인
+  3. Cancel: 즉시 Cancel 전송 -> CancelResponse 0 및 Status 5 CANCELED 수신 확인
+  4. History: `GET /ros/interfaces/action-servers/history`에서 5건의 Goal/Feedback/Result/Cancel 기록 확인
+  5. Reset: `POST /ros/interfaces/action-servers/history/reset` 호출 후 0건 클리어 확인
+  6. Stop: `POST /ros/interfaces/action-servers/stop` 호출 후 Node별 Action Server 0개 및 Graph 제거 확인
+- Service Server `/TestRobotControl` (`rths_interfaces/srv/RobotControl`) 역시 Start -> Graph 등장 -> 실제 Call/Response -> History 기록 -> Reset 0건 -> Stop -> Graph 제거 전과정을 확인했다.
+- Monitor pytest 292 passed, colcon 310 tests·0 failures·1 skipped, Backend pytest 17 passed·2 skipped, Frontend unit test·lint(기존 Visualization warning 1건)·build를 모두 통과했다.
+- 최신 Frontend build (`assets/index-vGl9BPv-.js`)를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, index.html SHA-256 일치 및 실제 Nginx HTTPS 200, Backend `monitor_connected=true`, Headless Chrome 실화면 렌더링(1440×900, 1440×1200 Action Server Panel 확대)을 확인했다.
+
+## 2026-08-28 - Service / Action 서버 개설 버튼 그룹 일렬 배치
+
+- ServiceServerPanel과 ActionServerPanel의 버튼 배치를 수정했다. 전체 폭을 차지하던 대형 시작 버튼과 History 우측에 따로 떨어져 있던 새로고침/이력리셋 버튼을 상단 서버 상태 영역으로 모아 `[서버 개설 시작] [서버 종료] [이력 리셋] [새로고침]` 4개 버튼을 한 줄로 일렬 배치했다.
+- 서버 중지 상태에서는 `서버 개설 시작`(초록)이 활성화되고 `서버 종료`가 비활성화되며, 서버 실행 상태에서는 `서버 종료`(주황)가 활성화되고 `서버 개설 시작`이 비활성화된다. `이력 리셋`(노랑 경고)과 `새로고침`(청록 ghost)은 항상 동일한 위치를 유지한다.
+- `.interface-server-actions` flex 그룹 스타일(`gap: 9px; margin: 14px 0 6px; padding: 8px 14px; min-height: 36px;`)을 추가하여 과도한 크기 없이 적절한 좌우 여백과 일정한 간격을 갖는 compact한 버튼 그룹을 구성했다.
+- ReceiveHistory 우측의 중복 버튼을 제거해 이력 제목과 목록만 표시하도록 정리했다.
+- Frontend unit test 20개 모듈 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 프로덕션 빌드(`assets/index-CT9qQqIj.js`)를 완료했다.
+- 최신 빌드를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, index.html SHA-256 일치 및 실제 Nginx HTTPS 200, Headless Chrome 실화면 렌더링(1440×1200 Service / Action 패널 캡처)을 통해 버튼 그룹 레이아웃을 확인했다.

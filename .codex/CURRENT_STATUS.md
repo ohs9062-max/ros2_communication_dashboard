@@ -142,9 +142,10 @@ docs/                            설계·운영 문서
 
 ## 최근 완료 작업
 
-- Domains sidebar/page와 `/ros/domains` GET/PUT를 추가했다. `99, 0, 1, 2, 3` 저장 시 `[0, 1, 2, 3, 99]`로
-  중복 제거·정렬되고, 범위 밖 `233`은 HTTP 400으로 차단됨을 로컬 HTTPS API에서 확인했다. 실제 Monitor context의
-  Domain 99만 `감시 중`이며, 여러 Domain 동시 감시나 UI 적용으로 Monitor runtime 변경은 구현하지 않았다.
+- Interface Lab Service/Action Server의 전체 생명주기 및 이력 리셋을 실기기로 검증하고, Server 개설 패널의 버튼을 상단 서버 상태 영역으로 통합해 `[서버 개설 시작] [서버 종료] [이력 리셋] [새로고침]` 4개 버튼을 한 줄로 일렬 배치했다.
+  서버 중지 상태에서는 개설 시작 활성·종료 비활성, 실행 상태에서는 종료 활성·개설 시작 비활성이 적용되며 이력 리셋과 새로고침은 동일한 위치를 유지한다. ReceiveHistory 우측 중복 버튼을 제거해 컴팩트한 레이아웃을 구성했다.
+  Frontend unit test 20개 모듈·lint·build를 통과했고, 로컬 HTTPS 정적 배포(`assets/index-CT9qQqIj.js`)와 실화면 렌더링을 확인했다.
+
 
 - Action 상세 history에 Interface Lab Goal과 실제 외부 통신에서 관찰한 Status 전이·Feedback·terminal Result를
   합쳐 resource별 기본 100건까지 제공한다. 외부 `/CanControlFailure` 실행에서 Interface Lab 이력 0건인 상태로

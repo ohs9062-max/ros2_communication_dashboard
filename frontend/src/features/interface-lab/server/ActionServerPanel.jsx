@@ -129,14 +129,38 @@ export function ActionServerPanel({
               ))}
             </>
           )}
-          <div className="interface-receive-actions">
+          <div className="interface-server-actions">
             <button
-              className={active ? 'interface-receive-action-button warning' : 'interface-service-call-button'}
-              disabled={busy || !selected?.server_creatable || !actionName.trim()}
-              onClick={active ? onStop : onStart}
+              className="interface-receive-action-button primary"
+              disabled={active || busy || !selected?.server_creatable || !actionName.trim()}
+              onClick={onStart}
               type="button"
             >
-              {busy ? '처리 중…' : active ? '서버 종료' : '서버 개설 시작'}
+              {busy && !active ? '개설 중…' : '서버 개설 시작'}
+            </button>
+            <button
+              className="interface-receive-action-button warning"
+              disabled={!active || busy}
+              onClick={onStop}
+              type="button"
+            >
+              {busy && active ? '종료 중…' : '서버 종료'}
+            </button>
+            <button
+              className="interface-receive-action-button warning"
+              disabled={historyBusy || busy || !selected || !actionName.trim()}
+              onClick={() => window.confirm('현재 선택한 Server의 이력을 초기화할까요?') && onResetHistory()}
+              type="button"
+            >
+              이력 리셋
+            </button>
+            <button
+              className="interface-receive-action-button ghost"
+              disabled={historyBusy || busy}
+              onClick={onRefreshHistory}
+              type="button"
+            >
+              {historyBusy ? '조회 중…' : '새로고침'}
             </button>
           </div>
           <div className={`interface-service-state ${active ? 'success' : 'warning'}`}>
@@ -146,12 +170,8 @@ export function ActionServerPanel({
           </div>
           {result && <CallResultBlock result={result} successPayload={result.server ?? result.stopped} />}
           <ReceiveHistory
-            busy={historyBusy}
             fullItem
             items={goals}
-            onRefresh={onRefreshHistory}
-            onReset={onResetHistory}
-            resetDisabled={!selected || !actionName.trim()}
             title="Goal / Feedback / Result / Cancel history"
           />
         </>
