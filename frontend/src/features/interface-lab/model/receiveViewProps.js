@@ -11,8 +11,10 @@ export function receiveWorkspaceViewProps(state) {
     topic: {
       allMessages: state.callableMessages,
       allTopics: state.availableTopics,
+      domainIds: state.domainIds,
       filteredTopics: state.filteredReceiveTopics,
       importableOnly: state.topicImportableOnly,
+      onDomainChange: state.onReceiveTopicDomainChange ?? state.selectTopicDomain,
       onImportableOnlyChange: state.setTopicImportableOnly,
       onMessageSelect: state.setSelectedMessageKey,
       onRefresh: state.loadReceiveState,
@@ -35,7 +37,7 @@ export function receiveWorkspaceViewProps(state) {
       selectedMessage: state.selectedMessage,
       selectedMessageKey: state.selectedMessageKey,
       selectedTopic: state.selectedReceiveTopic,
-      selectedDomainId: state.selectedReceiveTopicDomainId,
+      selectedDomainId: state.selectedReceiveTopicDomainId ?? state.topicDomainId,
       visibleMessages: state.visibleCallableMessages,
     },
   }
@@ -55,8 +57,10 @@ function resourceProps(state, kind) {
       }]
   return {
     activeKey: isAction ? state.activeReceiveActionKey : state.activeReceiveServiceKey,
+    domainIds: state.domainIds,
     history: isAction ? state.visibleReceiveActionHistory : state.visibleReceiveServiceHistory,
     items: isAction ? state.callableActions : state.callableServices,
+    onDomainChange: isAction ? state.onReceiveActionDomainChange : state.onReceiveServiceDomainChange,
     onRefresh: state.loadReceiveState,
     onResetAll: () => (isAction ? state.resetReceiveActions(false) : state.resetReceiveServices(false)),
     onResetSelected: () => (isAction ? state.resetReceiveActions(true) : state.resetReceiveServices(true)),
@@ -68,6 +72,7 @@ function resourceProps(state, kind) {
     modeLinked: isAction ? state.actionQosModeLinked : state.serviceQosModeLinked,
     onModeLinkChange: isAction ? state.setActionQosModeLinked : state.setServiceQosModeLinked,
     search: isAction ? state.receiveActionSearch : state.receiveServiceSearch,
+    selectedDomainId: isAction ? state.actionDomainId : state.serviceDomainId,
     selectedKey: isAction ? state.selectedReceiveActionKey : state.selectedReceiveServiceKey,
     visibleItems: isAction ? state.filteredReceiveActions : state.filteredReceiveServices,
   }

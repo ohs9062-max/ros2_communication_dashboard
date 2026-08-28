@@ -9,9 +9,11 @@ import { QosModeControl } from '../execution/QosModeControl.jsx'
 export function TopicReceivePanel({
   allMessages,
   allTopics,
+  domainIds = [],
   filteredTopics,
   importableOnly,
   modeLinked,
+  onDomainChange = () => {},
   onImportableOnlyChange,
   onMessageSelect,
   onModeLinkChange,
@@ -39,6 +41,13 @@ export function TopicReceivePanel({
   return (
     <div className="interface-receive-grid">
       <label className="interface-service-field">
+        <span>Domain</span>
+        <select onChange={(event) => onDomainChange(event.target.value === '' ? null : Number(event.target.value))} value={selectedDomainId ?? ''}>
+          <option value="">Domain 선택</option>
+          {domainIds.map((domainId) => <option key={domainId} value={domainId}>D{domainId}</option>)}
+        </select>
+      </label>
+      <label className="interface-service-field">
         <span>항목 검색</span>
         <input placeholder="Topic 이름 또는 type 검색" value={search} onChange={(event) => onSearchChange(event.target.value)} />
       </label>
@@ -48,7 +57,7 @@ export function TopicReceivePanel({
         <small>{visibleMessages.length}/{allMessages.length}</small>
       </label>
       <label className="interface-service-field">
-        <span>메시지 타입 · {visibleMessages.length}/{allMessages.length}개</span>
+        <span>메시지 타입 · D{selectedDomainId ?? '-'} · {visibleMessages.length}/{allMessages.length}개</span>
         <select value={selectedMessageKey} onChange={(event) => onMessageSelect(event.target.value)}>
           {visibleMessages.map((message) => (
             <option key={messageKey(message)} value={messageKey(message)}>

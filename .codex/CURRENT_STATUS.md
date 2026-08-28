@@ -34,13 +34,15 @@
   QoS·Alert·Overview와 Interface Lab 실행은 `domain_id`/`resource_key`를 유지해 동일 이름 리소스를 분리한다.
 - Interface Lab 상세에서 실행을 열면 Graph에서 선택한 단일 Topic/Service/Action resource의
   `resource_key`·`domain_id`·이름·type을 실행 loader까지 전달해 해당 Domain runtime으로 자동 실행한다.
+  클라이언트 실행(`Topic 발행`, `Service 호출`, `Action Goal`)과 우측 `수신` 영역은 `Domain → 통신 타입 → 통신명` 3단계
+  선택 방식을 지원하며, 실행 ↔ 수신 간 Domain 선택이 실시간 양방향 동기화된다.
+  어느 한쪽에서 Domain을 바꾸면 반대편 Domain도 즉시 갱신되어 해당 Domain 기준의 타입 및 Graph 후보 목록으로 재필터링된다.
   수신 controller는 별도 callable 목록과 selected key를 보유하므로 수신 load/선택/시작은 Topic Publish,
-  Service Call, Action Goal의 실행 목록·선택·busy state를 변경하지 않는다. 여러 동일 type 후보가 있으면 임의
-  Domain을 선택하지 않고 기존 Domain 표기 selector를 유지한다.
+  Service Call, Action Goal의 실행 목록·선택·busy state를 변경하지 않는다.
 - Interface Lab 상단 통신 영역은 `클라이언트 실행`(Topic 발행, Service 호출, Action Goal)과 `서버 개설`(Service,
   Action)로 구분한다. Topic Server UI/controller/mode는 없으며 Topic 수신은 기존 우측 수신 영역을 유지한다.
-  Service/Action Server panel은 기존 실행 panel과 같은 `크게보기`/`닫기` UX를 사용하며, 크게보기는 해당 Server
-  panel만 넓은 workspace layout으로 전환한다.
+  Service/Action Server panel은 좌측 서버 개설 설정, 우측 서버 수신/응답 이력의 2열 레이아웃을 사용하며,
+  `[서버 개설 시작] [서버 종료]` 및 `[이력 리셋] [새로고침]` 버튼 그룹과 확인 팝업 없는 직접 이력 리셋 UX를 제공한다.
   Service/Action Server는 Client runtime과 분리된 실제 rclpy runtime으로, 등록·import 가능한 타입과 선택
   `domain_id`에서 Start/Stop하고 Request/Response 또는 Goal/Cancel/Feedback/Result 이력을 최대 30건 보존한다.
   Frontend는 등록 schema의 Service Request/Action Goal 필드를 읽기 전용으로 안내하고, Response/Feedback/Result는
@@ -143,8 +145,8 @@ docs/                            설계·운영 문서
 ## 최근 완료 작업
 
 - Interface Lab 클라이언트 실행 탭(Topic 발행, Service 호출, Action Goal)에 서버 개설 탭과 동일한 `Domain → 통신 타입 → 통신명` 3단계 선택 UI 및 로직을 적용했다.
-  선택된 Domain 기준으로 사용 가능한 타입을 필터링하고 실제 Graph 후보를 선택/직접 입력할 수 있도록 구성했으며, QoS/schema/history/실행 동작을 온전히 유지했다.
-  Frontend unit test 20개 모듈·lint·build를 통과했고, 로컬 HTTPS 정적 배포(`assets/index-CknMlnQ2.js`)와 실화면 렌더링 및 Service Call 실행을 확인했다.
+  Monitor API 계약(`request`, `goal`, `qos: qos.qosSelection`)을 복구하여 `ScheduleCrud`, `RobotControl`, `CanControl` 실호출 및 응답 수신을 확인했다.
+  Frontend unit test 20개 모듈·lint·build를 통과했고, 로컬 HTTPS 정적 배포(`assets/index-DgK-t4HX.js`)와 실화면 렌더링 및 통신 검증을 완료했다.
 
 
 - Action 상세 history에 Interface Lab Goal과 실제 외부 통신에서 관찰한 Status 전이·Feedback·terminal Result를

@@ -308,5 +308,20 @@
 - 2단계 `통신 타입` 선택: 선택된 Domain 기준으로 import 가능한 고유 타입(Message/Service/Action type)을 필터링하여 선택한다.
 - 3단계 `통신명` 선택/입력: 선택된 Domain과 타입에 매칭되는 실제 Graph 리소스 후보를 select 드롭다운으로 안내하고, 기본값 자동완성 및 사용자가 직접 input에서 이름을 수정/입력할 수 있도록 구현했다. 사용자가 직접 입력한 이름은 실행 전 덮어쓰지 않고 보존된다.
 - `useServiceExecutionController`, `useActionExecutionController`, `useTopicExecutionController`, `executionViewProps`, `interfaceExecutionViews`를 정비하여 QoS, schema 폼, history, receive 연동 및 1회/지속 발행/호출/Goal 실행 동작을 온전히 유지했다.
-- Frontend unit test 20개 모듈 전체 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 프로덕션 빌드(`assets/index-CknMlnQ2.js`)를 완료했다.
-- 최신 빌드를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, Headless Chrome을 통해 Topic 발행, Service 호출, Action Goal 실화면 렌더링 및 Service Call 실제 실행/결과 표시를 검증했다.
+- Service 호출 및 Action Goal 실행 시 Monitor API payload 계약(`request`, `goal`, `qos: qos.qosSelection`)을 복구하여 `ScheduleCrud` 및 `RobotControl` Service Call, `CanControl` Action Goal 실제 통신 성공을 검증했다.
+- Frontend unit test 20개 모듈 전체 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 프로덕션 빌드(`assets/index-DgK-t4HX.js`)를 완료했다.
+- 최신 빌드를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, Headless Chrome 및 API 실호출을 통해 D1/D99 `ScheduleCrud`, `RobotControl`, `CanControl`의 실행 및 응답 수신을 확인했다.
+
+## 2026-08-28 - Interface Lab 클라이언트 실행 ↔ 우측 수신 Domain 양방향 동기화
+
+- Topic 발행 ↔ Topic 수신, Service 호출 ↔ Service 수신, Action Goal ↔ Action 수신 3개 페어의 Domain 선택을 실시간 양방향 동기화했다.
+- 수신 패널 UI(`TopicReceivePanel`, `ResourceReceivePanel`) 상단에 `Domain` select를 추가하여 Dashboard 설정 Domain(`domainIds`) 목록을 제공하고 현재 선택 Domain을 렌더링했다.
+- `useInterfaceReceiveController`, `useTopicReceiveController`, `useResourceReceiveObserver`, `useInterfaceExecutionSuite`를 연동하여:
+  - 실행 쪽에서 Domain을 변경하면 수신 쪽 Domain이 즉시 동기화되고, 수신 쪽 메시지/서비스/액션 타입 및 Graph 후보 목록이 해당 Domain 기준으로 재필터링된다.
+  - 수신 쪽에서 Domain을 변경하면 실행 쪽 Domain이 즉시 동기화되고, 실행 쪽의 통신 타입 및 Graph 후보 목록/추천 이름이 해당 Domain 기준으로 재필터링된다.
+  - 새 Domain에 기존 선택 리소스가 없으면 안전하게 첫 번째 항목 또는 빈 선택 상태로 자동 갱신된다.
+  - 실행 상태(busy/executing)와 수신 상태(receiving/history)는 독립적으로 유지되어 상호 간섭이 없도록 보장했다.
+  - Monitor API의 `request`, `goal`, `qos` 페이로드 키 및 서버 개설 영역은 변경 없이 보존했다.
+- Frontend unit test 20개 모듈 전체 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 프로덕션 빌드(`assets/index-DbNgpCji.js`)를 완료했다.
+- 최신 빌드를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, Headless Chrome(1440×1200)을 통해 Service, Action, Topic 각각의 `Exec(99) ↔ Recv(99)` 및 `Recv(1) ↔ Exec(1)` 양방향 Domain 동기화 실화면 렌더링 및 동작을 검증했다.
+

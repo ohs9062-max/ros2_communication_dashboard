@@ -11,7 +11,10 @@ import { useExecutionQos } from './useExecutionQos.js'
 
 export function useTopicReceiveController({
   availableTopics,
+  domainId = null,
+  domainIds = [],
   load,
+  onDomainChange,
   onTopicSelectionChange,
   selectedMessage,
   setFeedback,
@@ -21,22 +24,29 @@ export function useTopicReceiveController({
   topics,
 }) {
   const [selectedTopic, setSelectedTopic] = useState('')
-  const [selectedDomainId, setSelectedDomainId] = useState(null)
+  const [selectedDomainId, setSelectedDomainId] = useState(domainId)
   const [selectedResourceKey, setSelectedResourceKey] = useState('')
   const selectedTopicSourceRef = useRef('empty')
   const [topicSearch, setTopicSearch] = useState('')
   const qos = useExecutionQos()
 
+  useEffect(() => {
+    if (domainId !== undefined) {
+      setSelectedDomainId(domainId)
+    }
+  }, [domainId])
+
   const filteredTopics = useMemo(() => {
     const keyword = topicSearch.trim().toLowerCase()
     const selectedType = selectedMessage?.message_type
     return availableTopics.filter((topic) => {
+      if (selectedDomainId !== null && topic.domain_id !== selectedDomainId) return false
       const topicType = topic.type ?? topic.types?.[0] ?? ''
       if (selectedType && !topicHasType(topic, selectedType)) return false
       if (!keyword) return true
       return `${topic.name} ${topicType}`.toLowerCase().includes(keyword)
     })
-  }, [availableTopics, selectedMessage?.message_type, topicSearch])
+  }, [availableTopics, selectedDomainId, selectedMessage?.message_type, topicSearch])
   const selectedTopicReceiving = topics.some((topic) =>
     topic.topic_name === selectedTopic
     && topic.domain_id === selectedDomainId
@@ -177,12 +187,20 @@ export function useTopicReceiveController({
     }
   }
 
+  const selectDomain = useCallback((value, notify = true) => {
+    const nextDomainId = value === '' ? null : Number(value)
+    setSelectedDomainId(nextDomainId)
+    if (notify) onDomainChange?.(nextDomainId)
+  }, [onDomainChange])
+
   return {
     changeTopic,
+    domainIds,
     filteredTopics,
     ...qos,
     resetAllTopics,
     resetSelectedTopic,
+    selectDomain,
     selectedTopic,
     selectedDomainId,
     selectedTopicReceiving,

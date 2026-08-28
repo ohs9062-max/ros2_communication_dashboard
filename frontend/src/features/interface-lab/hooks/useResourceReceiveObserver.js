@@ -1,12 +1,15 @@
 import { useState } from 'react'
 
 export function useResourceReceiveObserver({
+  domainId = null,
+  domainIds = [],
   history,
   itemKey,
   items,
   kind,
   load,
   nameField,
+  onDomainChange,
   resetHistory,
   selectedKey,
   setFeedback,
@@ -17,6 +20,7 @@ export function useResourceReceiveObserver({
   const selected = items.find((item) => itemKey(item) === selectedKey)
   const keyword = search.trim().toLowerCase()
   const filteredItems = items.filter((item) => {
+    if (domainId !== null && item.domain_id !== domainId) return false
     if (!keyword) return true
     return `${item[nameField] ?? item.file_name ?? ''} ${item[typeField] ?? ''}`
       .toLowerCase()
@@ -88,7 +92,10 @@ export function useResourceReceiveObserver({
 
   return {
     activeKey,
+    domainId,
+    domainIds,
     filteredItems,
+    onDomainChange,
     reset,
     search,
     setSearch,

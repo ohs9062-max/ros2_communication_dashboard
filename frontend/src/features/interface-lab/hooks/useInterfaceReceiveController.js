@@ -11,8 +11,9 @@ import {
   resetReceiveActionHistory,
   resetReceiveServiceHistory,
 } from '../../../api/interfaceExecution.js'
-import { fetchTopics } from '../../../api/monitoring.js'
+import { fetchDomains, fetchTopics } from '../../../api/monitoring.js'
 import { actionKey, messageKey, serviceKey } from '../model/interfaceUploadModel.js'
+import { configuredServerDomainIds } from '../model/serverSelection.js'
 import { runSingleFlight } from '../model/singleFlight.js'
 import { useActionExecutionQos } from './useExecutionQos.js'
 import { useResourceReceiveObserver } from './useResourceReceiveObserver.js'
@@ -20,8 +21,11 @@ import { useTopicReceiveController } from './useTopicReceiveController.js'
 
 export function useInterfaceReceiveController({
   availableTopics,
+  onActionDomainChange,
   onActionSelectionChange,
+  onMessageDomainChange,
   onMessageSelectionChange,
+  onServiceDomainChange,
   onServiceSelectionChange,
   onTopicSelectionChange,
   setAvailableTopics,
@@ -30,6 +34,10 @@ export function useInterfaceReceiveController({
 }) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('topic')
+  const [domainIds, setDomainIds] = useState([])
+  const [topicDomainId, setTopicDomainId] = useState(null)
+  const [serviceDomainId, setServiceDomainId] = useState(null)
+  const [actionDomainId, setActionDomainId] = useState(null)
   const [topics, setTopics] = useState([])
   const [topicHistory, setTopicHistory] = useState([])
   const [serviceHistory, setServiceHistory] = useState([])
@@ -57,10 +65,46 @@ export function useInterfaceReceiveController({
     onActionSelectionChange?.(key)
   }, [onActionSelectionChange])
 
+  const selectTopicDomain = useCallback((value, notify = true) => {
+    const nextDomainId = value === '' ? null : Number(value)
+    setTopicDomainId(nextDomainId)
+    if (notify) onMessageDomainChange?.(nextDomainId)
+  }, [onMessageDomainChange])
+
+  const selectServiceDomain = useCallback((value, notify = true) => {
+    const nextDomainId = value === '' ? null : Number(value)
+    setServiceDomainId(nextDomainId)
+    const domainServices = services.filter((item) => nextDomainId === null || item.domain_id === nextDomainId)
+    const current = domainServices.find((item) => serviceKey(item) === selectedReceiveServiceKey)
+    if (!current) {
+      const nextKey = domainServices[0] ? serviceKey(domainServices[0]) : ''
+      setSelectedReceiveServiceKey(nextKey)
+      onServiceSelectionChange?.(nextKey)
+    }
+    if (notify) onServiceDomainChange?.(nextDomainId)
+  }, [onServiceDomainChange, onServiceSelectionChange, selectedReceiveServiceKey, services])
+
+  const selectActionDomain = useCallback((value, notify = true) => {
+    const nextDomainId = value === '' ? null : Number(value)
+    setActionDomainId(nextDomainId)
+    const domainActions = actions.filter((item) => nextDomainId === null || item.domain_id === nextDomainId)
+    const current = domainActions.find((item) => actionKey(item) === selectedReceiveActionKey)
+    if (!current) {
+      const nextKey = domainActions[0] ? actionKey(domainActions[0]) : ''
+      setSelectedReceiveActionKey(nextKey)
+      onActionSelectionChange?.(nextKey)
+    }
+    if (notify) onActionDomainChange?.(nextDomainId)
+  }, [actions, onActionDomainChange, onActionSelectionChange, selectedReceiveActionKey])
+
   const load = useCallback(async ({ silent = false, mode: requestedMode = null } = {}) => {
     if (!silent) setBusy(true)
     try {
       const selectedMode = requestedMode ?? mode
+      const domainsPayload = await fetchDomains()
+      const nextDomains = configuredServerDomainIds(domainsPayload)
+      setDomainIds(nextDomains)
+
       if (selectedMode === 'service') {
         const [historyPayload, servicesPayload] = await Promise.all([
           fetchReceiveServiceHistory(),
@@ -69,8 +113,9 @@ export function useInterfaceReceiveController({
         const nextServices = servicesPayload.data ?? []
         setServiceHistory(historyPayload.data ?? [])
         setServices(nextServices)
-        if (!nextServices.some((service) => serviceKey(service) === selectedReceiveServiceKey)) {
-          setSelectedReceiveServiceKey(nextServices[0] ? serviceKey(nextServices[0]) : '')
+        const domainServices = nextServices.filter((service) => serviceDomainId === null || service.domain_id === serviceDomainId)
+        if (!domainServices.some((service) => serviceKey(service) === selectedReceiveServiceKey)) {
+          setSelectedReceiveServiceKey(domainServices[0] ? serviceKey(domainServices[0]) : '')
         }
       } else if (selectedMode === 'action') {
         const [historyPayload, actionsPayload] = await Promise.all([
@@ -80,8 +125,9 @@ export function useInterfaceReceiveController({
         const nextActions = actionsPayload.data ?? []
         setActionHistory(historyPayload.data ?? [])
         setActions(nextActions)
-        if (!nextActions.some((action) => actionKey(action) === selectedReceiveActionKey)) {
-          setSelectedReceiveActionKey(nextActions[0] ? actionKey(nextActions[0]) : '')
+        const domainActions = nextActions.filter((action) => actionDomainId === null || action.domain_id === actionDomainId)
+        if (!domainActions.some((action) => actionKey(action) === selectedReceiveActionKey)) {
+          setSelectedReceiveActionKey(domainActions[0] ? actionKey(domainActions[0]) : '')
         }
       } else {
         const [topicsPayload, receivingPayload, historyPayload, messagesPayload] = await Promise.all([
@@ -106,10 +152,12 @@ export function useInterfaceReceiveController({
       if (!silent) setBusy(false)
     }
   }, [
+    actionDomainId,
     mode,
     selectedMessageKey,
     selectedReceiveActionKey,
     selectedReceiveServiceKey,
+    serviceDomainId,
     setAvailableTopics,
     setBusy,
     setFeedback,
@@ -126,7 +174,10 @@ export function useInterfaceReceiveController({
 
   const topicController = useTopicReceiveController({
     availableTopics,
+    domainId: topicDomainId,
+    domainIds,
     load,
+    onDomainChange: (id) => selectTopicDomain(id, true),
     onTopicSelectionChange,
     messageImportableOnly,
     selectedMessage,
@@ -138,24 +189,30 @@ export function useInterfaceReceiveController({
   })
 
   const serviceObserver = useResourceReceiveObserver({
+    domainId: serviceDomainId,
+    domainIds,
     history: serviceHistory,
     itemKey: serviceKey,
     items: services,
     kind: 'Service',
     load,
     nameField: 'service_name',
+    onDomainChange: (id) => selectServiceDomain(id, true),
     resetHistory: resetReceiveServiceHistory,
     selectedKey: selectedReceiveServiceKey,
     setFeedback,
     typeField: 'service_type',
   })
   const actionObserver = useResourceReceiveObserver({
+    domainId: actionDomainId,
+    domainIds,
     history: actionHistory,
     itemKey: actionKey,
     items: actions,
     kind: 'Action',
     load,
     nameField: 'action_name',
+    onDomainChange: (id) => selectActionDomain(id, true),
     resetHistory: resetReceiveActionHistory,
     selectedKey: selectedReceiveActionKey,
     setFeedback,
@@ -210,9 +267,11 @@ export function useInterfaceReceiveController({
   return {
     actions,
     actionSearch,
+    actionDomainId,
     actionQosControls: actionQos.qosControls,
     activeActionKey,
     activeServiceKey,
+    domainIds,
     filteredActions,
     filteredServices,
     load,
@@ -221,19 +280,29 @@ export function useInterfaceReceiveController({
     open,
     resetActions,
     resetServices,
+    serviceDomainId,
     serviceSearch,
     services,
+    setActionDomainId: selectActionDomain,
     setActionSearch,
     setMode,
     setMessageImportableOnly,
     setOpen,
+    setServiceDomainId: selectServiceDomain,
     setServiceSearch,
     setSelectedMessageKey: selectReceiveMessage,
     setSelectedReceiveActionKey: selectReceiveAction,
     setSelectedReceiveServiceKey: selectReceiveService,
-    selectMessageFromExecution: setSelectedMessageKey,
-    selectServiceFromExecution: setSelectedReceiveServiceKey,
+    setTopicDomainId: selectTopicDomain,
+    selectActionDomain,
+    selectActionDomainFromExecution: (id) => selectActionDomain(id, false),
     selectActionFromExecution: setSelectedReceiveActionKey,
+    selectMessageFromExecution: setSelectedMessageKey,
+    selectServiceDomain,
+    selectServiceDomainFromExecution: (id) => selectServiceDomain(id, false),
+    selectServiceFromExecution: setSelectedReceiveServiceKey,
+    selectTopicDomain,
+    selectTopicDomainFromExecution: (id) => selectTopicDomain(id, false),
     startAction,
     startService,
     stopAction,
@@ -242,6 +311,7 @@ export function useInterfaceReceiveController({
     selectedMessageKey,
     selectedReceiveActionKey,
     selectedReceiveServiceKey,
+    topicDomainId,
     visibleActionHistory,
     visibleMessages,
     visibleServiceHistory,

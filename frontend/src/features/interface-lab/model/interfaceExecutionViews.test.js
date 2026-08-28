@@ -32,16 +32,17 @@ function fixture(receiveMode = 'action') {
     visibleMessages: [{ message_type: 'std_msgs/msg/String' }],
   }
   const receive = {
+    actionDomainId: 99,
     actions: action.actions,
     actionSearch: '', activeActionKey: 'active-action', activeServiceKey: 'active-service',
-    changeTopic: noop, filteredActions: action.actions, filteredServices: service.services,
+    changeTopic: noop, domainIds: [1, 99], filteredActions: action.actions, filteredServices: service.services,
     filteredTopics: ['/chatter'], load: noop, messageImportableOnly: true, mode: receiveMode, qosMode: 'manual',
     qosProfile: { depth: 3 }, resetActions: noop, resetAllTopics: noop,
     resetSelectedTopic: noop, resetServices: noop, selectedTopic: '/chatter',
-    selectedTopicReceiving: true, serviceSearch: '', setActionSearch: noop,
+    selectedTopicReceiving: true, serviceDomainId: 1, serviceSearch: '', setActionSearch: noop,
     setMessageImportableOnly: () => 'receive-importable', setServiceSearch: noop,
     setTopicSearch: noop, startAction: noop, startService: noop,
-    startTopic: noop, stopAction: noop, stopService: noop, stopTopic: noop, topicSearch: '',
+    startTopic: noop, stopAction: noop, stopService: noop, stopTopic: noop, topicDomainId: 1, topicSearch: '',
     messages: topic.messages, selectedMessage: topic.selected, selectedMessageKey: 'receive-topic-key',
     selectedReceiveActionKey: 'receive-action-key', selectedReceiveServiceKey: 'receive-service-key',
     services: service.services, setSelectedMessageKey: () => 'receive-message',
@@ -110,6 +111,10 @@ test('maps controller state to the existing execution and receive View contracts
   assert.equal(views.receive.topic.selectedTopic, '/chatter')
   assert.equal(views.receive.action.onSelect, state.receive.setSelectedReceiveActionKey)
   assert.notEqual(views.receive.action.onSelect, state.action.select)
+  assert.equal(views.receive.action.selectedDomainId, 99)
+  assert.equal(views.receive.service.selectedDomainId, 1)
+  assert.equal(views.receive.topic.selectedDomainId, 1)
+  assert.deepEqual(views.receive.topic.domainIds, [1, 99])
   assert.equal(views.receive.service.onSelect, state.receive.setSelectedReceiveServiceKey)
   assert.notEqual(views.receive.service.onSelect, state.service.select)
   assert.equal(views.receive.topic.onMessageSelect, state.receive.setSelectedMessageKey)

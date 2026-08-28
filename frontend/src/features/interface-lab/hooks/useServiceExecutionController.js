@@ -19,6 +19,7 @@ import {
 import { useServiceExecutionQos } from './useExecutionQos.js'
 
 export function useServiceExecutionController({
+  onDomainChange,
   onSelectionChange,
   onStateChanged,
 }) {
@@ -100,7 +101,7 @@ export function useServiceExecutionController({
     applySelection(service, selectedDomainId)
   }, [applySelection, selectedDomainId, visibleServices])
 
-  const selectDomain = useCallback((value) => {
+  const selectDomain = useCallback((value, notify = true) => {
     const domainId = value === '' ? null : Number(value)
     const domainServices = services.filter((item) => (
       item.domain_id === domainId
@@ -111,7 +112,8 @@ export function useServiceExecutionController({
       ?? domainServices[0]
     setSelectedDomainId(domainId)
     applySelection(service, domainId)
-  }, [applySelection, importableOnly, selected?.service_type, services])
+    if (notify) onDomainChange?.(domainId)
+  }, [applySelection, importableOnly, onDomainChange, selected?.service_type, services])
 
   const replace = useCallback((nextServices, nextHistory = null) => {
     setServices(nextServices)
@@ -145,8 +147,9 @@ export function useServiceExecutionController({
     if (target?.service_name) {
       setServiceName(target.service_name)
     }
+    onDomainChange?.(targetDomainId)
     return nextServices
-  }, [applySelection, replace, selectedDomainId])
+  }, [applySelection, onDomainChange, replace, selectedDomainId])
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
@@ -168,22 +171,21 @@ export function useServiceExecutionController({
       const payload = await callRegisteredService({
         service_name: serviceName.trim(),
         service_type: selected.service_type,
-        request_json: normalizeNumericValues(requestValues, selected.request_schema),
+        request: normalizeNumericValues(requestValues, selected.request_schema),
         timeout_sec: timeoutSec,
-        qos_mode: qos.qosSelection.mode,
-        qos_profile: qos.qosSelection.profile,
+        qos: qos.qosSelection,
         domain_id: domainId,
       })
       const nextHistory = await fetchServiceCallHistory()
       setHistory(nextHistory.data ?? [])
-      setResult(payload.data)
+      setResult(payload)
       onStateChanged?.()
     } catch (error) {
       setResult({ success: false, error: error.message })
     } finally {
       setBusy(false)
     }
-  }, [onStateChanged, qos.qosSelection.mode, qos.qosSelection.profile, requestValues, selected, selectedDomainId, serviceName, timeoutSec])
+  }, [onStateChanged, qos.qosSelection, requestValues, selected, selectedDomainId, serviceName, timeoutSec])
 
   return {
     ...qos,

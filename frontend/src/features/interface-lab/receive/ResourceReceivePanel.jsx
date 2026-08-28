@@ -24,10 +24,12 @@ const CONFIG = {
 
 export function ResourceReceivePanel({
   activeKey,
+  domainIds = [],
   history,
   items,
   kind,
   modeLinked,
+  onDomainChange = () => {},
   qosControls = [],
   onRefresh,
   onModeLinkChange,
@@ -38,6 +40,7 @@ export function ResourceReceivePanel({
   onStart,
   onStop,
   search,
+  selectedDomainId = null,
   selectedKey,
   visibleItems,
 }) {
@@ -46,15 +49,22 @@ export function ResourceReceivePanel({
   return (
     <div className="interface-receive-grid">
       <label className="interface-service-field">
+        <span>Domain</span>
+        <select onChange={(event) => onDomainChange(event.target.value === '' ? null : Number(event.target.value))} value={selectedDomainId ?? ''}>
+          <option value="">Domain 선택</option>
+          {domainIds.map((domainId) => <option key={domainId} value={domainId}>D{domainId}</option>)}
+        </select>
+      </label>
+      <label className="interface-service-field">
         <span>항목 검색</span>
         <input placeholder={config.placeholder} value={search} onChange={(event) => onSearchChange(event.target.value)} />
       </label>
       <label className="interface-service-field">
-        <span>{config.label} · {visibleItems.length}/{items.length}</span>
+        <span>{config.label} · D{selectedDomainId ?? '-'} · {visibleItems.length}/{items.length}</span>
         <select value={selectedKey} onChange={(event) => onSelect(event.target.value)}>
           {visibleItems.map((item) => (
             <option key={config.key(item)} value={config.key(item)}>
-              {config.name(item)} · {config.type(item)}
+              {config.name(item)} · D{item.domain_id} · {config.type(item)}
             </option>
           ))}
         </select>

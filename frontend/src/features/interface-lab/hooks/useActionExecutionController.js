@@ -19,6 +19,7 @@ import {
 import { useActionExecutionQos } from './useExecutionQos.js'
 
 export function useActionExecutionController({
+  onDomainChange,
   onSelectionChange,
   onStateChanged,
 }) {
@@ -100,7 +101,7 @@ export function useActionExecutionController({
     applySelection(action, selectedDomainId)
   }, [applySelection, selectedDomainId, visibleActions])
 
-  const selectDomain = useCallback((value) => {
+  const selectDomain = useCallback((value, notify = true) => {
     const domainId = value === '' ? null : Number(value)
     const domainActions = actions.filter((item) => (
       item.domain_id === domainId
@@ -111,7 +112,8 @@ export function useActionExecutionController({
       ?? domainActions[0]
     setSelectedDomainId(domainId)
     applySelection(action, domainId)
-  }, [actions, applySelection, importableOnly, selected?.action_type])
+    if (notify) onDomainChange?.(domainId)
+  }, [actions, applySelection, importableOnly, onDomainChange, selected?.action_type])
 
   const replace = useCallback((nextActions, nextHistory = null) => {
     setActions(nextActions)
@@ -145,8 +147,9 @@ export function useActionExecutionController({
     if (target?.action_name) {
       setActionName(target.action_name)
     }
+    onDomainChange?.(targetDomainId)
     return nextActions
-  }, [applySelection, replace, selectedDomainId])
+  }, [applySelection, onDomainChange, replace, selectedDomainId])
 
   const execute = useCallback(async () => {
     if (!selected || !selected.callable) {
@@ -168,14 +171,14 @@ export function useActionExecutionController({
       const payload = await sendActionGoal({
         action_name: actionName.trim(),
         action_type: selected.action_type,
-        goal_json: normalizeNumericValues(goalValues, selected.goal_schema),
+        goal: normalizeNumericValues(goalValues, selected.goal_schema),
         timeout_sec: timeoutSec,
         qos: qos.actionQosSelection,
         domain_id: domainId,
       })
       const nextHistory = await fetchActionGoalHistory()
       setHistory(nextHistory.data ?? [])
-      setResult(payload.data)
+      setResult(payload)
       onStateChanged?.()
     } catch (error) {
       setResult({ success: false, accepted: false, error: error.message })

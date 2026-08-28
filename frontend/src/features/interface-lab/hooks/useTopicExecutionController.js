@@ -25,6 +25,7 @@ import { useExecutionQos } from './useExecutionQos.js'
 
 export function useTopicExecutionController({
   availableTopics,
+  onDomainChange,
   onGraphTopicSelectionChange,
   onMessageSelectionChange,
   onStateChanged,
@@ -111,13 +112,14 @@ export function useTopicExecutionController({
     applySelection(message, publishDomainId, availableTopics)
   }, [applySelection, availableTopics, publishDomainId, visibleMessages])
 
-  const selectDomain = useCallback((value) => {
+  const selectDomain = useCallback((value, notify = true) => {
     const domainId = value === '' ? null : Number(value)
     setPublishDomainId(domainId)
     if (selected) {
       setPublishName(suggestedName(selected, domainId, availableTopics))
     }
-  }, [availableTopics, selected, suggestedName])
+    if (notify) onDomainChange?.(domainId)
+  }, [availableTopics, onDomainChange, selected, suggestedName])
 
   const continuous = useContinuousTopicExecution({
     messageValues,
@@ -167,8 +169,9 @@ export function useTopicExecutionController({
     } else if (!selectedKey && nextMessages.length > 0) {
       applySelection(nextMessages[0], targetDomainId, availableTopics)
     }
+    onDomainChange?.(targetDomainId)
     return nextMessages
-  }, [applySelection, availableTopics, onMessageSelectionChange, publishDomainId, replace, selectedKey])
+  }, [applySelection, availableTopics, onDomainChange, onMessageSelectionChange, publishDomainId, replace, selectedKey])
 
   const changePublishName = useCallback((value, sourceKind) => {
     if (sourceKind === 'graph') {
