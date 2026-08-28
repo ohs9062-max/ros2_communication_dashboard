@@ -47,7 +47,7 @@ export async function runExecutionPanelLoad({
 }
 
 export function isWorkspaceExpanded({
-  executionMode: _executionMode,
+  executionMode,
   receiveMode,
   showManualInput,
   showPackages,
@@ -60,5 +60,7 @@ export function isWorkspaceExpanded({
     || showRegistry
     || showPackages
     || (showReceivePanel && receiveMode !== 'mock')
+    || executionMode === 'service_server'
+    || executionMode === 'action_server'
   ))
 }

@@ -18,6 +18,8 @@ export const cancelActionGoal = (payload) =>
 export const fetchServiceServerTypes = () => requestJson('/ros/interfaces/service-servers/types')
 export const fetchServiceServers = () => requestJson('/ros/interfaces/service-servers')
 export const fetchServiceServerHistory = () => requestJson('/ros/interfaces/service-servers/history')
+export const resetServiceServerHistory = (payload = {}) =>
+  requestWithJsonBody('/ros/interfaces/service-servers/history/reset', 'POST', payload)
 export const startServiceServer = (payload) =>
   requestWithJsonBody('/ros/interfaces/service-servers/start', 'POST', payload)
 export const stopServiceServer = (payload) =>
@@ -25,6 +27,8 @@ export const stopServiceServer = (payload) =>
 export const fetchActionServerTypes = () => requestJson('/ros/interfaces/action-servers/types')
 export const fetchActionServers = () => requestJson('/ros/interfaces/action-servers')
 export const fetchActionServerHistory = () => requestJson('/ros/interfaces/action-servers/history')
+export const resetActionServerHistory = (payload = {}) =>
+  requestWithJsonBody('/ros/interfaces/action-servers/history/reset', 'POST', payload)
 export const startActionServer = (payload) =>
   requestWithJsonBody('/ros/interfaces/action-servers/start', 'POST', payload)
 export const stopActionServer = (payload) =>

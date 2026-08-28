@@ -69,6 +69,9 @@ class InterfaceLabFacade:
     def service_server_history(self) -> dict[str, Any]:
         return self._service_server_runtime.history()
 
+    def reset_service_server_history(self, **kwargs: Any) -> dict[str, Any]:
+        return self._service_server_runtime.reset_history(**kwargs)
+
     def callable_actions(self) -> dict[str, Any]:
         return self._action_goal_runtime.callable_actions()
 
@@ -139,6 +142,9 @@ class InterfaceLabFacade:
 
     def action_server_history(self) -> dict[str, Any]:
         return self._action_server_runtime.history()
+
+    def reset_action_server_history(self, **kwargs: Any) -> dict[str, Any]:
+        return self._action_server_runtime.reset_history(**kwargs)
 
     def start_receive_topic(
         self, *, topic_name: str, topic_type: str, history_limit: int = 100,

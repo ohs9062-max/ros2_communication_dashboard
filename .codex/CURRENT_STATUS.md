@@ -37,12 +37,18 @@
   수신 controller는 별도 callable 목록과 selected key를 보유하므로 수신 load/선택/시작은 Topic Publish,
   Service Call, Action Goal의 실행 목록·선택·busy state를 변경하지 않는다. 여러 동일 type 후보가 있으면 임의
   Domain을 선택하지 않고 기존 Domain 표기 selector를 유지한다.
-- Interface Lab 상단 통신 영역은 `통신 실행`(Topic 발행, Service 호출, Action Goal)과 `서버 개설`(Service,
+- Interface Lab 상단 통신 영역은 `클라이언트 실행`(Topic 발행, Service 호출, Action Goal)과 `서버 개설`(Service,
   Action)로 구분한다. Topic Server UI/controller/mode는 없으며 Topic 수신은 기존 우측 수신 영역을 유지한다.
+  Service/Action Server panel은 기존 실행 panel과 같은 `크게보기`/`닫기` UX를 사용하며, 크게보기는 해당 Server
+  panel만 넓은 workspace layout으로 전환한다.
   Service/Action Server는 Client runtime과 분리된 실제 rclpy runtime으로, 등록·import 가능한 타입과 선택
   `domain_id`에서 Start/Stop하고 Request/Response 또는 Goal/Cancel/Feedback/Result 이력을 최대 30건 보존한다.
-  Frontend는 Server status/history API만 표시하며 fake active 상태를 만들지 않는다. Domain별 Monitor는 동일
-  Context/Node의 4-thread executor를 사용해 Action Result 대기 중 Cancel callback도 처리한다.
+  Frontend는 등록 schema의 Service Request/Action Goal 필드를 읽기 전용으로 안내하고, Response/Feedback/Result는
+  기존 공통 schema form으로 사용자가 설정한다. Server history에는 실제 수신·반환 payload 전체를 함께 표시한다.
+  Runtime은 `cmd`, `success`, `result_code` 같은 업무 필드의 의미를 해석하지 않으며 payload의 `success=false`와
+  ROS2 Request/Response 성공 또는 Action 실행 상태를 분리한다. Frontend는 Server status/history API만 표시하며
+  fake active 상태를 만들지 않는다. Domain별 Monitor는 동일 Context/Node의 4-thread executor를 사용해 Action
+  Result 대기 중 Cancel callback도 처리한다.
 - Topic 목록 Hz polling과 표시 cache는 `resource_key`로 구분하고 모든 Hz 요청에 선택 resource의 `domain_id`를
   전달한다. Monitor Hz 응답도 `domain_id/resource_key`를 반환해 같은 이름 Topic의 다른 Domain 응답을 섞지 않는다.
 - Interface Lab Topic/Service/Action 실행 선택목록은 현재 Graph에 실제 존재하는 Domain별 resource만 사용한다.

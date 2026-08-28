@@ -188,3 +188,14 @@ test('expands only an active management or matching receive workspace', () => {
     ...base, receiveMode: 'topic', showReceivePanel: true, workspaceExpanded: false,
   }), false)
 })
+
+test('expands an active Service or Action server workspace without a receive panel', () => {
+  assert.equal(isWorkspaceExpanded({
+    executionMode: 'service_server', receiveMode: 'service', showManualInput: false,
+    showPackages: false, showReceivePanel: false, showRegistry: false, workspaceExpanded: true,
+  }), true)
+  assert.equal(isWorkspaceExpanded({
+    executionMode: 'action_server', receiveMode: 'action', showManualInput: false,
+    showPackages: false, showReceivePanel: false, showRegistry: false, workspaceExpanded: true,
+  }), true)
+})

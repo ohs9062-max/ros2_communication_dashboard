@@ -146,6 +146,22 @@ class ServiceServerRuntime:
         items = self._history.snapshot()
         return {'history': items, 'meta': {'count': len(items), 'limit': MAX_HISTORY_ITEMS}}
 
+    def reset_history(
+        self,
+        *,
+        service_name: str | None = None,
+        service_type: str | None = None,
+    ) -> dict[str, Any]:
+        cleared = self._history.remove(lambda item: (
+            (not service_name or item.get('service_name') == service_name)
+            and (not service_type or item.get('service_type') == service_type)
+        ))
+        return {
+            'cleared': cleared,
+            'service_name': service_name,
+            'service_type': service_type,
+        }
+
     def clear(self) -> None:
         with self._entity_lock:
             configs = list(self._servers.values())

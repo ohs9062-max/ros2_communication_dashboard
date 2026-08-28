@@ -201,6 +201,22 @@ class ActionServerRuntime:
         items = self._history.snapshot()
         return {'history': items, 'meta': {'count': len(items), 'limit': MAX_HISTORY_ITEMS}}
 
+    def reset_history(
+        self,
+        *,
+        action_name: str | None = None,
+        action_type: str | None = None,
+    ) -> dict[str, Any]:
+        cleared = self._history.remove(lambda item: (
+            (not action_name or item.get('action_name') == action_name)
+            and (not action_type or item.get('action_type') == action_type)
+        ))
+        return {
+            'cleared': cleared,
+            'action_name': action_name,
+            'action_type': action_type,
+        }
+
     def clear(self) -> None:
         with self._entity_lock:
             configs = list(self._servers.values())

@@ -218,6 +218,13 @@ class MultiDomainRosMonitor:
     def service_server_history(self) -> dict[str, Any]:
         return self._aggregate_runtime_collection('service_server_history', 'history')
 
+    def reset_service_server_history(
+        self, *, domain_id: int | None = None, **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self._reset_runtime(
+            'reset_service_server_history', domain_id=domain_id, **kwargs,
+        )
+
     def send_action_goal(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
         return self._runtime(domain_id).send_action_goal(**kwargs)
 
@@ -244,6 +251,13 @@ class MultiDomainRosMonitor:
 
     def action_server_history(self) -> dict[str, Any]:
         return self._aggregate_runtime_collection('action_server_history', 'history')
+
+    def reset_action_server_history(
+        self, *, domain_id: int | None = None, **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self._reset_runtime(
+            'reset_action_server_history', domain_id=domain_id, **kwargs,
+        )
 
     def callable_messages(self) -> dict[str, Any]:
         """Merge registered Message types and retain Domain on Graph candidates."""

@@ -339,6 +339,49 @@ h3 {
   margin-top: 10px;
 }
 
+.interface-server-schema {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.interface-server-schema dl {
+  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  margin: 0;
+  padding: 4px 10px;
+}
+
+.interface-server-schema dl > div {
+  align-items: center;
+  border-bottom: 1px solid rgba(48, 68, 92, 0.56);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, 1fr) minmax(140px, 1fr);
+  padding: 8px 0;
+}
+
+.interface-server-schema dl > div:last-child {
+  border-bottom: 0;
+}
+
+.interface-server-schema dt {
+  color: var(--text-heading, #e2e8f0);
+  font-family: var(--mono);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.interface-server-schema dd,
+.interface-server-schema small {
+  color: var(--muted);
+  font-family: var(--mono);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .interface-receive-panel {
   background: #0d141d;
   border: 1px solid rgba(14, 165, 233, 0.34);
@@ -459,7 +502,15 @@ h3 {
   padding-top: 12px;
 }
 
-.interface-receive-history > strong {
+.interface-receive-history-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.interface-receive-history-heading > strong {
   color: var(--blue);
   font-size: 16px;
 }

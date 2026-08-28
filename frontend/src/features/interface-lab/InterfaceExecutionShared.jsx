@@ -94,10 +94,29 @@ export function ActionGoalHistory({ goals }) {
   )
 }
 
-export function ReceiveHistory({ items = [], title }) {
+export function ReceiveHistory({
+  busy = false,
+  fullItem = false,
+  items = [],
+  onRefresh,
+  onReset,
+  resetDisabled = false,
+  title,
+}) {
   return (
     <div className="interface-receive-history">
-      <strong>{title} · {items.length}개</strong>
+      <div className="interface-receive-history-heading">
+        <strong>{title} · {items.length}개</strong>
+        {(onRefresh || onReset) && <div className="interface-receive-actions">
+          {onRefresh && <button className="interface-receive-action-button ghost" disabled={busy} onClick={onRefresh} type="button">{busy ? '조회 중…' : '새로고침'}</button>}
+          {onReset && <button
+            className="interface-receive-action-button warning"
+            disabled={busy || resetDisabled}
+            onClick={() => window.confirm('현재 선택한 Server의 이력을 초기화할까요?') && onReset()}
+            type="button"
+          >이력 리셋</button>}
+        </div>}
+      </div>
       {items.length ? (
         <ul>{items.map((item, index) => (
           <li key={`${title}-${index}-${item.id ?? item.topic_name ?? item.service_name ?? item.action_name}`}>
@@ -106,7 +125,13 @@ export function ReceiveHistory({ items = [], title }) {
               {' · '}
               {item.status ?? (item.receiving ? 'receiving' : item.success === false ? 'failed' : 'ok')}
             </span>
-            <pre>{JSON.stringify(item.last_message ?? item.message_json ?? item.response ?? item.result ?? item.feedback ?? item, null, 2)}</pre>
+            <pre>{JSON.stringify(
+              fullItem
+                ? item
+                : item.last_message ?? item.message_json ?? item.response ?? item.result ?? item.feedback ?? item,
+              null,
+              2,
+            )}</pre>
           </li>
         ))}</ul>
       ) : <small>수신 이력이 없습니다.</small>}

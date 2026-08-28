@@ -43,7 +43,7 @@ export function InterfaceUploadToolbar({
             <button className="interface-registry-button" disabled={disabled} onClick={onOpenRegistry} type="button">등록 목록</button>
             <button className="interface-package-list-button" disabled={disabled} onClick={onOpenPackages} type="button">Package 목록</button>
           </div></section>
-          <section><strong>통신 실행</strong><div>
+          <section><strong>클라이언트 실행</strong><div>
             <button className="interface-topic-button" disabled={disabled} onClick={onOpenTopic} type="button">Topic 발행</button>
             <button className="interface-service-button" disabled={disabled} onClick={onOpenService} type="button">Service 호출</button>
             <button className="interface-action-button" disabled={disabled} onClick={onOpenAction} type="button">Action Goal</button>

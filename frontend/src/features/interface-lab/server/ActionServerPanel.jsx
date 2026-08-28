@@ -1,7 +1,8 @@
 import { CallResultBlock, ReceiveHistory } from '../InterfaceExecutionShared.jsx'
 import { SchemaRequestField } from '../SchemaRequestField.jsx'
-import { actionKey, actionStatusLabel } from '../model/interfaceUploadModel.js'
+import { actionKey } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from '../execution/ExecutionPanelHeading.jsx'
+import { ServerSchemaSummary } from './ServerSchemaSummary.jsx'
 
 export function ActionServerPanel({
   acceptCancels = true,
@@ -9,17 +10,21 @@ export function ActionServerPanel({
   actionName = '',
   actions = [],
   active = false,
+  activeServer,
   busy = false,
+  domainIds = [],
   expanded = false,
   feedbackValues = {},
   goals = [],
-  importableOnly = false,
+  historyBusy = false,
   onActionNameChange = () => {},
   onAcceptCancelsChange = () => {},
   onAcceptGoalsChange = () => {},
   onClose,
+  onDomainChange = () => {},
   onFieldChange = () => {},
-  onImportableOnlyChange = () => {},
+  onRefreshHistory = () => {},
+  onResetHistory = () => {},
   onResultDelayChange = () => {},
   onSelect = () => {},
   onStart = () => {},
@@ -29,6 +34,7 @@ export function ActionServerPanel({
   resultDelaySec = 1,
   resultValues = {},
   selected,
+  selectedDomainId = null,
   selectedKey = '',
   serverDomainId = null,
   showExpand = false,
@@ -45,14 +51,12 @@ export function ActionServerPanel({
       />
       {actions.length ? (
         <>
-          <label className="interface-filter-check">
-            <input
-              checked={importableOnly}
-              onChange={(event) => onImportableOnlyChange(event.target.checked)}
-              type="checkbox"
-            />
-            <span>import된 액션만 보기</span>
-            <small>{visibleActions.length}/{actions.length}</small>
+          <label className="interface-service-field">
+            <span>Domain</span>
+            <select disabled={active} onChange={(event) => onDomainChange(event.target.value)} value={selectedDomainId ?? ''}>
+              <option value="">Domain 선택</option>
+              {domainIds.map((domainId) => <option key={domainId} value={domainId}>D{domainId}</option>)}
+            </select>
           </label>
           <label className="interface-service-field">
             <span>Result 반환 대기 · 초</span>
@@ -60,22 +64,17 @@ export function ActionServerPanel({
             <small>대기 중 Cancel 요청을 처리하며, 0이면 즉시 Feedback/Result를 반환합니다.</small>
           </label>
           <label className="interface-service-field">
-            <span>Action · {visibleActions.length}/{actions.length}개</span>
-            <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
+            <span>Action type · D{selectedDomainId ?? '-'}</span>
+            <select disabled={active} onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
               <option value="">개설 Action 타입 선택</option>
               {visibleActions.map((action) => (
                 <option key={actionKey(action)} value={actionKey(action)}>
-                  {action.action_name || action.action_type} · D{action.domain_id ?? 0} · {action.action_type} · {action.import_available ? 'import됨' : 'import 안됨'}
+                  {action.action_type}
                 </option>
               ))}
             </select>
-            {!visibleActions.length && <small>import된 액션 항목이 없습니다. 적용하기 또는 import 확인 후 다시 시도하세요.</small>}
+            {!visibleActions.length && <small>선택 Domain에 import 가능한 Action 타입이 없습니다.</small>}
           </label>
-          {selected && (
-            <div className={`interface-service-state ${selected.server_creatable ? 'success' : 'warning'}`}>
-              {selected.server_creatable ? '서버 개설 가능' : actionStatusLabel(selected)}
-            </div>
-          )}
           <label className="interface-service-field">
             <span>개설 Action name</span>
             <input
@@ -88,9 +87,10 @@ export function ActionServerPanel({
           </label>
           {selected && (
             <div className="interface-package-help">
-              선택 타입 {selected.action_type}의 Result schema {selected.result_schema?.length ?? 0}개 및 Feedback schema {selected.feedback_schema?.length ?? 0}개 필드로 응답 데이터를 구성합니다.
+              Dashboard는 Goal/Feedback/Result 필드의 업무 의미를 해석하지 않고 등록된 ROS2 타입 그대로 통신합니다.
             </div>
           )}
+          {selected && <ServerSchemaSummary fields={selected.goal_schema} title="Goal schema · 실제 Client 수신값" />}
           <label className="interface-filter-check">
             <input checked={acceptGoals} disabled={active} onChange={(event) => onAcceptGoalsChange(event.target.checked)} type="checkbox" />
             <span>수신 Goal Accept</span>
@@ -136,16 +136,24 @@ export function ActionServerPanel({
               onClick={active ? onStop : onStart}
               type="button"
             >
-              {busy ? '처리 중…' : active ? '서버 개설 중지' : '서버 개설 시작'}
+              {busy ? '처리 중…' : active ? '서버 종료' : '서버 개설 시작'}
             </button>
           </div>
-          {active && (
-            <div className="interface-service-state success">
-              Action 서버 개설 실행 중 · {actionName || selected?.action_name || selected?.action_type}
-            </div>
-          )}
+          <div className={`interface-service-state ${active ? 'success' : 'warning'}`}>
+            {active
+              ? `서버 실행 중 · D${activeServer?.domain_id} · ${activeServer?.action_name} · ${activeServer?.action_type}`
+              : '서버 중지됨'}
+          </div>
           {result && <CallResultBlock result={result} successPayload={result.server ?? result.stopped} />}
-          <ReceiveHistory items={goals} title="최근 Goal/Cancel/Result" />
+          <ReceiveHistory
+            busy={historyBusy}
+            fullItem
+            items={goals}
+            onRefresh={onRefreshHistory}
+            onReset={onResetHistory}
+            resetDisabled={!selected || !actionName.trim()}
+            title="Goal / Feedback / Result / Cancel history"
+          />
         </>
       ) : (
         <small>registry에 등록된 Action이 없습니다.</small>

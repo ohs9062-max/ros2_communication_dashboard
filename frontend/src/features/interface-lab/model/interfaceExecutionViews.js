@@ -184,7 +184,7 @@ export function interfaceExecutionViews({
       onClose: panel.closeExecutionPanels,
       onToggleExpanded: panel.toggleWorkspaceExpanded,
       open: panel.showCallableServiceServer,
-      showExpand: panel.showReceivePanel && receive.mode === 'service',
+      showExpand: true,
     }) : { open: false },
     actionServer: actionServer ? actionServerViewProps({
       ...actionServer,
@@ -192,7 +192,7 @@ export function interfaceExecutionViews({
       onClose: panel.closeExecutionPanels,
       onToggleExpanded: panel.toggleWorkspaceExpanded,
       open: panel.showCallableActionServer,
-      showExpand: panel.showReceivePanel && receive.mode === 'action',
+      showExpand: true,
     }) : { open: false },
   }
 }

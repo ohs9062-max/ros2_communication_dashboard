@@ -166,3 +166,18 @@ async def stop_service_server(request: Request) -> dict[str, Any]:
 def get_service_server_history() -> dict[str, Any]:
     snapshot = ros_monitor.service_server_history()
     return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
+
+
+@router.post('/ros/interfaces/service-servers/history/reset')
+async def reset_service_server_history(request: Request) -> dict[str, Any]:
+    try:
+        payload = _object_payload(await request.json())
+        result = await run_in_threadpool(
+            ros_monitor.reset_service_server_history,
+            service_name=payload.get('service_name'),
+            service_type=payload.get('service_type'),
+            domain_id=payload.get('domain_id'),
+        )
+    except (ValueError, ServiceServerError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {'success': True, 'data': result}

@@ -194,3 +194,18 @@ async def stop_action_server(request: Request) -> dict[str, Any]:
 def get_action_server_history() -> dict[str, Any]:
     snapshot = ros_monitor.action_server_history()
     return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}
+
+
+@router.post('/ros/interfaces/action-servers/history/reset')
+async def reset_action_server_history(request: Request) -> dict[str, Any]:
+    try:
+        payload = _object_payload(await request.json())
+        result = await run_in_threadpool(
+            ros_monitor.reset_action_server_history,
+            action_name=payload.get('action_name'),
+            action_type=payload.get('action_type'),
+            domain_id=payload.get('domain_id'),
+        )
+    except (ValueError, ActionServerError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {'success': True, 'data': result}

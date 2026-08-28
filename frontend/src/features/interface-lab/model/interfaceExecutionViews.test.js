@@ -52,7 +52,21 @@ function fixture(receiveMode = 'action') {
   const panel = {
     closeExecutionPanels: noop, closeReceivePanel: noop, expanded: false,
     selectReceiveMode: noop, showCallableActions: true, showCallableServices: true,
-    showCallableTopics: true, showReceivePanel: true, toggleWorkspaceExpanded: noop,
+    showCallableTopics: true, showCallableServiceServer: true, showCallableActionServer: true,
+    showReceivePanel: true, toggleWorkspaceExpanded: noop,
+  }
+  const serviceServer = {
+    active: false, busy: false, calls: [], importableOnly: true, load: noop, onFieldChange: noop,
+    responseValues: {}, result: null, select: noop, selected: null, selectedKey: '', serverDomainId: 22,
+    serverName: '', services: [], setImportableOnly: noop, setServerName: noop, start: noop, stop: noop,
+    visibleServices: [],
+  }
+  const actionServer = {
+    acceptCancels: true, acceptGoals: true, actionName: '', actions: [], active: false, busy: false,
+    feedbackValues: {}, goals: [], importableOnly: true, load: noop, onFieldChange: noop,
+    result: null, resultDelaySec: 1, resultValues: {}, select: noop, selected: null, selectedKey: '',
+    serverDomainId: 22, setAcceptCancels: noop, setAcceptGoals: noop, setActionName: noop,
+    setImportableOnly: noop, setResultDelaySec: noop, start: noop, stop: noop, visibleActions: [],
   }
   const actionQosLink = {
     changeExecutionMode: noop, changeExecutionProfile: noop, changeReceiveMode: noop,
@@ -74,7 +88,9 @@ function fixture(receiveMode = 'action') {
     },
     receive,
     service,
+    serviceServer,
     topic,
+    actionServer,
   }
 }
 
@@ -100,6 +116,8 @@ test('maps controller state to the existing execution and receive View contracts
   assert.notEqual(views.receive.topic.onMessageSelect, state.topic.select)
   assert.equal(views.receive.topic.onImportableOnlyChange, state.receive.setMessageImportableOnly)
   assert.notEqual(views.receive.topic.onImportableOnlyChange, state.topic.setImportableOnly)
+  assert.equal(views.serviceServer.showExpand, true)
+  assert.equal(views.actionServer.showExpand, true)
 })
 
 test('shows the expand affordance only for the execution panel matching the receive mode', () => {
@@ -112,4 +130,6 @@ test('shows the expand affordance only for the execution panel matching the rece
   assert.equal(topicViews.actionExecution.showExpand, false)
   assert.equal(topicViews.serviceExecution.showExpand, false)
   assert.equal(topicViews.topicExecution.showExpand, true)
+  assert.equal(topicViews.serviceServer.showExpand, true)
+  assert.equal(topicViews.actionServer.showExpand, true)
 })

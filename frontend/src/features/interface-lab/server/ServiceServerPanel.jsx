@@ -1,17 +1,22 @@
 import { CallResultBlock, ReceiveHistory } from '../InterfaceExecutionShared.jsx'
 import { SchemaRequestField } from '../SchemaRequestField.jsx'
-import { serviceKey, serviceStatusLabel } from '../model/interfaceUploadModel.js'
+import { serviceKey } from '../model/interfaceUploadModel.js'
 import { ExecutionPanelHeading } from '../execution/ExecutionPanelHeading.jsx'
+import { ServerSchemaSummary } from './ServerSchemaSummary.jsx'
 
 export function ServiceServerPanel({
   active = false,
+  activeServer,
   busy = false,
   calls = [],
+  domainIds = [],
   expanded = false,
-  importableOnly = false,
+  historyBusy = false,
   onClose,
+  onDomainChange = () => {},
   onFieldChange = () => {},
-  onImportableOnlyChange = () => {},
+  onRefreshHistory = () => {},
+  onResetHistory = () => {},
   onSelect = () => {},
   onServiceNameChange = () => {},
   onStart = () => {},
@@ -20,6 +25,7 @@ export function ServiceServerPanel({
   responseValues = {},
   result,
   selected,
+  selectedDomainId = null,
   selectedKey = '',
   serverDomainId = null,
   serverName = '',
@@ -38,32 +44,25 @@ export function ServiceServerPanel({
       />
       {services.length ? (
         <>
-          <label className="interface-filter-check">
-            <input
-              checked={importableOnly}
-              onChange={(event) => onImportableOnlyChange(event.target.checked)}
-              type="checkbox"
-            />
-            <span>import된 서비스만 보기</span>
-            <small>{visibleServices.length}/{services.length}</small>
+          <label className="interface-service-field">
+            <span>Domain</span>
+            <select disabled={active} onChange={(event) => onDomainChange(event.target.value)} value={selectedDomainId ?? ''}>
+              <option value="">Domain 선택</option>
+              {domainIds.map((domainId) => <option key={domainId} value={domainId}>D{domainId}</option>)}
+            </select>
           </label>
           <label className="interface-service-field">
-            <span>Service · {visibleServices.length}/{services.length}개</span>
-            <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
+            <span>Service type · D{selectedDomainId ?? '-'}</span>
+            <select disabled={active} onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
               <option value="">개설 Service 타입 선택</option>
               {visibleServices.map((service) => (
                 <option key={serviceKey(service)} value={serviceKey(service)}>
-                  {service.service_name || service.service_type} · D{service.domain_id ?? 0} · {service.service_type} · {service.import_available ? 'import됨' : 'import 안됨'}
+                  {service.service_type}
                 </option>
               ))}
             </select>
-            {!visibleServices.length && <small>import된 서비스 항목이 없습니다. 적용하기 또는 import 확인 후 다시 시도하세요.</small>}
+            {!visibleServices.length && <small>선택 Domain에 import 가능한 Service 타입이 없습니다.</small>}
           </label>
-          {selected && (
-            <div className={`interface-service-state ${selected.server_creatable ? 'success' : 'warning'}`}>
-              {selected.server_creatable ? '서버 개설 가능' : serviceStatusLabel(selected)}
-            </div>
-          )}
           <label className="interface-service-field">
             <span>개설 Service name</span>
             <input
@@ -76,9 +75,11 @@ export function ServiceServerPanel({
           </label>
           {selected && (
             <div className="interface-package-help">
-              선택 타입 {selected.service_type}의 Response schema {selected.response_schema?.length ?? 0}개 필드로 클라이언트 요청 시 반환할 응답 데이터를 구성합니다.
+              Dashboard는 Request/Response 필드의 업무 의미를 해석하지 않고 등록된 ROS2 타입 그대로 통신합니다.
             </div>
           )}
+          {selected && <ServerSchemaSummary fields={selected.request_schema} title="Request schema · 실제 Client 수신값" />}
+          {selected && <span className="interface-form-section-title">Response 반환 데이터 · 사용자 설정값</span>}
           {selected?.response_schema?.map((field) => (
             <SchemaRequestField
               disabled={!selected?.server_creatable || active}
@@ -95,16 +96,24 @@ export function ServiceServerPanel({
               onClick={active ? onStop : onStart}
               type="button"
             >
-              {busy ? '처리 중…' : active ? '서버 개설 중지' : '서버 개설 시작'}
+              {busy ? '처리 중…' : active ? '서버 종료' : '서버 개설 시작'}
             </button>
           </div>
-          {active && (
-            <div className="interface-service-state success">
-              Service 서버 개설 실행 중 · {serverName || selected?.service_name || selected?.service_type}
-            </div>
-          )}
+          <div className={`interface-service-state ${active ? 'success' : 'warning'}`}>
+            {active
+              ? `서버 실행 중 · D${activeServer?.domain_id} · ${activeServer?.service_name} · ${activeServer?.service_type}`
+              : '서버 중지됨'}
+          </div>
           {result && <CallResultBlock result={result} successPayload={result.server ?? result.stopped} />}
-          <ReceiveHistory items={calls} title="최근 Service 요청" />
+          <ReceiveHistory
+            busy={historyBusy}
+            fullItem
+            items={calls}
+            onRefresh={onRefreshHistory}
+            onReset={onResetHistory}
+            resetDisabled={!selected || !serverName.trim()}
+            title="Request / Response history"
+          />
         </>
       ) : (
         <small>registry에 등록된 Service가 없습니다.</small>
