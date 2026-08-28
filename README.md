@@ -125,6 +125,7 @@ MariaDB
 - Node 통신 역할과 Graph 이탈 감지
 - Graph/Fast DDS/RMW 근거를 구분한 QoS 진단과 Alert
 - Interface Lab의 등록·build/apply, Topic Publish/Receive, Service Call, Action Goal
+- 등록·import 타입 기반 Service/Action Server 개설, Request/Goal/Cancel/Result 처리와 runtime history
 
 목록의 대표 상태는 Backend snapshot을 다시 임의 판정하지 않는다. Topic은 `effective_status`, Service와 Action은
 각 도메인의 공통 presentation selector를 사용한다. 최근 값·Request/Response·Feedback/Result를 누르면 전체

@@ -160,6 +160,7 @@ Topic 자동 감시 Subscription
 Monitor Alert 원천 상태와 Alert 후보 생성
 Interface Lab 등록·upload·build·import·apply
 사용자 명시 Topic Publish/Receive, Service Call, Action Goal/Cancel
+등록·import 가능한 srv/action 타입의 Service/Action Server 개설과 수신 이력
 localhost transport API와 snapshot 제공
 ```
 
@@ -577,6 +578,19 @@ Service  Call, timeout, response/error, call/receive history
 Action   Goal, accept, Feedback, Result, 활성 Goal Cancel, goal/receive history
 ```
 
+상단 `통신 실행`은 Topic 발행, Service 호출, Action Goal의 Client 역할이고, `서버 개설`은 Service와 Action만
+제공한다. Topic은 Client/Server 구조가 아니므로 Topic Server mode나 runtime을 만들지 않는다. Service/Action
+Server는 기존 Client runtime과 분리된 `ServiceServerRuntime`/`ActionServerRuntime`이 소유하며, 등록·import 가능한
+타입과 선택 resource의 `domain_id`만 사용한다. 각 Domain의 기존 rclpy Context와 Monitor Node/executor를 재사용하고
+Start/Stop/status/history는 Monitor transport API로 제공한다. Frontend가 실제 API 응답 없이 active/history를
+합성하지 않는다.
+
+Service Server는 설정된 Response를 실제 Request callback에서 반환하고 최대 30건의 Request/Response를 메모리에
+보존한다. Action Server는 개설 시 Goal/Cancel accept 또는 reject 정책, Feedback/Result 값과 Result 대기 시간을
+설정하며 Goal/Cancel/Result 이벤트를 최대 30건 보존한다. Result 대기 중 Cancel callback을 처리하기 위해 Domain별
+Monitor executor는 동일 Context/Node에 결합된 4-thread `MultiThreadedExecutor`를 사용하고 Action Server entity는
+reentrant callback group을 사용한다. Monitor/Domain 종료 시 Server entity와 이력을 정리한다.
+
 Message/Request/Goal은 schema 기반 입력을 실제 generated ROS object로 변환한다. 실행 결과와 raw JSON은 history에
 남기고 화면에서 선택 조회한다. 현재 runtime 상한은 Topic Publish 100건, Topic Receive 기본/최대 500건,
 Service Call과 Action Goal 각각 30건이다. 이력은 MariaDB Alert 테이블과 연결되지 않는 Monitor runtime 데이터다.
@@ -654,6 +668,10 @@ WS   /ws/monitor
 보존해 Monitor로 전달한다. Monitor transport는 monitoring query, Interface management/package/apply,
 Topic execution/receive, Service execution, Action execution router를 소유한다. 기존 공개 path와 JSON response
 key는 호환을 유지한다.
+
+Service Server API는 `/ros/interfaces/service-servers`의 types/start/stop/status/history 경로, Action Server API는
+`/ros/interfaces/action-servers`의 types/start/stop/status/history 경로를 사용한다. 모든 변경 요청은
+`domain_id`를 Monitor의 정확한 child runtime 선택에 전달한다.
 
 Monitor와 Backend는 Python singleton이나 메모리를 공유하지 않는다. MariaDB를 snapshot 전달 수단으로 사용하지
 않고 localhost HTTP만 사용한다.

@@ -10,6 +10,7 @@ import { InterfaceUploadToolbar } from './InterfaceUploadToolbar.jsx'
 
 export function InterfaceUploadView({
   actionExecution,
+  actionServer,
   buildFailure,
   expanded,
   manual,
@@ -17,6 +18,7 @@ export function InterfaceUploadView({
   receive,
   registry,
   serviceExecution,
+  serviceServer,
   toolbar,
   topicExecution,
 }) {
@@ -32,7 +34,9 @@ export function InterfaceUploadView({
       {packages.open && <UploadedPackagesPanel {...packages} />}
       <InterfaceExecutionWorkspace
         action={actionExecution}
+        actionServer={actionServer}
         service={serviceExecution}
+        serviceServer={serviceServer}
         topic={topicExecution}
       />
     </div>

@@ -7,10 +7,12 @@ import {
 
 export function useInterfacePanelCoordinator({
   loadActionExecution,
+  loadActionServerExecution,
   loadPackages,
   loadReceiveState,
   loadRegistry,
   loadServiceExecution,
+  loadServiceServerExecution,
   loadTopicExecution,
   onExpandedChange,
   receiveMode,
@@ -34,6 +36,8 @@ export function useInterfacePanelCoordinator({
   const showCallableTopics = executionMode === 'topic'
   const showCallableServices = executionMode === 'service'
   const showCallableActions = executionMode === 'action'
+  const showCallableServiceServer = executionMode === 'service_server'
+  const showCallableActionServer = executionMode === 'action_server'
 
   const closeExecutionPanels = useCallback(() => {
     closeExecutionPanel({ requestRef: executionRequestRef, setBusy, setExecutionMode })
@@ -55,7 +59,9 @@ export function useInterfacePanelCoordinator({
       keepOpen,
       loaders: {
         action: loadActionExecution,
+        action_server: loadActionServerExecution,
         service: loadServiceExecution,
+        service_server: loadServiceServerExecution,
         topic: loadTopicExecution,
       },
       mode,
@@ -67,16 +73,26 @@ export function useInterfacePanelCoordinator({
   }, [
     hideManagementPanels,
     loadActionExecution,
+    loadActionServerExecution,
     loadServiceExecution,
+    loadServiceServerExecution,
     loadTopicExecution,
     setBusy,
     setFeedback,
   ])
 
   const openExecutionPanel = useCallback(async (mode, target = null) => {
-    setShowReceivePanel(true)
-    setReceiveMode(mode)
-    if (await loadExecutionPanel(mode, false, target)) await loadReceiveState({ silent: true, mode })
+    const serverMode = mode.endsWith('_server')
+    const receiveKind = mode.replace('_server', '')
+    if (!serverMode) {
+      setShowReceivePanel(true)
+      setReceiveMode(receiveKind)
+    } else {
+      setShowReceivePanel(false)
+    }
+    if (await loadExecutionPanel(mode, false, target) && !serverMode) {
+      await loadReceiveState({ silent: true, mode: receiveKind })
+    }
   }, [loadExecutionPanel, loadReceiveState, setReceiveMode, setShowReceivePanel])
 
   const openReceivePanel = useCallback(() => {
@@ -96,6 +112,8 @@ export function useInterfacePanelCoordinator({
   const openTopicPanel = useCallback((target = null) => openExecutionPanel('topic', target), [openExecutionPanel])
   const openServicePanel = useCallback((target = null) => openExecutionPanel('service', target), [openExecutionPanel])
   const openActionPanel = useCallback((target = null) => openExecutionPanel('action', target), [openExecutionPanel])
+  const openServiceServerPanel = useCallback((target = null) => openExecutionPanel('service_server', target), [openExecutionPanel])
+  const openActionServerPanel = useCallback((target = null) => openExecutionPanel('action_server', target), [openExecutionPanel])
 
   const selectReceiveMode = useCallback(async (mode) => {
     setReceiveMode(mode)
@@ -142,13 +160,17 @@ export function useInterfacePanelCoordinator({
     expandedActive,
     loadExecutionPanel,
     openActionPanel,
+    openActionServerPanel,
     openPackages,
     openReceivePanel,
     openRegistry,
     openServicePanel,
+    openServiceServerPanel,
     openTopicPanel,
     selectReceiveMode,
+    showCallableActionServer,
     showCallableActions,
+    showCallableServiceServer,
     showCallableServices,
     showCallableTopics,
     toggleBuildLog,

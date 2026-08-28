@@ -22,6 +22,7 @@ from ros2_dashboard_monitor.config_loader import MonitorConfig
 from ros2_dashboard_monitor.interface_lab.execution.topic_runtime import InterfaceReceiveRuntime
 from ros2_dashboard_monitor.ros2_node.runtime import NodeRuntime
 from ros2_dashboard_monitor.interface_lab.execution.service_call_runtime import ServiceCallRuntime
+from ros2_dashboard_monitor.interface_lab.server import ActionServerRuntime, ServiceServerRuntime
 from ros2_dashboard_monitor.ros2_service.runtime import ServiceRuntime
 from ros2_dashboard_monitor.ros2_topic.runtime import TopicRuntime
 from ros2_dashboard_monitor.topology import build_role_node_index
@@ -141,6 +142,16 @@ class RosMonitor(InterfaceLabFacade):
             lock=self._lock,
             node_getter=lambda: self._node,
         )
+        self._service_server_runtime = ServiceServerRuntime(
+            lock=self._lock,
+            node_getter=lambda: self._node,
+            registered_types_getter=lambda: self._service_call_runtime.callable_services().get('services', []),
+        )
+        self._action_server_runtime = ActionServerRuntime(
+            lock=self._lock,
+            node_getter=lambda: self._node,
+            registered_types_getter=lambda: self._action_goal_runtime.callable_actions().get('actions', []),
+        )
 
     def start(self) -> None:
         """rclpy Node, Graph 갱신 timer, spin thread를 시작합니다."""
@@ -164,6 +175,8 @@ class RosMonitor(InterfaceLabFacade):
         """timer와 실행 Runtime을 정리하고 rclpy Node를 종료합니다."""
         node = self._node
         self._receive_runtime.stop_all_continuous_publishes()
+        self._service_server_runtime.clear()
+        self._action_server_runtime.clear()
         self._dds_qos_observer.stop()
 
         shutdown_monitor_node(node, self._thread, context=self._context)

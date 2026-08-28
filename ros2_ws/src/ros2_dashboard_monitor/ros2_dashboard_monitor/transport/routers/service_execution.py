@@ -7,9 +7,16 @@ from starlette.concurrency import run_in_threadpool
 
 from ros2_dashboard_monitor.transport.state import ros_monitor
 from ros2_dashboard_monitor.interface_lab.execution.service_call_runtime import ServiceCallError
+from ros2_dashboard_monitor.interface_lab.server.service_server_runtime import ServiceServerError
 
 
 router = APIRouter()
+
+
+def _object_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail='The JSON request body must be an object.')
+    return payload
 
 
 @router.get('/ros/interfaces/callable-services')
@@ -110,3 +117,52 @@ async def reset_receive_service_history(request: Request) -> dict[str, Any]:
         domain_id=payload.get('domain_id'),
     )
     return {'success': True, 'data': snapshot, 'message': 'Service 수신 이력을 초기화했습니다.'}
+
+
+@router.get('/ros/interfaces/service-servers/types')
+def get_service_server_types() -> dict[str, Any]:
+    snapshot = ros_monitor.service_server_types()
+    return {'success': True, 'data': snapshot['services'], 'meta': snapshot['meta']}
+
+
+@router.get('/ros/interfaces/service-servers')
+def get_service_servers() -> dict[str, Any]:
+    snapshot = ros_monitor.service_server_status()
+    return {'success': True, 'data': snapshot['servers'], 'meta': snapshot['meta']}
+
+
+@router.post('/ros/interfaces/service-servers/start')
+async def start_service_server(request: Request) -> dict[str, Any]:
+    try:
+        payload = _object_payload(await request.json())
+        result = await run_in_threadpool(
+            ros_monitor.start_service_server,
+            service_name=payload.get('service_name'),
+            service_type=payload.get('service_type'),
+            response_data=payload.get('response'),
+            domain_id=payload.get('domain_id'),
+        )
+    except (ValueError, ServiceServerError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
+
+
+@router.post('/ros/interfaces/service-servers/stop')
+async def stop_service_server(request: Request) -> dict[str, Any]:
+    try:
+        payload = _object_payload(await request.json())
+        result = await run_in_threadpool(
+            ros_monitor.stop_service_server,
+            service_name=payload.get('service_name'),
+            service_type=payload.get('service_type'),
+            domain_id=payload.get('domain_id'),
+        )
+    except (ValueError, ServiceServerError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
+
+
+@router.get('/ros/interfaces/service-servers/history')
+def get_service_server_history() -> dict[str, Any]:
+    snapshot = ros_monitor.service_server_history()
+    return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}

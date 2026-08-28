@@ -33,7 +33,7 @@ export function ActionExecutionPanel({
 }) {
   return (
     <div className="interface-service-panel interface-execution-panel">
-      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Action 실행" />
+      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="Action Goal" />
       {actions.length ? (
         <>
           <label className="interface-filter-check">
@@ -43,7 +43,7 @@ export function ActionExecutionPanel({
           <label className="interface-service-field">
             <span>Action · {visibleActions.length}/{actions.length}개</span>
             <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
-              <option value="">실행 Action 선택</option>
+              <option value="">Goal Action 선택</option>
               {visibleActions.map((action) => (
                 <option key={actionKey(action)} value={actionKey(action)}>
                   {action.action_name} · D{action.domain_id} · {action.action_type} · {action.import_available ? 'import됨' : 'import 안됨'} · {actionStatusLabel(action)}

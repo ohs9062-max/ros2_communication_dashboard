@@ -53,6 +53,22 @@ class InterfaceLabFacade:
             service_type=service_type,
         )
 
+    def service_server_types(self) -> dict[str, Any]:
+        services = self._service_server_runtime.registered_types()
+        return {'services': services, 'meta': {'count': len(services)}}
+
+    def start_service_server(self, **kwargs: Any) -> dict[str, Any]:
+        return self._service_server_runtime.start(**kwargs)
+
+    def stop_service_server(self, **kwargs: Any) -> dict[str, Any]:
+        return self._service_server_runtime.stop(**kwargs)
+
+    def service_server_status(self) -> dict[str, Any]:
+        return self._service_server_runtime.status()
+
+    def service_server_history(self) -> dict[str, Any]:
+        return self._service_server_runtime.history()
+
     def callable_actions(self) -> dict[str, Any]:
         return self._action_goal_runtime.callable_actions()
 
@@ -107,6 +123,22 @@ class InterfaceLabFacade:
             action_name=action_name,
             action_type=action_type,
         )
+
+    def action_server_types(self) -> dict[str, Any]:
+        actions = self._action_server_runtime.registered_types()
+        return {'actions': actions, 'meta': {'count': len(actions)}}
+
+    def start_action_server(self, **kwargs: Any) -> dict[str, Any]:
+        return self._action_server_runtime.start(**kwargs)
+
+    def stop_action_server(self, **kwargs: Any) -> dict[str, Any]:
+        return self._action_server_runtime.stop(**kwargs)
+
+    def action_server_status(self) -> dict[str, Any]:
+        return self._action_server_runtime.status()
+
+    def action_server_history(self) -> dict[str, Any]:
+        return self._action_server_runtime.history()
 
     def start_receive_topic(
         self, *, topic_name: str, topic_type: str, history_limit: int = 100,

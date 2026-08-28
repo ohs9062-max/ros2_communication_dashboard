@@ -96,3 +96,66 @@ export function topicExecutionViewProps(state) {
     visibleMessages: state.visibleCallableMessages,
   }
 }
+
+export function serviceServerViewProps(state) {
+  return {
+    active: state.active,
+    busy: state.busy,
+    calls: state.calls,
+    expanded: state.expanded,
+    importableOnly: state.importableOnly,
+    onClose: state.onClose,
+    onFieldChange: state.onFieldChange,
+    onImportableOnlyChange: state.setImportableOnly,
+    onSelect: state.select,
+    onStart: state.start,
+    onStop: state.stop,
+    onToggleExpanded: state.onToggleExpanded,
+    open: state.open,
+    responseValues: state.responseValues,
+    result: state.result,
+    selected: state.selected,
+    selectedKey: state.selectedKey,
+    serverDomainId: state.serverDomainId,
+    serverName: state.serverName,
+    onServiceNameChange: state.setServerName,
+    services: state.services,
+    showExpand: state.showExpand,
+    visibleServices: state.visibleServices,
+  }
+}
+
+export function actionServerViewProps(state) {
+  return {
+    acceptCancels: state.acceptCancels,
+    acceptGoals: state.acceptGoals,
+    actionName: state.actionName,
+    actions: state.actions,
+    active: state.active,
+    busy: state.busy,
+    expanded: state.expanded,
+    feedbackValues: state.feedbackValues,
+    goals: state.goals,
+    importableOnly: state.importableOnly,
+    onActionNameChange: state.setActionName,
+    onAcceptCancelsChange: state.setAcceptCancels,
+    onAcceptGoalsChange: state.setAcceptGoals,
+    onClose: state.onClose,
+    onFieldChange: state.onFieldChange,
+    onImportableOnlyChange: state.setImportableOnly,
+    onSelect: state.select,
+    onStart: state.start,
+    onStop: state.stop,
+    onToggleExpanded: state.onToggleExpanded,
+    open: state.open,
+    result: state.result,
+    resultDelaySec: state.resultDelaySec,
+    resultValues: state.resultValues,
+    selected: state.selected,
+    selectedKey: state.selectedKey,
+    serverDomainId: state.serverDomainId,
+    onResultDelayChange: state.setResultDelaySec,
+    showExpand: state.showExpand,
+    visibleActions: state.visibleActions,
+  }
+}

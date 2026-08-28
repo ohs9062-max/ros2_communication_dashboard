@@ -15,6 +15,9 @@ FastAPI Backend의 REST API와 `/ws/monitor`만 사용한다.
 - Camera Preview는 상세에서만 요청하며 확대창은 맞춤, 원본, 25~400% 확대·축소와 중앙 정렬을 제공한다.
 - Interface Lab의 Topic/Service/Action schema 기반 object/array 입력은 공통 JSON field를 사용하며 필드별
   크게 보기/줄이기와 validation 상태를 유지한다.
+- Interface Lab 상단은 `통신 실행`의 Topic 발행/Service 호출/Action Goal과 `서버 개설`의 Service/Action 개설로
+  구분한다. Topic 수신은 기존 우측 수신 영역을 사용하며 Topic Server UI는 없다. Server 화면의 실행 상태와
+  Request/Goal/Cancel/Result 이력은 Monitor API 응답만 표시한다.
 
 ```bash
 npm install

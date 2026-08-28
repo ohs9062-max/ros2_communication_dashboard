@@ -331,6 +331,14 @@ h3 {
   width: 100%;
 }
 
+.interface-form-section-title {
+  color: var(--text-heading, #e2e8f0);
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+
 .interface-receive-panel {
   background: #0d141d;
   border: 1px solid rgba(14, 165, 233, 0.34);
@@ -5327,10 +5335,32 @@ details summary {
 .interface-history-reset-badge.selected { background: rgba(96, 165, 250, .14); border-color: rgba(96, 165, 250, .48); color: #bfdbfe; }
 .interface-history-reset-badge.all { background: rgba(239, 68, 68, .14); border-color: rgba(239, 68, 68, .48); color: #fecaca; }
 
+.interface-management-toolbar-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .interface-management-groups {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.interface-management-advanced-container {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.interface-management-advanced-container .interface-management-advanced {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+}
+
+.interface-management-advanced-container .interface-management-advanced > summary {
+  text-align: right;
 }
 
 .interface-management-heading {

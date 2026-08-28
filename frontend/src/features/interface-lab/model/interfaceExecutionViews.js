@@ -1,17 +1,21 @@
 import {
   actionExecutionViewProps,
+  actionServerViewProps,
   serviceExecutionViewProps,
+  serviceServerViewProps,
   topicExecutionViewProps,
 } from './executionViewProps.js'
 import { receiveWorkspaceViewProps } from './receiveViewProps.js'
 
 export function interfaceExecutionViews({
   action,
+  actionServer,
   availableTopics,
   panel,
   qos,
   receive,
   service,
+  serviceServer,
   topic,
 }) {
   return {
@@ -174,5 +178,21 @@ export function interfaceExecutionViews({
       visibleCallableMessages: topic.visibleMessages,
       visiblePublishHistory: topic.visibleHistory,
     }),
+    serviceServer: serviceServer ? serviceServerViewProps({
+      ...serviceServer,
+      expanded: panel.expanded,
+      onClose: panel.closeExecutionPanels,
+      onToggleExpanded: panel.toggleWorkspaceExpanded,
+      open: panel.showCallableServiceServer,
+      showExpand: panel.showReceivePanel && receive.mode === 'service',
+    }) : { open: false },
+    actionServer: actionServer ? actionServerViewProps({
+      ...actionServer,
+      expanded: panel.expanded,
+      onClose: panel.closeExecutionPanels,
+      onToggleExpanded: panel.toggleWorkspaceExpanded,
+      open: panel.showCallableActionServer,
+      showExpand: panel.showReceivePanel && receive.mode === 'action',
+    }) : { open: false },
   }
 }

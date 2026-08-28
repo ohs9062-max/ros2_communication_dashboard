@@ -197,11 +197,53 @@ class MultiDomainRosMonitor:
     def call_service(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
         return self._runtime(domain_id).call_service(**kwargs)
 
+    def service_server_types(self) -> dict[str, Any]:
+        return self._server_types('service_server_types', 'services')
+
+    def start_service_server(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._tag_server_result(
+            self._runtime(domain_id).start_service_server(**kwargs), domain_id,
+            name=kwargs.get('service_name'), key='server',
+        )
+
+    def stop_service_server(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._tag_server_result(
+            self._runtime(domain_id).stop_service_server(**kwargs), domain_id,
+            name=kwargs.get('service_name'), key='stopped',
+        )
+
+    def service_server_status(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('service_server_status', 'servers')
+
+    def service_server_history(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('service_server_history', 'history')
+
     def send_action_goal(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
         return self._runtime(domain_id).send_action_goal(**kwargs)
 
     def cancel_action_goal(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
         return self._runtime(domain_id).cancel_action_goal(**kwargs)
+
+    def action_server_types(self) -> dict[str, Any]:
+        return self._server_types('action_server_types', 'actions')
+
+    def start_action_server(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._tag_server_result(
+            self._runtime(domain_id).start_action_server(**kwargs), domain_id,
+            name=kwargs.get('action_name'), key='server',
+        )
+
+    def stop_action_server(self, *, domain_id: int | None = None, **kwargs: Any) -> dict[str, Any]:
+        return self._tag_server_result(
+            self._runtime(domain_id).stop_action_server(**kwargs), domain_id,
+            name=kwargs.get('action_name'), key='stopped',
+        )
+
+    def action_server_status(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('action_server_status', 'servers')
+
+    def action_server_history(self) -> dict[str, Any]:
+        return self._aggregate_runtime_collection('action_server_history', 'history')
 
     def callable_messages(self) -> dict[str, Any]:
         """Merge registered Message types and retain Domain on Graph candidates."""
@@ -309,6 +351,28 @@ class MultiDomainRosMonitor:
                 values.append(value)
         resources = _actual_callable_resources(values, key)
         return {key: resources, 'meta': {'count': len(resources)}}
+
+    def _server_types(self, method: str, key: str) -> dict[str, Any]:
+        values = []
+        for domain_id, runtime in self._items():
+            for item in getattr(runtime, method)().get(key, []):
+                value = deepcopy(item)
+                value['domain_id'] = domain_id
+                type_name = value.get('service_type') or value.get('action_type') or ''
+                value['resource_key'] = f'{domain_id}:{type_name}'
+                values.append(value)
+        return {key: values, 'meta': {'count': len(values)}}
+
+    @staticmethod
+    def _tag_server_result(
+        result: dict[str, Any], domain_id: int | None, *, name: Any, key: str,
+    ) -> dict[str, Any]:
+        value = deepcopy(result)
+        payload = value.get(key)
+        if isinstance(payload, dict) and domain_id is not None:
+            payload['domain_id'] = int(domain_id)
+            payload['resource_key'] = f'{int(domain_id)}:{str(name or "")}'
+        return value
 
     def _aggregate_runtime_collection(self, method: str, key: str, **kwargs: Any) -> dict[str, Any]:
         values = []

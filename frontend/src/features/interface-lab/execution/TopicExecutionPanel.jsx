@@ -49,7 +49,7 @@ export function TopicExecutionPanel({
 }) {
   return (
     <div className="interface-service-panel interface-execution-panel">
-      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Topic 실행" />
+      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="Topic 발행" />
       {messages.length ? (
         <>
           <label className="interface-filter-check">

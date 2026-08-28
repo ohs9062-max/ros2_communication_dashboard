@@ -3,6 +3,7 @@ import { InterfaceUploadView } from '../features/interface-lab/InterfaceUploadVi
 import { useInterfaceManagementController } from '../features/interface-lab/hooks/useInterfaceManagementController.js'
 import { useInterfaceControlLifecycle } from '../features/interface-lab/hooks/useInterfaceControlLifecycle.js'
 import { useInterfaceExecutionSuite } from '../features/interface-lab/hooks/useInterfaceExecutionSuite.js'
+import { useInterfaceServerSuite } from '../features/interface-lab/hooks/useInterfaceServerSuite.js'
 import { useInterfacePanelCoordinator } from '../features/interface-lab/hooks/useInterfacePanelCoordinator.js'
 import { useInterfaceQosLinks } from '../features/interface-lab/hooks/useInterfaceQosLinks.js'
 import { useInterfaceRemovalActions } from '../features/interface-lab/hooks/useInterfaceRemovalActions.js'
@@ -25,6 +26,14 @@ export function InterfaceUploadControl({
   const {
     action, availableTopics, receive, service, topic,
   } = useInterfaceExecutionSuite({
+    onStateChanged,
+    setBusy: management.setBusy,
+    setFeedback: management.setFeedback,
+  })
+  const {
+    actionServer,
+    serviceServer,
+  } = useInterfaceServerSuite({
     onStateChanged,
     setBusy: management.setBusy,
     setFeedback: management.setFeedback,
@@ -100,23 +109,29 @@ export function InterfaceUploadControl({
     collapseWorkspace,
     expandedActive: topicExpandedActive,
     openActionPanel,
+    openActionServerPanel,
     openPackages,
     openReceivePanel,
     openRegistry,
     openServicePanel,
+    openServiceServerPanel,
     openTopicPanel,
     selectReceiveMode,
+    showCallableActionServer,
     showCallableActions,
+    showCallableServiceServer,
     showCallableServices,
     showCallableTopics,
     toggleBuildLog,
     toggleWorkspaceExpanded,
   } = useInterfacePanelCoordinator({
     loadActionExecution,
+    loadActionServerExecution: actionServer.load,
     loadPackages: management.loadPackages,
     loadReceiveState,
     loadRegistry: management.loadRegistry,
     loadServiceExecution,
+    loadServiceServerExecution: serviceServer.load,
     loadTopicExecution,
     onExpandedChange: onTopicWorkspaceExpandedChange,
     receiveMode,
@@ -165,6 +180,7 @@ export function InterfaceUploadControl({
 
   const disabled = management.busy || management.applying
     || serviceCallBusy || actionGoalBusy || topicPublishBusy
+    || serviceServer.busy || actionServer.busy
 
   const {
     handleRemoveManualDefinition,
@@ -186,10 +202,12 @@ export function InterfaceUploadControl({
       collapseWorkspace,
       expanded: topicExpandedActive,
       openActionPanel,
+      openActionServerPanel,
       openPackages,
       openReceivePanel,
       openRegistry,
       openServicePanel,
+      openServiceServerPanel,
       openTopicPanel,
       toggleBuildLog,
       toggleWorkspaceExpanded,
@@ -204,13 +222,16 @@ export function InterfaceUploadControl({
   })
   const executionViews = interfaceExecutionViews({
     action,
+    actionServer,
     availableTopics,
     panel: {
       closeExecutionPanels,
       closeReceivePanel,
       expanded: topicExpandedActive,
       selectReceiveMode,
+      showCallableActionServer,
       showCallableActions,
+      showCallableServiceServer,
       showCallableServices,
       showCallableTopics,
       showReceivePanel,
@@ -225,6 +246,7 @@ export function InterfaceUploadControl({
     },
     receive,
     service,
+    serviceServer,
     topic,
   })
 

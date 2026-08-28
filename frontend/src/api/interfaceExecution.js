@@ -15,6 +15,20 @@ export const sendActionGoal = (payload) =>
   requestWithJsonBody('/ros/interfaces/action-goal', 'POST', payload)
 export const cancelActionGoal = (payload) =>
   requestWithJsonBody('/ros/interfaces/action-goal/cancel', 'POST', payload)
+export const fetchServiceServerTypes = () => requestJson('/ros/interfaces/service-servers/types')
+export const fetchServiceServers = () => requestJson('/ros/interfaces/service-servers')
+export const fetchServiceServerHistory = () => requestJson('/ros/interfaces/service-servers/history')
+export const startServiceServer = (payload) =>
+  requestWithJsonBody('/ros/interfaces/service-servers/start', 'POST', payload)
+export const stopServiceServer = (payload) =>
+  requestWithJsonBody('/ros/interfaces/service-servers/stop', 'POST', payload)
+export const fetchActionServerTypes = () => requestJson('/ros/interfaces/action-servers/types')
+export const fetchActionServers = () => requestJson('/ros/interfaces/action-servers')
+export const fetchActionServerHistory = () => requestJson('/ros/interfaces/action-servers/history')
+export const startActionServer = (payload) =>
+  requestWithJsonBody('/ros/interfaces/action-servers/start', 'POST', payload)
+export const stopActionServer = (payload) =>
+  requestWithJsonBody('/ros/interfaces/action-servers/stop', 'POST', payload)
 export const publishTopicMessage = (payload) =>
   requestWithJsonBody('/ros/interfaces/topic-publish', 'POST', payload)
 export const startContinuousTopicPublish = (payload) =>

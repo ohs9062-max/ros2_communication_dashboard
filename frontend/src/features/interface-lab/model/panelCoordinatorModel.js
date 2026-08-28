@@ -1,4 +1,7 @@
-export const EXECUTION_MODES = ['topic', 'service', 'action']
+export const EXECUTION_MODES = [
+  'topic', 'service', 'action',
+  'service_server', 'action_server',
+]
 
 export function isExecutionMode(mode) {
   return EXECUTION_MODES.includes(mode)

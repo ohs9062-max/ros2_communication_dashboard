@@ -142,6 +142,9 @@ test('ignores unsupported execution modes without changing UI state', async () =
   assert.equal(result, false)
   assert.deepEqual(events, [])
   assert.equal(isExecutionMode('topic'), true)
+  assert.equal(isExecutionMode('service_server'), true)
+  assert.equal(isExecutionMode('action_server'), true)
+  assert.equal(isExecutionMode('topic_server'), false)
   assert.equal(isExecutionMode('mock'), false)
 })
 

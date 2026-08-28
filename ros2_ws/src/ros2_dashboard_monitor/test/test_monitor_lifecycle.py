@@ -27,8 +27,9 @@ class _Thread:
 
 
 class _Executor:
-    def __init__(self, *, context) -> None:
+    def __init__(self, *, context, num_threads=None) -> None:
         self.context = context
+        self.num_threads = num_threads
         self.added = []
         self.removed = []
         self.spun = False
@@ -91,7 +92,7 @@ def test_spin_uses_an_executor_bound_to_the_explicit_context(monkeypatch) -> Non
     executors = []
     monkeypatch.setattr(
         lifecycle,
-        'SingleThreadedExecutor',
+        'MultiThreadedExecutor',
         lambda **kwargs: executors.append(_Executor(**kwargs)) or executors[-1],
     )
     context = object()
@@ -101,6 +102,7 @@ def test_spin_uses_an_executor_bound_to_the_explicit_context(monkeypatch) -> Non
 
     assert len(executors) == 1
     assert executors[0].context is context
+    assert executors[0].num_threads == 4
     assert executors[0].added == [node]
     assert executors[0].spun is True
     assert executors[0].removed == [node]

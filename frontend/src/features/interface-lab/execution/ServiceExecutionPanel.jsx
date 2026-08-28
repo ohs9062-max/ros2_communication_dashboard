@@ -36,7 +36,7 @@ export function ServiceExecutionPanel({
 }) {
   return (
     <div className="interface-service-panel interface-execution-panel">
-      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="등록 Service 실행" />
+      <ExecutionPanelHeading expanded={expanded} onClose={onClose} onToggleExpanded={onToggleExpanded} showExpand={showExpand} title="Service 호출" />
       {services.length ? (
         <>
           <label className="interface-filter-check">
@@ -46,7 +46,7 @@ export function ServiceExecutionPanel({
           <label className="interface-service-field">
             <span>Service · {visibleServices.length}/{services.length}개</span>
             <select onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
-              <option value="">실행 Service 선택</option>
+              <option value="">호출 Service 선택</option>
               {visibleServices.map((service) => (
                 <option key={serviceKey(service)} value={serviceKey(service)}>
                   {service.service_name} · D{service.domain_id} · {service.service_type} · {service.import_available ? 'import됨' : 'import 안됨'} · {serviceStatusLabel(service)}

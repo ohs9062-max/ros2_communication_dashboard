@@ -7,9 +7,16 @@ from starlette.concurrency import run_in_threadpool
 
 from ros2_dashboard_monitor.interface_lab.execution.action_goal_runtime import ActionGoalError
 from ros2_dashboard_monitor.transport.state import ros_monitor
+from ros2_dashboard_monitor.interface_lab.server.action_server_runtime import ActionServerError
 
 
 router = APIRouter()
+
+
+def _object_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail='The JSON request body must be an object.')
+    return payload
 
 
 @router.get('/ros/interfaces/callable-actions')
@@ -134,3 +141,56 @@ async def reset_receive_action_history(request: Request) -> dict[str, Any]:
         domain_id=payload.get('domain_id'),
     )
     return {'success': True, 'data': snapshot, 'message': 'Action 수신 이력을 초기화했습니다.'}
+
+
+@router.get('/ros/interfaces/action-servers/types')
+def get_action_server_types() -> dict[str, Any]:
+    snapshot = ros_monitor.action_server_types()
+    return {'success': True, 'data': snapshot['actions'], 'meta': snapshot['meta']}
+
+
+@router.get('/ros/interfaces/action-servers')
+def get_action_servers() -> dict[str, Any]:
+    snapshot = ros_monitor.action_server_status()
+    return {'success': True, 'data': snapshot['servers'], 'meta': snapshot['meta']}
+
+
+@router.post('/ros/interfaces/action-servers/start')
+async def start_action_server(request: Request) -> dict[str, Any]:
+    try:
+        payload = _object_payload(await request.json())
+        result = await run_in_threadpool(
+            ros_monitor.start_action_server,
+            action_name=payload.get('action_name'),
+            action_type=payload.get('action_type'),
+            feedback_data=payload.get('feedback'),
+            result_data=payload.get('result'),
+            accept_goals=payload.get('accept_goals', True),
+            accept_cancels=payload.get('accept_cancels', True),
+            result_delay_sec=payload.get('result_delay_sec', 1.0),
+            domain_id=payload.get('domain_id'),
+        )
+    except (ValueError, ActionServerError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
+
+
+@router.post('/ros/interfaces/action-servers/stop')
+async def stop_action_server(request: Request) -> dict[str, Any]:
+    try:
+        payload = _object_payload(await request.json())
+        result = await run_in_threadpool(
+            ros_monitor.stop_action_server,
+            action_name=payload.get('action_name'),
+            action_type=payload.get('action_type'),
+            domain_id=payload.get('domain_id'),
+        )
+    except (ValueError, ActionServerError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
+
+
+@router.get('/ros/interfaces/action-servers/history')
+def get_action_server_history() -> dict[str, Any]:
+    snapshot = ros_monitor.action_server_history()
+    return {'success': True, 'data': snapshot['history'], 'meta': snapshot['meta']}

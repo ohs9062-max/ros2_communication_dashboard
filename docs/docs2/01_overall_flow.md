@@ -16,17 +16,20 @@ ROS2 Graph / data
 
 ## Monitor 시작과 snapshot
 
-- Monitor 시작: `transport/api.py lifespan()` L22-L30 → `ros_monitor.py RosMonitor.start()` L145-L161
-- Graph 수집: `ros_monitor.py RosMonitor._update_graph()` L433-L443
-- Snapshot 생성: `ros_monitor.py RosMonitor.snapshot()` L187-L203
-  - Topic: `ros2_topic/snapshot.py assemble_topic_snapshot()` L10-L154
-  - Topic enrichment: `snapshot_assembler.py enrich_topic_snapshot()` L21-L85
-  - Service: `service_snapshot.py assemble_service_snapshot()` L16-L114
-  - Action: `action_snapshot.py assemble_action_snapshot()` L15-L136
-  - Node: `ros2_node/snapshot.py assemble_node_snapshot()` L12-L99
-- Transport API 응답: `transport/api.py transport_snapshot()` L66-L102
+| 단계 | 현재 코드 위치 | 역할 |
+|---:|---|---|
+| 1 | `transport/api.py lifespan()` L22-L30 | Monitor FastAPI 시작·종료에 `RosMonitor.start/stop` 연결 |
+| 2 | `ros_monitor.py RosMonitor.start()` L145-L161 | rclpy Node, observer, 최초 Graph update, spin thread 시작 |
+| 3 | `ros_monitor.py RosMonitor._update_graph()` L433-L443 | Node → Topic → Service → Action Runtime 갱신 후 Service/Action Client QoS cache refresh |
+| 4 | `ros_monitor.py RosMonitor.snapshot()` L187-L203 | Topic runtime 결과에 topology·primary·Lab 상태 병합 |
+| 5 | `service_snapshot.py assemble_service_snapshot()` L16-L114 | Service topology·Call·QoS 병합 |
+| 6 | `action_snapshot.py assemble_action_snapshot()` L15-L136 | Action topology·Goal·채널 QoS 병합 |
+| 7 | `node_snapshot.py assemble_node_snapshot()` L13-L65 | Node 목록과 리소스 snapshot 연결 |
+| 8 | `transport/api.py transport_snapshot()` L66-L102 | 한 시점의 Topic/Service/Action/Node/Alert/WebSocket payload 조립 |
 
-`timer`는 Graph cache를 갱신하고 rclpy spin thread는 Topic, Action status/feedback 등 실제 callback을 처리한다.
+`timer`는 Graph cache를 갱신하고 Domain별 4-thread rclpy executor는 Topic, Action status/feedback과 Interface Lab
+Service/Action Server 등 실제 callback을 처리한다. Action Server는 Result 대기 중 Cancel을 처리할 수 있도록
+reentrant callback group을 사용하지만 기존 Domain Context와 Monitor Node를 그대로 공유한다.
 Service/Action Client QoS는 이 Graph 갱신에서 상대 endpoint signature가 바뀔 때만 다시 계산하며 snapshot은 저장된
 상태를 읽는다. Service 자동 호출은 `RosMonitor._update_graph()` L441-L443에서 의도적으로 수행하지 않는다.
 
@@ -65,6 +68,7 @@ Frontend는 Monitor 8765나 observer 8766에 직접 연결하지 않는다.
 Graph/Topology = 현재 Node와 endpoint의 역할
 Observation    = latest, Hz, status, feedback 등 실제 수신
 Activity       = 사용자가 Interface Lab에서 수행한 Publish/Call/Goal 이력
+Server Activity= 사용자가 개설한 Service/Action의 Request/Goal/Cancel/Result 이력
 ```
 
 기본 목록의 `*_node_count`는 내부 `/ros2_dashboard_topic_monitor`를 제외한 고유 Node 수다.

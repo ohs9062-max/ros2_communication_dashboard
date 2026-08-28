@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 import rclpy
 from rclpy.context import Context
-from rclpy.executors import SingleThreadedExecutor
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 
 
@@ -68,7 +68,10 @@ def spin_monitor_node(node: Any, *, context: Context | None = None) -> None:
         if context is None:
             rclpy.spin(node)
             return
-        executor = SingleThreadedExecutor(context=context)
+        # Interface Lab Action servers need a cancel service callback to run
+        # while their execute callback is active. All entities still share the
+        # same per-Domain Context, Node, and executor.
+        executor = MultiThreadedExecutor(num_threads=4, context=context)
         executor.add_node(node)
         executor.spin()
     except rclpy.executors.ExternalShutdownException:
