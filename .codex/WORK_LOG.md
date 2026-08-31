@@ -4,56 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-27 - Alert 영문 원문 표시 복구 및 오류 필터 표기 통일
-
-- 네 목록의 aggregate filter label `문제`를 모두 `오류`로 변경했다. 내부 filter ID와 상태 판정은 바꾸지 않았다.
-- Monitor의 Topic/Service/Node Alert source가 영어 `message`를 생성하는 것을 확인했다. 회귀 원인은 Node 종료
-  Alert를 Topic 탭에 투영할 때 Frontend가 새로운 한글 message를 덮어쓴 것이었다. 해당 mapping은 원본
-  `alert.message`를 그대로 보존하도록 고쳤고, Alert preview와 Alert 목록도 message에 `displayText` formatter를
-  적용하지 않고 raw Alert message를 렌더링하도록 수정했다. source/level 표기, Domain 표기와 3건+펼치기 UI는 유지했다.
-- mapping 원문 보존 unit test를 포함한 Frontend unit test, lint(기존 VisualizationPage warning 1건), build, diff
-  check를 통과했고 GUI `pkexec`으로 build를 로컬 HTTPS 정적 경로에 동기화했다.
-
-## 2026-08-27 - 네 목록 Filter toolbar 한 줄 배치
-
-- Topic·Service·Action·Node 공통 toolbar CSS만 변경했다. 검색 input은 좌측, Domain group은 가운데의 남는 flex 폭,
-  status group은 우측에 배치하며 Domain과 상태 사이에는 구분선·여백을 둔다. 760px 이하에서는 기존 반응형 세로
-  전환과 Domain 상단 구분선을 유지한다.
-- 필터 DOM/동작, Domain 목록 API/polling, resource filtering은 변경하지 않았다. Frontend lint(기존 VisualizationPage
-  warning 1건), build, diff check를 통과했고 GUI `pkexec`으로 build를 local HTTPS 정적 경로에 동기화했다.
-
-## 2026-08-27 - Alert message source 원문 직접 표시 재검증
-
-- 최근 Alert 관련 diff와 `e8a4d5b`(`alert 영문통일, ui`) 이력을 대조했다. Monitor의 code별 Alert source가
-  `Topic connection lost; it is no longer visible in the ROS2 graph.`,
-  `Monitored Node is confirmed absent from the ROS2 graph.` 등의 message를 생성하고 Backend/DB가 이를 재작성하지
-  않는 것을 확인했다.
-- `AlertsPreview`와 `AlertsList`는 formatter와 fallback 없이 `alert.message`를 직접 렌더링한다. Node Alert를 Topic에
-  투영하는 presentation mapping에서도 `message` key 재지정을 완전히 제거해 spread로 받은 원문만 유지한다.
-  Alert code/lifecycle/DB와 상태 배지, resource+Domain, 한 줄 배치, 3건+펼치기 UI는 변경하지 않았다.
-- Frontend unit test, lint(기존 VisualizationPage warning 1건), build, diff check를 통과했고 GUI `pkexec`으로
-  build를 local HTTPS 정적 경로에 동기화했다.
-
-## 2026-08-27 - Terra 이후 Topic Alert 중복 투영 원복
-
-- git history와 `git blame`을 대조해 `topic_disconnected`의
-  `Topic connection lost; it is no longer visible in the ROS2 graph.`와 `node_stale`의
-  `Monitored Node is confirmed absent from the ROS2 graph.`가 각각 2026-07-24 이전부터 존재한 원본 source message임을
-  확인했다. Monitor Topic/Service/Action/Node/QoS Alert 생성 문자열과 code/lifecycle은 수정하지 않았다.
-- 최근 `5cc0349`에서 추가된 `topicAlertMapping`이 `node_stale` Alert를 관련 Topic마다 새 id/resource로 복제해,
-  원래 `topic_disconnected`와 같은 Topic Alert preview에 함께 표시한 것이 중복 원인이었다. 이 mapping과 test,
-  TopicPage 호출 및 불필요한 nodeItems 공개만 제거해 Topic 탭은 원래 `topic|monitor_status` source만 사용한다.
-  UI에서 결과를 숨기는 조건이나 Alert source dedupe는 추가하지 않았다.
-- Alert message renderer는 source의 `alert.message`를 그대로 사용한다. Frontend unit test, lint(기존 VisualizationPage
-  warning 1건), build, diff check를 통과했고 GUI `pkexec`으로 local HTTPS 정적 경로에 동기화했다. 당시 localhost
-  Backend/Nginx 응답이 없어 live Alert payload 재확인은 수행하지 못했다.
-
-## 2026-08-27 - Alert 원복 build 재반영
-
-- 사용자 요청에 따라 GUI `pkexec` 인증을 다시 받아 현재 `frontend/dist`를 local HTTPS 정적 경로에 재동기화했다.
-  source/target `index.html` SHA-256이 `d681cda7107e0b9a9e62d822b0d752674565c4925504ec75b1e29fdf9965a722`,
-  entry asset이 `assets/index-BAzpAJCn.js`로 일치함을 확인했다.
-
 ## 2026-08-27 - Topic 목록 필터 실행 중/전체/오류 단순화
 
 - Topic 상태 필터를 `실행 중/전체/오류` 세 항목으로 변경하고 기본 선택을 `실행 중`으로 설정했다. `주요 항목`,
@@ -358,3 +308,59 @@
   production build와 diff check를 통과했고, `Alerts`, `Topics`, `Services`, `Actions`, `Nodes` local HTTPS route가 모두 200이다.
 - build를 `/var/lib/ros2-dashboard/frontend`에 동기화했다. source/target `index.html` SHA-256은
   `4532310370bfa29c984d36423d80f8aa5c2e55085f336d5096bd9c697f0196e0`이다.
+
+## 2026-08-31 - Alerts 상세 Modal Gemini AI 진단 연결
+
+- Alerts 행 클릭 시 기존 목록 디자인을 유지한 상세 Modal을 열고, 오른쪽 `AI 피드백`의 `[AI 분석]`을 사용자가
+  직접 누를 때만 Backend `POST /ros/alerts/ai-diagnosis`를 호출하도록 구현했다. Modal open·Alert 발생·resource
+  조회에서는 Gemini를 호출하지 않으며 요청 중 ref lock과 disabled/loading으로 동일 Alert 중복 호출을 막는다.
+- Backend는 기존 `.env` loader와 `httpx`를 재사용한다. 선택 Alert, exact Domain resource의 현재 Monitor 상태와
+  기존 Topic/Service/Action history 최근 5건만 제한해 전달하고, 현재 상태가 Alert 발생 시점 snapshot이 아님을
+  명시한다. Monitor Runtime, Alert lifecycle/DB schema, history API 계약은 변경하지 않았다.
+- Gemini REST structured output을 `gemini-2.5-flash` → `gemini-2.5-flash-lite` →
+  `gemini-3.5-flash-lite` 순서로 호출한다. 404/429/일시적 5xx·timeout/transport 오류만 순차 fallback하고
+  인증·권한·validation 오류는 즉시 안전한 Backend 오류로 종료한다.
+- Backend 전체 test는 29 passed·2 skipped, Frontend unit 전체·lint(기존 `VisualizationPage` warning 1건)·production
+  build와 diff check를 통과했다. API key는 Backend `.env`에만 두고 Frontend source/build에 포함되지 않음을 확인했다.
+- build를 로컬 HTTPS 정적 경로에 동기화하고 Backend를 재시작했다. 운영 ROS 정보는 외부 전송하지 않고 비민감
+  합성 Node Alert로 실제 HTTPS endpoint를 호출해 `gemini-3.5-flash-lite`의 `summary/evidence/likely_causes/
+  recommended_checks` 구조화 응답 성공을 확인했다.
+
+## 2026-08-31 - Alerts 상세 Modal 가로 폭 확대
+
+- 공통 `.preview-modal`의 뒤쪽 760px 폭 규칙이 상세 Modal의 단일 class selector를 덮어쓴 원인을 수정했다.
+  Desktop Modal은 `.preview-modal.alert-detail-modal`의 더 높은 selector 우선순위로 `width: min(78vw, 1540px)`,
+  `height: min(84vh, 900px)`를 적용했다. 1920×1080에서 약 1498px, 1440×900에서 약 1123px 폭이다.
+- 2열은 왼쪽 약 48%·AI 피드백 오른쪽 약 52%로 조정했다. 현재 통신 상태 JSON은 최대
+  `min(30vh, 280px)`의 내부 scroll만 사용해 Alert 기본 정보보다 과도하게 공간을 차지하지 않으며, 900px 이하의
+  기존 단일 열 반응형·높이/scroll 동작은 유지했다. Alert/AI/Backend/Monitor 로직은 변경하지 않았다.
+
+## 2026-08-31 - Alerts AI 분석 버튼 상태 문구 명확화
+
+- `AlertDetailModal`의 기존 `aiLoading`, `aiError`, `aiAnalysis`만으로 버튼 문구를 표시한다. 초기 `AI 분석`,
+  요청 중 `분석 중...`, 실패 후 `분석 재시도`, 성공 결과 표시 후 `다시 분석`이며 `onAnalyze`, disabled와 기존
+  요청·fallback·중복 방지 로직은 변경하지 않았다.
+
+## 2026-08-31 - Alerts AI 분석 결과 탭 세션 유지
+
+- 성공한 Gemini 구조화 결과만 `sessionStorage`의 `alert_ai_diagnosis:<alert.id>`에 저장한다. Alert ID는 기존
+  domain을 포함한 안정 ID여서 같은 resource name의 다른 Alert와 결과를 공유하지 않는다.
+- Alert Modal open은 해당 key만 읽어 기존 `aiAnalysis` state에 복원하며 Gemini endpoint를 호출하지 않는다. key가
+  없거나 JSON parse/구조 검증에 실패하면 해당 entry를 제거하고 초기 상태를 표시한다. 다른 Alert 선택 시에는 항상
+  새 Alert key를 조회해 이전 결과가 섞이지 않는다.
+- `[다시 분석]`은 기존 요청을 그대로 수행하며 성공 결과만 화면과 같은 key에 덮어쓴다. 실패 결과는 저장하지 않고,
+  Backend/Monitor/DB/API/Modal UI는 변경하지 않았다.
+- Frontend unit 전체, lint(기존 `VisualizationPage` warning 1건), production build와 diff check를 통과했다.
+  build를 로컬 HTTPS 경로에 동기화했고 source/target `index.html` SHA-256과 Alerts lazy bundle의 sessionStorage
+  cache code가 일치하며 `https://127.0.0.1/alerts`는 200을 반환했다.
+
+## 2026-08-31 - 외부 Alert 클릭 후 exact 목록 행 선택
+
+- Overview·Topic·Service·Action·Node의 Alert preview click은 기존 `/alerts` route를 유지한 채 browser history state로
+  `alertId`를 전달한다. AlertsPage는 현재 목록을 먼저, 이전 목록을 다음으로 확인해 해당 탭을 선택하고 별도
+  `highlightedAlertId`만 설정한다.
+- `AlertsList`는 기존 `.topic-table tbody tr.selected` 스타일을 재사용해 일치 행만 강조한다. Modal의
+  `selectedAlert` state는 갱신하지 않으므로 외부 Alert click으로 상세 Modal이 자동으로 열리지 않는다.
+- Frontend unit 전체, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), production build와 diff check를
+  통과했다. build를 local HTTPS 정적 경로에 반영했고 `https://127.0.0.1/alerts`가 200이며 source/target
+  `index.html` SHA-256은 `4747669d99197edfcf6063f438abae5e5447b4c557a5954f6a07ec16b7d37abb`로 일치한다.

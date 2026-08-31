@@ -110,6 +110,14 @@
   조회하고, DB 장애 시 Monitoring을 중단하지 않고 메모리 fallback과 재연결을 사용한다.
 - Alert의 `detected_at`과 `resolved_at`은 MariaDB `DATETIME(6)`에 KST 벽시계 값으로 저장하고, 조회 시
   KST로 해석해 기존 API epoch timestamp로 반환한다.
+- Alerts 목록 행은 상세 Modal을 열며, Gemini 진단은 Modal 오른쪽 `AI 피드백`의 `[AI 분석]`을 사용자가 직접
+  누를 때만 Backend `POST /ros/alerts/ai-diagnosis`를 통해 실행한다. API key는 Backend `.env`에서만 읽고
+  Frontend에는 전달하지 않는다. 성공한 분석 결과만 Browser 탭의 `sessionStorage`에
+  `alert_ai_diagnosis:<alert.id>`로 저장해 같은 Alert Modal 재open 시 endpoint 호출 없이 복원하며, 탭 종료 시
+  함께 제거된다. Backend는 선택 Alert, 해당 exact Domain resource의 현재 Monitor 상태와 기존
+  history 최근 5건만 제한해 전달하며, 현재 상태와 Alert 발생 시점 상태를 구분한다. Gemini REST structured
+  output은 `gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-3.5-flash-lite` 순서이고, 인증·권한·입력 오류는
+  fallback하지 않으며 rate limit·model unavailable·일시적 server/transport/timeout만 순차 fallback한다.
 - 로컬 Backend의 `backend/.env`에 Monitor와 MariaDB 실행 설정이 구성됐고 실제 `ros2_dashboard.alert` 접근과
   DB 기반 Alert API를 확인했다. 실제 credential은 Git에서 제외되며 `.env.example`에는 placeholder만 둔다.
 - Fresh 설치는 MariaDB root unix_socket으로 전용 DB/계정, 랜덤 비밀번호와 schema를 자동 준비한다. 기존
@@ -252,7 +260,10 @@ docs/                            설계·운영 문서
   overflow나 헤더 겹침이 없음을 확인했다. E2E entity 정리를 위해 전체 스택을 다시 재시작했고 active Alert 0,
   `/cmd_vel` command `waiting_publisher`, Backend-Monitor 연결 정상으로 마감했다.
 - Overview·Topic·Service·Action·Node 미리보기와 Alerts 목록의 Alert 클릭은 resource kind·QoS 분기 없이 기존
-  `/alerts` route로 통일된다. 일반 Topic/Service/Action/Node 테이블 행 선택의 상세 이동은 별도 handler를 유지한다.
+  `/alerts` route로 통일된다. 외부 미리보기 click은 browser history state로 `alertId`를 함께 전달하며 AlertsPage는
+  현재 목록을 먼저, 이전 목록을 다음으로 확인해 해당 탭의 기존 selected 행 스타일만 적용한다. 이 경로는
+  `selectedAlert`를 설정하지 않으므로 상세 Modal을 자동으로 열지 않는다. 일반 Topic/Service/Action/Node 테이블 행
+  선택의 상세 이동은 별도 handler를 유지한다.
 
 - 최종 통합 검수에서 command Topic `/cmd_vel`이 수신 stream처럼 `never_received` 오류로 승격되는 표시 공백을
   수정했다. `monitoring_role=command`는 Graph의 `waiting_publisher`를 대표 상태로 유지하고, latest·Hz·수신 진단은

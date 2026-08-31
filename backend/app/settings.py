@@ -60,6 +60,12 @@ class Settings:
     mariadb_retry_interval_sec: float = float(
         os.getenv('MARIADB_RETRY_INTERVAL_SEC', '5'),
     )
+    gemini_api_key: str = field(
+        default_factory=lambda: os.getenv('GEMINI_API_KEY', ''),
+        repr=False,
+    )
+    gemini_api_base_url: str = os.getenv('GEMINI_API_BASE_URL', '').rstrip('/')
+    gemini_timeout_sec: float = float(os.getenv('GEMINI_TIMEOUT_SEC', '30'))
 
 
 settings = Settings()

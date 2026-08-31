@@ -1,15 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
+  diagnoseAlert,
   fetchAlertHistory,
   resetAlertHistory,
   resetCurrentAlerts,
 } from '../api/rosApi.js'
+import { AlertDetailModal } from '../components/AlertDetailModal.jsx'
 import { AlertsList } from '../components/AlertsList.jsx'
 
 export function AlertsPage({
+  actionDashboard,
+  alertId,
   dashboard,
+  nodeDashboard,
   onNavigate,
+  serviceDashboard,
 }) {
   const [activeTab, setActiveTab] = useState('current')
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -21,11 +27,21 @@ export function AlertsPage({
   const [historyResponse, setHistoryResponse] = useState(null)
   const [historyPending, setHistoryPending] = useState(false)
   const [historyError, setHistoryError] = useState(null)
+  const [selectedAlert, setSelectedAlert] = useState(null)
+  const [highlightedAlertId, setHighlightedAlertId] = useState(null)
+  const [aiAnalysis, setAiAnalysis] = useState(null)
+  const [aiError, setAiError] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const aiRequestRef = useRef({ pending: false, token: 0 })
   const response = dashboard.alerts.data
-  const currentAlerts = (response?.data ?? []).filter(
-    (alert) => alert.alert_state !== 'resolved',
+  const currentAlerts = useMemo(
+    () => (response?.data ?? []).filter((alert) => alert.alert_state !== 'resolved'),
+    [response?.data],
   )
-  const previousAlerts = historyResponse?.data ?? response?.history ?? []
+  const previousAlerts = useMemo(
+    () => historyResponse?.data ?? response?.history ?? [],
+    [historyResponse?.data, response?.history],
+  )
   const historyPagination = historyResponse?.pagination ?? response?.history_pagination ?? {
     page: 1,
     page_size: 50,
@@ -35,6 +51,24 @@ export function AlertsPage({
     has_next: false,
   }
   const alerts = activeTab === 'previous' ? previousAlerts : currentAlerts
+
+  useEffect(() => {
+    if (!alertId) {
+      setHighlightedAlertId(null)
+      return
+    }
+    if (currentAlerts.some((alert) => alert.id === alertId)) {
+      setActiveTab('current')
+      setHighlightedAlertId(alertId)
+      return
+    }
+    if (previousAlerts.some((alert) => alert.id === alertId)) {
+      setActiveTab('previous')
+      setHighlightedAlertId(alertId)
+      return
+    }
+    setHighlightedAlertId(null)
+  }, [alertId, currentAlerts, previousAlerts])
 
   const loadHistory = useCallback(async ({ name, page }) => {
     setHistoryPending(true)
@@ -80,7 +114,54 @@ export function AlertsPage({
     }
   }
 
-  const openAlert = () => onNavigate('alerts')
+  const openAlert = (alert) => {
+    aiRequestRef.current.token += 1
+    setSelectedAlert(alert)
+    setAiAnalysis(loadAlertAiAnalysis(alert))
+    setAiError(null)
+    setAiLoading(aiRequestRef.current.pending)
+    onNavigate('alerts')
+  }
+
+  const closeAlert = () => {
+    aiRequestRef.current.token += 1
+    setSelectedAlert(null)
+    setAiAnalysis(null)
+    setAiError(null)
+  }
+
+  const analyzeSelectedAlert = async () => {
+    if (!selectedAlert || aiRequestRef.current.pending) return
+    const alert = selectedAlert
+    aiRequestRef.current.pending = true
+    const token = aiRequestRef.current.token + 1
+    aiRequestRef.current.token = token
+    setAiLoading(true)
+    setAiError(null)
+    try {
+      const result = await diagnoseAlert(alert)
+      if (aiRequestRef.current.token === token) {
+        setAiAnalysis(result.data)
+        saveAlertAiAnalysis(alert, result.data)
+      }
+    } catch (error) {
+      if (aiRequestRef.current.token === token) {
+        setAiError(error instanceof Error ? error.message : 'AI 분석 요청에 실패했습니다.')
+      }
+    } finally {
+      aiRequestRef.current.pending = false
+      setAiLoading(false)
+    }
+  }
+
+  const selectedResource = selectedAlert
+    ? findAlertResource(selectedAlert, {
+        actions: actionDashboard.actions,
+        nodes: nodeDashboard.nodes,
+        services: serviceDashboard.services,
+        topics: dashboard.topicItems,
+      })
+    : null
 
   return (
     <main className="single-page">
@@ -202,6 +283,7 @@ export function AlertsPage({
           }
           key={activeTab}
           onAlertClick={openAlert}
+          selectedAlertId={highlightedAlertId}
           variant={activeTab}
         />
         {activeTab === 'previous' && (
@@ -226,6 +308,82 @@ export function AlertsPage({
           </div>
         )}
       </section>
+      {selectedAlert && (
+        <AlertDetailModal
+          aiAnalysis={aiAnalysis}
+          aiError={aiError}
+          aiLoading={aiLoading}
+          alert={selectedAlert}
+          currentResource={selectedResource}
+          onAnalyze={analyzeSelectedAlert}
+          onClose={closeAlert}
+        />
+      )}
     </main>
   )
+}
+
+const ALERT_AI_CACHE_PREFIX = 'alert_ai_diagnosis:'
+
+function loadAlertAiAnalysis(alert) {
+  const key = alertAiCacheKey(alert)
+  if (!key) return null
+  try {
+    const cached = window.sessionStorage.getItem(key)
+    if (!cached) return null
+    const analysis = JSON.parse(cached)
+    if (isAlertAiAnalysis(analysis)) return analysis
+    window.sessionStorage.removeItem(key)
+  } catch {
+    try {
+      window.sessionStorage.removeItem(key)
+    } catch {
+      // Storage access itself can be unavailable; keep the Modal usable.
+    }
+    return null
+  }
+  return null
+}
+
+function saveAlertAiAnalysis(alert, analysis) {
+  const key = alertAiCacheKey(alert)
+  if (!key || !isAlertAiAnalysis(analysis)) return
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(analysis))
+  } catch {
+    // Browser storage can be unavailable or full; the in-memory result remains usable.
+  }
+}
+
+function alertAiCacheKey(alert) {
+  const id = String(alert?.id ?? '').trim()
+  return id ? `${ALERT_AI_CACHE_PREFIX}${id}` : null
+}
+
+function isAlertAiAnalysis(value) {
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && typeof value.summary === 'string'
+    && Array.isArray(value.evidence)
+    && Array.isArray(value.likely_causes)
+    && Array.isArray(value.recommended_checks)
+}
+
+function findAlertResource(alert, resources) {
+  const values = {
+    topic: resources.topics,
+    monitor_status: resources.topics,
+    service: resources.services,
+    action: resources.actions,
+    node: resources.nodes,
+  }[alert.source] ?? []
+  return values.find((resource) => {
+    const name = alert.source === 'node' ? resource.full_name : resource.name
+    if (alert.resource_key && resource.resource_key === alert.resource_key) return true
+    return name === alert.name && (
+      alert.domain_id === undefined || alert.domain_id === null
+      || resource.domain_id === alert.domain_id
+    )
+  }) ?? null
 }

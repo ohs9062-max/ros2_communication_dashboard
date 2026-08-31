@@ -51,7 +51,7 @@ export function ServicesPage({ dashboard, domainIds, onNavigate }) {
   )
     ? selectedService
     : null
-  const openServiceAlert = () => onNavigate('alerts')
+  const openServiceAlert = (alert) => onNavigate('alerts', { alertId: alert.id })
 
   return (
     <main className={`topics-page${detailService ? ' detail-open' : ''}`}>

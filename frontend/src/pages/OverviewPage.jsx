@@ -123,7 +123,7 @@ export function OverviewPage({
     },
   ]
 
-  const openAlert = () => onNavigate('alerts')
+  const openAlert = (alert) => onNavigate('alerts', { alertId: alert.id })
 
   return (
     <main className="overview-page">

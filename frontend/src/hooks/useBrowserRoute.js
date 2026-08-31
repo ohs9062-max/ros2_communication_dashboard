@@ -20,26 +20,32 @@ export function useBrowserRoute() {
   const [activePage, setActivePage] = useState(() => pageFromPathname(
     window.location.pathname,
   ))
+  const [routeState, setRouteState] = useState(() => window.history.state ?? null)
 
   useEffect(() => {
     const handlePopState = () => {
       setActivePage(pageFromPathname(window.location.pathname))
+      setRouteState(window.history.state ?? null)
     }
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  const navigate = useCallback((page) => {
+  const navigate = useCallback((page, state = null) => {
     const nextPage = PAGE_PATHS[page] ? page : 'overview'
     const path = pagePath(nextPage)
+    const nextState = { page: nextPage, ...(state ?? {}) }
     if (window.location.pathname !== path) {
-      window.history.pushState({ page: nextPage }, '', path)
+      window.history.pushState(nextState, '', path)
+    } else {
+      window.history.replaceState(nextState, '', path)
     }
     setActivePage(nextPage)
+    setRouteState(nextState)
   }, [])
 
-  return { activePage, navigate }
+  return { activePage, navigate, routeState }
 }
 
 export function pagePath(page) {

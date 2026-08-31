@@ -32,6 +32,7 @@ export function AlertsList({
   alerts,
   emptyMessage = '현재 Alert가 없습니다',
   onAlertClick,
+  selectedAlertId = null,
   variant = 'current',
 }) {
   const previous = variant === 'previous'
@@ -82,6 +83,7 @@ export function AlertsList({
           {sortedAlerts.map((alert) => (
             <tr
               key={previous ? `${alert.id}:${alert.resolved_at}` : alert.id}
+              className={alert.id === selectedAlertId ? 'selected' : undefined}
               onClick={() => onAlertClick?.(alert)}
             >
               <td>

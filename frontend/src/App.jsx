@@ -20,7 +20,7 @@ const VisualizationPage = lazy(() => import('./pages/VisualizationPage.jsx').the
 const InterfaceLabPage = lazy(() => import('./pages/InterfaceLabPage.jsx').then(({ InterfaceLabPage: Page }) => ({ default: Page })))
 
 function App() {
-  const { activePage, navigate } = useBrowserRoute()
+  const { activePage, navigate, routeState } = useBrowserRoute()
   const topicDashboardEnabled = ['overview', 'topics', 'nodes', 'alerts'].includes(activePage)
   const serviceDashboardEnabled = ['overview', 'services', 'nodes', 'alerts'].includes(activePage)
   const actionDashboardEnabled = ['overview', 'actions', 'nodes', 'alerts'].includes(activePage)
@@ -64,6 +64,7 @@ function App() {
       {activePage === 'alerts' && (
         <AlertsPage
           actionDashboard={actionDashboard}
+          alertId={routeState?.alertId ?? null}
           dashboard={dashboard}
           nodeDashboard={nodeDashboard}
           onNavigate={navigate}

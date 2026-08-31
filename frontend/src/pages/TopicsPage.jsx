@@ -92,7 +92,7 @@ export function TopicsPage({ dashboard, domainIds, onNavigate }) {
   )
     ? selectedTopic
     : null
-  const openTopicAlert = () => onNavigate('alerts')
+  const openTopicAlert = (alert) => onNavigate('alerts', { alertId: alert.id })
 
   return (
     <main className={`topics-page${detailTopic ? ' detail-open' : ''}`}>

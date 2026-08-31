@@ -67,7 +67,7 @@ export function ActionsPage({ dashboard, domainIds, onNavigate }) {
   )
     ? selectedAction
     : null
-  const openActionAlert = () => onNavigate('alerts')
+  const openActionAlert = (alert) => onNavigate('alerts', { alertId: alert.id })
 
   return (
     <main className={`topics-page${detailAction ? ' detail-open' : ''}`}>

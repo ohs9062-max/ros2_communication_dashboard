@@ -76,7 +76,7 @@ export function NodesPage({ actions, dashboard, domainIds, onNavigate, services,
   )
     ? selectedNode
     : null
-  const openNodeAlert = () => onNavigate('alerts')
+  const openNodeAlert = (alert) => onNavigate('alerts', { alertId: alert.id })
 
   return (
     <main className={`topics-page node-page${detailNode ? ' detail-open' : ''}`}>

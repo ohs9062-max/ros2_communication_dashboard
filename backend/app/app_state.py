@@ -2,6 +2,7 @@
 
 import json
 
+from app.alerts.ai_diagnosis import AlertDiagnosisService
 from app.alerts.service import AlertHistoryService
 from app.database.alert_repository import MariaDbAlertRepository
 from app.database.connection import MariaDbConnectionFactory
@@ -15,6 +16,13 @@ from app.websocket_manager import WebSocketManager
 
 monitor_client = MonitorClient(settings.monitor_base_url, settings.monitor_timeout_sec)
 monitor_cache = MonitorCache()
+alert_ai_diagnosis = AlertDiagnosisService(
+    monitor_cache=monitor_cache,
+    monitor_client=monitor_client,
+    api_key=settings.gemini_api_key,
+    api_base_url=settings.gemini_api_base_url,
+    timeout_sec=settings.gemini_timeout_sec,
+)
 alert_repository = None
 if settings.alert_db_enabled:
     alert_repository = MariaDbAlertRepository(MariaDbConnectionFactory(
