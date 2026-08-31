@@ -5,10 +5,9 @@ import { ServiceSummaryCards } from '../components/ServiceSummaryCards.jsx'
 import { ServiceTable } from '../components/ServiceTable.jsx'
 import { ServiceFilterToolbar } from '../features/services/ServiceFilterToolbar.jsx'
 import { filterServices, getPrimaryServices, getServiceUiSummary } from '../features/services/serviceFilters.js'
-import { qosAlertChannel } from '../utils/qosAlerts.js'
 import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
-export function ServicesPage({ dashboard, domainIds }) {
+export function ServicesPage({ dashboard, domainIds, onNavigate }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('running')
   const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
@@ -16,7 +15,6 @@ export function ServicesPage({ dashboard, domainIds }) {
     alerts,
     error,
     loading,
-    focusQosDetails,
     qosFocusRequest,
     meta,
     selectedService,
@@ -53,16 +51,7 @@ export function ServicesPage({ dashboard, domainIds }) {
   )
     ? selectedService
     : null
-  const openServiceAlert = (alert) => {
-    setIncludeHidden(true)
-    setSearch('')
-    setStatusFilter('all')
-    setSelectedServiceName(alert.resource_key ?? alert.name)
-    if (alert.code === 'service_qos_incompatible') {
-      focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
-    }
-    focusMonitorRow(alert.resource_key ?? alert.name, setSelectedServiceName)
-  }
+  const openServiceAlert = () => onNavigate('alerts')
 
   return (
     <main className={`topics-page${detailService ? ' detail-open' : ''}`}>
@@ -135,31 +124,5 @@ export function ServicesPage({ dashboard, domainIds }) {
         />
       )}
     </main>
-  )
-}
-
-function focusMonitorRow(name, select) {
-  window.setTimeout(() => focusMonitorRowAttempt(name, select, 0), 50)
-}
-
-function focusMonitorRowAttempt(name, select, attempt) {
-  select(name)
-  const row = findMonitorRow(name)
-  if (row) {
-    row.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    })
-    return
-  }
-
-  if (attempt < 6) {
-    window.setTimeout(() => focusMonitorRowAttempt(name, select, attempt + 1), 80)
-  }
-}
-
-function findMonitorRow(name) {
-  return [...document.querySelectorAll('[data-monitor-name]')].find(
-    (row) => row.getAttribute('data-monitor-name') === name,
   )
 }

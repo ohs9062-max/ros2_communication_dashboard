@@ -5,7 +5,6 @@ import { ActionTable } from '../components/ActionTable.jsx'
 import { AlertsPreview } from '../components/AlertsPreview.jsx'
 import { DomainFilterButtons } from '../components/DomainFilterButtons.jsx'
 import { isPrimaryAction } from '../utils/primaryFilters.js'
-import { qosAlertChannel } from '../utils/qosAlerts.js'
 import {
   actionSearchValues,
   matchesActionStatusFilter,
@@ -20,7 +19,7 @@ const ACTION_FILTERS = [
   { id: 'issues', label: '오류' },
 ]
 
-export function ActionsPage({ dashboard, domainIds }) {
+export function ActionsPage({ dashboard, domainIds, onNavigate }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('running')
   const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
@@ -31,12 +30,10 @@ export function ActionsPage({ dashboard, domainIds }) {
     alerts,
     error,
     loading,
-    focusQosDetails,
     qosFocusRequest,
     meta,
     selectedAction,
     selectedActionName,
-    setIncludeIdleActions,
     setSelectedActionName,
     priorityError,
     toggleUserPriority,
@@ -70,16 +67,7 @@ export function ActionsPage({ dashboard, domainIds }) {
   )
     ? selectedAction
     : null
-  const openActionAlert = (alert) => {
-    setIncludeIdleActions(true)
-    setSearch('')
-    setStatusFilter('all')
-    setSelectedActionName(alert.resource_key ?? alert.name)
-    if (alert.code === 'action_qos_incompatible') {
-      focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
-    }
-    focusMonitorRow(alert.resource_key ?? alert.name, setSelectedActionName)
-  }
+  const openActionAlert = () => onNavigate('alerts')
 
   return (
     <main className={`topics-page${detailAction ? ' detail-open' : ''}`}>
@@ -171,31 +159,5 @@ export function ActionsPage({ dashboard, domainIds }) {
         />
       )}
     </main>
-  )
-}
-
-function focusMonitorRow(name, select) {
-  window.setTimeout(() => focusMonitorRowAttempt(name, select, 0), 50)
-}
-
-function focusMonitorRowAttempt(name, select, attempt) {
-  select(name)
-  const row = findMonitorRow(name)
-  if (row) {
-    row.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    })
-    return
-  }
-
-  if (attempt < 6) {
-    window.setTimeout(() => focusMonitorRowAttempt(name, select, attempt + 1), 80)
-  }
-}
-
-function findMonitorRow(name) {
-  return [...document.querySelectorAll('[data-monitor-name]')].find(
-    (row) => row.getAttribute('data-monitor-name') === name,
   )
 }

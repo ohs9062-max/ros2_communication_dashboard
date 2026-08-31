@@ -251,6 +251,8 @@ docs/                            설계·운영 문서
 - Overview/Topics/Services/Actions/Nodes/Alerts/Interface Lab을 실제 Chrome 1440×1000으로 렌더링해 완료를 막는
   overflow나 헤더 겹침이 없음을 확인했다. E2E entity 정리를 위해 전체 스택을 다시 재시작했고 active Alert 0,
   `/cmd_vel` command `waiting_publisher`, Backend-Monitor 연결 정상으로 마감했다.
+- Overview·Topic·Service·Action·Node 미리보기와 Alerts 목록의 Alert 클릭은 resource kind·QoS 분기 없이 기존
+  `/alerts` route로 통일된다. 일반 Topic/Service/Action/Node 테이블 행 선택의 상세 이동은 별도 handler를 유지한다.
 
 - 최종 통합 검수에서 command Topic `/cmd_vel`이 수신 stream처럼 `never_received` 오류로 승격되는 표시 공백을
   수정했다. `monitoring_role=command`는 Graph의 `waiting_publisher`를 대표 상태로 유지하고, latest·Hz·수신 진단은

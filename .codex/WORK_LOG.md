@@ -4,17 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-27 - Topic·Service·Action·Node 상태 필터 단순화
-
-- 상태 판정, Alert와 개별 상태 배지를 바꾸지 않고 목록 필터 UI만 큰 분류로 정리했다. Topic은
-  `주요 항목/전체/대기 중/정상/문제`, Action은 `주요 항목/전체/실행 중/성공/실패·취소`, Service는
-  `주요 항목/전체/대기 중/정상/문제`, Node는 `주요 항목/전체/정상/문제`로 표시한다.
-- Topic의 `전체`는 기존 숨김 포함 동작까지 합치고, `문제`는 active가 아닌 상태와 미지원 type을 모두 포함한다.
-  Service의 전체/상태 그룹은 기존 internal 포함 fetch를 사용하며, Node의 전체/상태 그룹도 내부 Node를 포함한다.
-  Domain 필터와 이름/type/Domain 검색은 그대로 조합된다.
-- Frontend unit test, lint(기존 VisualizationPage warning 1건), build, diff check를 통과했고 GUI `pkexec`으로
-  새 `frontend/dist`를 `/var/lib/ros2-dashboard/frontend/`에 동기화했다.
-
 ## 2026-08-27 - Alert 영문 원문 표시 복구 및 오류 필터 표기 통일
 
 - 네 목록의 aggregate filter label `문제`를 모두 `오류`로 변경했다. 내부 filter ID와 상태 판정은 바꾸지 않았다.
@@ -359,3 +348,13 @@
   `/RobotControl`, `/action_a`가 각각 유지됨을 확인했다. 검증 종료 시 남은 임시 Server와 Monitor를 정리했다.
 - build를 `/var/lib/ros2-dashboard/frontend`에 동기화했다. source/target `index.html` SHA-256은
   `28ab4baa9601175d7a6cce6c68f80ec8d0946319fbdd78230e9974d666ad9323`이며 `https://127.0.0.1/interface-lab`은 200을 반환했다.
+
+## 2026-08-31 - Alert 클릭 목적지 Alerts 탭 통일
+
+- `AlertsPreview`와 `AlertsList`의 공통 click delegate는 유지하고, Overview·Topic·Service·Action·Node·Alerts의
+  기존 source별 Alert handler를 모두 `onNavigate('alerts')`로 통일했다. Topic/Service/Action/Node 상세 선택,
+  Alert 데이터와 Backend/Monitor/DB lifecycle은 변경하지 않았다.
+- 기존 Alerts route `/alerts`를 그대로 사용한다. Frontend unit 전체, lint(기존 `VisualizationPage` 미사용 인자 warning 1건),
+  production build와 diff check를 통과했고, `Alerts`, `Topics`, `Services`, `Actions`, `Nodes` local HTTPS route가 모두 200이다.
+- build를 `/var/lib/ros2-dashboard/frontend`에 동기화했다. source/target `index.html` SHA-256은
+  `4532310370bfa29c984d36423d80f8aa5c2e55085f336d5096bd9c697f0196e0`이다.

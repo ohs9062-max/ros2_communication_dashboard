@@ -20,7 +20,7 @@ const NODE_FILTERS = [
   { id: 'issues', label: '오류' },
 ]
 
-export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
+export function NodesPage({ actions, dashboard, domainIds, onNavigate, services, topics }) {
   const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
   const {
     alerts,
@@ -32,7 +32,6 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
     search,
     selectedNode,
     selectedNodeName,
-    setIncludeInternalNodes,
     setSearch,
     setSelectedNodeName,
     setStatusFilter,
@@ -77,19 +76,7 @@ export function NodesPage({ actions, dashboard, domainIds, services, topics }) {
   )
     ? selectedNode
     : null
-  const openNodeAlert = (alert) => {
-    const targetNode = nodes.find(
-      (node) => node.resource_key === alert.resource_key || (
-        !alert.resource_key && (node.full_name === alert.name || node.name === alert.name)
-      ),
-    )
-    setIncludeInternalNodes(true)
-    setSearch('')
-    setStatusFilter('all')
-    const key = targetNode?.resource_key ?? alert.resource_key ?? alert.name
-    setSelectedNodeName(key)
-    focusMonitorRow(key, setSelectedNodeName)
-  }
+  const openNodeAlert = () => onNavigate('alerts')
 
   return (
     <main className={`topics-page node-page${detailNode ? ' detail-open' : ''}`}>
@@ -203,30 +190,4 @@ function nodeMatchesSearch(node, search) {
 
 function entitySearchFields(items = []) {
   return items.flatMap((item) => [item.name, item.type, ...(item.types ?? [])])
-}
-
-function focusMonitorRow(name, select) {
-  window.setTimeout(() => focusMonitorRowAttempt(name, select, 0), 50)
-}
-
-function focusMonitorRowAttempt(name, select, attempt) {
-  select(name)
-  const row = findMonitorRow(name)
-  if (row) {
-    row.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    })
-    return
-  }
-
-  if (attempt < 6) {
-    window.setTimeout(() => focusMonitorRowAttempt(name, select, attempt + 1), 80)
-  }
-}
-
-function findMonitorRow(name) {
-  return [...document.querySelectorAll('[data-monitor-name]')].find(
-    (row) => row.getAttribute('data-monitor-name') === name,
-  )
 }

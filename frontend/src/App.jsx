@@ -54,7 +54,13 @@ function App() {
           serviceDashboard={serviceDashboard}
         />
       )}
-      {activePage === 'topics' && <TopicsPage dashboard={dashboard} domainIds={configuredDomains.domainIds} />}
+      {activePage === 'topics' && (
+        <TopicsPage
+          dashboard={dashboard}
+          domainIds={configuredDomains.domainIds}
+          onNavigate={navigate}
+        />
+      )}
       {activePage === 'alerts' && (
         <AlertsPage
           actionDashboard={actionDashboard}
@@ -70,15 +76,24 @@ function App() {
           actions={actionDashboard.actions}
           dashboard={nodeDashboard}
           domainIds={configuredDomains.domainIds}
+          onNavigate={navigate}
           services={serviceDashboard.services}
           topics={dashboard.topicItems}
         />
       )}
       {activePage === 'services' && (
-        <ServicesPage dashboard={serviceDashboard} domainIds={configuredDomains.domainIds} />
+        <ServicesPage
+          dashboard={serviceDashboard}
+          domainIds={configuredDomains.domainIds}
+          onNavigate={navigate}
+        />
       )}
       {activePage === 'actions' && (
-        <ActionsPage dashboard={actionDashboard} domainIds={configuredDomains.domainIds} />
+        <ActionsPage
+          dashboard={actionDashboard}
+          domainIds={configuredDomains.domainIds}
+          onNavigate={navigate}
+        />
       )}
       {activePage === 'visualization' && (
         <VisualizationPage websocket={monitorWebSocket} />

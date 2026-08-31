@@ -12,12 +12,11 @@ import {
   topicEffectiveStatus,
 } from '../utils/status.js'
 import { isPrimaryTopic } from '../utils/primaryFilters.js'
-import { qosAlertChannel } from '../utils/qosAlerts.js'
 import { matchesResourceSearch } from '../utils/resourceSearch.js'
 import { matchesDomainFilter } from '../utils/domainFilter.js'
 import { useDomainFilter } from '../hooks/useDomainFilter.js'
 
-export function TopicsPage({ dashboard, domainIds }) {
+export function TopicsPage({ dashboard, domainIds, onNavigate }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('running')
   const { selectedDomainId, setSelectedDomainId } = useDomainFilter(domainIds)
@@ -28,7 +27,6 @@ export function TopicsPage({ dashboard, domainIds }) {
     health,
     hz,
     latest,
-    focusQosDetails,
     qosFocusRequest,
     selectedTopic,
     selectedTopicName,
@@ -94,15 +92,7 @@ export function TopicsPage({ dashboard, domainIds }) {
   )
     ? selectedTopic
     : null
-  const openTopicAlert = (alert) => {
-    setSearch('')
-    setStatusFilter('all')
-    setSelectedTopicName(alert.resource_key ?? alert.name)
-    if (alert.code === 'topic_qos_incompatible') {
-      focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
-    }
-    focusMonitorRow(alert.resource_key ?? alert.name, setSelectedTopicName)
-  }
+  const openTopicAlert = () => onNavigate('alerts')
 
   return (
     <main className={`topics-page${detailTopic ? ' detail-open' : ''}`}>
@@ -190,32 +180,6 @@ export function TopicsPage({ dashboard, domainIds }) {
         />
       )}
     </main>
-  )
-}
-
-function focusMonitorRow(name, select) {
-  window.setTimeout(() => focusMonitorRowAttempt(name, select, 0), 50)
-}
-
-function focusMonitorRowAttempt(name, select, attempt) {
-  select(name)
-  const row = findMonitorRow(name)
-  if (row) {
-    row.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    })
-    return
-  }
-
-  if (attempt < 6) {
-    window.setTimeout(() => focusMonitorRowAttempt(name, select, attempt + 1), 80)
-  }
-}
-
-function findMonitorRow(name) {
-  return [...document.querySelectorAll('[data-monitor-name]')].find(
-    (row) => row.getAttribute('data-monitor-name') === name,
   )
 }
 

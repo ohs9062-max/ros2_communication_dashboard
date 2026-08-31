@@ -6,14 +6,10 @@ import {
   resetCurrentAlerts,
 } from '../api/rosApi.js'
 import { AlertsList } from '../components/AlertsList.jsx'
-import { qosAlertChannel } from '../utils/qosAlerts.js'
 
 export function AlertsPage({
-  actionDashboard,
   dashboard,
-  nodeDashboard,
   onNavigate,
-  serviceDashboard,
 }) {
   const [activeTab, setActiveTab] = useState('current')
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -84,49 +80,7 @@ export function AlertsPage({
     }
   }
 
-  const openAlert = (alert) => {
-    if (alert.source === 'topic' || alert.source === 'monitor_status') {
-      dashboard.setIncludeAllTopics(true)
-      dashboard.setSelectedTopicName(alert.resource_key ?? alert.name)
-      if (alert.code === 'topic_qos_incompatible') {
-        dashboard.focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
-      }
-      onNavigate('topics')
-      return
-    }
-
-    if (alert.source === 'service') {
-      serviceDashboard.setIncludeHidden(true)
-      serviceDashboard.setSelectedServiceName(alert.resource_key ?? alert.name)
-      if (alert.code === 'service_qos_incompatible') {
-        serviceDashboard.focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
-      }
-      onNavigate('services')
-      return
-    }
-
-    if (alert.source === 'action') {
-      actionDashboard.setIncludeIdleActions(true)
-      actionDashboard.setSelectedActionName(alert.resource_key ?? alert.name)
-      if (alert.code === 'action_qos_incompatible') {
-        actionDashboard.focusQosDetails(alert.resource_key ?? alert.name, qosAlertChannel(alert))
-      }
-      onNavigate('actions')
-      return
-    }
-
-    if (alert.source === 'node' || alert.code === 'node_stale') {
-      const targetNode = nodeDashboard.nodes.find(
-        (node) => (node.resource_key === alert.resource_key) || (
-          !alert.resource_key && (node.full_name === alert.name || node.name === alert.name)
-        ),
-      )
-      nodeDashboard.setIncludeInternalNodes(true)
-      nodeDashboard.setStatusFilter('all')
-      nodeDashboard.setSelectedNodeName(targetNode?.resource_key ?? alert.resource_key ?? alert.name)
-      onNavigate('nodes')
-    }
-  }
+  const openAlert = () => onNavigate('alerts')
 
   return (
     <main className="single-page">

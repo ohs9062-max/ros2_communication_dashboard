@@ -28,7 +28,7 @@ export function OverviewPage({
   serviceDashboard,
 }) {
   const [chartValueMode, setChartValueMode] = useState('percent')
-  const { alerts, setSelectedTopicName, topicItems } = dashboard
+  const { alerts, topicItems } = dashboard
   const alertMeta = alerts.data?.meta ?? {}
   const alertItems = alerts.data?.data ?? []
   const activeAlertItems = alertItems.filter(
@@ -123,37 +123,7 @@ export function OverviewPage({
     },
   ]
 
-  const openAlert = (alert) => {
-    if (alert.source === 'topic' || alert.source === 'monitor_status') {
-      setSelectedTopicName(alert.resource_key ?? alert.name)
-      onNavigate('topics')
-      return
-    }
-
-    if (alert.source === 'service') {
-      serviceDashboard.setIncludeHidden(true)
-      serviceDashboard.setSelectedServiceName(alert.resource_key ?? alert.name)
-      onNavigate('services')
-      return
-    }
-
-    if (alert.source === 'action') {
-      actionDashboard.setIncludeIdleActions(true)
-      actionDashboard.setSelectedActionName(alert.resource_key ?? alert.name)
-      onNavigate('actions')
-      return
-    }
-
-    if (alert.source === 'node' || alert.code === 'node_stale') {
-      nodeDashboard.setIncludeInternalNodes(true)
-      nodeDashboard.setStatusFilter('all')
-      nodeDashboard.setSelectedNodeName(alert.resource_key ?? alert.name)
-      onNavigate('nodes')
-      return
-    }
-
-    onNavigate('alerts')
-  }
+  const openAlert = () => onNavigate('alerts')
 
   return (
     <main className="overview-page">
