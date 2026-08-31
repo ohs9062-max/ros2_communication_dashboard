@@ -552,6 +552,11 @@ participant prefix가 공개되고, Goal/Result/Cancel Fast DDS endpoint에는 G
 - Interface Lab 실행/수신 탭은 선택 resource identity만 양방향 동기화한다. Service/Action은
   `domain_id|resource_key|type` key, Topic은 Message type과 Graph Topic의 `domain_id/resource_key`를 유지한다.
   수신 observer의 active/receiving state와 실행 Controller의 busy/Goal·Call state는 의도적으로 분리돼 있다.
+- Alert AI 진단의 Gemini 3단 fallback은 configured `v1beta`에서 `<base>/models/<model>:generateContent`를 사용한다.
+  현재 순위는 `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.7-flash`이며, 실제 models/list,
+  `generateContent`, 기존 structured-output schema 요청을 세 model 모두 HTTP 200으로 확인했다. 정상 분석은
+  3.5 Flash-Lite 한 번만 호출하고 즉시 반환하며, 3.1/3.7은 기존 fallback 대상 오류에만 순차 호출한다.
+  신규 사용자에게 404를 반환하던 2.5 model 두 개는 실제 후보에서 제거했다.
 
 ## 다음 우선 작업
 

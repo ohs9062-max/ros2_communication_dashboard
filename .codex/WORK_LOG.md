@@ -4,26 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-27 - Topic 목록 필터 실행 중/전체/오류 단순화
-
-- Topic 상태 필터를 `실행 중/전체/오류` 세 항목으로 변경하고 기본 선택을 `실행 중`으로 설정했다. `주요 항목`,
-  `정상`, `대기 중` 버튼은 제거했다. Domain 필터와 검색, Topic 상태/Alert 판정은 변경하지 않았다.
-- `실행 중`은 Graph에 존재하고 `deep_monitoring=true`인 Topic 중 endpoint가 있거나 effective status가 active이며
-  최근 수신 시각이 있는 항목, `전체`는 모든 Topic, `오류`는 기존 aggregate issues 조건을 사용한다.
-- Frontend unit test에 실행 중 판정의 Graph/감시/endpoint/최근 수신 조건을 추가했고 unit test, lint(기존
-  VisualizationPage warning 1건), build, diff check를 통과했다.
-- GUI `pkexec` 반영은 설치 경로가 `hs:hs` 소유이고 root 프로세스가 `/home/hs` source를 읽지 못해 target을 갱신하지
-  못했다. 소유자 권한의 직접 rsync로 반영했으며 source/target index SHA-256
-  `df6222511a027c5fb37d28850ca0290618912c375136c34948a272a4575a09c5`와 entry asset
-  `assets/index-DTrSSv7l.js`가 일치한다.
-
-## 2026-08-27 - Topic 필터 build GUI 권한 재반영
-
-- 사용자 요청에 따라 최신 `frontend/dist`를 `/tmp`에 staging한 뒤 GUI `pkexec` 인증으로 local HTTPS 정적 경로에
-  다시 동기화했다. source/target `index.html` SHA-256이
-  `df6222511a027c5fb37d28850ca0290618912c375136c34948a272a4575a09c5`, entry asset이
-  `assets/index-DTrSSv7l.js`로 일치함을 확인했다.
-
 ## 2026-08-27 - Service·Action·Node 필터를 Topic 형식으로 통일
 
 - Service·Action·Node 상태 필터를 Topic과 동일한 `실행 중/전체/오류` 세 버튼과 기본 `실행 중` 선택으로
@@ -364,3 +344,28 @@
 - Frontend unit 전체, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), production build와 diff check를
   통과했다. build를 local HTTPS 정적 경로에 반영했고 `https://127.0.0.1/alerts`가 200이며 source/target
   `index.html` SHA-256은 `4747669d99197edfcf6063f438abae5e5447b4c557a5954f6a07ec16b7d37abb`로 일치한다.
+
+## 2026-08-31 - Gemini 3단 fallback 404 원인 검수
+
+- 코드 변경 없이 실제 configured `v1beta` 환경의 models/list와 합성 structured-output 요청을 모델별 1회씩
+  검수했다. 세 모델은 모두 list에 있고 `generateContent` method도 표기되지만, `gemini-2.5-flash`와
+  `gemini-2.5-flash-lite`는 HTTP 404 `NOT_FOUND`와 “new users에 더 이상 제공되지 않음”이라는 제공자 메시지를
+  반환했다. `gemini-3.5-flash-lite`만 HTTP 200으로 실제 generation에 성공했다.
+- URL은 `<configured-base>/models/<model>:generateContent`이며 base version은 `/v1beta`다. model string은 prefix
+  없이 한 번만 조립돼 endpoint/version/model-prefix 구성 오류 근거는 없다. 현재 404는 fallback 대상이므로 AI 분석
+  1회마다 1·2순위 404 두 번 뒤 3순위까지 총 세 요청을 보낸다.
+- `backend/tests/test_alert_ai_diagnosis.py` 12 passed를 확인했다. 404 응답에는 usage metadata가 없어 token 과금 여부는
+  현재 API 응답/로그만으로 확정하지 않았다. 최소 후속안은 실제 성공한 model을 우선순위로 정리하는 것이며 사용자 승인 전
+  코드는 수정하지 않았다.
+
+## 2026-08-31 - Gemini 비용 중심 fallback 우선순위 적용
+
+- 변경 전 models/list와 실제 structured-output 합성 요청을 독립 검수해 `gemini-3.5-flash-lite`,
+  `gemini-3.1-flash-lite`, `gemini-3.7-flash`가 모두 list에 존재하고 `generateContent`를 지원하며 HTTP 200 및
+  기존 JSON schema 파싱에 성공함을 확인했다.
+- 기존 model tuple만 위 순서로 교체해 사용 불가한 `gemini-2.5-flash`와 `gemini-2.5-flash-lite`를 실제 후보에서
+  제거했다. fallback status/timeout/transport/auth 정책, prompt/context/schema, endpoint와 UI는 변경하지 않았다.
+- 순위 고정 및 1순위 fallback 뒤 2순위 성공 시 3순위를 호출하지 않는 회귀 test를 추가했다. 관련 14 passed,
+  Backend 전체 31 passed·2 skipped를 확인했다.
+- 수정 후 실제 adapter는 3.5 Flash-Lite 한 번만 호출해 종료했고, Backend service 재시작 후 local HTTPS
+  `/ros/alerts/ai-diagnosis` 합성 요청도 HTTP 200, 같은 model, 기존 5개 response key를 반환했다.

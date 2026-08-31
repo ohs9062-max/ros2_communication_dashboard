@@ -25,6 +25,14 @@ ANALYSIS = {
 }
 
 
+def test_model_priority_uses_verified_cost_order():
+    assert GEMINI_MODELS == (
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-3.7-flash',
+    )
+
+
 @dataclass
 class FakeMonitorClient:
     payload: dict | None = None
@@ -72,6 +80,21 @@ def test_rate_limit_and_unavailable_errors_fallback_sequentially():
 
     assert models == list(GEMINI_MODELS)
     assert result['model'] == GEMINI_MODELS[2]
+
+
+def test_first_fallback_success_stops_before_final_model():
+    models = []
+
+    def handler(request):
+        models.append(request.url.path.split('/models/', 1)[1].split(':', 1)[0])
+        if len(models) == 1:
+            return _error_response(request, 429, 'RESOURCE_EXHAUSTED')
+        return _success_response(request)
+
+    result = asyncio.run(_service(handler).diagnose(_alert('node')))
+
+    assert models == list(GEMINI_MODELS[:2])
+    assert result['model'] == GEMINI_MODELS[1]
 
 
 def test_authentication_error_never_falls_back():

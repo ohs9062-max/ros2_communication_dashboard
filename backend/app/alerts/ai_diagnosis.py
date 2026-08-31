@@ -15,9 +15,9 @@ from app.monitor_client.client import MonitorClient, MonitorUnavailable
 
 LOGGER = logging.getLogger(__name__)
 GEMINI_MODELS = (
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
     'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-3.7-flash',
 )
 HISTORY_LIMIT = 5
 SUPPORTED_SOURCES = {'topic', 'monitor_status', 'service', 'action', 'node'}
