@@ -9,6 +9,8 @@ from app.alerts.ai_diagnosis import (
     AlertDiagnosisInputError,
     GeminiConfigurationError,
     GeminiRequestError,
+    LocalLlmConfigurationError,
+    LocalLlmRequestError,
 )
 from app.app_state import alert_ai_diagnosis, alert_history
 
@@ -76,4 +78,24 @@ async def diagnose_alert(request: AlertDiagnosisRequest) -> dict[str, Any]:
         'success': True,
         'data': diagnosis,
         'message': 'Alert AI 분석이 완료되었습니다.',
+    }
+
+
+@router.post('/ros/alerts/ai-diagnosis/local')
+async def diagnose_alert_locally(request: AlertDiagnosisRequest) -> dict[str, Any]:
+    try:
+        diagnosis = await alert_ai_diagnosis.diagnose_local(request.alert)
+    except AlertDiagnosisInputError as exc:
+        raise HTTPException(status_code=422, detail='선택한 Alert 정보가 올바르지 않습니다.') from exc
+    except LocalLlmConfigurationError as exc:
+        raise HTTPException(status_code=503, detail='로컬 AI 분석 설정을 확인해주세요.') from exc
+    except LocalLlmRequestError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail='로컬 AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        ) from exc
+    return {
+        'success': True,
+        'data': diagnosis,
+        'message': 'Alert 로컬 AI 분석이 완료되었습니다.',
     }

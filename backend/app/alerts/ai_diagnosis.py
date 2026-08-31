@@ -170,6 +170,14 @@ class GeminiRequestError(RuntimeError):
         self.authentication = authentication
 
 
+class LocalLlmConfigurationError(RuntimeError):
+    """The local Ollama diagnosis provider is not configured."""
+
+
+class LocalLlmRequestError(RuntimeError):
+    """The local Ollama diagnosis provider did not return a valid result."""
+
+
 class AlertDiagnosisService:
     def __init__(
         self,
@@ -180,6 +188,10 @@ class AlertDiagnosisService:
         api_base_url: str,
         timeout_sec: float,
         client_factory: Callable[[], httpx.AsyncClient] | None = None,
+        local_llm_url: str = '',
+        local_llm_model: str = '',
+        local_llm_timeout_sec: float = 120,
+        local_client_factory: Callable[[], httpx.AsyncClient] | None = None,
     ) -> None:
         self._monitor_cache = monitor_cache
         self._monitor_client = monitor_client
@@ -187,11 +199,21 @@ class AlertDiagnosisService:
         self._api_base_url = api_base_url.rstrip('/')
         self._timeout_sec = timeout_sec
         self._client_factory = client_factory
+        self._local_llm_url = local_llm_url.rstrip('/')
+        self._local_llm_model = local_llm_model.strip()
+        self._local_llm_timeout_sec = local_llm_timeout_sec
+        self._local_client_factory = local_client_factory
 
     async def diagnose(self, selected_alert: dict[str, Any]) -> dict[str, Any]:
         alert = _validated_alert(selected_alert)
         context = await self._build_context(alert)
         analysis, model = await self._request_gemini(context)
+        return {**analysis, 'model': model}
+
+    async def diagnose_local(self, selected_alert: dict[str, Any]) -> dict[str, Any]:
+        alert = _validated_alert(selected_alert)
+        context = await self._build_context(alert)
+        analysis, model = await self._request_local_llm(context)
         return {**analysis, 'model': model}
 
     async def _build_context(self, alert: dict[str, Any]) -> dict[str, Any]:
@@ -326,6 +348,42 @@ class AlertDiagnosisService:
         if isinstance(last_error, GeminiRequestError):
             raise last_error
         raise GeminiRequestError('Gemini models did not return a valid diagnosis') from last_error
+
+    async def _request_local_llm(
+        self,
+        context: dict[str, Any],
+    ) -> tuple[dict[str, Any], str]:
+        if not self._local_llm_url:
+            raise LocalLlmConfigurationError('LOCAL_LLM_URL is not configured')
+        if not self._local_llm_model:
+            raise LocalLlmConfigurationError('LOCAL_LLM_MODEL is not configured')
+
+        factory = self._local_client_factory or (
+            lambda: httpx.AsyncClient(timeout=self._local_llm_timeout_sec)
+        )
+        try:
+            async with factory() as client:
+                response = await client.post(
+                    f'{self._local_llm_url}/api/chat',
+                    json=_local_llm_payload(context, self._local_llm_model),
+                )
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            raise LocalLlmRequestError('Local LLM transport failed') from exc
+
+        if not response.is_success:
+            raise LocalLlmRequestError(f'Local LLM HTTP {response.status_code}')
+        try:
+            payload = response.json()
+            message = payload.get('message') if isinstance(payload, dict) else None
+            content = message.get('content') if isinstance(message, dict) else None
+            analysis = _parse_structured_diagnosis(content)
+            model = str(payload.get('model') or '').strip()
+            if not model:
+                raise ValueError('Local LLM response model is missing')
+        except (TypeError, ValueError, KeyError) as exc:
+            raise LocalLlmRequestError('Local LLM returned an invalid diagnosis') from exc
+        LOGGER.info('Local Alert diagnosis completed with model %s', model)
+        return analysis, model
 
 
 def _validated_alert(value: Any) -> dict[str, Any]:
@@ -473,6 +531,26 @@ def _gemini_payload(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _local_llm_payload(context: dict[str, Any], model: str) -> dict[str, Any]:
+    return {
+        'model': model,
+        'stream': False,
+        'format': DIAGNOSIS_SCHEMA,
+        'messages': [
+            {'role': 'system', 'content': SYSTEM_INSTRUCTION},
+            {
+                'role': 'user',
+                'content': '다음 Dashboard context를 진단 형식으로 해석하세요.\n'
+                + json.dumps(context, ensure_ascii=False, separators=(',', ':')),
+            },
+        ],
+        'options': {
+            'temperature': 0.2,
+            'num_predict': 2048,
+        },
+    }
+
+
 def _parse_gemini_response(payload: Any) -> dict[str, Any]:
     candidates = payload.get('candidates') if isinstance(payload, dict) else None
     if not isinstance(candidates, list) or not candidates:
@@ -482,17 +560,23 @@ def _parse_gemini_response(payload: Any) -> dict[str, Any]:
     texts = [part.get('text') for part in parts or [] if isinstance(part, dict) and part.get('text')]
     if not texts:
         raise ValueError('Gemini response has no text')
-    result = json.loads(''.join(texts))
+    return _parse_structured_diagnosis(''.join(texts))
+
+
+def _parse_structured_diagnosis(content: Any) -> dict[str, Any]:
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError('Diagnosis response has no content')
+    result = json.loads(content)
     if not isinstance(result, dict) or set(result) != set(DIAGNOSIS_SCHEMA['required']):
-        raise ValueError('Gemini diagnosis fields are invalid')
+        raise ValueError('Diagnosis fields are invalid')
     summary = result.get('summary')
     if not isinstance(summary, str) or not summary.strip():
-        raise ValueError('Gemini diagnosis summary is invalid')
+        raise ValueError('Diagnosis summary is invalid')
     normalized = {'summary': summary.strip()}
     for key in ('evidence', 'likely_causes', 'recommended_checks'):
         items = result.get(key)
         if not isinstance(items, list) or any(not isinstance(item, str) for item in items):
-            raise ValueError(f'Gemini diagnosis {key} is invalid')
+            raise ValueError(f'Diagnosis {key} is invalid')
         normalized[key] = [item.strip() for item in items[:10] if item.strip()]
     return normalized
 

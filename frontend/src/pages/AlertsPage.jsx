@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   diagnoseAlert,
+  diagnoseAlertLocally,
   fetchAlertHistory,
   resetAlertHistory,
   resetCurrentAlerts,
@@ -32,7 +33,12 @@ export function AlertsPage({
   const [aiAnalysis, setAiAnalysis] = useState(null)
   const [aiError, setAiError] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [analysisProvider, setAnalysisProvider] = useState('cloud')
+  const [localAiAnalysis, setLocalAiAnalysis] = useState(null)
+  const [localAiError, setLocalAiError] = useState(null)
+  const [localAiLoading, setLocalAiLoading] = useState(false)
   const aiRequestRef = useRef({ pending: false, token: 0 })
+  const localAiRequestRef = useRef({ pending: false, token: 0 })
   const response = dashboard.alerts.data
   const currentAlerts = useMemo(
     () => (response?.data ?? []).filter((alert) => alert.alert_state !== 'resolved'),
@@ -116,23 +122,34 @@ export function AlertsPage({
 
   const openAlert = (alert) => {
     aiRequestRef.current.token += 1
+    localAiRequestRef.current.token += 1
+    const cloudAnalysis = loadAlertAiAnalysis(alert)
+    const localAnalysis = loadAlertAiAnalysis(alert, 'local')
     setSelectedAlert(alert)
-    setAiAnalysis(loadAlertAiAnalysis(alert))
+    setAiAnalysis(cloudAnalysis)
     setAiError(null)
     setAiLoading(aiRequestRef.current.pending)
+    setLocalAiAnalysis(localAnalysis)
+    setLocalAiError(null)
+    setLocalAiLoading(localAiRequestRef.current.pending)
+    setAnalysisProvider(localAnalysis ? 'local' : 'cloud')
     onNavigate('alerts')
   }
 
   const closeAlert = () => {
     aiRequestRef.current.token += 1
+    localAiRequestRef.current.token += 1
     setSelectedAlert(null)
     setAiAnalysis(null)
     setAiError(null)
+    setLocalAiAnalysis(null)
+    setLocalAiError(null)
   }
 
   const analyzeSelectedAlert = async () => {
     if (!selectedAlert || aiRequestRef.current.pending) return
     const alert = selectedAlert
+    setAnalysisProvider('cloud')
     aiRequestRef.current.pending = true
     const token = aiRequestRef.current.token + 1
     aiRequestRef.current.token = token
@@ -151,6 +168,33 @@ export function AlertsPage({
     } finally {
       aiRequestRef.current.pending = false
       setAiLoading(false)
+    }
+  }
+
+  const analyzeSelectedAlertLocally = async () => {
+    if (!selectedAlert || localAiRequestRef.current.pending) return
+    const alert = selectedAlert
+    setAnalysisProvider('local')
+    localAiRequestRef.current.pending = true
+    const token = localAiRequestRef.current.token + 1
+    localAiRequestRef.current.token = token
+    setLocalAiLoading(true)
+    setLocalAiError(null)
+    try {
+      const result = await diagnoseAlertLocally(alert)
+      if (localAiRequestRef.current.token === token) {
+        setLocalAiAnalysis(result.data)
+        saveAlertAiAnalysis(alert, result.data, 'local')
+      }
+    } catch (error) {
+      if (localAiRequestRef.current.token === token) {
+        setLocalAiError(
+          error instanceof Error ? error.message : '로컬 AI 분석 요청에 실패했습니다.',
+        )
+      }
+    } finally {
+      localAiRequestRef.current.pending = false
+      setLocalAiLoading(false)
     }
   }
 
@@ -310,12 +354,17 @@ export function AlertsPage({
       </section>
       {selectedAlert && (
         <AlertDetailModal
+          analysisProvider={analysisProvider}
           aiAnalysis={aiAnalysis}
           aiError={aiError}
           aiLoading={aiLoading}
           alert={selectedAlert}
           currentResource={selectedResource}
+          localAiAnalysis={localAiAnalysis}
+          localAiError={localAiError}
+          localAiLoading={localAiLoading}
           onAnalyze={analyzeSelectedAlert}
+          onAnalyzeLocally={analyzeSelectedAlertLocally}
           onClose={closeAlert}
         />
       )}
@@ -324,9 +373,10 @@ export function AlertsPage({
 }
 
 const ALERT_AI_CACHE_PREFIX = 'alert_ai_diagnosis:'
+const LOCAL_ALERT_AI_CACHE_PREFIX = 'alert_ai_diagnosis:local:'
 
-function loadAlertAiAnalysis(alert) {
-  const key = alertAiCacheKey(alert)
+function loadAlertAiAnalysis(alert, provider = 'cloud') {
+  const key = alertAiCacheKey(alert, provider)
   if (!key) return null
   try {
     const cached = window.sessionStorage.getItem(key)
@@ -345,8 +395,8 @@ function loadAlertAiAnalysis(alert) {
   return null
 }
 
-function saveAlertAiAnalysis(alert, analysis) {
-  const key = alertAiCacheKey(alert)
+function saveAlertAiAnalysis(alert, analysis, provider = 'cloud') {
+  const key = alertAiCacheKey(alert, provider)
   if (!key || !isAlertAiAnalysis(analysis)) return
   try {
     window.sessionStorage.setItem(key, JSON.stringify(analysis))
@@ -355,9 +405,10 @@ function saveAlertAiAnalysis(alert, analysis) {
   }
 }
 
-function alertAiCacheKey(alert) {
+function alertAiCacheKey(alert, provider = 'cloud') {
   const id = String(alert?.id ?? '').trim()
-  return id ? `${ALERT_AI_CACHE_PREFIX}${id}` : null
+  const prefix = provider === 'local' ? LOCAL_ALERT_AI_CACHE_PREFIX : ALERT_AI_CACHE_PREFIX
+  return id ? `${prefix}${id}` : null
 }
 
 function isAlertAiAnalysis(value) {

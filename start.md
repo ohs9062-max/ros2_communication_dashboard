@@ -276,3 +276,6 @@ ros2 topic pub /domain_test \
 geometry_msgs/msg/Twist \
 "{linear: {x: 1.0}, angular: {z: 0.5}}" \
 -r 1
+
+# 올라마
+ollama run gemma3:4b-it-q4_K_M

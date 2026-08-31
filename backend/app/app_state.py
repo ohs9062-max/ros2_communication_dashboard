@@ -22,6 +22,9 @@ alert_ai_diagnosis = AlertDiagnosisService(
     api_key=settings.gemini_api_key,
     api_base_url=settings.gemini_api_base_url,
     timeout_sec=settings.gemini_timeout_sec,
+    local_llm_url=settings.local_llm_url,
+    local_llm_model=settings.local_llm_model,
+    local_llm_timeout_sec=settings.local_llm_timeout_sec,
 )
 alert_repository = None
 if settings.alert_db_enabled:

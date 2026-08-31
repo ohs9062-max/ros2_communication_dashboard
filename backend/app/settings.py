@@ -66,6 +66,9 @@ class Settings:
     )
     gemini_api_base_url: str = os.getenv('GEMINI_API_BASE_URL', '').rstrip('/')
     gemini_timeout_sec: float = float(os.getenv('GEMINI_TIMEOUT_SEC', '30'))
+    local_llm_url: str = os.getenv('LOCAL_LLM_URL', '').rstrip('/')
+    local_llm_model: str = os.getenv('LOCAL_LLM_MODEL', '')
+    local_llm_timeout_sec: float = float(os.getenv('LOCAL_LLM_TIMEOUT', '120'))
 
 
 settings = Settings()

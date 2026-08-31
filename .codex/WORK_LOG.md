@@ -4,99 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-27 - Service·Action·Node 필터를 Topic 형식으로 통일
-
-- Service·Action·Node 상태 필터를 Topic과 동일한 `실행 중/전체/오류` 세 버튼과 기본 `실행 중` 선택으로
-  통일했다. 검색·Domain·상태 그룹의 toolbar class/배치도 Topic과 같게 맞췄으며 기존 행 상태/QoS 배지는 유지했다.
-- Service 실행 중은 현재 Graph Server endpoint 존재, Action 실행 중은 Graph에 Action Server가 존재하고 상태가
-  active, Node 실행 중은 현재 Graph 존재를 기준으로 판정한다. 오류에는 Server 부재·Graph 이탈·통신 실패·확정
-  QoS 불일치를 포함하며 Action의 과거 Goal 성공/실패는 필터 판정에서 제외했다. Alert·Monitor·multi-domain
-  로직은 변경하지 않았다.
-- Frontend unit test, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), build와 diff check를 통과했다. GUI
-  `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
-  `b6bee3dcf810f3374d7e5e7f6adac05669a03ed8510ef4cd5dc737f595ed6a58`와 entry asset
-  `assets/index-0_VBVV8q.js`가 일치한다. 당시 `https://localhost/` 응답은 없어 실제 Nginx 응답 대조는 못 했다.
-
-## 2026-08-27 - Service 실행 중에서 내부·관리 Service 제외
-
-- Service `실행 중` 필터에만 기존 `isInternalOrManagementService` 판정을 재사용해 Graph Server가 있더라도
-  ROS2 내부·관리용 Service는 제외했다. 새 이름/prefix 규칙은 추가하지 않았으며 `전체`는 내부·관리 Service를
-  계속 포함하고 `오류`는 기존 문제 상태 판정을 그대로 사용한다. Topic·Action·Node와 Alert/상태 원천은 수정하지
-  않았다.
-- 내부 Service가 `실행 중`에서는 제외되고 `전체`에는 남는 unit test를 추가했다. Frontend 전체 unit test,
-  lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다.
-- GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
-  `fe057e28ad1f4ac7178f8cc10de9a59ee00e02fc28220d968a5bc24a4494336b`와 entry asset
-  `assets/index-CIf8VfR9.js`가 일치한다. 당시 `https://localhost/` 응답은 없어 실제 Nginx 응답 대조는 못 했다.
-
-## 2026-08-27 - Node 탭 이동 실패 원인 확인
-
-- 최근 Node 필터 변경에서 `NodesPage.jsx`의 `isInternalNode` import가 제거됐지만 주요 Node 요약 계산에는 호출이
-  남아 있었다. Node 탭 lazy chunk가 렌더링될 때 `ReferenceError: isInternalNode is not defined`가 발생해 페이지
-  이동이 완료되지 않는 원인임을 source diff와 배포 build chunk에서 확인했다.
-- 진단 요청 범위에 따라 코드는 수정하거나 재배포하지 않았다. 필요한 수정은 기존 `nodeFilters.js`의
-  `isInternalNode`를 `NodesPage.jsx` import에 다시 포함하는 것이다.
-
-## 2026-08-27 - Node 탭 이동 런타임 오류 수정·반영
-
-- `NodesPage.jsx`에서 주요 Node 요약이 사용하는 기존 `isInternalNode` import를 복구해 Node 탭 lazy render의
-  `ReferenceError`를 제거했다. Node 필터·상태·Alert 로직은 변경하지 않았다.
-- Frontend 전체 unit test, lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다. GUI
-  `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
-  `e67b1e76f985a09f1222a25b8df32adfa2595cf5d915985158ed6e90efcc9cb6`와 entry asset
-  `assets/index-C15xcW-U.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
-
-## 2026-08-27 - Node 목록에서 Dashboard 내부 Node 제외
-
-- Node 탭 `filteredNodes`에 기존 `isInternalNode` helper를 적용해 Monitor snapshot의 `is_internal=true` Dashboard
-  Node를 실행 중·전체·오류 모든 table view에서 제외했다. 새 이름/prefix 규칙은 만들지 않았고, 원본 Node snapshot,
-  Topic/Service/Action 관계 계산, Alert·ROS·multi-domain 로직은 변경하지 않았다.
-- 기존 내부 Node 판정값 unit assertion을 추가했고 Frontend 전체 unit test, lint(기존 `VisualizationPage` warning
-  1건), build와 diff check를 통과했다. GUI `pkexec`으로 local HTTPS 정적 경로에 반영했으며 source/target
-  `index.html` SHA-256은 `33f7f7c3d7a837fd1b7404e886aeee32441df5fb76bb1bd529a8e25fdd99d2b7`, entry asset은
-  `assets/index-gZFj05xN.js`로 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
-
-## 2026-08-27 - Topic·Service·Action 상태 열을 Node 기준으로 정렬
-
-- Node 탭을 기준으로 Topic·Service·Action의 상태 header와 상태/QoS stack 셀을 가운데 정렬하고 상태 열 폭을
-  100px로 통일했다. Node 탭은 수정하지 않았고 상태 값·QoS badge·필터·Alert·ROS/multi-domain 로직도 바꾸지
-  않았다.
-- Frontend lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다. GUI `pkexec`으로 local
-  HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
-  `459f156011ba20ec8caf87a3c53018d8d36e103c522a27a3f434d9ae54309fa8`와 entry asset
-  `assets/index-ByJwGTif.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
-
-## 2026-08-27 - 시각화 탭 주요 노드 항목 제거
-
-- 시각화 Node mode에서 `주요 노드` toggle과 primary 전용 선택 handler/state 분기를 제거했다. 기본 Node filter는
-  `실행 노드`로 바뀌었고 남은 선택지는 `실행 노드/전체 노드`다. Topic/Service/Action/Node 탭과 Graph 수집·상태
-  판정은 변경하지 않았다.
-- Frontend 전체 unit test, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), build와 diff check를 통과했다.
-  GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
-  `22613c2803bdf1c1772f649fbdfb20efb9e995110fb89be97ede71fddcf45599`와 entry asset
-  `assets/index-B_3fliEm.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
-
-## 2026-08-27 - Node 상세 상태 요약 접기 지원
-
-- Node 상세의 `상태 요약`만 기존 공통 `DetailSection`의 collapsible mode로 변경했다. 기본은 열림이며 상태 값과
-  다른 상세/Node 로직은 변경하지 않았다.
-- Frontend lint(기존 `VisualizationPage` 미사용 인자 warning 1건), build와 diff check를 통과했다. GUI `pkexec`으로
-  local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
-  `59b6918d3a325b46592939490d904525e3f656d757ca77bf07fe396421d8aa59`와 entry asset
-  `assets/index-DjFfTfLX.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
-
-## 2026-08-27 - Service 실행 중에 주요/호출 이력 조건 추가
-
-- Service `실행 중` 필터에 기존 최종 `is_primary` 판정 또는 `last_call_summary` 기반 실제 호출 이력 조건을
-  추가했다. Graph 존재·Server endpoint·internal/management 제외 조건은 유지하며, 호출 성공/실패와 QoS 상태는
-  실행 중 포함 조건으로 사용하지 않는다. `전체`와 `오류`, 다른 resource 탭과 Alert/ROS/multi-domain 로직은
-  변경하지 않았다.
-- 미등록·미호출 제외, 주요 등록 포함, 실패 호출 이력 포함, QoS 불일치 주요 Service 포함을 unit test로 확인했고
-  Frontend 전체 unit test, lint(기존 `VisualizationPage` warning 1건), build와 diff check를 통과했다.
-- GUI `pkexec`으로 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256
-  `ed19d10354be3279b633015bcc3e1d125aba6be5902b8dbda80d0077a4038da6`와 entry asset
-  `assets/index-bYC2Yb4c.js`가 일치한다. 당시 Nginx가 응답하지 않아 HTTPS 실접속 확인은 못 했다.
-
 ## 2026-08-28 - Interface Lab Service/Action Server 실제 Runtime
 
 - Gemini 미커밋 diff를 대조해 API 없이 React state만 active로 바꾸던 Topic/Service/Action Server placeholder를
@@ -369,3 +276,60 @@
   Backend 전체 31 passed·2 skipped를 확인했다.
 - 수정 후 실제 adapter는 3.5 Flash-Lite 한 번만 호출해 종료했고, Backend service 재시작 후 local HTTPS
   `/ros/alerts/ai-diagnosis` 합성 요청도 HTTP 200, 같은 model, 기존 5개 response key를 반환했다.
+
+## 2026-08-31 - Alert Modal Cloud·Local AI UI 준비
+
+- `AlertDetailModal`의 기존 Cloud `[AI 분석]` button·handler·loading/error/result 상태를 그대로 유지하고, 바로 옆에
+  호출 handler가 없는 `[로컬 AI 분석]` button을 추가했다. 따라서 이번 변경으로 Ollama/Gemma/새 endpoint 또는 기존
+  Gemini endpoint 요청은 발생하지 않는다.
+- 성공한 Cloud 분석 결과에만 기존 `aiAnalysis.model`을 사용해 결과 하단의 muted `분석 모델` 메타정보로
+  `<실제 model> · Cloud`를 표시한다. model이 없으면 해당 영역은 렌더링하지 않으며 sessionStorage 복원과 재분석은
+  기존 result 값을 그대로 사용한다.
+- Frontend unit 전체, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), production build와 diff check를
+  통과했다. build를 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256은
+  `9f07bb87eaac03a19d4065df4496b98853d3dd92dd5a659f64cb6c083ac95461`, `https://127.0.0.1/alerts`는 200이다.
+
+## 2026-08-31 - Alert Modal 분석 모델 한 줄 메타표기
+
+- Cloud 분석 결과 하단의 기존 구분선 영역을 `분석 모델 : <실제 model> · Cloud` 한 줄로 정리했다. model 값·Cloud
+  표기 조건, AI 요청/결과/sessionStorage와 Local AI 무호출 상태는 변경하지 않았다.
+- Frontend lint(기존 `VisualizationPage` 미사용 인자 warning 1건), production build와 diff check를 통과했고 최신
+  build를 local HTTPS 정적 경로에 동기화했다.
+
+## 2026-08-31 - Alert Modal 분석 모델 하단 경계 배치
+
+- Cloud 분석 모델 표기를 AI 결과 본문에서 분리해 오른쪽 AI 피드백 영역의 하단 경계 footer로 옮겼다. 결과가 있을 때만
+  `분석 모델 : <실제 model> · Cloud` 한 줄을 표시하며, AI 요청·결과·sessionStorage·Local AI 무호출 동작은 변경하지 않았다.
+- Frontend lint(기존 `VisualizationPage` 미사용 인자 warning 1건), production build와 diff check를 통과했고 최신
+  build를 local HTTPS 정적 경로에 동기화했다.
+
+## 2026-08-31 - Local AI(Ollama + Gemma) 연동 및 HTTPS 실환경 검증 완료
+
+- FastAPI Backend `POST /ros/alerts/ai-diagnosis/local` 및 Ollama `gemma3:4b-it-q4_K_M` 연동을 실환경에서 검증했다.
+- systemd Backend 환경변수 로딩(`LOCAL_LLM_URL`, `LOCAL_LLM_MODEL`, `LOCAL_LLM_TIMEOUT`)과 Ollama 서비스 상태 및 listen 주소(`127.0.0.1:11434`) 정상 동작을 확인했다.
+- 이전 실환경 테스트 시 발생했던 502 Bad Gateway는 systemd 서비스 환경이나 네트워크 연결 실패가 아닌, LLM 생성 토큰 한도(2048) 도달에 따른 불완전 JSON 파싱 에러였음을 Ollama 저널(`task 245/2296 | n_gen = 2048`) 및 Backend 검증을 통해 확정했다.
+- 로컬 HTTPS 환경(`https://127.0.0.1/ros/alerts/ai-diagnosis/local`)에서 실제 Alert 분석 호출을 재검증하여 HTTP 200, 응답시간 약 4.49초, 반환 model `gemma3:4b-it-q4_K_M`, 5개 필수 필드(`summary`, `evidence`, `likely_causes`, `recommended_checks`, `model`)의 정상 구조화 출력을 확인했다.
+- 기존 Gemini Cloud AI(`POST /ros/alerts/ai-diagnosis`) 역시 정상 동작(HTTP 200, 약 2.39초, `gemini-3.5-flash-lite`)을 유지하여 상호 간섭이나 회귀가 없음을 확인했다.
+- Backend pytest 37 passed·2 skipped, Frontend unit test 20개 모듈 통과, oxlint(기존 VisualizationPage warning 1건 유지), Vite 프로덕션 빌드 및 `git diff --check`를 통과했다.
+
+## 2026-08-31 - Alert 상세 Modal 최외곽 하단 Footer 박스 배치
+
+- AI 피드백 내부에서 분석 모델 표기를 완전히 분리하여, Alert 상세 Modal 최외곽 컨테이너(`.preview-modal.alert-detail-modal`)의 맨 아래 border 영역(`.alert-detail-modal-footer`)으로 재배치했다.
+- 하단 footer 영역에 `min-height: 48px`, `padding: 12px 24px`, `background: rgba(8, 13, 19, 0.72)`, `border-top: 1px solid var(--border)`, `margin: 16px -16px -16px`를 적용하여 모달 최외곽 테두리와 일체화된 bottom bar로 구성했다.
+- 분석 모델 텍스트 폰트를 기존 11px에서 라벨 13px / 모델명 13.5px bold monospace로 키우고 가운데 정렬하여 footer 영역 안에 선명하게 표시했다.
+- `분석 모델 : <model> · <Local|Cloud>` 형식 및 model 미존재 시 footer 영역 미표시 동작을 유지했다.
+- Frontend unit test 20개 모듈 통과, oxlint(기존 VisualizationPage warning 1건 유지), Vite 프로덕션 빌드를 통과하고 `/var/lib/ros2-dashboard/frontend`에 동기화하여 HTTPS 실접속(`index-BkjPROGh.css`)을 확인했다.
+
+## 2026-08-31 - Alert 상세 Modal 레벨 StatusBadge 적용 (warning 노랑, error 빨강)
+
+- `AlertDetailModal.jsx`의 Alert 정보 목록에서 레벨 항목을 `StatusBadge` 컴포넌트(`value={alert.level}`)로 변경하여 `warning`은 노랑(`badge yellow`, '경고'), `error`/`critical`은 빨강(`badge red`, '오류'/'치명적') 뱃지로 시각화했다.
+- `App.css`의 `.alert-detail-list`에 `align-items: center` 및 `.alert-detail-list dd`에 `display: flex; align-items: center`를 적용하여 뱃지와 라벨의 세로 정렬을 맞췄다.
+- Frontend unit test 20개 모듈 통과, oxlint(기존 VisualizationPage warning 1건 유지), Vite 프로덕션 빌드를 통과하고 `/var/lib/ros2-dashboard/frontend`에 동기화하여 HTTPS 실접속(`index-BHeMB0k5.css`)을 확인했다.
+
+## 2026-08-31 - Alert 상세 Modal 레벨 원문 색상 표기
+
+- Alert 상세의 Level `StatusBadge`와 한글 label mapping을 제거해 Alert 원문 level을 그대로 표시한다. `warning`은
+  노랑 글씨, `error`는 빨강 글씨이며 Alert 데이터·상태 판정·다른 UI는 변경하지 않았다.
+- Frontend lint(기존 `VisualizationPage` 미사용 인자 warning 1건), production build와 diff check를 통과했고 최신
+  build를 로컬 HTTPS 정적 경로에 동기화했다. source/target `index.html` SHA-256은
+  `a506981e51d7a82394b25caca9a1b0e882943cc56091dc002dcc0b024ec3fe68`로 일치한다.

@@ -11,6 +11,8 @@ from app.alerts.ai_diagnosis import (
     GEMINI_MODELS,
     GeminiConfigurationError,
     GeminiRequestError,
+    LocalLlmConfigurationError,
+    LocalLlmRequestError,
 )
 from app.monitor_client.cache import MonitorCache
 from app.monitor_client.client import MonitorResponse
@@ -191,6 +193,84 @@ def test_invalid_structured_response_falls_back_and_is_validated():
     assert result['model'] == GEMINI_MODELS[1]
 
 
+def test_local_diagnosis_uses_one_ollama_structured_output_request():
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        body = json.loads(request.content)
+        assert request.url.path == '/api/chat'
+        assert body['model'] == 'configured-gemma'
+        assert body['stream'] is False
+        assert body['format']['required'] == list(ANALYSIS)
+        assert body['messages'][0]['role'] == 'system'
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                'model': 'configured-gemma',
+                'message': {'role': 'assistant', 'content': json.dumps(ANALYSIS)},
+            },
+        )
+
+    result = asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
+
+    assert len(requests) == 1
+    assert result == {**ANALYSIS, 'model': 'configured-gemma'}
+
+
+def test_local_diagnosis_does_not_require_gemini_api_key():
+    def handler(request):
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                'model': 'configured-gemma',
+                'message': {'content': json.dumps(ANALYSIS)},
+            },
+        )
+
+    service = _local_service(handler, api_key='')
+
+    result = asyncio.run(service.diagnose_local(_alert('node')))
+
+    assert result['model'] == 'configured-gemma'
+
+
+def test_local_diagnosis_never_falls_back_on_model_error():
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(404, request=request, json={'error': 'model not found'})
+
+    with pytest.raises(LocalLlmRequestError):
+        asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
+
+    assert len(requests) == 1
+
+
+def test_local_transport_failure_is_isolated():
+    def handler(request):
+        raise httpx.ConnectError('Ollama is offline', request=request)
+
+    with pytest.raises(LocalLlmRequestError):
+        asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
+
+
+def test_missing_local_configuration_stops_before_http_request():
+    service = AlertDiagnosisService(
+        monitor_cache=MonitorCache(),
+        monitor_client=FakeMonitorClient(),
+        api_key='secret',
+        api_base_url='https://example.test/v1beta',
+        timeout_sec=1,
+    )
+
+    with pytest.raises(LocalLlmConfigurationError):
+        asyncio.run(service.diagnose_local(_alert('node')))
+
+
 @pytest.mark.parametrize(
     ('source', 'collection', 'resource'),
     [
@@ -262,6 +342,25 @@ def test_router_returns_safe_error_without_provider_details(monkeypatch):
     assert 'raw provider' not in exc_info.value.detail
 
 
+def test_local_router_returns_safe_error_without_provider_details(monkeypatch):
+    class FailingDiagnosis:
+        async def diagnose_local(self, _alert):
+            raise LocalLlmRequestError('raw local provider details')
+
+    monkeypatch.setattr(alert_router, 'alert_ai_diagnosis', FailingDiagnosis())
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(alert_router.diagnose_alert_locally(
+            alert_router.AlertDiagnosisRequest(alert=_alert('topic')),
+        ))
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == (
+        '로컬 AI 분석 요청에 실패했습니다. 잠시 후 다시 시도해주세요.'
+    )
+    assert 'raw local provider' not in exc_info.value.detail
+
+
 def _service(handler):
     cache = MonitorCache()
     cache.update({'nodes': {'nodes': []}})
@@ -273,6 +372,23 @@ def _service(handler):
         api_base_url='https://example.test/v1beta',
         timeout_sec=1,
         client_factory=lambda: httpx.AsyncClient(transport=transport, timeout=1),
+    )
+
+
+def _local_service(handler, *, api_key='secret'):
+    cache = MonitorCache()
+    cache.update({'nodes': {'nodes': []}})
+    transport = httpx.MockTransport(handler)
+    return AlertDiagnosisService(
+        monitor_cache=cache,
+        monitor_client=FakeMonitorClient(),
+        api_key=api_key,
+        api_base_url='https://example.test/v1beta',
+        timeout_sec=1,
+        local_llm_url='http://ollama.test',
+        local_llm_model='configured-gemma',
+        local_llm_timeout_sec=1,
+        local_client_factory=lambda: httpx.AsyncClient(transport=transport, timeout=1),
     )
 
 

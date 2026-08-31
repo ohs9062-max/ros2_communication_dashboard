@@ -19,6 +19,8 @@ export const resetAlertHistory = () => requestJson('/ros/alerts/history/reset', 
 export const resetCurrentAlerts = () => requestJson('/ros/alerts/current/reset', { method: 'POST' })
 export const diagnoseAlert = (alert) =>
   requestWithJsonBody('/ros/alerts/ai-diagnosis', 'POST', { alert })
+export const diagnoseAlertLocally = (alert) =>
+  requestWithJsonBody('/ros/alerts/ai-diagnosis/local', 'POST', { alert })
 export const fetchServices = ({ includeHidden = false } = {}) =>
   requestJson(`/ros/services${includeHidden ? '?include_hidden=true' : ''}`)
 export const fetchActions = () => requestJson('/ros/actions')

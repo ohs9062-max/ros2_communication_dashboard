@@ -110,14 +110,7 @@
   조회하고, DB 장애 시 Monitoring을 중단하지 않고 메모리 fallback과 재연결을 사용한다.
 - Alert의 `detected_at`과 `resolved_at`은 MariaDB `DATETIME(6)`에 KST 벽시계 값으로 저장하고, 조회 시
   KST로 해석해 기존 API epoch timestamp로 반환한다.
-- Alerts 목록 행은 상세 Modal을 열며, Gemini 진단은 Modal 오른쪽 `AI 피드백`의 `[AI 분석]`을 사용자가 직접
-  누를 때만 Backend `POST /ros/alerts/ai-diagnosis`를 통해 실행한다. API key는 Backend `.env`에서만 읽고
-  Frontend에는 전달하지 않는다. 성공한 분석 결과만 Browser 탭의 `sessionStorage`에
-  `alert_ai_diagnosis:<alert.id>`로 저장해 같은 Alert Modal 재open 시 endpoint 호출 없이 복원하며, 탭 종료 시
-  함께 제거된다. Backend는 선택 Alert, 해당 exact Domain resource의 현재 Monitor 상태와 기존
-  history 최근 5건만 제한해 전달하며, 현재 상태와 Alert 발생 시점 상태를 구분한다. Gemini REST structured
-  output은 `gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-3.5-flash-lite` 순서이고, 인증·권한·입력 오류는
-  fallback하지 않으며 rate limit·model unavailable·일시적 server/transport/timeout만 순차 fallback한다.
+- Alerts 목록 행은 상세 Modal을 열며, Gemini 진단은 Modal 오른쪽 `AI 피드백`의 `[AI 분석]`을, Ollama 로컬 진단은 `[로컬 AI 분석]`을 사용자가 직접 누를 때만 Backend `POST /ros/alerts/ai-diagnosis` 또는 `POST /ros/alerts/ai-diagnosis/local`을 통해 실행한다. API key 및 Local LLM 설정은 Backend `.env`에서만 읽고 Frontend에는 전달하지 않는다. 성공한 분석 결과는 Browser 탭의 `sessionStorage`에 Cloud는 `alert_ai_diagnosis:<alert.id>`, Local은 `alert_ai_diagnosis:local:<alert.id>`로 분리 저장해 같은 Alert Modal 재open 시 endpoint 호출 없이 복원하며, 탭 종료 시 함께 제거된다. Backend는 선택 Alert, 해당 exact Domain resource의 현재 Monitor 상태와 기존 history 최근 5건만 제한해 전달하며, 현재 상태와 Alert 발생 시점 상태를 구분한다. Gemini REST structured output은 `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.7-flash` 순서이고, Local AI는 Ollama `gemma3:4b-it-q4_K_M` 단일 모델 structured output을 사용한다. Modal은 결과가 있을 때 하단에 `분석 모델 : <실제 model> · <Cloud|Local>` 메타정보를 표시한다. Cloud와 Local은 서로 fallback하지 않고 독립적으로 동작하며, 재분석 및 중복 요청 방지 락이 적용되어 있다.
 - 로컬 Backend의 `backend/.env`에 Monitor와 MariaDB 실행 설정이 구성됐고 실제 `ros2_dashboard.alert` 접근과
   DB 기반 Alert API를 확인했다. 실제 credential은 Git에서 제외되며 `.env.example`에는 placeholder만 둔다.
 - Fresh 설치는 MariaDB root unix_socket으로 전용 DB/계정, 랜덤 비밀번호와 schema를 자동 준비한다. 기존

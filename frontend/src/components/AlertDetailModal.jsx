@@ -4,12 +4,17 @@ import { displayText } from '../utils/displayText.js'
 import { formatTime } from '../utils/format.js'
 
 export function AlertDetailModal({
+  analysisProvider,
   aiAnalysis,
   aiError,
   aiLoading,
   alert,
   currentResource,
+  localAiAnalysis,
+  localAiError,
+  localAiLoading,
   onAnalyze,
+  onAnalyzeLocally,
   onClose,
 }) {
   useEffect(() => {
@@ -21,6 +26,11 @@ export function AlertDetailModal({
   }, [onClose])
 
   const runtimeSummary = alertRuntimeSummary(alert, currentResource)
+  const alertLevel = String(alert.level ?? '')
+  const showingLocalAnalysis = analysisProvider === 'local'
+  const displayedAnalysis = showingLocalAnalysis ? localAiAnalysis : aiAnalysis
+  const displayedError = showingLocalAnalysis ? localAiError : aiError
+  const displayedLoading = showingLocalAnalysis ? localAiLoading : aiLoading
   const analyzeButtonLabel = aiLoading
     ? '분석 중...'
     : aiError
@@ -28,6 +38,14 @@ export function AlertDetailModal({
       : aiAnalysis
         ? '다시 분석'
         : 'AI 분석'
+  const localAnalyzeButtonLabel = localAiLoading
+    ? '로컬 분석 중...'
+    : localAiAnalysis
+      ? '로컬 다시 분석'
+      : '로컬 AI 분석'
+  const analysisModel = typeof displayedAnalysis?.model === 'string'
+    ? displayedAnalysis.model.trim()
+    : ''
 
   return (
     <div
@@ -62,7 +80,8 @@ export function AlertDetailModal({
               <h3>Alert 정보</h3>
               <dl className="alert-detail-list">
                 <dt>상태</dt><dd>{alert.alert_state === 'resolved' ? '해결됨' : '발생 중'}</dd>
-                <dt>레벨</dt><dd>{displayText(alert.level)}</dd>
+                <dt>레벨</dt>
+                <dd className={`alert-detail-level ${alertLevel.toLowerCase()}`}>{alertLevel}</dd>
                 <dt>종류</dt><dd>{displayText(alert.source)}</dd>
                 <dt>코드</dt><dd>{alert.code}</dd>
                 <dt>메시지</dt><dd>{alert.message}</dd>
@@ -90,37 +109,53 @@ export function AlertDetailModal({
                 <h3>AI 피드백</h3>
                 <p className="muted">제공된 Dashboard 데이터 범위에서 원인과 확인 순서를 분석합니다.</p>
               </div>
-              <button
-                className="alert-ai-analyze-button"
-                disabled={aiLoading}
-                onClick={onAnalyze}
-                type="button"
-              >
-                {analyzeButtonLabel}
-              </button>
+              <div className="alert-ai-actions">
+                <button
+                  className="alert-ai-analyze-button"
+                  disabled={aiLoading}
+                  onClick={onAnalyze}
+                  type="button"
+                >
+                  {analyzeButtonLabel}
+                </button>
+                <button
+                  className="alert-ai-analyze-button"
+                  disabled={localAiLoading}
+                  onClick={onAnalyzeLocally}
+                  type="button"
+                >
+                  {localAnalyzeButtonLabel}
+                </button>
+              </div>
             </div>
 
-            {aiError && <p className="error-text alert-ai-error">{aiError}</p>}
-            {!aiAnalysis && !aiError && !aiLoading && (
+            {displayedError && <p className="error-text alert-ai-error">{displayedError}</p>}
+            {!displayedAnalysis && !displayedError && !displayedLoading && (
               <div className="empty-state alert-ai-empty">
                 AI 분석 버튼을 누르면 선택한 Alert를 진단합니다.
               </div>
             )}
-            {aiLoading && (
+            {displayedLoading && (
               <div className="empty-state alert-ai-empty" aria-live="polite">
                 Alert와 현재 통신 데이터를 분석하고 있습니다…
               </div>
             )}
-            {aiAnalysis && !aiLoading && (
+            {displayedAnalysis && !displayedLoading && (
               <div className="alert-ai-result" aria-live="polite">
-                <AnalysisSection title="요약" value={aiAnalysis.summary} />
-                <AnalysisSection title="판단 근거" value={aiAnalysis.evidence} />
-                <AnalysisSection title="가능한 원인" value={aiAnalysis.likely_causes} />
-                <AnalysisSection title="확인 순서" ordered value={aiAnalysis.recommended_checks} />
+                <AnalysisSection title="요약" value={displayedAnalysis.summary} />
+                <AnalysisSection title="판단 근거" value={displayedAnalysis.evidence} />
+                <AnalysisSection title="가능한 원인" value={displayedAnalysis.likely_causes} />
+                <AnalysisSection title="확인 순서" ordered value={displayedAnalysis.recommended_checks} />
               </div>
             )}
           </section>
         </div>
+
+        {displayedAnalysis && !displayedLoading && analysisModel && (
+          <footer className="alert-detail-modal-footer">
+            분석 모델 : <strong>{analysisModel} · {showingLocalAnalysis ? 'Local' : 'Cloud'}</strong>
+          </footer>
+        )}
       </section>
     </div>
   )
