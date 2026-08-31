@@ -75,6 +75,7 @@ export function managementViewProps(state) {
       onOpenRegistry: state.openRegistry,
       onOpenService: state.openServicePanel,
       onOpenServiceServer: state.openServiceServerPanel,
+      onOpenServerList: state.openServerListPanel,
       onOpenTopic: state.openTopicPanel,
       onPackageFile: state.handlePackageFile,
       onPackageFolder: state.handlePackageFolder,

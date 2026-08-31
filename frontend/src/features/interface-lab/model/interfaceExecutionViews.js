@@ -16,6 +16,7 @@ export function interfaceExecutionViews({
   receive,
   service,
   serviceServer,
+  serverList,
   topic,
 }) {
   return {
@@ -216,5 +217,11 @@ export function interfaceExecutionViews({
       open: panel.showCallableActionServer,
       showExpand: true,
     }) : { open: false },
+    serverList: serverList ? {
+      ...serverList,
+      onClose: panel.closeExecutionPanels,
+      onStop: serverList.stop,
+      open: panel.showServerList,
+    } : { open: false },
   }
 }

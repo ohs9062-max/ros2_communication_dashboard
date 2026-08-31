@@ -4,42 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-27 - Camera node 종료 Alert의 Topic 탭 표시 경로 점검
-
-- 코드만 점검했다. `TopicsPage`의 Topic Alert preview는 `source`가 `topic` 또는 `monitor_status`인 Alert만
-  표시하고, Overview/Alerts 탭은 전체 Alert를 표시한다. 따라서 camera node 종료로 발생한 `node_stale`
-  (`source=node`) Alert는 Overview와 Alerts에는 보이지만 Topic 탭에는 의도적으로 나타나지 않으며 Nodes 탭의
-  Alert preview 대상이다. 실행 중인 local Backend가 없어 당시 활성 Alert payload의 source/code는 API로 재확인하지
-  못했다.
-
-## 2026-08-27 - Node 종료 Alert를 관련 Topic Alert에 표시
-
-- Topic 탭은 `node_stale` Alert를 마지막으로 보존한 해당 Node의 Topic Publisher/Subscriber 관계에 투영해
-  함께 표시한다. 표시 항목은 연결된 Topic의 `resource_key`와 Domain을 사용하므로, 클릭하면 그 Topic 상세가
-  열리고 같은 이름의 다른 ROS Domain Topic으로 섞이지 않는다. Monitor/Backend Alert 원본과 Alert DB lifecycle은
-  변경하지 않았다.
-- Camera node 종료 및 multi-domain 분리 단위 test를 추가했고 Frontend `npm run test:unit`, `npm run lint`
-  (기존 VisualizationPage 미사용 인자 warning 1건), `npm run build`, `git diff --check`를 통과했다.
-- 빌드 산출물의 `/var/lib/ros2-dashboard/frontend` 동기화는 현재 세션에서 sudo 인증 TTY가 없어 완료하지 못했다.
-
-## 2026-08-27 - 네 통신 목록 Domain 필터
-
-- Topic·Service·Action·Node 목록에 공통 Domain 필터 그룹(기본 `전체`, `D<id>` 버튼)을 추가했다. 목록은 선택한
-  resource의 `domain_id`만 남기며 기존 이름·타입·`D<number>` 검색, 상태/숨김 필터는 그대로 함께 적용된다.
-- Frontend는 YAML을 읽지 않고 App-level `/ros/domains` polling의 `configured_domain_ids`로 버튼을 만들며,
-  Domains 화면에서 추가/삭제한 ID는 다음 polling에서 자동 반영된다. 선택된 Domain이 삭제되면 `전체`로 복귀한다.
-  Monitor·Backend·multi-domain runtime 로직은 변경하지 않았다.
-- Domain 필터 단위 test를 추가했고 Frontend `npm run test:unit`, `npm run lint`(기존 VisualizationPage warning 1건),
-  `npm run build`, `git diff --check`를 통과했다.
-
-## 2026-08-27 - Local HTTPS 정적 파일 반영
-
-- GUI `pkexec` 인증으로 절대 source 경로
-  `/home/hs/rang/ros2_dashboard/frontend/dist/`를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했다.
-  첫 상대경로 시도는 권한 상승 후 working directory가 `/root`가 되어 실패했으며, 두 번째 절대경로 반영은 성공했다.
-- source build의 entry asset은 `assets/index-BQEhk09P.js`다. 당시 `https://localhost/` 응답은 없어서 Nginx 실행 여부에
-  따른 실제 HTTPS asset 대조는 수행하지 못했다.
-
 ## 2026-08-27 - Topic·Service·Action·Node 상태 필터 단순화
 
 - 상태 판정, Alert와 개별 상태 배지를 바꾸지 않고 목록 필터 UI만 큰 분류로 정리했다. Topic은
@@ -333,3 +297,65 @@
 - Action QoS payload, camelCase target, Topic stale key, Service Receive QoS onChange, 동일 type 다중 name identity, Service 실패 refresh에 대한 Frontend 회귀 테스트를 추가했다.
 - Frontend unit 전체, oxlint(기존 VisualizationPage warning 1건), Vite production build, 관련 Monitor pytest 19건, `git diff --check`를 통과했다.
 - D0/D99에 동일한 demo Topic/Service/Action을 실행해 HTTPS API history가 각각 `0:/...`, `99:/...`로 분리됨을 확인했고, D99 Action의 5채널 Manual QoS depth 7 적용을 확인한 뒤 demo를 종료했다. 최종 build를 `/var/lib/ros2-dashboard/frontend/`에 반영했다.
+
+## 2026-08-31 - Interface Lab Service Server 다중 개설 제한 원인 검수
+
+- 코드 변경 없이 Service/Action Server의 Frontend controller·panel, Monitor API, `MultiDomainRosMonitor`, Runtime을 대조했다.
+- Service Runtime은 Domain별 인스턴스의 `(service_name, service_type)` 딕셔너리에 복수 entity를 보관하고 status API도 전체 Domain의 `servers[]`를 반환하므로 다중 Server를 지원한다.
+- 실제 차단 지점은 현재 선택 identity가 실행 중일 때 `ServiceServerPanel`이 `active`로 Domain/type/name 입력과 Start를 함께 비활성화하는 Frontend UI다. 선택을 다른 identity로 바꿀 수 없어 기존 exact identity의 active 상태에서 빠져나오지 못한다.
+- Action controller/panel도 같은 단일 선택 잠금 구조이므로 Action 자체의 두 번째 Server에도 같은 제약이 있다. Service 실행 중 Action 개설이 가능한 이유는 Service와 Action controller의 `active`/`busy` state 및 Runtime이 서로 독립이기 때문이다.
+- 수정 시 최소 범위는 Service Server controller/panel의 선택 상태와 실행 중 Server collection UI를 분리하고, 실행 중 Server가 하나라도 있으면 status polling을 유지하는 Frontend 경로다. ROS Runtime, multi-domain, Registry, Client Runtime, Alert 변경은 필요하지 않다.
+
+## 2026-08-31 - Interface Lab Service/Action Server 다중 개설 UI 수정
+
+- Service/Action Server controller의 실행 목록과 현재 편집 identity를 분리해 유지하고 exact
+  `(domain_id, name, type)` helper로 현재 선택 Server만 active 판정하도록 통일했다. 실행 중 Server가 있어도
+  Domain/type/name을 변경할 수 있으며 Start는 현재 exact identity가 실행 중일 때만 비활성화되고 Stop은 해당
+  active Server payload만 사용한다.
+- status/history polling 조건을 선택된 `activeServer`가 아니라 각 controller의 `servers.length > 0`으로 바꿔
+  다른 identity를 편집하거나 하나만 종료한 뒤에도 남은 Server 목록을 계속 갱신한다. Monitor Runtime/API,
+  MultiDomain, Registry, Client Runtime, Alert는 변경하지 않았다.
+- exact Service/Action identity와 다른 Domain의 동일 name/type 분리 회귀 테스트를 추가했다. Frontend unit 전체,
+  lint(기존 `VisualizationPage` warning 1건), production build와 diff check를 통과했다.
+- 임시 Monitor 8875의 실제 D99에서 Service `/RobotControl`+`/ScheduleCrud`, Action `/action_a`+`/action_b`를 각각
+  동시에 개설해 status 2건을 확인하고 두 번째 Server만 종료했을 때 첫 번째가 유지됨을 확인했다. 검증 후 임시
+  Server와 Monitor를 모두 종료했다.
+- build를 로컬 HTTPS 정적 경로에 동기화했다. source/target `index.html` SHA-256은
+  `8c1bb08505eeac610b03ba85c71903f54dc0acc2faf3fa3c6818b7b2a3fd66a5`, 실제 HTTPS는 200과
+  `assets/index-bXPhsPVr.js`를 반환했다.
+
+## 2026-08-31 - Interface Lab 실행 Server 개설 목록 추가
+
+- Interface Lab 상단 `서버 개설` 그룹에 `개설 목록`을 추가했다. 기존 Service/Action Server status API를 동시에
+  조회해 Runtime에 실제 존재하는 항목만 TYPE/DOMAIN/NAME/INTERFACE TYPE/상태/관리 컬럼의 전체 폭 테이블로
+  합치며 Frontend optimistic/fake active 목록은 만들지 않는다.
+- 목록은 열린 동안 1초마다 두 status API를 polling한다. 각 종료 버튼은 행의 exact `(domain_id, name, type)`로
+  기존 Service 또는 Action Stop API를 호출하고, 성공 후 두 status를 즉시 재조회한다.
+- 혼합 목록 정규화, Service/Action Stop 분기와 payload, 동일 name/type의 Domain 분리에 대한 unit test를 추가했다.
+  Frontend unit 전체, lint(기존 `VisualizationPage` warning 1건), production build와 diff check를 통과했다.
+- 임시 Monitor 8875에서 D99 Service 2개, D99 Action 2개, D4의 동일 `/RobotControl` Service 1개를 함께 개설해
+  5개 Runtime status를 확인했다. D99 `/RobotControl`만 exact Stop한 뒤 나머지 4개가 유지됐고 검증 종료 시 임시
+  Server와 Monitor를 모두 정리했다.
+- build를 로컬 HTTPS 정적 경로에 동기화했다. source/target `index.html` SHA-256은
+  `c082a3daed7312a7c726dd93891dee1e8b087eda8a4d8e3a48e9ee177a5a70d1`, 실제 HTTPS와 새 Interface Lab lazy
+  asset은 200을 반환했으며 Headless Chrome 실화면에서 `개설 목록` 버튼을 확인했다.
+
+## 2026-08-31 - Interface Lab 개설 목록 종료 버튼 무동작 검수
+
+- 코드 변경 없이 종료 event 경로를 추적했다. `ServerListPanel`은 `onStop(server)`을 호출하지만 목록 view는
+  controller의 `stop`을 `onStop`으로 매핑하지 않아 Panel 기본 no-op이 실행된다. 따라서 클릭은 막히지 않고
+  console/runtime error나 Stop API 요청도 발생하지 않는다.
+- `runningServerStopPayload`의 Service/Action exact payload와 기존 개별 Server panel의 Stop API 계약은 정상이다.
+  최소 수정은 목록 view props에서 `onStop: serverList.stop`을 명시해 prop 이름을 맞추고 이를 회귀 test로 고정하는
+  것이다. Runtime/API 변경은 필요 없다.
+
+## 2026-08-31 - Interface Lab 개설 목록 종료 버튼 연결 수정
+
+- `interfaceExecutionViews`의 `serverList` view에 controller `stop`을 `onStop`으로 명시 매핑했다. 이제
+  `ServerListPanel`의 각 행 종료 클릭이 기존 Service/Action exact Stop helper와 API까지 연결된다.
+- view contract 회귀 test를 추가했고 Frontend unit 전체, lint(기존 `VisualizationPage` 미사용 인자 warning 1건),
+  production build를 통과했다.
+- 임시 Monitor 8875에서 D99 Service 2개와 Action 2개를 동시에 시작한 뒤 `/ScheduleCrud`, `/action_b`만 종료해
+  `/RobotControl`, `/action_a`가 각각 유지됨을 확인했다. 검증 종료 시 남은 임시 Server와 Monitor를 정리했다.
+- build를 `/var/lib/ros2-dashboard/frontend`에 동기화했다. source/target `index.html` SHA-256은
+  `28ab4baa9601175d7a6cce6c68f80ec8d0946319fbdd78230e9974d666ad9323`이며 `https://127.0.0.1/interface-lab`은 200을 반환했다.

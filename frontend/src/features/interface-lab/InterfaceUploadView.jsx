@@ -19,6 +19,7 @@ export function InterfaceUploadView({
   registry,
   serviceExecution,
   serviceServer,
+  serverList,
   toolbar,
   topicExecution,
 }) {
@@ -37,6 +38,7 @@ export function InterfaceUploadView({
         actionServer={actionServer}
         service={serviceExecution}
         serviceServer={serviceServer}
+        serverList={serverList}
         topic={topicExecution}
       />
     </div>

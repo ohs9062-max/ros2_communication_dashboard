@@ -12,6 +12,7 @@ import {
 import { defaultRequestValues, normalizeNumericValues, serviceKey } from '../model/interfaceUploadModel.js'
 import {
   configuredServerDomainIds,
+  findExactServer,
   serverTypesForDomain,
   suggestServerResourceName,
 } from '../model/serverSelection.js'
@@ -38,11 +39,14 @@ export function useServiceServerController({ onStateChanged, setFeedback }) {
     () => visibleServices.find((item) => serviceKey(item) === selectedKey),
     [selectedKey, visibleServices],
   )
-  const activeServer = useMemo(() => servers.find((item) => (
-    item.service_name === serverName
-    && item.service_type === selected?.service_type
-    && item.domain_id === selectedDomainId
-  )), [selected, selectedDomainId, serverName, servers])
+  const activeServer = useMemo(() => findExactServer(servers, {
+    domainId: selectedDomainId,
+    name: serverName,
+    type: selected?.service_type,
+  }, {
+    nameField: 'service_name',
+    typeField: 'service_type',
+  }), [selected, selectedDomainId, serverName, servers])
   const visibleCalls = useMemo(() => calls.filter((item) => (
     (!serverName || item.service_name === serverName)
     && (!selected?.service_type || item.service_type === selected.service_type)
@@ -117,10 +121,10 @@ export function useServiceServerController({ onStateChanged, setFeedback }) {
   }, [applySelection, refreshRuntime])
 
   useEffect(() => {
-    if (!activeServer) return undefined
+    if (!servers.length) return undefined
     const timer = window.setInterval(() => refreshRuntime().catch(() => {}), 1000)
     return () => window.clearInterval(timer)
-  }, [activeServer, refreshRuntime])
+  }, [refreshRuntime, servers.length])
 
   const start = useCallback(async () => {
     if (!selected?.server_creatable || selectedDomainId == null || !serverName.trim()) {
@@ -201,6 +205,6 @@ export function useServiceServerController({ onStateChanged, setFeedback }) {
     onFieldChange: (name, value) => setResponseValues((current) => ({ ...current, [name]: value })),
     refreshHistory, resetHistory, responseValues, result, select, selectDomain,
     selected, selectedDomainId, selectedKey, serverDomainId: selectedDomainId,
-    serverName, services, setServerName, start, stop, visibleServices,
+    serverName, servers, services, setServerName, start, stop, visibleServices,
   }
 }

@@ -3,12 +3,14 @@ import { ServiceExecutionPanel } from './execution/ServiceExecutionPanel.jsx'
 import { TopicExecutionPanel } from './execution/TopicExecutionPanel.jsx'
 import { ActionServerPanel } from './server/ActionServerPanel.jsx'
 import { ServiceServerPanel } from './server/ServiceServerPanel.jsx'
+import { ServerListPanel } from './server/ServerListPanel.jsx'
 
 export function InterfaceExecutionWorkspace({
   action,
   actionServer,
   service,
   serviceServer,
+  serverList,
   topic,
 }) {
   return (
@@ -18,6 +20,7 @@ export function InterfaceExecutionWorkspace({
       {action?.open && <ActionExecutionPanel {...action} />}
       {serviceServer?.open && <ServiceServerPanel {...serviceServer} />}
       {actionServer?.open && <ActionServerPanel {...actionServer} />}
+      {serverList?.open && <ServerListPanel {...serverList} />}
     </>
   )
 }

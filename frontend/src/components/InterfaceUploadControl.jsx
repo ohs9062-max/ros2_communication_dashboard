@@ -32,6 +32,7 @@ export function InterfaceUploadControl({
   })
   const {
     actionServer,
+    serverList,
     serviceServer,
   } = useInterfaceServerSuite({
     onStateChanged,
@@ -115,12 +116,14 @@ export function InterfaceUploadControl({
     openRegistry,
     openServicePanel,
     openServiceServerPanel,
+    openServerListPanel,
     openTopicPanel,
     selectReceiveMode,
     showCallableActionServer,
     showCallableActions,
     showCallableServiceServer,
     showCallableServices,
+    showServerList,
     showCallableTopics,
     toggleBuildLog,
     toggleWorkspaceExpanded,
@@ -132,6 +135,7 @@ export function InterfaceUploadControl({
     loadRegistry: management.loadRegistry,
     loadServiceExecution,
     loadServiceServerExecution: serviceServer.load,
+    loadServerList: serverList.load,
     loadTopicExecution,
     onExpandedChange: onTopicWorkspaceExpandedChange,
     receiveMode,
@@ -180,7 +184,7 @@ export function InterfaceUploadControl({
 
   const disabled = management.busy || management.applying
     || serviceCallBusy || actionGoalBusy || topicPublishBusy
-    || serviceServer.busy || actionServer.busy
+    || serviceServer.busy || actionServer.busy || serverList.busy
 
   const {
     handleRemoveManualDefinition,
@@ -208,6 +212,7 @@ export function InterfaceUploadControl({
       openRegistry,
       openServicePanel,
       openServiceServerPanel,
+      openServerListPanel,
       openTopicPanel,
       toggleBuildLog,
       toggleWorkspaceExpanded,
@@ -233,6 +238,7 @@ export function InterfaceUploadControl({
       showCallableActions,
       showCallableServiceServer,
       showCallableServices,
+      showServerList,
       showCallableTopics,
       showReceivePanel,
       toggleWorkspaceExpanded,
@@ -247,6 +253,7 @@ export function InterfaceUploadControl({
     receive,
     service,
     serviceServer,
+    serverList,
     topic,
   })
 

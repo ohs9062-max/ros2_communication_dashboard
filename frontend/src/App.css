@@ -261,6 +261,7 @@ h3 {
 .interface-package-button,
 .interface-package-folder-button,
 .interface-package-list-button,
+.interface-server-list-button,
 .interface-service-button,
 .interface-registry-button {
   border: 1px solid rgba(96, 165, 250, 0.45);
@@ -289,6 +290,7 @@ h3 {
 .interface-topic-button:disabled,
 .interface-type-entry-badge:disabled,
 .interface-package-folder-button:disabled,
+.interface-server-list-button:disabled,
 .interface-service-button:disabled,
 .interface-registry-button:disabled {
   cursor: not-allowed;
@@ -315,6 +317,12 @@ h3 {
   background: rgba(168, 85, 247, 0.2);
   border-color: rgba(168, 85, 247, 0.52);
   color: #ddd6fe;
+}
+
+.interface-server-list-button {
+  background: rgba(14, 165, 233, 0.18);
+  border-color: rgba(45, 212, 191, 0.5);
+  color: #a5f3fc;
 }
 
 .interface-type-entry-badge {
@@ -507,6 +515,118 @@ h3 {
   height: auto;
   max-height: none;
   width: 100%;
+}
+
+.interface-server-list-panel {
+  min-height: 220px;
+}
+
+.interface-server-list-help {
+  margin: 8px 0 14px;
+}
+
+.interface-server-list-message {
+  margin: 0;
+  padding: 24px 8px;
+}
+
+.interface-server-list-scroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.interface-server-list {
+  min-width: 940px;
+  width: 100%;
+}
+
+.interface-server-list-header,
+.interface-server-list-row {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 10fr 9fr minmax(180px, 24fr) minmax(260px, 37fr) 12fr 8fr;
+  padding: 14px 18px;
+  width: 100%;
+}
+
+.interface-server-list-header {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.interface-server-list-header > :last-child {
+  text-align: right;
+}
+
+.interface-server-list-row {
+  min-height: 62px;
+  transition: background 0.15s ease;
+}
+
+.interface-server-list-row:hover {
+  background: rgba(14, 28, 43, 0.45);
+}
+
+.interface-server-list-row:last-child {
+  border-bottom: 0;
+}
+
+.interface-server-list-row > strong,
+.interface-server-list-row > code {
+  color: var(--text);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.interface-server-kind {
+  border: 1px solid rgba(96, 165, 250, 0.42);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  justify-self: start;
+  padding: 5px 9px;
+}
+
+.interface-server-kind.service {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.46);
+  color: #fde68a;
+}
+
+.interface-server-kind.action {
+  background: rgba(168, 85, 247, 0.16);
+  border-color: rgba(168, 85, 247, 0.48);
+  color: #ddd6fe;
+}
+
+.interface-server-list-row > button {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.38);
+  border-radius: 8px;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  justify-self: end;
+  min-height: 36px;
+  padding: 8px 18px;
+}
+
+.interface-server-list-row > button:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.22);
+  border-color: rgba(248, 113, 113, 0.55);
+}
+
+.interface-server-list-row > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .interface-upload-control.topic-workbench-expanded .interface-service-panel.interface-execution-panel.interface-server-panel {

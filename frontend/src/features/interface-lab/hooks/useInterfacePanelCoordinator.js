@@ -13,6 +13,7 @@ export function useInterfacePanelCoordinator({
   loadRegistry,
   loadServiceExecution,
   loadServiceServerExecution,
+  loadServerList,
   loadTopicExecution,
   onExpandedChange,
   receiveMode,
@@ -38,6 +39,7 @@ export function useInterfacePanelCoordinator({
   const showCallableActions = executionMode === 'action'
   const showCallableServiceServer = executionMode === 'service_server'
   const showCallableActionServer = executionMode === 'action_server'
+  const showServerList = executionMode === 'server_list'
 
   const closeExecutionPanels = useCallback(() => {
     closeExecutionPanel({ requestRef: executionRequestRef, setBusy, setExecutionMode })
@@ -62,6 +64,7 @@ export function useInterfacePanelCoordinator({
         action_server: loadActionServerExecution,
         service: loadServiceExecution,
         service_server: loadServiceServerExecution,
+        server_list: loadServerList,
         topic: loadTopicExecution,
       },
       mode,
@@ -76,13 +79,14 @@ export function useInterfacePanelCoordinator({
     loadActionServerExecution,
     loadServiceExecution,
     loadServiceServerExecution,
+    loadServerList,
     loadTopicExecution,
     setBusy,
     setFeedback,
   ])
 
   const openExecutionPanel = useCallback(async (mode, target = null) => {
-    const serverMode = mode.endsWith('_server')
+    const serverMode = mode.endsWith('_server') || mode === 'server_list'
     const receiveKind = mode.replace('_server', '')
     if (!serverMode) {
       setShowReceivePanel(true)
@@ -114,6 +118,7 @@ export function useInterfacePanelCoordinator({
   const openActionPanel = useCallback((target = null) => openExecutionPanel('action', target), [openExecutionPanel])
   const openServiceServerPanel = useCallback((target = null) => openExecutionPanel('service_server', target), [openExecutionPanel])
   const openActionServerPanel = useCallback((target = null) => openExecutionPanel('action_server', target), [openExecutionPanel])
+  const openServerListPanel = useCallback(() => openExecutionPanel('server_list'), [openExecutionPanel])
 
   const selectReceiveMode = useCallback(async (mode) => {
     setReceiveMode(mode)
@@ -166,12 +171,14 @@ export function useInterfacePanelCoordinator({
     openRegistry,
     openServicePanel,
     openServiceServerPanel,
+    openServerListPanel,
     openTopicPanel,
     selectReceiveMode,
     showCallableActionServer,
     showCallableActions,
     showCallableServiceServer,
     showCallableServices,
+    showServerList,
     showCallableTopics,
     toggleBuildLog,
     toggleWorkspaceExpanded: () => setWorkspaceExpanded((value) => !value),

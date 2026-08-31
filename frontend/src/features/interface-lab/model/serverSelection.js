@@ -32,3 +32,15 @@ export function suggestServerResourceName({
   const typeName = String(resourceType ?? '').split('/').filter(Boolean).at(-1)
   return typeName ? `/${typeName}` : ''
 }
+
+export function findExactServer(
+  servers = [],
+  { domainId, name, type },
+  { nameField, typeField },
+) {
+  return servers.find((item) => (
+    item.domain_id === domainId
+    && item[nameField] === name
+    && item[typeField] === type
+  ))
+}

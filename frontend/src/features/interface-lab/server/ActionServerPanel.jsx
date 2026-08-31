@@ -54,7 +54,7 @@ export function ActionServerPanel({
           <div className="interface-server-form-column">
             <label className="interface-service-field">
               <span>Domain</span>
-              <select disabled={active} onChange={(event) => onDomainChange(event.target.value)} value={selectedDomainId ?? ''}>
+              <select disabled={busy} onChange={(event) => onDomainChange(event.target.value)} value={selectedDomainId ?? ''}>
                 <option value="">Domain 선택</option>
                 {domainIds.map((domainId) => <option key={domainId} value={domainId}>D{domainId}</option>)}
               </select>
@@ -66,7 +66,7 @@ export function ActionServerPanel({
             </label>
             <label className="interface-service-field">
               <span>Action type · D{selectedDomainId ?? '-'}</span>
-              <select disabled={active} onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
+              <select disabled={busy} onChange={(event) => onSelect(event.target.value)} value={selectedKey}>
                 <option value="">개설 Action 타입 선택</option>
                 {visibleActions.map((action) => (
                   <option key={actionKey(action)} value={actionKey(action)}>
@@ -81,7 +81,7 @@ export function ActionServerPanel({
               <input
                 placeholder="/interface_lab_action_server"
                 value={actionName}
-                disabled={active}
+                disabled={busy}
                 onChange={(event) => onActionNameChange(event.target.value)}
               />
               {serverDomainId !== null && <small>개설 Domain {serverDomainId}</small>}

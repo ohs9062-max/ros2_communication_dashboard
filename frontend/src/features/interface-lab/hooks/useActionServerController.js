@@ -12,6 +12,7 @@ import {
 import { actionKey, defaultRequestValues, normalizeNumericValues } from '../model/interfaceUploadModel.js'
 import {
   configuredServerDomainIds,
+  findExactServer,
   serverTypesForDomain,
   suggestServerResourceName,
 } from '../model/serverSelection.js'
@@ -42,11 +43,14 @@ export function useActionServerController({ onStateChanged, setFeedback }) {
     () => visibleActions.find((item) => actionKey(item) === selectedKey),
     [selectedKey, visibleActions],
   )
-  const activeServer = useMemo(() => servers.find((item) => (
-    item.action_name === actionName
-    && item.action_type === selected?.action_type
-    && item.domain_id === selectedDomainId
-  )), [actionName, selected, selectedDomainId, servers])
+  const activeServer = useMemo(() => findExactServer(servers, {
+    domainId: selectedDomainId,
+    name: actionName,
+    type: selected?.action_type,
+  }, {
+    nameField: 'action_name',
+    typeField: 'action_type',
+  }), [actionName, selected, selectedDomainId, servers])
   const visibleGoals = useMemo(() => goals.filter((item) => (
     (!actionName || item.action_name === actionName)
     && (!selected?.action_type || item.action_type === selected.action_type)
@@ -122,10 +126,10 @@ export function useActionServerController({ onStateChanged, setFeedback }) {
   }, [applySelection, refreshRuntime])
 
   useEffect(() => {
-    if (!activeServer) return undefined
+    if (!servers.length) return undefined
     const timer = window.setInterval(() => refreshRuntime().catch(() => {}), 1000)
     return () => window.clearInterval(timer)
-  }, [activeServer, refreshRuntime])
+  }, [refreshRuntime, servers.length])
 
   const start = useCallback(async () => {
     if (!selected?.server_creatable || selectedDomainId == null || !actionName.trim()) {
@@ -210,7 +214,7 @@ export function useActionServerController({ onStateChanged, setFeedback }) {
       ? setFeedbackValues((current) => ({ ...current, [name]: value }))
       : setResultValues((current) => ({ ...current, [name]: value }))),
     refreshHistory, resetHistory, result, resultDelaySec, resultValues, select,
-    selectDomain, selected, selectedDomainId, selectedKey, serverDomainId: selectedDomainId,
+    selectDomain, selected, selectedDomainId, selectedKey, serverDomainId: selectedDomainId, servers,
     setAcceptCancels, setAcceptGoals, setActionName, setResultDelaySec, start, stop, visibleActions,
   }
 }

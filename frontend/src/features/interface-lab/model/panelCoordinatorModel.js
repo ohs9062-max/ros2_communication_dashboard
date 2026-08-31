@@ -1,6 +1,6 @@
 export const EXECUTION_MODES = [
   'topic', 'service', 'action',
-  'service_server', 'action_server',
+  'service_server', 'action_server', 'server_list',
 ]
 
 export function isExecutionMode(mode) {
@@ -62,5 +62,6 @@ export function isWorkspaceExpanded({
     || (showReceivePanel && receiveMode !== 'mock')
     || executionMode === 'service_server'
     || executionMode === 'action_server'
+    || executionMode === 'server_list'
   ))
 }

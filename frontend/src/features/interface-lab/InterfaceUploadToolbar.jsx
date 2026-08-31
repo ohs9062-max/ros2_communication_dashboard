@@ -12,6 +12,7 @@ export function InterfaceUploadToolbar({
   onOpenRegistry,
   onOpenService,
   onOpenServiceServer,
+  onOpenServerList,
   onOpenTopic,
   onPackageFile,
   onPackageFolder,
@@ -51,6 +52,7 @@ export function InterfaceUploadToolbar({
           <section><strong>서버 개설</strong><div>
             <button className="interface-service-button" disabled={disabled} onClick={onOpenServiceServer} type="button">Service 개설</button>
             <button className="interface-action-button" disabled={disabled} onClick={onOpenActionServer} type="button">Action 개설</button>
+            <button className="interface-server-list-button" disabled={disabled} onClick={onOpenServerList} type="button">개설 목록</button>
           </div></section>
         </div>
         <div className="interface-management-advanced-container">

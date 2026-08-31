@@ -144,6 +144,7 @@ test('ignores unsupported execution modes without changing UI state', async () =
   assert.equal(isExecutionMode('topic'), true)
   assert.equal(isExecutionMode('service_server'), true)
   assert.equal(isExecutionMode('action_server'), true)
+  assert.equal(isExecutionMode('server_list'), true)
   assert.equal(isExecutionMode('topic_server'), false)
   assert.equal(isExecutionMode('mock'), false)
 })
@@ -196,6 +197,10 @@ test('expands an active Service or Action server workspace without a receive pan
   }), true)
   assert.equal(isWorkspaceExpanded({
     executionMode: 'action_server', receiveMode: 'action', showManualInput: false,
+    showPackages: false, showReceivePanel: false, showRegistry: false, workspaceExpanded: true,
+  }), true)
+  assert.equal(isWorkspaceExpanded({
+    executionMode: 'server_list', receiveMode: 'action', showManualInput: false,
     showPackages: false, showReceivePanel: false, showRegistry: false, workspaceExpanded: true,
   }), true)
 })

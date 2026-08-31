@@ -1,6 +1,6 @@
 # CURRENT STATUS
 
-마지막 갱신: 2026-08-28
+마지막 갱신: 2026-08-31
 
 이 문서는 현재 상태만 요약한다. 최근 작업은 `.codex/WORK_LOG.md`, 오래된 이력은
 `.codex/archive/`에서 확인한다. 문서와 코드가 다르면 실제 코드와 실행 결과를 우선한다.
@@ -47,6 +47,12 @@
   `domain_id`에서 Start/Stop하고 Request/Response 또는 Goal/Cancel/Feedback/Result 이력을 최대 30건 보존한다.
   Frontend는 등록 schema의 Service Request/Action Goal 필드를 읽기 전용으로 안내하고, Response/Feedback/Result는
   기존 공통 schema form으로 사용자가 설정한다. Server history에는 실제 수신·반환 payload 전체를 함께 표시한다.
+  실행 중 Server 목록과 현재 편집 identity는 분리되어 같은 Domain에서도 서로 다른 `(domain_id, name, type)`의
+  Service/Action Server를 여러 개 개설하고 exact identity별로 종료할 수 있다. 다른 identity를 편집하는 동안에도
+  실행 중 Server가 하나 이상이면 status/history polling을 유지한다.
+  상단 `서버 개설 → 개설 목록`은 기존 Service/Action status API의 실제 Runtime 항목을 전체 폭 단일 테이블로
+  합쳐 표시하고, 열린 동안 1초 polling하며 각 행의 기존 Stop API로 exact Server만 종료한 뒤 즉시 재조회한다.
+  목록 행의 종료 event는 controller의 `stop` handler에 직접 연결돼 Service/Action 분기 및 exact payload를 그대로 사용한다.
   Runtime은 `cmd`, `success`, `result_code` 같은 업무 필드의 의미를 해석하지 않으며 payload의 `success=false`와
   ROS2 Request/Response 성공 또는 Action 실행 상태를 분리한다. Frontend는 Server status/history API만 표시하며
   fake active 상태를 만들지 않는다. Domain별 Monitor는 동일 Context/Node의 4-thread executor를 사용해 Action

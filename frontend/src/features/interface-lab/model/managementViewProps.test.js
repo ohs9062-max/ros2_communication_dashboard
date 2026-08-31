@@ -38,6 +38,7 @@ test('management adapter preserves controller, panel, removal, and ref contracts
     openActionPanel: marker('open-action'), openPackages: marker('open-packages'),
     openReceivePanel: marker('open-receive'), openRegistry: marker('open-registry'),
     openServicePanel: marker('open-service'), openTopicPanel: marker('open-topic'),
+    openServerListPanel: marker('open-server-list'),
     toggleBuildLog: marker('toggle-build'), toggleWorkspaceExpanded: marker('toggle-expanded'),
   }
   const refs = {
@@ -63,6 +64,7 @@ test('management adapter preserves controller, panel, removal, and ref contracts
   assert.equal(view.registry.onDelete, removal.handleRemoveRegistryEntry)
   assert.equal(view.toolbar.onOpenTopic, panel.openTopicPanel)
   assert.equal(view.toolbar.onOpenReceive, panel.openReceivePanel)
+  assert.equal(view.toolbar.onOpenServerList, panel.openServerListPanel)
   assert.equal(view.toolbar.inputRef, refs.inputRef)
   assert.equal(view.toolbar.websocketStatus, 'connected')
   assert.equal(view.toolbar.disabled, true)

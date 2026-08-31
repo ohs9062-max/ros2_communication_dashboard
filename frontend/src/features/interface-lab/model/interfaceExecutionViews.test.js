@@ -54,6 +54,7 @@ function fixture(receiveMode = 'action') {
     closeExecutionPanels: noop, closeReceivePanel: noop, expanded: false,
     selectReceiveMode: noop, showCallableActions: true, showCallableServices: true,
     showCallableTopics: true, showCallableServiceServer: true, showCallableActionServer: true,
+    showServerList: true,
     showReceivePanel: true, toggleWorkspaceExpanded: noop,
   }
   const serviceServer = {
@@ -68,6 +69,10 @@ function fixture(receiveMode = 'action') {
     result: null, resultDelaySec: 1, resultValues: {}, select: noop, selected: null, selectedKey: '',
     serverDomainId: 22, setAcceptCancels: noop, setAcceptGoals: noop, setActionName: noop,
     setImportableOnly: noop, setResultDelaySec: noop, start: noop, stop: noop, visibleActions: [],
+  }
+  const serverList = {
+    busy: false, error: '', load: noop, refresh: noop,
+    servers: [{ identityKey: 'service:99:/control' }], stop: noop, stoppingKey: '',
   }
   const actionQosLink = {
     changeExecutionMode: noop, changeExecutionProfile: noop, changeReceiveMode: noop,
@@ -90,6 +95,7 @@ function fixture(receiveMode = 'action') {
     receive,
     service,
     serviceServer,
+    serverList,
     topic,
     actionServer,
   }
@@ -125,6 +131,9 @@ test('maps controller state to the existing execution and receive View contracts
   assert.doesNotThrow(() => views.receive.service.qosControls[0].onProfileChange({ depth: 8 }))
   assert.equal(views.serviceServer.showExpand, true)
   assert.equal(views.actionServer.showExpand, true)
+  assert.equal(views.serverList.open, true)
+  assert.equal(views.serverList.servers, state.serverList.servers)
+  assert.equal(views.serverList.onStop, state.serverList.stop)
 })
 
 test('shows the expand affordance only for the execution panel matching the receive mode', () => {
