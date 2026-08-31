@@ -31,10 +31,12 @@ export function AlertsPage({
   const [selectedAlert, setSelectedAlert] = useState(null)
   const [highlightedAlertId, setHighlightedAlertId] = useState(null)
   const [aiAnalysis, setAiAnalysis] = useState(null)
+  const [hasCloudAnalysisCache, setHasCloudAnalysisCache] = useState(false)
   const [aiError, setAiError] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [analysisProvider, setAnalysisProvider] = useState('cloud')
   const [localAiAnalysis, setLocalAiAnalysis] = useState(null)
+  const [hasLocalAnalysisCache, setHasLocalAnalysisCache] = useState(false)
   const [localAiError, setLocalAiError] = useState(null)
   const [localAiLoading, setLocalAiLoading] = useState(false)
   const [alternateAiError, setAlternateAiError] = useState(null)
@@ -131,9 +133,11 @@ export function AlertsPage({
     const localAnalysis = loadAlertAiAnalysis(alert, 'local')
     setSelectedAlert(alert)
     setAiAnalysis(cloudAnalysis)
+    setHasCloudAnalysisCache(Boolean(cloudAnalysis))
     setAiError(null)
     setAiLoading(aiRequestRef.current.pending)
     setLocalAiAnalysis(localAnalysis)
+    setHasLocalAnalysisCache(Boolean(localAnalysis))
     setLocalAiError(null)
     setLocalAiLoading(localAiRequestRef.current.pending)
     setAlternateAiError(null)
@@ -148,8 +152,10 @@ export function AlertsPage({
     alternateAiRequestRef.current.token += 1
     setSelectedAlert(null)
     setAiAnalysis(null)
+    setHasCloudAnalysisCache(false)
     setAiError(null)
     setLocalAiAnalysis(null)
+    setHasLocalAnalysisCache(false)
     setLocalAiError(null)
     setAlternateAiError(null)
   }
@@ -168,7 +174,7 @@ export function AlertsPage({
       const result = await diagnoseAlert(alert)
       if (aiRequestRef.current.token === token) {
         setAiAnalysis(result.data)
-        saveAlertAiAnalysis(alert, result.data)
+        setHasCloudAnalysisCache(saveAlertAiAnalysis(alert, result.data))
       }
     } catch (error) {
       if (aiRequestRef.current.token === token) {
@@ -193,8 +199,14 @@ export function AlertsPage({
     try {
       const result = await diagnoseAlertLocally(alert)
       if (localAiRequestRef.current.token === token) {
+        if (!isLocalAlertAiAnalysis(result.data)) {
+          setLocalAiAnalysis(null)
+          setHasLocalAnalysisCache(false)
+          setLocalAiError('로컬 AI가 한국어 설명을 반환하지 않아 결과를 표시하지 않았습니다.')
+          return
+        }
         setLocalAiAnalysis(result.data)
-        saveAlertAiAnalysis(alert, result.data, 'local')
+        setHasLocalAnalysisCache(saveAlertAiAnalysis(alert, result.data, 'local'))
       }
     } catch (error) {
       if (localAiRequestRef.current.token === token) {
@@ -215,16 +227,19 @@ export function AlertsPage({
     setAnalysisProvider(provider)
     setAlternateAiError(null)
     if (isLocal) {
+      setHasLocalAnalysisCache(Boolean(analysis))
       setLocalAiError(analysis ? null : '저장된 분석 결과가 없습니다.')
       setLocalAiAnalysis(analysis)
-      return
+      return Boolean(analysis)
     }
+    setHasCloudAnalysisCache(Boolean(analysis))
     setAiError(analysis ? null : '저장된 분석 결과가 없습니다.')
     setAiAnalysis(analysis)
+    return Boolean(analysis)
   }
 
   const handleCloudAnalysis = () => {
-    if (aiAnalysis) {
+    if (hasCloudAnalysisCache) {
       showStoredAlertAiAnalysis('cloud')
       return
     }
@@ -232,7 +247,7 @@ export function AlertsPage({
   }
 
   const handleLocalAnalysis = () => {
-    if (localAiAnalysis) {
+    if (hasLocalAnalysisCache) {
       showStoredAlertAiAnalysis('local')
       return
     }
@@ -259,8 +274,13 @@ export function AlertsPage({
         ? await diagnoseAlertLocally(alert, { alternate: true })
         : await diagnoseAlert(alert, { alternate: true })
       if (alternateAiRequestRef.current.token === token) {
-        if (provider === 'local') setLocalAiAnalysis(result.data)
-        else setAiAnalysis(result.data)
+        if (provider === 'local') {
+          if (!isLocalAlertAiAnalysis(result.data)) {
+            setAlternateAiError('로컬 AI가 한국어 설명을 반환하지 않아 기존 결과를 유지합니다.')
+            return
+          }
+          setLocalAiAnalysis(result.data)
+        } else setAiAnalysis(result.data)
       }
     } catch (error) {
       if (alternateAiRequestRef.current.token === token) {
@@ -438,6 +458,8 @@ export function AlertsPage({
           aiLoading={aiLoading}
           alert={selectedAlert}
           currentResource={selectedResource}
+          hasCloudAnalysisCache={hasCloudAnalysisCache}
+          hasLocalAnalysisCache={hasLocalAnalysisCache}
           localAiAnalysis={localAiAnalysis}
           localAiError={localAiError}
           localAiLoading={localAiLoading}
@@ -461,7 +483,10 @@ function loadAlertAiAnalysis(alert, provider = 'cloud') {
     const cached = window.sessionStorage.getItem(key)
     if (!cached) return null
     const analysis = JSON.parse(cached)
-    if (isAlertAiAnalysis(analysis)) return analysis
+    if (
+      isAlertAiAnalysis(analysis)
+      && (provider !== 'local' || isLocalAlertAiAnalysis(analysis))
+    ) return analysis
     window.sessionStorage.removeItem(key)
   } catch {
     try {
@@ -476,11 +501,17 @@ function loadAlertAiAnalysis(alert, provider = 'cloud') {
 
 function saveAlertAiAnalysis(alert, analysis, provider = 'cloud') {
   const key = alertAiCacheKey(alert, provider)
-  if (!key || !isAlertAiAnalysis(analysis)) return
+  if (
+    !key
+    || !isAlertAiAnalysis(analysis)
+    || (provider === 'local' && !isLocalAlertAiAnalysis(analysis))
+  ) return false
   try {
     window.sessionStorage.setItem(key, JSON.stringify(analysis))
+    return true
   } catch {
     // Browser storage can be unavailable or full; the in-memory result remains usable.
+    return false
   }
 }
 
@@ -498,6 +529,12 @@ function isAlertAiAnalysis(value) {
     && Array.isArray(value.evidence)
     && Array.isArray(value.likely_causes)
     && Array.isArray(value.recommended_checks)
+}
+
+function isLocalAlertAiAnalysis(value) {
+  if (!isAlertAiAnalysis(value)) return false
+  return [value.summary, ...value.likely_causes, ...value.recommended_checks]
+    .every((item) => /[가-힣]/.test(item))
 }
 
 function findAlertResource(alert, resources) {

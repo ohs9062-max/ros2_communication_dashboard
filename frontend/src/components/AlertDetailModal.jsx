@@ -12,6 +12,8 @@ export function AlertDetailModal({
   aiLoading,
   alert,
   currentResource,
+  hasCloudAnalysisCache,
+  hasLocalAnalysisCache,
   localAiAnalysis,
   localAiError,
   localAiLoading,
@@ -36,15 +38,13 @@ export function AlertDetailModal({
   const displayedLoading = showingLocalAnalysis ? localAiLoading : aiLoading
   const analyzeButtonLabel = aiLoading
     ? '분석 중...'
-    : aiError
-      ? '분석 재시도'
-      : aiAnalysis
-        ? '다시 분석'
-        : 'AI 분석'
+    : hasCloudAnalysisCache
+      ? '클라우드 결과 보기'
+      : 'AI 분석'
   const localAnalyzeButtonLabel = localAiLoading
     ? '로컬 분석 중...'
-    : localAiAnalysis
-      ? '로컬 다시 분석'
+    : hasLocalAnalysisCache
+      ? '로컬 결과 보기'
       : '로컬 AI 분석'
   const analysisModel = typeof displayedAnalysis?.model === 'string'
     ? displayedAnalysis.model.trim()

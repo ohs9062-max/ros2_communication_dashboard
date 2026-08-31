@@ -13,6 +13,7 @@ from app.alerts.ai_diagnosis import (
     GEMINI_MODELS,
     GeminiConfigurationError,
     GeminiRequestError,
+    LOCAL_KOREAN_OUTPUT_INSTRUCTION,
     LocalLlmConfigurationError,
     LocalLlmRequestError,
 )
@@ -203,6 +204,7 @@ def test_cloud_alternate_perspective_is_one_request_with_scoped_prompt_and_tempe
         body = json.loads(request.content)
         prompt = body['contents'][0]['parts'][0]['text']
         assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() in prompt
+        assert LOCAL_KOREAN_OUTPUT_INSTRUCTION.strip() not in prompt
         assert body['generationConfig']['temperature'] == ALTERNATE_PERSPECTIVE_TEMPERATURE
         return _success_response(request, alternate=True)
 
@@ -223,6 +225,9 @@ def test_local_diagnosis_uses_one_ollama_structured_output_request():
         assert body['stream'] is False
         assert body['format']['required'] == list(ANALYSIS)
         assert body['messages'][0]['role'] == 'system'
+        prompt = body['messages'][1]['content']
+        assert prompt.endswith(LOCAL_KOREAN_OUTPUT_INSTRUCTION)
+        assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() not in prompt
         return httpx.Response(
             200,
             request=request,
@@ -244,7 +249,12 @@ def test_local_alternate_perspective_is_one_request_with_scoped_prompt_and_tempe
     def handler(request):
         requests.append(request)
         body = json.loads(request.content)
-        assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() in body['messages'][1]['content']
+        prompt = body['messages'][1]['content']
+        assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() in prompt
+        assert prompt.endswith(LOCAL_KOREAN_OUTPUT_INSTRUCTION)
+        assert prompt.index(ALTERNATE_PERSPECTIVE_INSTRUCTION.strip()) < prompt.index(
+            LOCAL_KOREAN_OUTPUT_INSTRUCTION.strip(),
+        )
         assert body['options']['temperature'] == ALTERNATE_PERSPECTIVE_TEMPERATURE
         return httpx.Response(
             200,
@@ -279,6 +289,28 @@ def test_local_diagnosis_does_not_require_gemini_api_key():
     result = asyncio.run(service.diagnose_local(_alert('node')))
 
     assert result['model'] == 'configured-gemma'
+
+
+def test_local_diagnosis_rejects_english_explanations():
+    english_analysis = {
+        'summary': 'The action failed because the service was unavailable.',
+        'evidence': ['status_label: failed'],
+        'likely_causes': ['The remote service may be unavailable.'],
+        'recommended_checks': ['Check the remote service status.'],
+    }
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                'model': 'configured-gemma',
+                'message': {'content': json.dumps(english_analysis)},
+            },
+        )
+
+    with pytest.raises(LocalLlmRequestError):
+        asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
 
 
 def test_local_diagnosis_never_falls_back_on_model_error():
@@ -475,6 +507,9 @@ def _alert(source):
 
 def _success_response(request, *, alternate=False):
     body = json.loads(request.content)
+    assert LOCAL_KOREAN_OUTPUT_INSTRUCTION.strip() not in (
+        body['contents'][0]['parts'][0]['text']
+    )
     assert body['generationConfig']['responseMimeType'] == 'application/json'
     assert body['generationConfig']['responseJsonSchema']['required'] == list(ANALYSIS)
     assert body['generationConfig']['temperature'] == (

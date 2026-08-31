@@ -4,31 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-28 - Service / Action 서버 개설 버튼 그룹 일렬 배치
-
-- ServiceServerPanel과 ActionServerPanel의 버튼 배치를 수정했다. 전체 폭을 차지하던 대형 시작 버튼과 History 우측에 따로 떨어져 있던 새로고침/이력리셋 버튼을 상단 서버 상태 영역으로 모아 `[서버 개설 시작] [서버 종료] [이력 리셋] [새로고침]` 4개 버튼을 한 줄로 일렬 배치했다.
-- 서버 중지 상태에서는 `서버 개설 시작`(초록)이 활성화되고 `서버 종료`가 비활성화되며, 서버 실행 상태에서는 `서버 종료`(주황)가 활성화되고 `서버 개설 시작`이 비활성화된다. `이력 리셋`(노랑 경고)과 `새로고침`(청록 ghost)은 항상 동일한 위치를 유지한다.
-- `.interface-server-actions` flex 그룹 스타일(`gap: 9px; margin: 14px 0 6px; padding: 8px 14px; min-height: 36px;`)을 추가하여 과도한 크기 없이 적절한 좌우 여백과 일정한 간격을 갖는 compact한 버튼 그룹을 구성했다.
-- ReceiveHistory 우측의 중복 버튼을 제거해 이력 제목과 목록만 표시하도록 정리했다.
-- Frontend unit test 20개 모듈 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 프로덕션 빌드(`assets/index-CT9qQqIj.js`)를 완료했다.
-- 최신 빌드를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, index.html SHA-256 일치 및 실제 Nginx HTTPS 200, Headless Chrome 실화면 렌더링(1440×1200 Service / Action 패널 캡처)을 통해 버튼 그룹 레이아웃을 확인했다.
-
-## 2026-08-28 - Service / Action 서버 개설 패널 좌우 2열 레이아웃 적용
-
-- ServiceServerPanel과 ActionServerPanel의 레이아웃을 클라이언트 실행/수신 화면과 동일한 좌우 2열 구조(`.interface-server-grid`)로 개편했다.
-- 좌측 [서버 개설] 컬럼에는 Domain, Service/Action 타입, 서버 이름, Schema 요약, Request/Feedback/Result 설정 필드 및 `[서버 개설 시작] [서버 종료]` 버튼과 서버 상태 바를 배치했다.
-- 우측 [서버 수신] 컬럼(`.interface-server-receive-column`)에는 `서버 수신 및 응답 이력` 헤더, `[이력 리셋] [새로고침]` 버튼 및 최신 CallResultBlock과 ReceiveHistory(Request/Response 또는 Goal/Feedback/Result/Cancel 이력)를 배치했다.
-- `interface-server-panel`이 화면 전체 가로 폭을 활용하고, `1180px` 이하에서는 1열로 반응형 전환되도록 CSS를 정비했다.
-- Frontend unit test 20개 모듈 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 빌드(`assets/index-CNnGosqx.js`) 완료 후 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했다.
-- Headless Chrome(1440×1200)을 통해 Service 및 Action 서버 개설 화면의 좌우 2열 실화면 렌더링을 확인했다.
-
-## 2026-08-28 - Service / Action 서버 개설 History 이력 리셋 UX 정비
-
-- ServiceServerPanel과 ActionServerPanel 및 ReceiveHistory의 `이력 리셋` 버튼에서 브라우저 기본 `window.confirm` 팝업을 제거하고, 기존 실행 탭과 동일하게 `onResetHistory` / `onReset` 핸들러가 직접 실행되도록 수정했다.
-- `useServiceServerController`와 `useActionServerController`의 기존 비동기 reset API 호출, 성공 후 최신 0건 history 재조회, `setFeedback` 피드백 안내 및 `historyBusy` 상태 처리를 그대로 재사용했다.
-- Frontend unit test 20개 모듈 통과, oxlint 0 에러 (기존 VisualizationPage warning 1건), Vite 프로덕션 빌드(`assets/index-BWu1u7ZF.js`)를 완료했다.
-- 최신 빌드를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, Headless Chrome을 통해 `이력 리셋` 클릭 시 confirm 팝업 없이 즉시 리셋 동작이 수행됨을 확인했다.
-
 ## 2026-08-28 - Interface Lab 클라이언트 실행 탭 Domain → Type → Name 3단계 선택 로직 적용
 
 - Topic 발행(`TopicExecutionPanel`), Service 호출(`ServiceExecutionPanel`), Action Goal(`ActionExecutionPanel`) 실행 탭에 서버 개설 탭과 동일한 `Domain → 통신 타입 → 통신명` 3단계 선택 UI 및 로직을 적용했다.
@@ -315,3 +290,39 @@
   `ALTERNATE_PERSPECTIVE_INSTRUCTION`을 추가하며 temperature를 0.2에서 0.4로 바꾼다.
 - 실제 payload builder의 네 결과가 모두 같은 system 문자열인지 확인했고, 관련 Backend 경로 테스트는
   4 passed·19 deselected였다. Local 영문 출력은 system instruction 누락이 아니라 Gemma의 지시 미준수다.
+
+## 2026-08-31 - Local Gemma 한국어 설명 출력 규칙 강화
+
+- 기존 SYSTEM instruction과 Cloud payload는 변경하지 않고, Local Ollama user prompt 마지막에만 `summary`,
+  `evidence`, `likely_causes`, `recommended_checks`의 설명 문장을 한국어로 작성하고 ROS2 이름/type/field/code/log
+  원문은 유지하라는 규칙을 추가했다. Local 기본과 다른 관점이 같은 규칙을 사용하며 기존 temperature 0.2/0.4와
+  다른 관점 추가 지시 순서를 유지한다.
+- 동일 D99 `/CanControl` Alert로 현재 소스를 직접 사용해 Ollama를 기본 2회(3.82초, 4.06초), 다른 관점 1회
+  (6.63초) 호출했다. 세 결과 모두 summary/likely causes/recommended checks가 한국어였고 evidence의 기술 식별자와
+  로그 원문은 유지됐으며 반환 model은 `gemma3:4b-it-q4_K_M`이었다.
+- 관련 Backend 테스트 23 passed, `git diff --check`를 통과했다. Backend 서비스를 재시작해 health
+  `monitor_connected=true`를 확인했으며 Frontend/API/schema/context에는 변경이 없다.
+
+## 2026-08-31 - Alert AI 결과 보기·다른 관점 분석 역할 정리
+
+- Alert 상세의 cache 보유 Cloud/Local 버튼 문구를 `[클라우드 결과 보기]`/`[로컬 결과 보기]`로 바꾸고,
+  provider별 sessionStorage 저장 성공 여부를 별도 state로 관리해 화면의 alternate 결과와 기본 cache 존재를 분리했다.
+  cache 조회 실패 시 자동 API 호출 없이 cache 없음 상태와 최초 분석 버튼으로 돌아간다.
+- 결과 보기 handler는 기존 Cloud/Local key만 조회하고 provider를 전환한다. 최초 `[AI 분석]`/`[로컬 AI 분석]`과
+  Header `[다른 관점 분석]`만 기존 POST를 사용하며 alternate 결과는 기존처럼 React state에만 두어 기본 cache를
+  덮어쓰지 않는다.
+- Frontend unit 전체와 build가 통과했고 lint는 기존 `VisualizationPage` warning 1건만 유지됐다. 비삭제 rsync로
+  local HTTPS에 `AlertsPage-BuJeFPx5.js`를 반영했으며 새 문구·handler 포함, asset HTTP 200, Backend
+  `monitor_connected=true`, `git diff --check` 통과를 확인했다.
+
+## 2026-08-31 - Local 영어 cache 및 응답 표시 차단
+
+- Local sessionStorage 조회 시 `summary`, `likely_causes`, `recommended_checks`의 모든 설명 항목에 한국어가 있는지
+  검증하고, 강화 이전 영어 cache는 기존 key에서 즉시 제거해 `[로컬 결과 보기]`로 다시 표시되지 않게 했다.
+  새 Local 기본 결과는 검증 통과 때만 state/cache에 반영하고, 다른 관점이 실패하면 기존 결과를 유지한다.
+- Backend도 Ollama structured response의 같은 설명 필드를 검증해 영어 설명 응답을 성공 결과로 반환하지 않는다.
+  `evidence`의 기술 식별자·JSON·code·log 원문은 기존 원문 보존 정책에 따라 허용하며 Cloud 경로는 변경하지 않았다.
+- 실제 D99 `/CanControl` Local 기본/다른 관점 endpoint는 각각 7.34초/5.81초 HTTP 200이었고 두 응답 모두
+  summary/causes/checks 한국어, 기존 schema와 model `gemma3:4b-it-q4_K_M`을 유지했다. Backend 24 passed,
+  Frontend unit 전체·build·diff check가 통과했고 lint는 기존 warning 1건만 남았다. Backend 재시작 및 HTTPS
+  `AlertsPage-B4N6MzRH.js` 반영과 HTTP 200을 확인했다.

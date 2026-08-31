@@ -59,6 +59,14 @@ ALTERNATE_PERSPECTIVE_INSTRUCTION = """
 단일 Alert 문구만으로 프로세스 종료, 네트워크 장애, 설정 오류를 새 원인으로 확장하지 마라.
 추가 후보를 뒷받침할 근거가 없다면 likely_causes는 빈 배열로 반환해도 된다.
 """
+LOCAL_KOREAN_OUTPUT_INSTRUCTION = """
+
+[중요 출력 규칙]
+
+summary, evidence, likely_causes, recommended_checks의 설명 문장은 반드시 한국어로 작성하라.
+ROS2 고유명사, Topic/Service/Action 이름, interface/type, field name, 코드, 로그 원문만 원래 표기를 유지하라.
+영어 설명문을 생성하지 마라.
+"""
 # SYSTEM_INSTRUCTION = """당신은 ROS2 Dashboard Alert 진단 보조자다.
 # Dashboard가 제공한 사실만 해석하고 새로운 통신 사실을 만들지 마라.
 # 현재 Runtime 상태와 Alert 발생 당시 상태는 다를 수 있으며, historical_data에 없는 과거 상태를 추정하지 마라.
@@ -414,6 +422,8 @@ class AlertDiagnosisService:
             message = payload.get('message') if isinstance(payload, dict) else None
             content = message.get('content') if isinstance(message, dict) else None
             analysis = _parse_structured_diagnosis(content)
+            if not _local_explanations_are_korean(analysis):
+                raise ValueError('Local LLM explanations are not Korean')
             model = str(payload.get('model') or '').strip()
             if not model:
                 raise ValueError('Local LLM response model is missing')
@@ -585,7 +595,10 @@ def _local_llm_payload(
             {'role': 'system', 'content': SYSTEM_INSTRUCTION},
             {
                 'role': 'user',
-                'content': _diagnosis_prompt(context, alternate=alternate),
+                'content': (
+                    _diagnosis_prompt(context, alternate=alternate)
+                    + LOCAL_KOREAN_OUTPUT_INSTRUCTION
+                ),
             },
         ],
         'options': {
@@ -632,6 +645,14 @@ def _parse_structured_diagnosis(content: Any) -> dict[str, Any]:
             raise ValueError(f'Diagnosis {key} is invalid')
         normalized[key] = [item.strip() for item in items[:10] if item.strip()]
     return normalized
+
+
+def _local_explanations_are_korean(analysis: dict[str, Any]) -> bool:
+    explanatory_values = [analysis['summary']]
+    explanatory_values.extend(analysis['likely_causes'])
+    explanatory_values.extend(analysis['recommended_checks'])
+    return all(any('\uac00' <= character <= '\ud7a3' for character in value)
+               for value in explanatory_values)
 
 
 def _provider_error(response: httpx.Response) -> tuple[str | None, str | None]:
