@@ -37,8 +37,11 @@ export function AlertsPage({
   const [localAiAnalysis, setLocalAiAnalysis] = useState(null)
   const [localAiError, setLocalAiError] = useState(null)
   const [localAiLoading, setLocalAiLoading] = useState(false)
+  const [alternateAiError, setAlternateAiError] = useState(null)
+  const [alternateAiLoading, setAlternateAiLoading] = useState(false)
   const aiRequestRef = useRef({ pending: false, token: 0 })
   const localAiRequestRef = useRef({ pending: false, token: 0 })
+  const alternateAiRequestRef = useRef({ pending: false, token: 0 })
   const response = dashboard.alerts.data
   const currentAlerts = useMemo(
     () => (response?.data ?? []).filter((alert) => alert.alert_state !== 'resolved'),
@@ -123,6 +126,7 @@ export function AlertsPage({
   const openAlert = (alert) => {
     aiRequestRef.current.token += 1
     localAiRequestRef.current.token += 1
+    alternateAiRequestRef.current.token += 1
     const cloudAnalysis = loadAlertAiAnalysis(alert)
     const localAnalysis = loadAlertAiAnalysis(alert, 'local')
     setSelectedAlert(alert)
@@ -132,6 +136,8 @@ export function AlertsPage({
     setLocalAiAnalysis(localAnalysis)
     setLocalAiError(null)
     setLocalAiLoading(localAiRequestRef.current.pending)
+    setAlternateAiError(null)
+    setAlternateAiLoading(alternateAiRequestRef.current.pending)
     setAnalysisProvider(localAnalysis ? 'local' : 'cloud')
     onNavigate('alerts')
   }
@@ -139,11 +145,13 @@ export function AlertsPage({
   const closeAlert = () => {
     aiRequestRef.current.token += 1
     localAiRequestRef.current.token += 1
+    alternateAiRequestRef.current.token += 1
     setSelectedAlert(null)
     setAiAnalysis(null)
     setAiError(null)
     setLocalAiAnalysis(null)
     setLocalAiError(null)
+    setAlternateAiError(null)
   }
 
   const analyzeSelectedAlert = async () => {
@@ -155,6 +163,7 @@ export function AlertsPage({
     aiRequestRef.current.token = token
     setAiLoading(true)
     setAiError(null)
+    setAlternateAiError(null)
     try {
       const result = await diagnoseAlert(alert)
       if (aiRequestRef.current.token === token) {
@@ -180,6 +189,7 @@ export function AlertsPage({
     localAiRequestRef.current.token = token
     setLocalAiLoading(true)
     setLocalAiError(null)
+    setAlternateAiError(null)
     try {
       const result = await diagnoseAlertLocally(alert)
       if (localAiRequestRef.current.token === token) {
@@ -195,6 +205,72 @@ export function AlertsPage({
     } finally {
       localAiRequestRef.current.pending = false
       setLocalAiLoading(false)
+    }
+  }
+
+  const showStoredAlertAiAnalysis = (provider) => {
+    if (!selectedAlert) return
+    const isLocal = provider === 'local'
+    const analysis = loadAlertAiAnalysis(selectedAlert, provider)
+    setAnalysisProvider(provider)
+    setAlternateAiError(null)
+    if (isLocal) {
+      setLocalAiError(analysis ? null : '저장된 분석 결과가 없습니다.')
+      setLocalAiAnalysis(analysis)
+      return
+    }
+    setAiError(analysis ? null : '저장된 분석 결과가 없습니다.')
+    setAiAnalysis(analysis)
+  }
+
+  const handleCloudAnalysis = () => {
+    if (aiAnalysis) {
+      showStoredAlertAiAnalysis('cloud')
+      return
+    }
+    analyzeSelectedAlert()
+  }
+
+  const handleLocalAnalysis = () => {
+    if (localAiAnalysis) {
+      showStoredAlertAiAnalysis('local')
+      return
+    }
+    analyzeSelectedAlertLocally()
+  }
+
+  const analyzeFromAnotherPerspective = async () => {
+    if (!selectedAlert || alternateAiRequestRef.current.pending) return
+    const provider = analysisProvider
+    const currentAnalysis = provider === 'local' ? localAiAnalysis : aiAnalysis
+    if (!currentAnalysis) {
+      setAlternateAiError('먼저 Cloud 또는 Local AI 분석을 실행해주세요.')
+      return
+    }
+
+    const alert = selectedAlert
+    alternateAiRequestRef.current.pending = true
+    const token = alternateAiRequestRef.current.token + 1
+    alternateAiRequestRef.current.token = token
+    setAlternateAiLoading(true)
+    setAlternateAiError(null)
+    try {
+      const result = provider === 'local'
+        ? await diagnoseAlertLocally(alert, { alternate: true })
+        : await diagnoseAlert(alert, { alternate: true })
+      if (alternateAiRequestRef.current.token === token) {
+        if (provider === 'local') setLocalAiAnalysis(result.data)
+        else setAiAnalysis(result.data)
+      }
+    } catch (error) {
+      if (alternateAiRequestRef.current.token === token) {
+        setAlternateAiError(
+          error instanceof Error ? error.message : '다른 관점 분석 요청에 실패했습니다.',
+        )
+      }
+    } finally {
+      alternateAiRequestRef.current.pending = false
+      setAlternateAiLoading(false)
     }
   }
 
@@ -355,6 +431,8 @@ export function AlertsPage({
       {selectedAlert && (
         <AlertDetailModal
           analysisProvider={analysisProvider}
+          alternateAiError={alternateAiError}
+          alternateAiLoading={alternateAiLoading}
           aiAnalysis={aiAnalysis}
           aiError={aiError}
           aiLoading={aiLoading}
@@ -363,8 +441,9 @@ export function AlertsPage({
           localAiAnalysis={localAiAnalysis}
           localAiError={localAiError}
           localAiLoading={localAiLoading}
-          onAnalyze={analyzeSelectedAlert}
-          onAnalyzeLocally={analyzeSelectedAlertLocally}
+          onAnalyze={handleCloudAnalysis}
+          onAnalyzeAlternative={analyzeFromAnotherPerspective}
+          onAnalyzeLocally={handleLocalAnalysis}
           onClose={closeAlert}
         />
       )}

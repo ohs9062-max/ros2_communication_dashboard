@@ -20,6 +20,7 @@ router = APIRouter()
 
 class AlertDiagnosisRequest(BaseModel):
     alert: dict[str, Any]
+    alternate: bool = False
 
 
 @router.get('/ros/alerts')
@@ -62,7 +63,11 @@ def dismiss_current_alerts() -> dict[str, Any]:
 @router.post('/ros/alerts/ai-diagnosis')
 async def diagnose_alert(request: AlertDiagnosisRequest) -> dict[str, Any]:
     try:
-        diagnosis = await alert_ai_diagnosis.diagnose(request.alert)
+        diagnosis = await (
+            alert_ai_diagnosis.diagnose(request.alert, alternate=True)
+            if request.alternate
+            else alert_ai_diagnosis.diagnose(request.alert)
+        )
     except AlertDiagnosisInputError as exc:
         raise HTTPException(status_code=422, detail='선택한 Alert 정보가 올바르지 않습니다.') from exc
     except GeminiConfigurationError as exc:
@@ -84,7 +89,11 @@ async def diagnose_alert(request: AlertDiagnosisRequest) -> dict[str, Any]:
 @router.post('/ros/alerts/ai-diagnosis/local')
 async def diagnose_alert_locally(request: AlertDiagnosisRequest) -> dict[str, Any]:
     try:
-        diagnosis = await alert_ai_diagnosis.diagnose_local(request.alert)
+        diagnosis = await (
+            alert_ai_diagnosis.diagnose_local(request.alert, alternate=True)
+            if request.alternate
+            else alert_ai_diagnosis.diagnose_local(request.alert)
+        )
     except AlertDiagnosisInputError as exc:
         raise HTTPException(status_code=422, detail='선택한 Alert 정보가 올바르지 않습니다.') from exc
     except LocalLlmConfigurationError as exc:

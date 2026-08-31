@@ -40,6 +40,25 @@ DIAGNOSIS_SCHEMA = {
     },
     'required': ['summary', 'evidence', 'likely_causes', 'recommended_checks'],
 }
+ALTERNATE_PERSPECTIVE_TEMPERATURE = 0.4
+ALTERNATE_PERSPECTIVE_INSTRUCTION = """
+
+[이번 요청의 추가 지시]
+
+이 Alert에 대해 이전 분석과 동일한 표현이나 원인만 반복하지 말고,
+제공된 Dashboard 사실 범위에서 아직 검토되지 않은 다른 가능한 원인,
+다른 판단 관점, 추가로 확인할 지점을 우선 분석하라.
+
+단, 근거가 부족한 원인을 억지로 만들지 말고,
+새로운 관점이 실제 데이터로 뒷받침되지 않으면
+현재 정보만으로 추가 판단이 어렵다고 명시하라.
+
+다른 원인 수를 채우기 위해 입력에 없는 시스템 동작이나 장애를 추가하지 마라.
+입력에서 직접 연결할 새로운 근거가 없는 후보는 likely_causes에 넣지 말고,
+단순히 기존 원인의 표현만 바꾸는 것도 새로운 관점으로 취급하지 마라.
+단일 Alert 문구만으로 프로세스 종료, 네트워크 장애, 설정 오류를 새 원인으로 확장하지 마라.
+추가 후보를 뒷받침할 근거가 없다면 likely_causes는 빈 배열로 반환해도 된다.
+"""
 # SYSTEM_INSTRUCTION = """당신은 ROS2 Dashboard Alert 진단 보조자다.
 # Dashboard가 제공한 사실만 해석하고 새로운 통신 사실을 만들지 마라.
 # 현재 Runtime 상태와 Alert 발생 당시 상태는 다를 수 있으며, historical_data에 없는 과거 상태를 추정하지 마라.
@@ -204,16 +223,26 @@ class AlertDiagnosisService:
         self._local_llm_timeout_sec = local_llm_timeout_sec
         self._local_client_factory = local_client_factory
 
-    async def diagnose(self, selected_alert: dict[str, Any]) -> dict[str, Any]:
+    async def diagnose(
+        self,
+        selected_alert: dict[str, Any],
+        *,
+        alternate: bool = False,
+    ) -> dict[str, Any]:
         alert = _validated_alert(selected_alert)
         context = await self._build_context(alert)
-        analysis, model = await self._request_gemini(context)
+        analysis, model = await self._request_gemini(context, alternate=alternate)
         return {**analysis, 'model': model}
 
-    async def diagnose_local(self, selected_alert: dict[str, Any]) -> dict[str, Any]:
+    async def diagnose_local(
+        self,
+        selected_alert: dict[str, Any],
+        *,
+        alternate: bool = False,
+    ) -> dict[str, Any]:
         alert = _validated_alert(selected_alert)
         context = await self._build_context(alert)
-        analysis, model = await self._request_local_llm(context)
+        analysis, model = await self._request_local_llm(context, alternate=alternate)
         return {**analysis, 'model': model}
 
     async def _build_context(self, alert: dict[str, Any]) -> dict[str, Any]:
@@ -292,6 +321,8 @@ class AlertDiagnosisService:
     async def _request_gemini(
         self,
         context: dict[str, Any],
+        *,
+        alternate: bool = False,
     ) -> tuple[dict[str, Any], str]:
         if not self._api_key:
             raise GeminiConfigurationError('GEMINI_API_KEY is not configured')
@@ -301,7 +332,7 @@ class AlertDiagnosisService:
         factory = self._client_factory or (
             lambda: httpx.AsyncClient(timeout=self._timeout_sec)
         )
-        payload = _gemini_payload(context)
+        payload = _gemini_payload(context, alternate=alternate)
         last_error: Exception | None = None
         async with factory() as client:
             for index, model in enumerate(GEMINI_MODELS):
@@ -352,6 +383,8 @@ class AlertDiagnosisService:
     async def _request_local_llm(
         self,
         context: dict[str, Any],
+        *,
+        alternate: bool = False,
     ) -> tuple[dict[str, Any], str]:
         if not self._local_llm_url:
             raise LocalLlmConfigurationError('LOCAL_LLM_URL is not configured')
@@ -365,7 +398,11 @@ class AlertDiagnosisService:
             async with factory() as client:
                 response = await client.post(
                     f'{self._local_llm_url}/api/chat',
-                    json=_local_llm_payload(context, self._local_llm_model),
+                    json=_local_llm_payload(
+                        context,
+                        self._local_llm_model,
+                        alternate=alternate,
+                    ),
                 )
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise LocalLlmRequestError('Local LLM transport failed') from exc
@@ -512,18 +549,21 @@ def _history_path(
     return f'{base}?{urlencode(query)}'
 
 
-def _gemini_payload(context: dict[str, Any]) -> dict[str, Any]:
+def _gemini_payload(
+    context: dict[str, Any],
+    *,
+    alternate: bool = False,
+) -> dict[str, Any]:
     return {
         'systemInstruction': {'parts': [{'text': SYSTEM_INSTRUCTION}]},
         'contents': [{
             'role': 'user',
             'parts': [{
-                'text': '다음 Dashboard context를 진단 형식으로 해석하세요.\n'
-                + json.dumps(context, ensure_ascii=False, separators=(',', ':')),
+                'text': _diagnosis_prompt(context, alternate=alternate),
             }],
         }],
         'generationConfig': {
-            'temperature': 0.2,
+            'temperature': ALTERNATE_PERSPECTIVE_TEMPERATURE if alternate else 0.2,
             'maxOutputTokens': 2048,
             'responseMimeType': 'application/json',
             'responseJsonSchema': DIAGNOSIS_SCHEMA,
@@ -531,7 +571,12 @@ def _gemini_payload(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _local_llm_payload(context: dict[str, Any], model: str) -> dict[str, Any]:
+def _local_llm_payload(
+    context: dict[str, Any],
+    model: str,
+    *,
+    alternate: bool = False,
+) -> dict[str, Any]:
     return {
         'model': model,
         'stream': False,
@@ -540,15 +585,23 @@ def _local_llm_payload(context: dict[str, Any], model: str) -> dict[str, Any]:
             {'role': 'system', 'content': SYSTEM_INSTRUCTION},
             {
                 'role': 'user',
-                'content': '다음 Dashboard context를 진단 형식으로 해석하세요.\n'
-                + json.dumps(context, ensure_ascii=False, separators=(',', ':')),
+                'content': _diagnosis_prompt(context, alternate=alternate),
             },
         ],
         'options': {
-            'temperature': 0.2,
+            'temperature': ALTERNATE_PERSPECTIVE_TEMPERATURE if alternate else 0.2,
             'num_predict': 2048,
         },
     }
+
+
+def _diagnosis_prompt(context: dict[str, Any], *, alternate: bool = False) -> str:
+    prompt = '다음 Dashboard context를 진단 형식으로 해석하세요.\n' + json.dumps(
+        context,
+        ensure_ascii=False,
+        separators=(',', ':'),
+    )
+    return prompt + ALTERNATE_PERSPECTIVE_INSTRUCTION if alternate else prompt
 
 
 def _parse_gemini_response(payload: Any) -> dict[str, Any]:

@@ -7,6 +7,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.alerts.ai_diagnosis import (
+    ALTERNATE_PERSPECTIVE_INSTRUCTION,
+    ALTERNATE_PERSPECTIVE_TEMPERATURE,
     AlertDiagnosisService,
     GEMINI_MODELS,
     GeminiConfigurationError,
@@ -193,6 +195,23 @@ def test_invalid_structured_response_falls_back_and_is_validated():
     assert result['model'] == GEMINI_MODELS[1]
 
 
+def test_cloud_alternate_perspective_is_one_request_with_scoped_prompt_and_temperature():
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        body = json.loads(request.content)
+        prompt = body['contents'][0]['parts'][0]['text']
+        assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() in prompt
+        assert body['generationConfig']['temperature'] == ALTERNATE_PERSPECTIVE_TEMPERATURE
+        return _success_response(request, alternate=True)
+
+    result = asyncio.run(_service(handler).diagnose(_alert('node'), alternate=True))
+
+    assert len(requests) == 1
+    assert result == {**ANALYSIS, 'model': GEMINI_MODELS[0]}
+
+
 def test_local_diagnosis_uses_one_ollama_structured_output_request():
     requests = []
 
@@ -214,6 +233,31 @@ def test_local_diagnosis_uses_one_ollama_structured_output_request():
         )
 
     result = asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
+
+    assert len(requests) == 1
+    assert result == {**ANALYSIS, 'model': 'configured-gemma'}
+
+
+def test_local_alternate_perspective_is_one_request_with_scoped_prompt_and_temperature():
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        body = json.loads(request.content)
+        assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() in body['messages'][1]['content']
+        assert body['options']['temperature'] == ALTERNATE_PERSPECTIVE_TEMPERATURE
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                'model': 'configured-gemma',
+                'message': {'content': json.dumps(ANALYSIS)},
+            },
+        )
+
+    result = asyncio.run(
+        _local_service(handler).diagnose_local(_alert('node'), alternate=True),
+    )
 
     assert len(requests) == 1
     assert result == {**ANALYSIS, 'model': 'configured-gemma'}
@@ -361,6 +405,27 @@ def test_local_router_returns_safe_error_without_provider_details(monkeypatch):
     assert 'raw local provider' not in exc_info.value.detail
 
 
+def test_router_passes_alternate_flag_to_selected_provider(monkeypatch):
+    calls = []
+
+    class RecordingDiagnosis:
+        async def diagnose(self, _alert, *, alternate=False):
+            calls.append(('cloud', alternate))
+            return {**ANALYSIS, 'model': 'cloud-model'}
+
+        async def diagnose_local(self, _alert, *, alternate=False):
+            calls.append(('local', alternate))
+            return {**ANALYSIS, 'model': 'local-model'}
+
+    monkeypatch.setattr(alert_router, 'alert_ai_diagnosis', RecordingDiagnosis())
+    request = alert_router.AlertDiagnosisRequest(alert=_alert('node'), alternate=True)
+
+    asyncio.run(alert_router.diagnose_alert(request))
+    asyncio.run(alert_router.diagnose_alert_locally(request))
+
+    assert calls == [('cloud', True), ('local', True)]
+
+
 def _service(handler):
     cache = MonitorCache()
     cache.update({'nodes': {'nodes': []}})
@@ -408,10 +473,17 @@ def _alert(source):
     }
 
 
-def _success_response(request):
+def _success_response(request, *, alternate=False):
     body = json.loads(request.content)
     assert body['generationConfig']['responseMimeType'] == 'application/json'
     assert body['generationConfig']['responseJsonSchema']['required'] == list(ANALYSIS)
+    assert body['generationConfig']['temperature'] == (
+        ALTERNATE_PERSPECTIVE_TEMPERATURE if alternate else 0.2
+    )
+    if not alternate:
+        assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() not in (
+            body['contents'][0]['parts'][0]['text']
+        )
     return httpx.Response(
         200,
         request=request,

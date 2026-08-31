@@ -4,68 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-28 - Interface Lab Service/Action Server 실제 Runtime
-
-- Gemini 미커밋 diff를 대조해 API 없이 React state만 active로 바꾸던 Topic/Service/Action Server placeholder를
-  확인했다. ROS2에 없는 Topic Server panel/controller/mode/button은 전부 제거하고 상단을 `통신 실행`의 Topic
-  발행·Service 호출·Action Goal과 `서버 개설`의 Service·Action으로 정리했다. 기존 Client 실행/Topic 수신/QoS/
-  History와 일반 Monitoring·Alert는 변경하지 않았다.
-- Client runtime과 분리된 `ServiceServerRuntime`/`ActionServerRuntime` 및 types/start/stop/status/history API를
-  추가했다. 등록·import 가능한 srv/action 타입과 정확한 `domain_id/resource_key`를 사용하며 Service Request/
-  Response, Action Goal accept/reject·Feedback·Result·Cancel accept/reject 이력을 각각 최대 30건 보존한다.
-  Frontend는 API 상태만 표시하고 실행 중에는 1초마다 status/history를 갱신한다.
-- Action Result 대기 중 Cancel callback을 처리하도록 Domain별 기존 Context/Monitor Node에 결합된 executor를
-  4-thread `MultiThreadedExecutor`로 전환하고 Action Server만 reentrant callback group을 사용했다. 격리 Domain
-  231의 실제 rclpy Client로 Service 요청/응답과 Action Goal→Cancel→canceled Result를 확인했다.
-- Monitor pytest 290 passed, ROS package colcon 308 tests·0 failures·1 skipped, Backend 17 passed·2 skipped,
-  Frontend unit/lint/build를 통과했다. lint에는 기존 Visualization 미사용 인자 warning 1건만 남았다. GUI
-  `pkexec`으로 build를 로컬 HTTPS 경로에 동기화하고 Monitor를 재시작했으며, HTTPS는
-  `assets/index-BMvFA0Tg.js`, health `monitor_connected=true`, 등록 타입 API와 임시 Server start/stop을 확인했다.
-  Domain 22의 임시 Server는 모두 중지했고 실제 장비 영향을 피하기 위해 해당 Domain 외부 요청 전송은 하지 않았다.
-- 서버 개설의 `시작` 버튼 비활성 원인을 추가 점검했다. Service/Action 모두 `busy`, 선택 타입의
-  `server_creatable`, 이름 입력값을 button disabled 조건으로 사용하며, 실제 HTTPS API에서는 모든 등록 타입이
-  `server_creatable=true`이고 실행 중 Server도 없었다. 상단의 일반 `Service 개설`/`Action 개설` 진입은 target을
-  전달하지 않아 이름 초기값이 비어 있으므로, 현재 보인 비활성 상태의 직접 원인은 필수 Service/Action 이름
-  미입력이다. 이번 점검에서는 코드·build·로컬 HTTPS 파일을 변경하지 않았다.
-- Server panel에 등록된 Service Request와 Action Goal schema를 읽기 전용으로 표시하고, 기존 Response/Feedback/
-  Result schema form은 사용자 설정 입력으로 명확히 구분했다. Server history는 축약된 Response/Result 하나가 아니라
-  실제 Request+Response와 Goal+Feedback+Result/Cancel event 전체 payload를 표시한다. 숫자 field는 기존 공통 schema
-  정규화를 재사용하며 Dashboard가 `cmd`, `success`, `result_code` 등의 업무 의미를 해석하는 로직은 추가하지 않았다.
-- `success=false` payload를 통신 실패로 보지 않는 Service/Action Runtime 회귀 테스트를 추가했다. Monitor 전체
-  pytest 292 passed, Frontend unit/lint/build와 diff check를 통과했고 lint에는 기존 Visualization 미사용 인자 warning
-  1건만 남았다. D22 임시 실제 Server에서 Service `cmd=42`→`success=false/result_code=17`을 `responded`로,
-  Action Goal 원문→설정 Feedback→`success=false` Result를 ROS2 `SUCCEEDED`로 확인했으며 history 원문도 대조했다.
-  임시 Server는 모두 중지했다.
-- GUI `pkexec`으로 Frontend build를 로컬 HTTPS 경로에 반영했다. source/target `index.html` SHA-256은
-  `e4456e72925946333131d3488dabba5f418b0a7389d7ed1f5a10228ea5626658`, 실제 HTTPS entry는
-  `assets/index-ZjLNcLMC.js`로 일치하며 health는 `monitor_connected=true`다.
-- Interface Lab 상단 그룹명을 `통신 실행`에서 `클라이언트 실행`으로 바꾸고, Service/Action Server panel에
-  기존 `ExecutionPanelHeading`의 `크게보기`/`목록보기`/`닫기` UX를 연결했다. Server mode도 기존 workspace expanded
-  조건에 포함해 수신 panel 없이 해당 Server panel만 넓게 확장되고 다시 누르면 원래 layout으로 복귀한다. Runtime,
-  QoS, History, Registry, Monitoring/Alert와 다른 화면은 변경하지 않았다.
-- Frontend unit test, lint(기존 `VisualizationPage` 미사용 인자 warning 1건), build와 diff check를 통과했다. GUI
-  `pkexec`으로 local HTTPS 실행 파일에 동기화했고 source/target `index.html` SHA-256은
-  `b10558bdcf52bc1fd2e1ade4012584b9657a4fea94d94ee84fd998b0c96c8150`, 실제 HTTPS entry asset은
-  `assets/index-C9hX208L.js`, health는 `monitor_connected=true`로 확인했다.
-
-## 2026-08-28 - Action/Service Server 수명주기 및 이력 리셋 전과정 검증
-
-- ServiceServerRuntime과 ActionServerRuntime에 `reset_history` 메서드 및 HTTP 엔드포인트
-  `POST /ros/interfaces/service-servers/history/reset`, `POST /ros/interfaces/action-servers/history/reset`를 연결했다.
-  `MultiDomainRosMonitor`와 facade가 각 Domain별 Server 이력 리셋을 통합 라우팅하며 특정 Domain 또는 전체 Domain 리셋을 지원한다.
-- Frontend `useServiceServerController.js`, `useActionServerController.js`, `ServiceServerPanel.jsx`, `ActionServerPanel.jsx`에
-  서버 실행 중 상태 안내, 서버 종료 버튼, History 수동 새로고침 및 이력 리셋 버튼을 연결했다.
-- 격리 Domain 22 환경에서 Action Server `/TestCanControl` (`rths_interfaces/action/CanControl`)의 전체 생명주기를 실기기로 검증했다:
-  1. Start: `POST /ros/interfaces/action-servers/start`로 시작 후 Graph 등장 확인 (`get_action_names_and_types`)
-  2. 통신: 실제 rclpy ActionClient로 Goal 전송 -> Feedback 수신 -> Result (Status 4 SUCCEEDED) 완료 확인
-  3. Cancel: 즉시 Cancel 전송 -> CancelResponse 0 및 Status 5 CANCELED 수신 확인
-  4. History: `GET /ros/interfaces/action-servers/history`에서 5건의 Goal/Feedback/Result/Cancel 기록 확인
-  5. Reset: `POST /ros/interfaces/action-servers/history/reset` 호출 후 0건 클리어 확인
-  6. Stop: `POST /ros/interfaces/action-servers/stop` 호출 후 Node별 Action Server 0개 및 Graph 제거 확인
-- Service Server `/TestRobotControl` (`rths_interfaces/srv/RobotControl`) 역시 Start -> Graph 등장 -> 실제 Call/Response -> History 기록 -> Reset 0건 -> Stop -> Graph 제거 전과정을 확인했다.
-- Monitor pytest 292 passed, colcon 310 tests·0 failures·1 skipped, Backend pytest 17 passed·2 skipped, Frontend unit test·lint(기존 Visualization warning 1건)·build를 모두 통과했다.
-- 최신 Frontend build (`assets/index-vGl9BPv-.js`)를 `/var/lib/ros2-dashboard/frontend/`에 rsync 동기화했고, index.html SHA-256 일치 및 실제 Nginx HTTPS 200, Backend `monitor_connected=true`, Headless Chrome 실화면 렌더링(1440×900, 1440×1200 Action Server Panel 확대)을 확인했다.
-
 ## 2026-08-28 - Service / Action 서버 개설 버튼 그룹 일렬 배치
 
 - ServiceServerPanel과 ActionServerPanel의 버튼 배치를 수정했다. 전체 폭을 차지하던 대형 시작 버튼과 History 우측에 따로 떨어져 있던 새로고침/이력리셋 버튼을 상단 서버 상태 영역으로 모아 `[서버 개설 시작] [서버 종료] [이력 리셋] [새로고침]` 4개 버튼을 한 줄로 일렬 배치했다.
@@ -333,3 +271,47 @@
 - Frontend lint(기존 `VisualizationPage` 미사용 인자 warning 1건), production build와 diff check를 통과했고 최신
   build를 로컬 HTTPS 정적 경로에 동기화했다. source/target `index.html` SHA-256은
   `a506981e51d7a82394b25caca9a1b0e882943cc56091dc002dcc0b024ec3fe68`로 일치한다.
+
+## 2026-08-31 - Alert AI 저장 결과 전환 및 다른 관점 UI
+
+- Cloud/Local 결과 state가 이미 있을 때의 `[다시 분석]`과 `[로컬 다시 분석]`은 각각 기존 sessionStorage key를 다시
+  읽어 해당 provider 결과만 표시하도록 변경했다. cache가 없으면 `저장된 분석 결과가 없습니다.`만 표시하며 API 요청을
+  만들지 않는다. 초기 분석 state가 없을 때만 기존 Gemini/Ollama 요청 함수를 유지한다.
+- Header에는 handler 없는 `[다른 관점 분석]` 버튼을 닫기 왼쪽에 추가했다. Backend, endpoint, prompt, cache key와
+  response 구조는 변경하지 않았다. Frontend unit 전체, lint(기존 `VisualizationPage` warning 1건), production build와
+  diff check를 통과했고 최신 build를 로컬 HTTPS 정적 경로에 동기화했다. source/target `index.html` SHA-256은
+  `67d95c50b47bd3aab1fbd7a549e0338dba9cb0a5dd72c1ae79c4ecf9a1fe91c7`로 일치한다.
+
+## 2026-08-31 - Alert 다른 관점 Cloud/Local 실제 분석 연결
+
+- 기존 Cloud/Local endpoint request에 선택적 `alternate`만 추가했다. true일 때도 같은 Alert context, history 5건,
+  SYSTEM instruction과 response schema를 재사용하며, 추가 근거 없는 후보를 만들지 말라는 요청 전용 지시와
+  temperature 0.4만 적용한다. 기본 분석은 기존 prompt와 temperature 0.2를 그대로 사용한다.
+- Header 버튼은 현재 표시 provider로 요청을 정확히 한 번 보내고 진행 중 중복 클릭을 막는다. 성공 결과는 해당 React
+  state에만 반영하고 sessionStorage에는 저장하지 않아 `[다시 분석]`/`[로컬 다시 분석]`으로 기본 cache를 복원한다.
+  실패 시 기존 결과를 유지한 채 기존 오류 영역에 표시한다.
+- 관련 Backend 23 passed, Frontend API mapping test와 전체 unit, lint(기존 `VisualizationPage` warning 1건), build,
+  diff check를 통과했다. HTTPS 실제 alternate는 Cloud 1.91초(`gemini-3.5-flash-lite`), Local 합성 2.57초 및 실제
+  `/CanControl` 5.65초(`gemma3:4b-it-q4_K_M`)로 HTTP 200이었다. Cloud는 추가 근거 부족 시 원인 배열을 비웠고,
+  Gemma 4B는 실제 QoS 관점 차이는 냈지만 일부 일반적 원인 해석이 남는 모델 품질 한계를 확인했다.
+- 최신 Frontend build를 local HTTPS 정적 경로에 반영했고 source/target `index.html` SHA-256은
+  `c1e16484908122d2579c32f4209cc9e503580cd56acc80c3c8860f4b77a5e090`로 일치한다.
+
+## 2026-08-31 - 로컬 다시 분석 영문 출력 원인 확인
+
+- 코드 수정 없이 `[로컬 다시 분석]` 흐름을 확인했다. 이 버튼은 Local endpoint를 재호출하거나 번역하지 않고
+  `alert_ai_diagnosis:local:<alert.id>`에 저장된 구조화 결과를 그대로 `localAiAnalysis`에 복원한다.
+- 실제 `/CanControl` Local 기본 분석 응답에서 `summary`, `evidence`, `likely_causes`, `recommended_checks`가 모두 영어로
+  반환된 것을 재확인했다. 따라서 영문 표시는 Frontend renderer 문제가 아니라 Gemma가 기존 한국어 SYSTEM instruction을
+  지키지 않은 응답이 sessionStorage에 저장된 결과다. Local 다른 관점 결과는 한국어와 영어 용어가 혼합됐다.
+
+## 2026-08-31 - Cloud/Local 기본·다른 관점 SYSTEM instruction 경로 검수
+
+- 코드 변경 없이 Cloud Gemini 기본/다른 관점과 Local Gemma 기본/다른 관점의 Frontend 요청부터 Backend router,
+  context 구성, provider payload까지 비교했다. 네 경로 모두 활성 `SYSTEM_INSTRUCTION` 상수를 동일하게 사용하며
+  `응답은 한국어로 작성하라.` 지시가 포함된다.
+- Cloud는 Gemini REST `systemInstruction.parts[0].text`, Local은 Ollama `/api/chat`의 첫 번째
+  `messages` 항목(`role=system`)으로 전달한다. 다른 관점은 system instruction을 교체하지 않고 user prompt에만
+  `ALTERNATE_PERSPECTIVE_INSTRUCTION`을 추가하며 temperature를 0.2에서 0.4로 바꾼다.
+- 실제 payload builder의 네 결과가 모두 같은 system 문자열인지 확인했고, 관련 Backend 경로 테스트는
+  4 passed·19 deselected였다. Local 영문 출력은 system instruction 누락이 아니라 Gemma의 지시 미준수다.

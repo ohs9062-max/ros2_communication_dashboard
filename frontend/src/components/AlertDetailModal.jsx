@@ -5,6 +5,8 @@ import { formatTime } from '../utils/format.js'
 
 export function AlertDetailModal({
   analysisProvider,
+  alternateAiError,
+  alternateAiLoading,
   aiAnalysis,
   aiError,
   aiLoading,
@@ -14,6 +16,7 @@ export function AlertDetailModal({
   localAiError,
   localAiLoading,
   onAnalyze,
+  onAnalyzeAlternative,
   onAnalyzeLocally,
   onClose,
 }) {
@@ -64,14 +67,24 @@ export function AlertDetailModal({
             <strong>Alert 상세</strong>
             <span>{alert.name}</span>
           </div>
-          <button
-            aria-label="Alert 상세 닫기"
-            className="preview-modal-close"
-            onClick={onClose}
-            type="button"
-          >
-            닫기
-          </button>
+          <div className="alert-detail-modal-actions">
+            <button
+              className="preview-modal-close"
+              disabled={alternateAiLoading || displayedLoading || !displayedAnalysis}
+              onClick={onAnalyzeAlternative}
+              type="button"
+            >
+              {alternateAiLoading ? '다른 관점 분석 중...' : '다른 관점 분석'}
+            </button>
+            <button
+              aria-label="Alert 상세 닫기"
+              className="preview-modal-close"
+              onClick={onClose}
+              type="button"
+            >
+              닫기
+            </button>
+          </div>
         </header>
 
         <div className="alert-detail-grid">
@@ -129,7 +142,9 @@ export function AlertDetailModal({
               </div>
             </div>
 
-            {displayedError && <p className="error-text alert-ai-error">{displayedError}</p>}
+            {(alternateAiError || displayedError) && (
+              <p className="error-text alert-ai-error">{alternateAiError || displayedError}</p>
+            )}
             {!displayedAnalysis && !displayedError && !displayedLoading && (
               <div className="empty-state alert-ai-empty">
                 AI 분석 버튼을 누르면 선택한 Alert를 진단합니다.
