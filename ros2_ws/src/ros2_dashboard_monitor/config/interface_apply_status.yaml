@@ -2,8 +2,8 @@ running: false
 status: success
 build_status: success
 real_apply_success: true
-started_at: '2026-08-13T01:41:57.581726+00:00'
-finished_at: '2026-08-13T01:42:03.662025+00:00'
+started_at: '2026-08-31T00:45:45.577889+00:00'
+finished_at: '2026-08-31T00:45:53.506696+00:00'
 returncode: 0
 workspace_path: ros2_ws
 log_path: ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
@@ -24,8 +24,8 @@ summary: &id002
     registry_path: ros2_ws/src/ros2_dashboard_monitor/config/interface_registry.yaml
     interface_package: geometry_msgs
     interface_package_path: ros2_ws/src/uploaded_interfaces/generated_interfaces
-    total: 1
-    applied_count: 1
+    total: 3
+    applied_count: 3
     not_applied: []
     import_pending: []
     requires_import_available: true
@@ -42,8 +42,8 @@ summary: &id002
     not_applied: []
     import_pending: []
     requires_import_available: true
-  total: 5
-  applied_count: 5
+  total: 7
+  applied_count: 7
   not_applied: &id001 []
   import_pending: []
   requires_import_available: true

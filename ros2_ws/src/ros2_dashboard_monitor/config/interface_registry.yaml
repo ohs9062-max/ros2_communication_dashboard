@@ -21,7 +21,96 @@ interface_registry:
       manual_registration: true
       error: null
       last_build_status: success
-      last_build_at: '2026-08-13T01:42:03.662379+00:00'
-      import_checked_at: '2026-08-13T01:42:03.679452+00:00'
-  services: []
-  actions: []
+      last_build_at: '2026-08-31T00:45:53.548201+00:00'
+      import_checked_at: '2026-08-31T00:45:53.745228+00:00'
+  services:
+  - file_name: OHS.srv
+    file_kind: srv
+    type_name: OHS
+    full_type: uploaded_interfaces/srv/OHS
+    source: manual_definition
+    allowlisted: true
+    uploaded_at: '2026-08-31T00:43:23.970277+00:00'
+    raw_text: 'uint8 cmd
+
+      ---
+
+      bool success
+
+      string message
+
+      '
+    parsed:
+      request:
+      - type: uint8
+        raw_line: uint8 cmd
+        name: cmd
+      response:
+      - type: bool
+        raw_line: bool success
+        name: success
+      - type: string
+        raw_line: string message
+        name: message
+    build:
+      interface_package: uploaded_interfaces
+      interface_package_path: ros2_ws/src/uploaded_interfaces/generated_interfaces
+      saved_path: ros2_ws/src/uploaded_interfaces/generated_interfaces/srv/OHS.srv
+      file_saved: true
+      cmake_registered: true
+      package_xml_checked: true
+      dependency_candidates: []
+      rebuild_required: false
+      import_available: true
+      import_error: null
+      error: null
+      last_build_status: success
+      last_build_at: '2026-08-31T00:45:53.548201+00:00'
+      import_checked_at: '2026-08-31T00:45:53.745228+00:00'
+  actions:
+  - file_name: SSS.action
+    file_kind: action
+    type_name: SSS
+    full_type: uploaded_interfaces/action/SSS
+    source: manual_definition
+    allowlisted: true
+    uploaded_at: '2026-08-31T00:45:43.941462+00:00'
+    raw_text: 'uint8 command
+
+      ---
+
+      bool success
+
+      ---
+
+      string status
+
+      '
+    parsed:
+      goal:
+      - type: uint8
+        raw_line: uint8 command
+        name: command
+      result:
+      - type: bool
+        raw_line: bool success
+        name: success
+      feedback:
+      - type: string
+        raw_line: string status
+        name: status
+    build:
+      interface_package: uploaded_interfaces
+      interface_package_path: ros2_ws/src/uploaded_interfaces/generated_interfaces
+      saved_path: ros2_ws/src/uploaded_interfaces/generated_interfaces/action/SSS.action
+      file_saved: true
+      cmake_registered: true
+      package_xml_checked: true
+      dependency_candidates: []
+      rebuild_required: false
+      import_available: true
+      import_error: null
+      error: null
+      last_build_status: success
+      last_build_at: '2026-08-31T00:45:53.548201+00:00'
+      import_checked_at: '2026-08-31T00:45:53.745228+00:00'
