@@ -15,10 +15,17 @@ Backend는 `backend/app/settings.py`가 `backend/.env`를 읽는다.
 | `USER_PREFERENCES_PATH` | 주요 리소스 YAML |
 | `ALERT_DB_ENABLED` | MariaDB Alert 저장 사용 여부 |
 | `MARIADB_*` | Alert DB 연결 정보와 재시도 설정 |
+| `GEMINI_API_KEY`, `GEMINI_API_BASE_URL`, `GEMINI_TIMEOUT_SEC` | 선택 Cloud Alert AI 분석 설정 |
+| `LOCAL_LLM_URL`, `LOCAL_LLM_MODEL`, `LOCAL_LLM_TIMEOUT` | 선택 Local Ollama Alert AI 분석 설정 |
 
 비밀번호가 포함된 실제 `.env`는 Git에 포함하지 않는다. 예시는 `backend/.env.example`을 사용한다.
 제품 설치기는 비밀번호가 비어 있을 때만 랜덤 값을 생성하고 MariaDB 전용 DB/계정/schema를 자동 준비한다.
 Backend runtime에는 해당 DB의 SELECT, INSERT, UPDATE, DELETE 권한만 사용한다.
+
+Local AI는 `LOCAL_LLM_URL`이 loopback일 때 설치기가 Ollama runtime과 service만 준비한다. 설정 모델은 설치 중
+다운로드하지 않으며, Alert 상세에서 Local 분석을 처음 요청했을 때 모델이 없으면 사용자의 승인 뒤 Backend가
+Ollama `/api/pull`을 background로 실행한다. 화면은 `/ros/alerts/ai-diagnosis/local/model`의 실제 다운로드 진행 상태를
+polling하고, 완료되면 처음 요청한 분석을 이어서 실행한다.
 
 ## Monitor
 

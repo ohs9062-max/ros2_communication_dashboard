@@ -18,6 +18,8 @@ FastAPI Backend의 REST API와 `/ws/monitor`만 사용한다.
 - Interface Lab 상단은 `통신 실행`의 Topic 발행/Service 호출/Action Goal과 `서버 개설`의 Service/Action 개설로
   구분한다. Topic 수신은 기존 우측 수신 영역을 사용하며 Topic Server UI는 없다. Server 화면의 실행 상태와
   Request/Goal/Cancel/Result 이력은 Monitor API 응답만 표시한다.
+- Alert 상세는 Cloud와 Local AI 분석을 분리해 요청한다. Local 모델이 아직 없으면 모델명·실제 다운로드 진행률을
+  표시하는 Modal에서 사용자의 승인을 받은 뒤 Backend background download가 끝났을 때 원래 분석을 한 번 재개한다.
 
 ```bash
 npm install

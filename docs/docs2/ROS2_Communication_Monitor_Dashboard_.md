@@ -301,7 +301,8 @@ Monitor 종료 시 ROS2 Node, Subscription, observer와 thread 자원을 함께 
 
 첫 번째는 Jetson Nano나 Raspberry Pi와 터치 디스플레이에 대시보드를 탑재하는 현장형 엣지 모니터링 장비입니다.
 
-두 번째는 통신 로그, Alert, Node 상태, Service Timeout, Action 실패 결과를 LLM과 연결해 원인 후보와 우선 점검 항목을 제안하는 기능입니다.
+두 번째는 현재 구현된 Alert AI 분석입니다. Alert의 Dashboard 사실을 Cloud 또는 Local AI에 전달해 원인 후보와
+우선 점검 항목을 제안하며, Local 모델이 없을 때는 화면에서 다운로드를 승인한 뒤 실제 진행률을 확인할 수 있습니다.
 
 세 번째는 YAML 필터, Graph 관계, Alert 발생 빈도, 통신 의존도를 분석해 먼저 확인해야 할 통신을 자동 선별하는 기능입니다.
 

@@ -47,6 +47,12 @@ DB·계정·schema, systemd unit, Nginx/TLS를 설치하고 실제 service와 he
 `.env` 값은 재설치에서 보존한다. 시스템 설정 백업은
 `/var/backups/ros2-dashboard/<시각>/`, 설치 로그는 `/var/log/ros2-dashboard/install.log`에 남는다.
 
+Local AI를 쓸 경우 설치기는 `LOCAL_LLM_URL`의 localhost Ollama 실행 파일과 `ollama.service`, `/api/tags` 응답까지만
+준비한다. `LOCAL_LLM_MODEL`의 Gemma 모델은 설치 중 받지 않는다. Alert 상세에서 처음 `로컬 AI 분석`을 누를 때
+모델이 없으면 화면이 모델명과 다운로드 버튼을 보여준다. 사용자가 승인하면 Backend가 Ollama `/api/pull`을 background로
+실행하고 실제 `completed/total` 진행률을 표시한다. 완료되면 처음 요청한 기본 분석 또는 다른 관점 분석을 한 번 이어서
+실행한다. Ollama runtime 자체가 없으면 화면은 설치 스크립트 재실행만 안내한다.
+
 ## ROS Domain과 RMW
 
 제품 설정의 기준은 `backend/.env`다.

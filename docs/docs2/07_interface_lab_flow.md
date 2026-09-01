@@ -38,7 +38,7 @@ ros2_ws/src/ros2_dashboard_monitor/config/interface_apply_last.log
 
 ## Apply
 
-`interface_lab/apply/runtime.py run_interface_apply()` L62-L203은 lock과 running 상태, 사전 검사,
+`interface_lab/apply/runtime.py run_interface_apply()` L62-L205은 lock과 running 상태, 사전 검사,
 workspace build, log, install 경로와 Python import 검사를 관리한다. 성공 응답 뒤
 `restart_monitor_after_delay()` L206-L209가 Monitor를 재실행한다. Registry와 원본 Interface는 build
 생성물로 취급해 삭제하지 않는다.
@@ -47,12 +47,12 @@ workspace build, log, install 경로와 Python import 검사를 관리한다. �
 
 | 기능 | Route | Runtime |
 |---|---|---|
-| schema/callable | `topic_execution.py` L18-L41 | `InterfaceReceiveRuntime` L93-L101 |
-| 1회 Publish | `topic_execution.py` L44-L89 | `publish_topic()` L156-L170 |
-| 지속 Publish | `topic_execution.py` L99-L165 | `start/stop_continuous_publish()` L178-L201 |
-| Publish history reset | `topic_execution.py` L168-L179 | `reset_publish_history()` L211-L230 |
-| Receive start/stop/list | `topic_receive.py` L16-L59 | `start_topic/stop_topic/topics` L103-L122 |
-| Receive history/reset | `topic_receive.py` L61-L96 | `topic_history/reset_topic_history` L131-L154 |
+| schema/callable | `topic_execution.py` L18-L44 | `InterfaceReceiveRuntime` L93-L102 |
+| 1회 Publish | `topic_execution.py` L44-L92 | `publish_topic()` L156-L171 |
+| 지속 Publish | `topic_execution.py` L99-L160 | `start/stop_continuous_publish()` L178-L202 |
+| Publish history reset | `topic_execution.py` L168-L179 | `reset_publish_history()` L211-L231 |
+| Receive start/stop/list | `topic_receive.py` L16-L61 | `start_topic/stop_topic/topics` L103-L123 |
+| Receive history/reset | `topic_receive.py` L61-L96 | `topic_history/reset_topic_history` L131-L155 |
 
 자동 감시 Subscription은 latest/Hz/stale 계산용이고 Lab Receive는 사용자가 payload를 확인하는 명시적
 Subscription이다. Topic Publisher/Subscription은 name/type과 QoS fingerprint가 같을 때만 재사용한다.
@@ -64,11 +64,11 @@ History 기록은 계속될 수 있다.
 
 | 기능 | Route | Runtime |
 |---|---|---|
-| Service Call | `service_execution.py` L15-L68 | `ServiceCallRuntime.call_service()` L84-L156 |
-| Service history | `service_execution.py` L70-L112 | `ServiceCallRuntime` L158-L203 |
-| Action Goal | `action_execution.py` L15-L76 | `ActionGoalRuntime.send_goal()` L84-L123 |
-| Action Cancel | `action_execution.py` L101-L114 | `ActionGoalRuntime.cancel_goal()` L131-L144 |
-| Action history | `action_execution.py` L78-L135 | `ActionGoalRuntime` L146-L186 |
+| Service Call | `service_execution.py` L34-L78 | `ServiceCallRuntime.call_service()` L84-L157 |
+| Service history | `service_execution.py` L78-L122 | `ServiceCallRuntime` L158-L204 |
+| Action Goal | `action_execution.py` L34-L86 | `ActionGoalRuntime.send_goal()` L84-L124 |
+| Action Cancel | `action_execution.py` L108-L124 | `ActionGoalRuntime.cancel_goal()` L131-L145 |
+| Action history | `action_execution.py` L86-L146 | `ActionGoalRuntime` L146-L203 |
 
 Message/Request/Goal은 schema 기반 JSON을 generated ROS object로 변환한다. Topic Publish, Service Request,
 Action Goal의 object/array JSON 필드는 공통 `frontend/src/features/interface-lab/SchemaRequestField.jsx`를

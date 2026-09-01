@@ -279,6 +279,8 @@ MARIADB_USER                     ros2_dashboard
 MARIADB_PASSWORD                 secret, Git 기록 금지
 MARIADB_CONNECT_TIMEOUT_SEC      2
 MARIADB_RETRY_INTERVAL_SEC       5
+GEMINI_API_KEY / GEMINI_API_BASE_URL / GEMINI_TIMEOUT_SEC
+LOCAL_LLM_URL / LOCAL_LLM_MODEL / LOCAL_LLM_TIMEOUT
 ```
 
 Monitor는 `MultiDomainRosMonitor`를 통해 `user_preferences.yaml`의 `domains.ids`에 저장된 여러 `ROS_DOMAIN_ID`를 동시에 감시한다. Backend `/ros/domains`는 설정된 Domain 목록과 각 Domain의 런타임 상태를 Monitor snapshot에서 반환하며, Domains 화면에서 Domain ID를 추가·삭제하면 Monitor가 해당 Domain의 rclpy Context/Node/observer runtime을 즉시 생성·종료하여 동적으로 반영한다. 각 리소스는 `domain_id`와 `resource_key`로 구분되어 다중 Domain 환경을 통합 지원한다.
@@ -718,6 +720,8 @@ GET  /ros/topics, /ros/services, /ros/actions, /ros/nodes
 GET/PUT /ros/domains
 GET  /ros/alerts, /ros/alerts/history
 POST /ros/alerts/current/reset, /ros/alerts/history/reset
+POST /ros/alerts/ai-diagnosis, /ros/alerts/ai-diagnosis/local
+GET/POST /ros/alerts/ai-diagnosis/local/model
 GET/PUT/DELETE /user-preferences/...
 WS   /ws/monitor
 ```
@@ -733,6 +737,11 @@ Service Server API는 `/ros/interfaces/service-servers`의 types/start/stop/stat
 
 Monitor와 Backend는 Python singleton이나 메모리를 공유하지 않는다. MariaDB를 snapshot 전달 수단으로 사용하지
 않고 localhost HTTP만 사용한다.
+
+Alert AI는 Backend 소유의 선택 기능이다. Cloud와 Local은 서로 fallback하지 않으며 Local 모델은 설치기가 Ollama
+runtime/service만 준비하고 Alert 화면에서 사용자가 승인할 때 Backend가 background `/api/pull`로 받는다. 모델 상태
+endpoint는 실제 진행률을 반환하며 준비 뒤 처음 요청한 기본 또는 다른 관점 Local 분석은 Ollama `/api/chat`에 한 번만
+요청한다.
 
 ## 14. 실행과 검수
 

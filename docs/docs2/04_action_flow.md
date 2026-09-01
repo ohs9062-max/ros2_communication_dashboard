@@ -16,11 +16,11 @@ rclpy Action Graph
 |---:|---|---|
 | 1 | `ros2_action/runtime.py ActionRuntime.update()` L84-L166 | Action Graph, filter, disconnected debounce와 runtime 조립 |
 | 2 | `ros2_action/subscription_lifecycle.py` | Status/Feedback Subscription 생성·정리 |
-| 3 | `ros2_action/subscriptions.py` L70-L235 | Goal status, Feedback, Result와 elapsed cache 갱신 |
+| 3 | `ros2_action/subscriptions.py` L77-L314 | Goal status, Feedback, Result와 elapsed cache 갱신 |
 | 4 | `action_snapshot.py assemble_action_snapshot()` L15-L136 | 외부 Node 수, Goal 요약, Interface Lab 상태, 5채널 QoS 병합 |
 | 5 | `transport/routers/monitoring.py get_ros_actions()` L96-L106 | Monitor Action API |
-| 6 | `frontend/src/hooks/useActionDashboard.js` L10-L83 | Action·Alert·Node polling과 상세 선택 |
-| 7 | `frontend/src/pages/ActionsPage.jsx` L23-L182 | 주요/전체, 검색·Goal 상태 filter, 목록·상세 |
+| 6 | `frontend/src/hooks/useActionDashboard.js` L10-L85 | Action·Alert·Node polling과 상세 선택 |
+| 7 | `frontend/src/pages/ActionsPage.jsx` L22-L163 | 주요/전체, 검색·Goal 상태 filter, 목록·상세 |
 
 기본 목록은 상태, 이름, type, Action Server/Client Node 수, 마지막 Goal 상태, 마지막 Feedback,
 마지막 Result, 실행 시간, 마지막 Goal 시각을 표시한다. 내부 5개 채널, raw Goal/Feedback/Result와 endpoint
@@ -40,12 +40,12 @@ POST /ros/interfaces/action-goal
 → accept / feedback / result / cancel + history
 ```
 
-- Goal route: `transport/routers/action_execution.py` L27-L76
-- Cancel route: 같은 파일 L101-L114
-- Goal runtime entry: `interface_lab/execution/action_goal_runtime.py send_goal()` L84-L123
-- Cancel: 같은 파일 `cancel_goal()` L131-L144
-- History/reset: 같은 파일 L146-L186
-- Dashboard Lab Client 상태: 같은 파일 `dashboard_state_by_action()` L208-L212
+- Goal route: `transport/routers/action_execution.py` L34-L86
+- Cancel route: 같은 파일 L108-L124
+- Goal runtime entry: `interface_lab/execution/action_goal_runtime.py send_goal()` L84-L124
+- Cancel: 같은 파일 `cancel_goal()` L131-L145
+- History/reset: 같은 파일 L146-L203
+- Dashboard Lab Client 상태: 같은 파일 `dashboard_state_by_action()` L208-L213
 
 사용자가 Goal을 보낼 때만 실제 ActionClient가 생성된다. rejected/canceled/result timeout은 warning,
 aborted/send failure/result unavailable은 error Alert 후보가 된다.

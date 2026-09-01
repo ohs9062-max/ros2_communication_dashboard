@@ -517,6 +517,16 @@ detected_at, resolved_at
 현재 Alert의 “확인 처리”는 화면에서 숨기는 메모리 dismiss이며 DB row를 삭제하거나 acknowledged로 바꾸지 않는다.
 이전 Alert History 초기화는 해결된 row를 삭제하는 별도 동작이다.
 
+### Alert AI 분석
+
+Alert 상세는 선택적으로 Cloud 또는 Local AI 분석을 요청한다. 두 경로는 서로 fallback하지 않으며, 현재 Dashboard
+context와 최근 Topic/Service/Action history를 근거로 structured JSON의 한국어 분석을 반환한다. 현재 Runtime은 Alert
+발생 당시 snapshot이 아니므로 과거 상태를 역추정하지 않는다. Local 경로는 Ollama `/api/chat`을 요청당 한 번만 호출한다.
+
+설치기는 loopback Ollama runtime/service만 준비한다. 설정된 Local 모델이 없으면 Alert 화면에서 사용자의 다운로드
+승인 뒤 Backend가 `/api/pull`을 background로 실행하고 실제 byte 진행률을 표시하며, 완료 뒤 원래의 기본 또는 다른
+관점 요청을 한 번 실행한다.
+
 ## 12. Interface Lab
 
 ### 역할

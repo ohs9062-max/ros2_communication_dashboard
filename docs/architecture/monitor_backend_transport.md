@@ -67,6 +67,21 @@ Service Call, Action Goal/Cancel, interface upload/apply/import-check가 동일 
 사용자 별표 YAML은 Backend만 저장합니다. Backend는 변경된 목록을
 `PUT /transport/priority`로 보내며 Monitor는 메모리 mirror만 유지합니다.
 
+## Alert AI
+
+Alert AI는 Monitor proxy command가 아니라 Backend가 소유한다. Cloud 분석은
+`POST /ros/alerts/ai-diagnosis`, Local 분석은 `POST /ros/alerts/ai-diagnosis/local`을 사용하며 서로 fallback하지
+않는다. Local 모델 상태와 다운로드 시작은 각각
+`GET`/`POST /ros/alerts/ai-diagnosis/local/model`이다. Backend는 Ollama `/api/pull`의 streaming 진행률을 process 내
+background task로 유지하므로 Browser 요청을 장시간 붙잡지 않고, 모델 준비 뒤 처음 요청한 기본 또는 다른 관점 분석을
+한 번 실행한다.
+
+현재 Cloud와 Local은 같은 `AlertDiagnosisService._build_context()`를 사용한다. 선택한 Alert, 현재 Monitor cache의
+resource summary, Topic·Service·Action에 한정한 최근 history 최대 5건을 넣고, 현재 Runtime이 Alert 당시 snapshot이
+아님을 명시한다. 두 경로는 같은 `SYSTEM_INSTRUCTION`과 `DIAGNOSIS_SCHEMA`로 structured JSON을 검증한다. Local은
+Ollama `/api/chat`에 요청당 한 번만 보내며 `num_predict=2048`, 한국어 설명 검증과 Ollama가 준
+`prompt_eval_count`·`eval_count`·duration INFO 로그를 사용한다.
+
 ## Failure behavior
 
 - Monitor 중단: Backend와 Frontend WebSocket은 계속 실행되고 cache 연결 상태가 false가 됩니다.

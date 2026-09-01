@@ -14,6 +14,10 @@ cd ~/rang/ros2_dashboard
 기존 `.env`, Interface Registry/Package/Apply 상태, MariaDB Alert 이력과 TLS 인증서는 재설치 시 보존한다.
 기존 systemd/Nginx 설정은 `/var/backups/ros2-dashboard/<시각>/`에 백업한다.
 
+Local AI를 설정한 경우 설치기는 Ollama runtime/service와 `/api/tags` 응답까지만 준비한다. Gemma 모델은
+`install.sh`에서 다운로드하지 않는다. Alert 상세의 첫 Local 분석 요청에서 모델이 없으면 화면에서 다운로드를 승인하고,
+Backend가 background `/api/pull`의 실제 진행률을 표시한 뒤 해당 분석을 한 번 실행한다.
+
 ## 제품 실행
 
 ```bash
@@ -60,6 +64,8 @@ backend/.env
   MARIADB_HOST / MARIADB_PORT / MARIADB_UNIX_SOCKET
   MARIADB_DATABASE / MARIADB_USER / MARIADB_PASSWORD
   MARIADB_CONNECT_TIMEOUT_SEC / MARIADB_RETRY_INTERVAL_SEC
+  GEMINI_API_KEY / GEMINI_API_BASE_URL / GEMINI_TIMEOUT_SEC
+  LOCAL_LLM_URL / LOCAL_LLM_MODEL / LOCAL_LLM_TIMEOUT
 
 /etc/ros2-dashboard/dashboard.env
   위 ROS runtime 값의 systemd 반영본

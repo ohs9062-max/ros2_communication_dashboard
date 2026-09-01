@@ -1,3 +1,3 @@
-## 1. ui ROS_DOMAIN 반영 (여러개일수 있음)
-## 2. 카메라 이미지 영상식(스트리밍 형태)
-## 3. 모든통신 값 로그화 
+## 1. 완료: UI ROS_DOMAIN 다중 관리
+## 2. 완료: Camera Topic 상세의 demand-driven preview
+## 3. 모든통신 값 로그화
