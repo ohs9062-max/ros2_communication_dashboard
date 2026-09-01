@@ -20,7 +20,6 @@ GEMINI_MODELS = (
     'gemini-3.7-flash',
 )
 HISTORY_LIMIT = 5
-LOCAL_HISTORY_LIMITS = {'topic': 2, 'service': 1, 'action': 2}
 SUPPORTED_SOURCES = {'topic', 'monitor_status', 'service', 'action', 'node'}
 FALLBACK_HTTP_STATUS = {404, 429, 500, 502, 503, 504}
 FALLBACK_PROVIDER_STATUS = {
@@ -38,19 +37,6 @@ DIAGNOSIS_SCHEMA = {
         'evidence': {'type': 'array', 'items': {'type': 'string'}},
         'likely_causes': {'type': 'array', 'items': {'type': 'string'}},
         'recommended_checks': {'type': 'array', 'items': {'type': 'string'}},
-    },
-    'required': ['summary', 'evidence', 'likely_causes', 'recommended_checks'],
-}
-LOCAL_DIAGNOSIS_SCHEMA = {
-    'type': 'object',
-    'additionalProperties': False,
-    'properties': {
-        'summary': {'type': 'string'},
-        'evidence': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 4},
-        'likely_causes': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 3},
-        'recommended_checks': {
-            'type': 'array', 'items': {'type': 'string'}, 'maxItems': 4,
-        },
     },
     'required': ['summary', 'evidence', 'likely_causes', 'recommended_checks'],
 }
@@ -73,16 +59,14 @@ ALTERNATE_PERSPECTIVE_INSTRUCTION = """
 단일 Alert 문구만으로 프로세스 종료, 네트워크 장애, 설정 오류를 새 원인으로 확장하지 마라.
 추가 후보를 뒷받침할 근거가 없다면 likely_causes는 빈 배열로 반환해도 된다.
 """
-LOCAL_SYSTEM_INSTRUCTION = """ROS2 Dashboard Alert 진단 보조자다.
-제공된 Dashboard 사실만 사용하고, 확정 사실과 가능한 원인을 구분하라. 정보가 부족하면 확인할 수 없다고 적어라.
-summary는 Alert 의미와 현재 Dashboard 상태를 연결한 2~3문장으로 쓴다. evidence와 가능한 원인은 실제 값과 그 값이 뜻하는 판단 근거를 함께 쓴다.
-확인 순서는 확인할 값·상태와 결과의 의미를 짧고 구체적으로 쓴다. Alert 문구를 단순 반복하거나 근거 없는 장비·네트워크·코드 장애를 채우지 마라.
-현재 Runtime은 Alert 당시 상태가 아니므로 과거를 역추정하지 마라. QoS가 compatible이면 mismatch 원인으로 말하지 마라.
-Graph entity 존재는 실제 통신 성공이 아니며, Service/Action transport 결과와 application result는 구분하라.
-다른 관점 요청은 같은 사실에서 덜 강조한 근거·다른 원인·다른 확인 순서를 우선하되 새 근거가 없으면 추가 판단이 어렵다고 적어라. 한국어로 지정 JSON schema만 반환하라."""
-LOCAL_KOREAN_OUTPUT_INSTRUCTION = (
-    '\n설명 문장은 한국어로 작성하고 ROS2 이름·type·field·코드·로그 원문만 원문 표기를 유지하라.'
-)
+LOCAL_KOREAN_OUTPUT_INSTRUCTION = """
+
+[중요 출력 규칙]
+
+summary, evidence, likely_causes, recommended_checks의 설명 문장은 반드시 한국어로 작성하라.
+ROS2 고유명사, Topic/Service/Action 이름, interface/type, field name, 코드, 로그 원문만 원래 표기를 유지하라.
+영어 설명문을 생성하지 마라.
+"""
 # SYSTEM_INSTRUCTION = """당신은 ROS2 Dashboard Alert 진단 보조자다.
 # Dashboard가 제공한 사실만 해석하고 새로운 통신 사실을 만들지 마라.
 # 현재 Runtime 상태와 Alert 발생 당시 상태는 다를 수 있으며, historical_data에 없는 과거 상태를 추정하지 마라.
@@ -265,7 +249,7 @@ class AlertDiagnosisService:
         alternate: bool = False,
     ) -> dict[str, Any]:
         alert = _validated_alert(selected_alert)
-        context = await self._build_local_context(alert)
+        context = await self._build_context(alert)
         analysis, model = await self._request_local_llm(context, alternate=alternate)
         return {**analysis, 'model': model}
 
@@ -309,43 +293,6 @@ class AlertDiagnosisService:
                 'items': history,
                 'note': '실제 history에 존재하는 최근 데이터만 포함합니다.',
             },
-        }
-
-    async def _build_local_context(self, alert: dict[str, Any]) -> dict[str, Any]:
-        """Build a compact context solely for the CPU-bound local model."""
-        cache = self._monitor_cache.snapshot()
-        runtime_data = cache.get('data') if isinstance(cache.get('data'), dict) else {}
-        source = alert['source']
-        resource = _find_resource(runtime_data, alert)
-        interface_type = _interface_type(resource)
-        history = await self._load_history(
-            source=source,
-            name=alert['name'],
-            interface_type=interface_type,
-            domain_id=alert.get('domain_id'),
-            limit=LOCAL_HISTORY_LIMITS.get(source, 0),
-        )
-        return {
-            'alert': {
-                'source': source,
-                'code': alert['code'],
-                'severity': alert['level'],
-                'message': alert['message'],
-                'state': alert['alert_state'],
-                'detected_at': alert.get('detected_at'),
-            },
-            'resource': {
-                'name': alert['name'],
-                'interface_type': interface_type,
-                'domain_id': alert.get('domain_id'),
-            },
-            'current_runtime': {
-                'observed_at': cache.get('updated_at'),
-                'monitor_connected': cache.get('connected') is True,
-                'note': '현재 Runtime은 Alert 발생 당시 snapshot이 아닙니다.',
-                'data': _local_runtime_summary(source, alert, resource),
-            },
-            'history': _local_history_summary(source, history),
         }
 
     async def _load_history(
@@ -454,6 +401,12 @@ class AlertDiagnosisService:
         if not self._local_llm_model:
             raise LocalLlmConfigurationError('LOCAL_LLM_MODEL is not configured')
 
+        payload = _local_llm_payload(
+            context,
+            self._local_llm_model,
+            alternate=alternate,
+        )
+        _log_local_context_shape(context, payload)
         factory = self._local_client_factory or (
             lambda: httpx.AsyncClient(timeout=self._local_llm_timeout_sec)
         )
@@ -461,11 +414,7 @@ class AlertDiagnosisService:
             async with factory() as client:
                 response = await client.post(
                     f'{self._local_llm_url}/api/chat',
-                    json=_local_llm_payload(
-                        context,
-                        self._local_llm_model,
-                        alternate=alternate,
-                    ),
+                    json=payload,
                 )
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise LocalLlmRequestError('Local LLM transport failed') from exc
@@ -476,7 +425,7 @@ class AlertDiagnosisService:
             payload = response.json()
             message = payload.get('message') if isinstance(payload, dict) else None
             content = message.get('content') if isinstance(message, dict) else None
-            analysis = _parse_structured_diagnosis(content, schema=LOCAL_DIAGNOSIS_SCHEMA)
+            analysis = _parse_structured_diagnosis(content, schema=DIAGNOSIS_SCHEMA)
             if not _local_explanations_are_korean(analysis):
                 raise ValueError('Local LLM explanations are not Korean')
             model = str(payload.get('model') or '').strip()
@@ -607,162 +556,6 @@ def _runtime_summary(source: str, resource: dict[str, Any] | None) -> dict[str, 
     return _bounded_value({key: resource.get(key) for key in fields if key in resource})
 
 
-def _local_runtime_summary(
-    source: str,
-    alert: dict[str, Any],
-    resource: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    if source == 'monitor_status':
-        return _local_monitor_status(alert.get('monitor_status'))
-    if not resource:
-        return None
-    if source == 'topic':
-        result = _selected_fields(resource, (
-            'status', 'effective_status', 'graph_present', 'publisher_count',
-            'subscriber_count', 'hz', 'age_sec', 'stale', 'last_received_at',
-            'qos_status', 'qos_detection_source', 'mismatch_reason',
-        ))
-        diagnosis = resource.get('reception_diagnosis')
-        if isinstance(diagnosis, dict):
-            result['reception_diagnosis'] = _selected_fields(diagnosis, (
-                'reception_status', 'publisher_present', 'subscription_created',
-                'qos_status', 'qos_detection_source', 'mismatch_policies',
-                'cause', 'certainty', 'message',
-            ))
-        return result
-    if source == 'service':
-        result = _selected_fields(resource, (
-            'status', 'graph_present', 'callable', 'server_count', 'client_count',
-            'call_status', 'qos_status', 'qos_detection_source', 'mismatch_reason',
-        ))
-        summary = _local_service_summary(resource.get('last_call_summary'))
-        if summary:
-            result['last_call'] = summary
-        return result
-    if source == 'action':
-        result = _selected_fields(resource, (
-            'status', 'graph_present', 'callable', 'server_count', 'client_count',
-        ))
-        lifecycle = _local_action_summary(
-            resource.get('last_goal_summary'), resource.get('runtime'),
-        )
-        if lifecycle:
-            result['lifecycle'] = lifecycle
-        if alert['code'] == 'action_qos_incompatible':
-            channel = alert.get('channel')
-            if channel:
-                result['qos_channel'] = channel
-                qos = resource.get('qos')
-                channel_qos = qos.get(channel) if isinstance(qos, dict) else None
-                if isinstance(channel_qos, dict):
-                    result['qos'] = _selected_fields(channel_qos, (
-                        'qos_status', 'status', 'qos_detection_source',
-                        'graph_qos_status', 'mismatch_reason', 'mismatch_policies',
-                        'compatible_endpoint_count', 'remote_endpoint_count',
-                        'incompatible_endpoint_count', 'confirmation_count',
-                    ))
-        return result
-    if source == 'node':
-        return _selected_fields(resource, (
-            'status', 'graph_present', 'last_seen_at', 'publisher_count',
-            'subscriber_count', 'server_count', 'client_count',
-            'action_server_count', 'action_client_count',
-        ))
-    return None
-
-
-def _selected_fields(value: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
-    return {field: _local_value(value[field]) for field in fields if field in value}
-
-
-def _local_service_summary(value: Any) -> dict[str, Any] | None:
-    if not isinstance(value, dict):
-        return None
-    result = _selected_fields(value, (
-        'sent_to_server', 'last_call_status', 'status', 'last_called_at',
-        'last_response_time_ms', 'timeout_sec', 'elapsed_ms', 'error_type',
-        'last_error', 'execution_source',
-    ))
-    response = value.get('last_response_preview')
-    if isinstance(response, dict):
-        application = _selected_fields(response, ('success', 'message', 'error'))
-        if application:
-            result['application_result'] = application
-    return result or None
-
-
-def _local_action_summary(summary: Any, runtime: Any) -> dict[str, Any] | None:
-    result: dict[str, Any] = {}
-    if isinstance(summary, dict):
-        result.update(_selected_fields(summary, (
-            'status', 'last_goal_status', 'sent_to_server', 'accepted',
-            'last_goal_sent_at', 'last_feedback_at', 'last_result_at',
-            'execution_time_ms', 'error_type', 'last_error', 'execution_source',
-        )))
-    if isinstance(runtime, dict):
-        for field in (
-            'last_goal_status', 'last_goal_sent_at', 'last_status_at',
-            'last_result_at', 'result_status', 'result_error', 'execution_time_ms',
-        ):
-            if field in runtime and field not in result:
-                result[field] = _local_value(runtime[field])
-    return result or None
-
-
-def _local_monitor_status(value: Any) -> dict[str, Any] | None:
-    if not isinstance(value, dict):
-        return None
-    result = _selected_fields(value, ('device_name', 'node_name', 'status'))
-    values = value.get('values')
-    if isinstance(values, dict):
-        result['values'] = {
-            str(key)[:80]: _local_value(item)
-            for key, item in list(values.items())[:5]
-        }
-    elif isinstance(values, list):
-        result['values'] = [_local_value(item) for item in values[:5]]
-    return result or None
-
-
-def _local_history_summary(source: str, history: list[Any]) -> list[dict[str, Any]]:
-    summaries: list[dict[str, Any]] = []
-    for item in history:
-        if not isinstance(item, dict):
-            continue
-        if source == 'topic':
-            summary = _selected_fields(item, ('received_at', 'last_received_at', 'status'))
-        elif source == 'service':
-            summary = _local_service_summary(item) or _selected_fields(item, (
-                'sent_to_server', 'call_status', 'status', 'called_at',
-                'last_called_at', 'elapsed_ms', 'timeout_sec', 'error_type', 'error',
-            ))
-            response = item.get('response')
-            if isinstance(response, dict):
-                application = _selected_fields(response, ('success', 'message', 'error'))
-                if application:
-                    summary['application_result'] = application
-        elif source == 'action':
-            summary = _local_action_summary(item, item) or _selected_fields(item, (
-                'event_type', 'status_label', 'status', 'sent_to_server', 'accepted',
-                'received_at', 'execution_time_ms', 'error_type', 'error',
-            ))
-            for field in ('event_type', 'status_label', 'received_at'):
-                if field in item and field not in summary:
-                    summary[field] = _local_value(item[field])
-        else:
-            continue
-        if summary:
-            summaries.append(summary)
-    return summaries
-
-
-def _local_value(value: Any) -> Any:
-    if isinstance(value, str):
-        return value[:240]
-    if value is None or isinstance(value, (bool, int, float)):
-        return value
-    return _bounded_value(value, limit=2)
-
 
 def _history_path(
     *,
@@ -820,20 +613,20 @@ def _local_llm_payload(
     return {
         'model': model,
         'stream': False,
-        'format': LOCAL_DIAGNOSIS_SCHEMA,
+        'format': DIAGNOSIS_SCHEMA,
         'messages': [
-            {'role': 'system', 'content': LOCAL_SYSTEM_INSTRUCTION},
+            {'role': 'system', 'content': SYSTEM_INSTRUCTION},
             {
                 'role': 'user',
                 'content': (
-                    _local_diagnosis_prompt(context, alternate=alternate)
+                    _diagnosis_prompt(context, alternate=alternate)
                     + LOCAL_KOREAN_OUTPUT_INSTRUCTION
                 ),
             },
         ],
         'options': {
             'temperature': ALTERNATE_PERSPECTIVE_TEMPERATURE if alternate else 0.2,
-            'num_predict': 768,
+            'num_predict': 2048,
         },
     }
 
@@ -847,13 +640,26 @@ def _diagnosis_prompt(context: dict[str, Any], *, alternate: bool = False) -> st
     return prompt + ALTERNATE_PERSPECTIVE_INSTRUCTION if alternate else prompt
 
 
-def _local_diagnosis_prompt(context: dict[str, Any], *, alternate: bool = False) -> str:
-    prompt = '다음 축약 Dashboard 사실을 JSON 진단으로 반환하세요.\n' + json.dumps(
-        context,
-        ensure_ascii=False,
-        separators=(',', ':'),
+def _log_local_context_shape(context: dict[str, Any], payload: dict[str, Any]) -> None:
+    runtime = context.get('current_runtime_state')
+    runtime_data = runtime.get('data') if isinstance(runtime, dict) else None
+    alert = context.get('alert_record')
+    resource = context.get('resource')
+    historical = context.get('historical_data')
+    history = historical.get('items') if isinstance(historical, dict) else None
+    prompt = payload.get('messages', [{}, {}])[1].get('content', '')
+    serialized_context = json.dumps(context, ensure_ascii=False, separators=(',', ':'))
+    LOGGER.info(
+        'Local Alert diagnosis context source=%s code=%s keys=%s runtime_keys=%s '
+        'history_count=%s context_chars=%s prompt_chars=%s',
+        resource.get('kind') if isinstance(resource, dict) else None,
+        alert.get('code') if isinstance(alert, dict) else None,
+        sorted(context),
+        sorted(runtime_data) if isinstance(runtime_data, dict) else [],
+        len(history) if isinstance(history, list) else 0,
+        len(serialized_context),
+        len(prompt) if isinstance(prompt, str) else 0,
     )
-    return prompt + ALTERNATE_PERSPECTIVE_INSTRUCTION if alternate else prompt
 
 
 def _parse_gemini_response(payload: Any) -> dict[str, Any]:

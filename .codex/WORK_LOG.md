@@ -4,68 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-31 - Interface Lab Service Server 다중 개설 제한 원인 검수
-
-- 코드 변경 없이 Service/Action Server의 Frontend controller·panel, Monitor API, `MultiDomainRosMonitor`, Runtime을 대조했다.
-- Service Runtime은 Domain별 인스턴스의 `(service_name, service_type)` 딕셔너리에 복수 entity를 보관하고 status API도 전체 Domain의 `servers[]`를 반환하므로 다중 Server를 지원한다.
-- 실제 차단 지점은 현재 선택 identity가 실행 중일 때 `ServiceServerPanel`이 `active`로 Domain/type/name 입력과 Start를 함께 비활성화하는 Frontend UI다. 선택을 다른 identity로 바꿀 수 없어 기존 exact identity의 active 상태에서 빠져나오지 못한다.
-- Action controller/panel도 같은 단일 선택 잠금 구조이므로 Action 자체의 두 번째 Server에도 같은 제약이 있다. Service 실행 중 Action 개설이 가능한 이유는 Service와 Action controller의 `active`/`busy` state 및 Runtime이 서로 독립이기 때문이다.
-- 수정 시 최소 범위는 Service Server controller/panel의 선택 상태와 실행 중 Server collection UI를 분리하고, 실행 중 Server가 하나라도 있으면 status polling을 유지하는 Frontend 경로다. ROS Runtime, multi-domain, Registry, Client Runtime, Alert 변경은 필요하지 않다.
-
-## 2026-08-31 - Interface Lab Service/Action Server 다중 개설 UI 수정
-
-- Service/Action Server controller의 실행 목록과 현재 편집 identity를 분리해 유지하고 exact
-  `(domain_id, name, type)` helper로 현재 선택 Server만 active 판정하도록 통일했다. 실행 중 Server가 있어도
-  Domain/type/name을 변경할 수 있으며 Start는 현재 exact identity가 실행 중일 때만 비활성화되고 Stop은 해당
-  active Server payload만 사용한다.
-- status/history polling 조건을 선택된 `activeServer`가 아니라 각 controller의 `servers.length > 0`으로 바꿔
-  다른 identity를 편집하거나 하나만 종료한 뒤에도 남은 Server 목록을 계속 갱신한다. Monitor Runtime/API,
-  MultiDomain, Registry, Client Runtime, Alert는 변경하지 않았다.
-- exact Service/Action identity와 다른 Domain의 동일 name/type 분리 회귀 테스트를 추가했다. Frontend unit 전체,
-  lint(기존 `VisualizationPage` warning 1건), production build와 diff check를 통과했다.
-- 임시 Monitor 8875의 실제 D99에서 Service `/RobotControl`+`/ScheduleCrud`, Action `/action_a`+`/action_b`를 각각
-  동시에 개설해 status 2건을 확인하고 두 번째 Server만 종료했을 때 첫 번째가 유지됨을 확인했다. 검증 후 임시
-  Server와 Monitor를 모두 종료했다.
-- build를 로컬 HTTPS 정적 경로에 동기화했다. source/target `index.html` SHA-256은
-  `8c1bb08505eeac610b03ba85c71903f54dc0acc2faf3fa3c6818b7b2a3fd66a5`, 실제 HTTPS는 200과
-  `assets/index-bXPhsPVr.js`를 반환했다.
-
-## 2026-08-31 - Interface Lab 실행 Server 개설 목록 추가
-
-- Interface Lab 상단 `서버 개설` 그룹에 `개설 목록`을 추가했다. 기존 Service/Action Server status API를 동시에
-  조회해 Runtime에 실제 존재하는 항목만 TYPE/DOMAIN/NAME/INTERFACE TYPE/상태/관리 컬럼의 전체 폭 테이블로
-  합치며 Frontend optimistic/fake active 목록은 만들지 않는다.
-- 목록은 열린 동안 1초마다 두 status API를 polling한다. 각 종료 버튼은 행의 exact `(domain_id, name, type)`로
-  기존 Service 또는 Action Stop API를 호출하고, 성공 후 두 status를 즉시 재조회한다.
-- 혼합 목록 정규화, Service/Action Stop 분기와 payload, 동일 name/type의 Domain 분리에 대한 unit test를 추가했다.
-  Frontend unit 전체, lint(기존 `VisualizationPage` warning 1건), production build와 diff check를 통과했다.
-- 임시 Monitor 8875에서 D99 Service 2개, D99 Action 2개, D4의 동일 `/RobotControl` Service 1개를 함께 개설해
-  5개 Runtime status를 확인했다. D99 `/RobotControl`만 exact Stop한 뒤 나머지 4개가 유지됐고 검증 종료 시 임시
-  Server와 Monitor를 모두 정리했다.
-- build를 로컬 HTTPS 정적 경로에 동기화했다. source/target `index.html` SHA-256은
-  `c082a3daed7312a7c726dd93891dee1e8b087eda8a4d8e3a48e9ee177a5a70d1`, 실제 HTTPS와 새 Interface Lab lazy
-  asset은 200을 반환했으며 Headless Chrome 실화면에서 `개설 목록` 버튼을 확인했다.
-
-## 2026-08-31 - Interface Lab 개설 목록 종료 버튼 무동작 검수
-
-- 코드 변경 없이 종료 event 경로를 추적했다. `ServerListPanel`은 `onStop(server)`을 호출하지만 목록 view는
-  controller의 `stop`을 `onStop`으로 매핑하지 않아 Panel 기본 no-op이 실행된다. 따라서 클릭은 막히지 않고
-  console/runtime error나 Stop API 요청도 발생하지 않는다.
-- `runningServerStopPayload`의 Service/Action exact payload와 기존 개별 Server panel의 Stop API 계약은 정상이다.
-  최소 수정은 목록 view props에서 `onStop: serverList.stop`을 명시해 prop 이름을 맞추고 이를 회귀 test로 고정하는
-  것이다. Runtime/API 변경은 필요 없다.
-
-## 2026-08-31 - Interface Lab 개설 목록 종료 버튼 연결 수정
-
-- `interfaceExecutionViews`의 `serverList` view에 controller `stop`을 `onStop`으로 명시 매핑했다. 이제
-  `ServerListPanel`의 각 행 종료 클릭이 기존 Service/Action exact Stop helper와 API까지 연결된다.
-- view contract 회귀 test를 추가했고 Frontend unit 전체, lint(기존 `VisualizationPage` 미사용 인자 warning 1건),
-  production build를 통과했다.
-- 임시 Monitor 8875에서 D99 Service 2개와 Action 2개를 동시에 시작한 뒤 `/ScheduleCrud`, `/action_b`만 종료해
-  `/RobotControl`, `/action_a`가 각각 유지됨을 확인했다. 검증 종료 시 남은 임시 Server와 Monitor를 정리했다.
-- build를 `/var/lib/ros2-dashboard/frontend`에 동기화했다. source/target `index.html` SHA-256은
-  `28ab4baa9601175d7a6cce6c68f80ec8d0946319fbdd78230e9974d666ad9323`이며 `https://127.0.0.1/interface-lab`은 200을 반환했다.
-
 ## 2026-08-31 - Alert 클릭 목적지 Alerts 탭 통일
 
 - `AlertsPreview`와 `AlertsList`의 공통 click delegate는 유지하고, Overview·Topic·Service·Action·Node·Alerts의
@@ -334,3 +272,42 @@
   pull 실패는 optional 경고로 Dashboard 설치를 계속하고 재시도 `ollama pull <configured model>` 명령을 출력한다.
 - shell syntax와 installer helper 전체 테스트(`install_environment`, `local_ai`, `network_environment`, `sudo_session`) 및
   `git diff --check`를 통과했다. Fresh Ubuntu의 실제 2.9GB 다운로드는 수행하지 않았다.
+
+## 2026-09-01 - Alert AI Cloud 분리 검수·Local 근거 설명 보정
+
+- Local 경량화 diff를 대조한 결과 Cloud는 기존 `_build_context`, `SYSTEM_INSTRUCTION`, `DIAGNOSIS_SCHEMA`,
+  `_gemini_payload` 및 2048 output 경로를 그대로 사용하며 Local 축약 context가 Cloud 입력을 줄인 회귀는 없었다.
+- Local raw payload/history 축소는 유지하고, 짧은 전용 prompt에 실제 값→판단 evidence, 값과 연결된 가능성,
+  구체적 확인 순서와 근거 없는 네트워크/DDS/Domain ID/코드/장비 원인 금지를 명확히 했다.
+- Cloud 분리, Topic·Service·Action·Node·monitor_status 핵심 context, 기본·alternate 단일 POST/validation을
+  회귀 테스트로 확인했다. Backend 전체는 `51 passed, 2 skipped`; Ollama API가 현재 HTTP 000이라 실제 성능 측정은
+  미검증이다.
+
+## 2026-09-01 - Local Node stale 최종 payload 추적·whitelist 강화
+
+- 실제 `_local_llm_payload()` 직전 Node context를 관계 배열과 Service/Topic 이름이 든 resource로 추적했다.
+  최종 prompt에는 해당 값이 없었으므로 화면의 `/ScheduleCrud` 등은 context 재유입이 아니라 Local 모델의 고유명
+  hallucination이었다. Node resource는 `name/domain_id`, runtime은 상태·Graph·last seen·계산 가능한 age만 허용했다.
+- Local prompt에 입력 밖 ROS 이름 생성 금지를 명시하고, 호출 직전에는 raw JSON 없이 source/code/key 목록/history 수와
+  context·prompt 문자 수만 INFO로 남긴다. 다른 source의 기존 raw/history 축소와 출력 768·4/3/4 계약은 유지했다.
+- 최종 Node payload와 source별 whitelist, 기본·alternate 단일 POST를 회귀 테스트로 확인했고 Backend 전체는
+  `53 passed, 2 skipped`였다. 실행 중인 Ollama가 없어 실제 모델 결과·성능 수치는 미검증이다.
+
+## 2026-09-01 - Local Alert QoS·최근 이벤트 근거 선택 복원
+
+- Cloud/Gemini의 context, prompt, schema, 2048 output 계약은 건드리지 않았다. Local은 Topic·Service·Action QoS
+  Alert에만 대상의 status·mismatch·local profile·최대 2개 remote endpoint profile/node·fallback 근거를 정규화해
+  전달하고, Action은 Alert channel 하나만 유지한다.
+- Local history는 source별 최근 관련 event 최대 2건으로 정규화했다. Topic message timestamp, Service transport·시간·오류·application result, Action lifecycle만 남기며 raw payload/request/response/goal/feedback/result와 Node 관계 배열은 계속 제외한다.
+- Backend AI 진단 테스트 `38 passed`, 전체 Backend 테스트 `55 passed, 2 skipped`, `git diff --check`를 통과했다.
+  이 host의 Ollama API는 HTTP 000이어서 실제 모델 품질·token·duration 비교는 수행하지 못했다.
+
+## 2026-09-01 - Local LLM `llm완` 입출력 선택 복원
+
+- Git `4b9d930 (llm 완)`과 `13e271d (겜마 경량화)`, 현재 HEAD 및 working diff를 함수 단위로 대조했다. 전체 revert 없이
+  Local 호출만 공용 `_build_context`, `SYSTEM_INSTRUCTION`, `DIAGNOSIS_SCHEMA`, history 5건, `num_predict=2048`로
+  복원하고 Local 전용 축약 context/schema/prompt helper는 제거했다.
+- 경량화와 무관한 Local 한국어 검증(evidence 기술 원문 허용), alternate 단일 POST, Cloud/Gemini 경로, provider 분리,
+  Ollama 성능 및 context 크기 INFO 로그는 유지했다. Local 한국어 추가 지시는 `llm완` 당시 문구로 복원했다.
+- AI 진단 테스트 `37 passed`, Backend 전체 `54 passed, 2 skipped`, `git diff --check`를 통과했다. 현재 실행 중인
+  Ollama가 없어 실제 prompt token·응답 시간은 측정하지 않았다.

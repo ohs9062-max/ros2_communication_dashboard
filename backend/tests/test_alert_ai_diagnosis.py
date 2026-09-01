@@ -10,16 +10,19 @@ from app.alerts.ai_diagnosis import (
     ALTERNATE_PERSPECTIVE_INSTRUCTION,
     ALTERNATE_PERSPECTIVE_TEMPERATURE,
     AlertDiagnosisService,
+    DIAGNOSIS_SCHEMA,
     GEMINI_MODELS,
     GeminiConfigurationError,
     GeminiRequestError,
-    LOCAL_DIAGNOSIS_SCHEMA,
     LOCAL_KOREAN_OUTPUT_INSTRUCTION,
-    LOCAL_SYSTEM_INSTRUCTION,
+    SYSTEM_INSTRUCTION,
     LocalLlmConfigurationError,
     LocalLlmRequestError,
     _validated_alert,
+    _gemini_payload,
+    _local_llm_payload,
 )
+from app.alerts import ai_diagnosis
 from app.monitor_client.cache import MonitorCache
 from app.monitor_client.client import MonitorResponse
 from app.routers import alerts as alert_router
@@ -39,6 +42,25 @@ def test_model_priority_uses_verified_cost_order():
         'gemini-3.1-flash-lite',
         'gemini-3.7-flash',
     )
+
+
+def test_cloud_payload_keeps_llm_complete_context_and_contract():
+    context = {
+        'current_runtime_state': {
+            'data': {'last_message_preview': {'raw': 'cloud keeps its existing context'}},
+        },
+        'historical_data': {'limit': 5, 'items': [{'payload': {'raw': 'history'}}]},
+    }
+
+    payload = _gemini_payload(context)
+
+    assert payload['systemInstruction']['parts'][0]['text'] == SYSTEM_INSTRUCTION
+    assert payload['generationConfig']['responseJsonSchema'] == DIAGNOSIS_SCHEMA
+    assert payload['generationConfig']['maxOutputTokens'] == 2048
+    prompt = payload['contents'][0]['parts'][0]['text']
+    assert 'last_message_preview' in prompt
+    assert 'cloud keeps its existing context' in prompt
+    assert '축약 Dashboard 사실' not in prompt
 
 
 @dataclass
@@ -226,13 +248,13 @@ def test_local_diagnosis_uses_one_ollama_structured_output_request():
         assert body['model'] == 'configured-gemma'
         assert body['stream'] is False
         assert body['format']['required'] == list(ANALYSIS)
-        assert body['format'] == LOCAL_DIAGNOSIS_SCHEMA
+        assert body['format'] == DIAGNOSIS_SCHEMA
         assert body['messages'][0]['role'] == 'system'
-        assert body['messages'][0]['content'] == LOCAL_SYSTEM_INSTRUCTION
+        assert body['messages'][0]['content'] == SYSTEM_INSTRUCTION
         prompt = body['messages'][1]['content']
         assert prompt.endswith(LOCAL_KOREAN_OUTPUT_INSTRUCTION)
         assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() not in prompt
-        assert body['options']['num_predict'] == 768
+        assert body['options']['num_predict'] == 2048
         return httpx.Response(
             200,
             request=request,
@@ -248,6 +270,27 @@ def test_local_diagnosis_uses_one_ollama_structured_output_request():
     assert result == {**ANALYSIS, 'model': 'configured-gemma'}
 
 
+def test_local_context_log_reports_shape_without_raw_payload(monkeypatch):
+    def handler(request):
+        return httpx.Response(200, request=request, json={
+            'model': 'configured-gemma', 'message': {'content': json.dumps(ANALYSIS)},
+        })
+
+    messages = []
+    monkeypatch.setattr(
+        ai_diagnosis.LOGGER,
+        'info',
+        lambda message, *args: messages.append(message % args),
+    )
+    asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
+
+    context_messages = [message for message in messages if 'Local Alert diagnosis context' in message]
+    assert len(context_messages) == 1
+    assert 'source=node' in context_messages[0]
+    assert 'history_count=0' in context_messages[0]
+    assert 'test alert' not in context_messages[0]
+
+
 def test_local_alternate_perspective_is_one_request_with_scoped_prompt_and_temperature():
     requests = []
 
@@ -261,7 +304,7 @@ def test_local_alternate_perspective_is_one_request_with_scoped_prompt_and_tempe
             LOCAL_KOREAN_OUTPUT_INSTRUCTION.strip(),
         )
         assert body['options']['temperature'] == ALTERNATE_PERSPECTIVE_TEMPERATURE
-        assert body['options']['num_predict'] == 768
+        assert body['options']['num_predict'] == 2048
         return httpx.Response(
             200,
             request=request,
@@ -377,14 +420,15 @@ def test_missing_local_configuration_stops_before_http_request():
         asyncio.run(service.diagnose_local(_alert('node')))
 
 
-def test_local_topic_context_removes_preview_and_limits_history():
+def test_local_topic_context_restores_llm_complete_preview_and_history():
     resource = {
         'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
         'types': ['demo/msg/Value'], 'status': 'stale', 'graph_present': True,
         'publisher_count': 1, 'subscriber_count': 2, 'hz': 0.0, 'age_sec': 9.0,
         'stale': True, 'last_received_at': 10.0,
         'last_message_preview': {'large': 'x' * 1000},
-        'qos_status': 'compatible', 'qos_detection_source': 'graph',
+        'qos_status': 'incompatible', 'qos_detection_source': 'graph',
+        'mismatch_reason': 'reliability mismatch',
         'reception_diagnosis': {
             'reception_status': 'stale', 'publisher_present': True,
             'subscription_created': True, 'cause': 'no_receive', 'certainty': 'observed',
@@ -397,17 +441,19 @@ def test_local_topic_context_removes_preview_and_limits_history():
     ]})
     service = _local_context_service(cache, monitor)
 
-    context = asyncio.run(service._build_local_context(_alert('topic', code='topic_stale')))
+    context = asyncio.run(service._build_context(_alert('topic', code='topic_stale')))
 
-    data = context['current_runtime']['data']
-    assert 'last_message_preview' not in data
-    assert data['reception_diagnosis']['reception_status'] == 'stale'
-    assert len(context['history']) == 2
-    assert all('payload' not in item for item in context['history'])
+    data = context['current_runtime_state']['data']
+    assert data['last_message_preview'] == {'large': 'x' * 1000}
+    assert data['qos_status'] == 'incompatible'
+    assert data['mismatch_reason'] == 'reliability mismatch'
+    assert len(context['historical_data']['items']) == 4
+    assert all('payload' in item for item in context['historical_data']['items'])
+    assert context['historical_data']['limit'] == 5
     assert monitor.calls == 1
 
 
-def test_local_service_context_keeps_transport_and_application_result_only():
+def test_local_service_context_restores_full_summary_and_history():
     resource = {
         'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
         'type': 'demo/srv/Read', 'graph_present': True, 'callable': True,
@@ -426,19 +472,38 @@ def test_local_service_context_keeps_transport_and_application_result_only():
          'response': {'success': False, 'message': '거부', 'extra': 1}, 'elapsed_ms': 11},
         {'sent_to_server': True},
     ]}})
-    context = asyncio.run(_local_context_service(cache, monitor)._build_local_context(
+    context = asyncio.run(_local_context_service(cache, monitor)._build_context(
         _alert('service', code='service_call_failed'),
     ))
 
-    call = context['current_runtime']['data']['last_call']
+    call = context['current_runtime_state']['data']['last_call_summary']
     assert call['sent_to_server'] is True
-    assert call['application_result'] == {'success': False, 'message': '거부'}
-    assert 'last_request_preview' not in call
-    assert len(context['history']) == 1
-    assert 'request' not in context['history'][0]
+    assert call['last_request_preview'] == {'secret': 'drop'}
+    assert call['last_response_preview']['extra'] == 'drop'
+    assert len(context['historical_data']['items']) == 2
+    assert context['historical_data']['items'][0]['request'] == {'drop': 1}
 
 
-def test_local_action_qos_context_preserves_only_alert_channel_and_lifecycle():
+def test_local_service_disconnected_context_keeps_observed_graph_facts():
+    resource = {
+        'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+        'type': 'demo/srv/Read', 'status': 'disconnected', 'graph_present': False,
+        'callable': False, 'server_count': 0, 'client_count': 0,
+    }
+    cache = MonitorCache()
+    cache.update({'services': {'services': [resource]}})
+
+    context = asyncio.run(_local_context_service(cache, FakeMonitorClient())._build_context(
+        _alert('service', code='service_disconnected'),
+    ))
+
+    assert context['current_runtime_state']['data'] == {
+        'status': 'disconnected', 'graph_present': False, 'callable': False,
+        'server_count': 0, 'client_count': 0,
+    }
+
+
+def test_local_action_context_restores_runtime_all_qos_channels_and_history():
     resource = {
         'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
         'type': 'demo/action/Run', 'graph_present': True, 'callable': True,
@@ -449,7 +514,22 @@ def test_local_action_qos_context_preserves_only_alert_channel_and_lifecycle():
         },
         'runtime': {'result_status': 'aborted', 'last_feedback_preview': {'drop': 1}},
         'qos': {
-            'feedback': {'qos_status': 'incompatible', 'mismatch_reason': 'reliability'},
+            'feedback': {
+                'qos_status': 'incompatible', 'mismatch_reason': 'reliability',
+                'mismatch_policies': ['reliability'],
+                'local_qos': {
+                    'reliability': 'reliable', 'durability': 'volatile',
+                    'history': 'keep_last', 'depth': 10,
+                    'deadline_ns': 9223372036854775807,
+                },
+                'remote_qos': [{
+                    'node_name': 'remote_feedback', 'node_namespace': '/robot',
+                    'endpoint_kind': 'publishers',
+                    'qos': {'reliability': 'best_effort', 'durability': 'volatile',
+                            'history': 'keep_last', 'depth': 5},
+                }],
+                'qos_fallback_policies': ['depth'],
+            },
             'status': {'qos_status': 'compatible', 'remote_qos': [{'drop': 1}]},
         },
     }
@@ -460,27 +540,124 @@ def test_local_action_qos_context_preserves_only_alert_channel_and_lifecycle():
         {'event_type': 'feedback', 'feedback': [{'drop': 1}], 'received_at': 3},
         {'event_type': 'goal', 'goal': {'drop': 1}, 'received_at': 2},
     ]}})
-    context = asyncio.run(_local_context_service(cache, monitor)._build_local_context(
+    context = asyncio.run(_local_context_service(cache, monitor)._build_context(
         _alert('action', code='action_qos_incompatible', channel='feedback'),
     ))
 
-    data = context['current_runtime']['data']
-    assert data['qos_channel'] == 'feedback'
-    assert data['qos']['qos_status'] == 'incompatible'
-    assert 'last_goal_preview' not in data['lifecycle']
-    assert len(context['history']) == 2
-    assert all('result' not in item and 'feedback' not in item for item in context['history'])
+    data = context['current_runtime_state']['data']
+    assert data['last_goal_summary']['last_goal_preview'] == {'drop': 1}
+    assert data['runtime']['last_feedback_preview'] == {'drop': 1}
+    assert set(data['qos']) == {'feedback', 'status'}
+    assert data['qos']['feedback']['local_qos']['deadline_ns'] == 9223372036854775807
+    assert data['qos']['status']['remote_qos'] == [{'drop': 1}]
+    assert len(context['historical_data']['items']) == 3
+    assert context['historical_data']['items'][0]['result'] == {'drop': 1}
 
 
-def test_local_monitor_status_and_node_context_are_compact():
-    monitor_context = asyncio.run(_local_context_service(MonitorCache(), FakeMonitorClient())._build_local_context(
+@pytest.mark.parametrize(
+    ('source', 'collection', 'code', 'resource'),
+    [
+        ('topic', 'topics', 'topic_qos_incompatible', {
+            'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+            'types': ['demo/msg/Value'], 'qos_status': 'incompatible',
+            'qos_detection_source': 'graph_profile_comparison',
+            'mismatch_reason': 'reliability mismatch',
+            'mismatch_policies': ['reliability'],
+            'local_qos': {'reliability': 'reliable', 'depth': 10},
+            'remote_qos': [{
+                'node_name': 'publisher', 'node_namespace': '/robot',
+                'endpoint_kind': 'publishers',
+                'qos': {'reliability': 'best_effort', 'depth': 5},
+                'unrelated': {'large': 'must not pass'},
+            }],
+            'publisher_qos': [{'node_name': 'extra', 'qos': {'depth': 99}}],
+        }),
+        ('service', 'services', 'service_qos_incompatible', {
+            'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+            'type': 'demo/srv/Read', 'qos_status': 'incompatible',
+            'qos_detection_source': 'fastdds_discovery',
+            'mismatch_policies': ['durability'],
+            'mismatch_reason': 'response writer mismatch',
+            'local_qos': {'durability': 'volatile', 'depth': 10},
+            'remote_qos': [{
+                'node_name': 'server', 'service_channel': 'response',
+                'endpoint_kind': 'writer',
+                'qos': {'durability': 'transient_local', 'depth': 1},
+            }],
+            'last_call_summary': {'last_request_preview': {'must': 'drop'}},
+        }),
+    ],
+)
+def test_llm_complete_context_uses_original_runtime_qos_field_selection(
+    source, collection, code, resource,
+):
+    cache = MonitorCache()
+    cache.update({collection: {collection: [resource]}})
+
+    context = asyncio.run(_local_context_service(
+        cache, FakeMonitorClient(),
+    )._build_context(_alert(source, code=code)))
+
+    data = context['current_runtime_state']['data']
+    assert data['qos_status'] == 'incompatible'
+    assert data['mismatch_reason']
+    assert 'local_profile' not in data
+    assert 'remote_endpoints' not in data
+    serialized = json.dumps(context, ensure_ascii=False)
+    assert 'must not pass' not in serialized or source == 'service'
+    if source == 'service':
+        assert 'last_request_preview' in serialized
+
+
+def test_local_topic_missing_and_action_failure_keep_decisive_values():
+    topic = {
+        'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+        'types': ['demo/msg/Value'], 'status': 'missing', 'graph_present': True,
+        'publisher_count': 1, 'subscriber_count': 1, 'hz': 0.0, 'age_sec': None,
+        'stale': False, 'last_received_at': None,
+        'reception_diagnosis': {
+            'reception_status': 'missing', 'publisher_present': True,
+            'subscription_created': True, 'cause': 'no_message', 'certainty': 'observed',
+        },
+    }
+    action = {
+        'name': '/run', 'resource_key': '99:/run', 'domain_id': 99,
+        'type': 'demo/action/Run', 'graph_present': True, 'server_count': 1,
+        'client_count': 1, 'last_goal_summary': {
+            'sent_to_server': True, 'accepted': True, 'last_goal_status': 'aborted',
+            'execution_time_ms': 42, 'error_type': 'result_error', 'last_error': 'aborted',
+        },
+    }
+    cache = MonitorCache()
+    cache.update({
+        'topics': {'topics': [topic]},
+        'actions': {'actions': [action]},
+    })
+    service = _local_context_service(cache, FakeMonitorClient())
+
+    missing = asyncio.run(service._build_context(
+        _alert('topic', code='topic_message_missing'),
+    ))['current_runtime_state']['data']
+    failed = asyncio.run(service._build_context(
+        _alert('action', name='/run', resource_key='99:/run', code='action_goal_aborted'),
+    ))['current_runtime_state']['data']
+
+    assert missing['publisher_count'] == 1
+    assert 'reception_diagnosis' not in missing
+    assert failed['last_goal_summary'] == {
+        'last_goal_status': 'aborted', 'sent_to_server': True, 'accepted': True,
+        'execution_time_ms': 42, 'error_type': 'result_error', 'last_error': 'aborted',
+    }
+
+
+def test_llm_complete_monitor_status_and_node_context_match_llm_commit():
+    monitor_context = asyncio.run(_local_context_service(MonitorCache(), FakeMonitorClient())._build_context(
         _validated_alert(_alert(
             'monitor_status', device_name='robot', node_name='/monitor', status='error',
             values={f'key_{index}': index for index in range(8)},
         )),
     ))
-    assert monitor_context['current_runtime']['data']['device_name'] == 'robot'
-    assert len(monitor_context['current_runtime']['data']['values']) == 5
+    assert monitor_context['current_runtime_state']['data'] is None
 
     node = {
         'full_name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
@@ -489,20 +666,51 @@ def test_local_monitor_status_and_node_context_are_compact():
     }
     cache = MonitorCache()
     cache.update({'nodes': {'nodes': [node]}})
-    node_context = asyncio.run(_local_context_service(cache, FakeMonitorClient())._build_local_context(
+    node_context = asyncio.run(_local_context_service(cache, FakeMonitorClient())._build_context(
         _alert('node', code='node_stale'),
     ))
-    assert node_context['current_runtime']['data']['status'] == 'disconnected'
-    assert 'topic_publishers' not in node_context['current_runtime']['data']
-    assert 'service_clients' not in node_context['current_runtime']['data']
+    assert node_context['current_runtime_state']['data']['status'] == 'disconnected'
+    assert node_context['current_runtime_state']['data']['topic_publishers'] == [{'name': '/large'}]
+    assert node_context['current_runtime_state']['data']['service_clients'] == [{'name': '/large'}]
 
 
-def test_local_schema_limits_returned_array_lengths():
+def test_node_stale_final_local_payload_restores_llm_complete_relationships():
+    node = {
+        'full_name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+        'status': 'disconnected', 'graph_present': False, 'last_seen_at': 1,
+        'topic_publishers': [{'name': '/topic_should_not_appear'}],
+        'topic_subscribers': [{'name': '/subscriber_should_not_appear'}],
+        'service_servers': [{'name': '/ScheduleCrud'}],
+        'service_clients': [{'name': '/describe_parameters'}],
+        'action_servers': [{'name': '/action_should_not_appear'}],
+        'action_clients': [{'name': '/action_client_should_not_appear'}],
+    }
+    cache = MonitorCache()
+    cache.update({'nodes': {'nodes': [node]}})
+    service = _local_context_service(cache, FakeMonitorClient())
+    context = asyncio.run(service._build_context(
+        _validated_alert(_alert('node', code='node_stale')),
+    ))
+    prompt = _local_llm_payload(context, 'configured-gemma')['messages'][1]['content']
+
+    assert context['resource'] == {
+        'kind': 'node', 'name': '/demo', 'domain_id': 99, 'interface_type': None,
+    }
+    assert context['historical_data']['items'] == []
+    for expected in (
+        'topic_publishers', 'topic_subscribers', 'service_servers', 'service_clients',
+        'action_servers', 'action_clients', '/ScheduleCrud', '/describe_parameters',
+        '/topic_should_not_appear', '/subscriber_should_not_appear',
+    ):
+        assert expected in prompt
+
+
+def test_local_schema_restores_llm_output_capacity():
     long_analysis = {
         'summary': '짧은 요약',
-        'evidence': ['근거 하나', '근거 둘', '근거 셋'],
-        'likely_causes': ['원인 하나', '원인 둘', '원인 셋'],
-        'recommended_checks': ['확인 하나', '확인 둘', '확인 셋', '확인 넷'],
+        'evidence': [f'근거 {index}' for index in range(6)],
+        'likely_causes': [f'원인 {index}' for index in range(5)],
+        'recommended_checks': [f'확인 {index}' for index in range(7)],
     }
 
     def handler(request):
@@ -512,7 +720,7 @@ def test_local_schema_limits_returned_array_lengths():
         })
 
     result = asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
-    assert [len(result[key]) for key in ('evidence', 'likely_causes', 'recommended_checks')] == [3, 3, 4]
+    assert [len(result[key]) for key in ('evidence', 'likely_causes', 'recommended_checks')] == [6, 5, 7]
 
 
 @pytest.mark.parametrize(
