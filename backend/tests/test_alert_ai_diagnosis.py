@@ -13,9 +13,12 @@ from app.alerts.ai_diagnosis import (
     GEMINI_MODELS,
     GeminiConfigurationError,
     GeminiRequestError,
+    LOCAL_DIAGNOSIS_SCHEMA,
     LOCAL_KOREAN_OUTPUT_INSTRUCTION,
+    LOCAL_SYSTEM_INSTRUCTION,
     LocalLlmConfigurationError,
     LocalLlmRequestError,
+    _validated_alert,
 )
 from app.monitor_client.cache import MonitorCache
 from app.monitor_client.client import MonitorResponse
@@ -46,7 +49,6 @@ class FakeMonitorClient:
     async def request_async(self, method, path):
         self.calls += 1
         assert method == 'GET'
-        assert 'limit=5' in path
         return MonitorResponse(
             status_code=200,
             content=json.dumps(self.payload or {'success': True, 'data': []}).encode(),
@@ -224,10 +226,13 @@ def test_local_diagnosis_uses_one_ollama_structured_output_request():
         assert body['model'] == 'configured-gemma'
         assert body['stream'] is False
         assert body['format']['required'] == list(ANALYSIS)
+        assert body['format'] == LOCAL_DIAGNOSIS_SCHEMA
         assert body['messages'][0]['role'] == 'system'
+        assert body['messages'][0]['content'] == LOCAL_SYSTEM_INSTRUCTION
         prompt = body['messages'][1]['content']
         assert prompt.endswith(LOCAL_KOREAN_OUTPUT_INSTRUCTION)
         assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() not in prompt
+        assert body['options']['num_predict'] == 512
         return httpx.Response(
             200,
             request=request,
@@ -345,6 +350,144 @@ def test_missing_local_configuration_stops_before_http_request():
 
     with pytest.raises(LocalLlmConfigurationError):
         asyncio.run(service.diagnose_local(_alert('node')))
+
+
+def test_local_topic_context_removes_preview_and_limits_history():
+    resource = {
+        'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+        'types': ['demo/msg/Value'], 'status': 'stale', 'graph_present': True,
+        'publisher_count': 1, 'subscriber_count': 2, 'hz': 0.0, 'age_sec': 9.0,
+        'stale': True, 'last_received_at': 10.0,
+        'last_message_preview': {'large': 'x' * 1000},
+        'qos_status': 'compatible', 'qos_detection_source': 'graph',
+        'reception_diagnosis': {
+            'reception_status': 'stale', 'publisher_present': True,
+            'subscription_created': True, 'cause': 'no_receive', 'certainty': 'observed',
+        },
+    }
+    cache = MonitorCache()
+    cache.update({'topics': {'topics': [resource]}})
+    monitor = FakeMonitorClient({'data': [
+        {'received_at': index, 'payload': {'raw': 'x' * 1000}} for index in range(4)
+    ]})
+    service = _local_context_service(cache, monitor)
+
+    context = asyncio.run(service._build_local_context(_alert('topic', code='topic_stale')))
+
+    data = context['current_runtime']['data']
+    assert 'last_message_preview' not in data
+    assert data['reception_diagnosis']['reception_status'] == 'stale'
+    assert len(context['history']) == 2
+    assert all('payload' not in item for item in context['history'])
+    assert monitor.calls == 1
+
+
+def test_local_service_context_keeps_transport_and_application_result_only():
+    resource = {
+        'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+        'type': 'demo/srv/Read', 'graph_present': True, 'callable': True,
+        'server_count': 1, 'client_count': 1, 'call_status': 'response_received',
+        'last_call_summary': {
+            'sent_to_server': True, 'last_call_status': 'response_received',
+            'last_called_at': 10, 'last_response_time_ms': 11,
+            'last_request_preview': {'secret': 'drop'},
+            'last_response_preview': {'success': False, 'message': '거부', 'extra': 'drop'},
+        },
+    }
+    cache = MonitorCache()
+    cache.update({'services': {'services': [resource]}})
+    monitor = FakeMonitorClient({'data': {'history': [
+        {'sent_to_server': True, 'status': 'response_received', 'request': {'drop': 1},
+         'response': {'success': False, 'message': '거부', 'extra': 1}, 'elapsed_ms': 11},
+        {'sent_to_server': True},
+    ]}})
+    context = asyncio.run(_local_context_service(cache, monitor)._build_local_context(
+        _alert('service', code='service_call_failed'),
+    ))
+
+    call = context['current_runtime']['data']['last_call']
+    assert call['sent_to_server'] is True
+    assert call['application_result'] == {'success': False, 'message': '거부'}
+    assert 'last_request_preview' not in call
+    assert len(context['history']) == 1
+    assert 'request' not in context['history'][0]
+
+
+def test_local_action_qos_context_preserves_only_alert_channel_and_lifecycle():
+    resource = {
+        'name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+        'type': 'demo/action/Run', 'graph_present': True, 'callable': True,
+        'server_count': 1, 'client_count': 1,
+        'last_goal_summary': {
+            'accepted': True, 'sent_to_server': True, 'last_goal_status': 'aborted',
+            'last_goal_preview': {'drop': 1}, 'last_result_preview': {'drop': 1},
+        },
+        'runtime': {'result_status': 'aborted', 'last_feedback_preview': {'drop': 1}},
+        'qos': {
+            'feedback': {'qos_status': 'incompatible', 'mismatch_reason': 'reliability'},
+            'status': {'qos_status': 'compatible', 'remote_qos': [{'drop': 1}]},
+        },
+    }
+    cache = MonitorCache()
+    cache.update({'actions': {'actions': [resource]}})
+    monitor = FakeMonitorClient({'data': {'history': [
+        {'event_type': 'result', 'accepted': True, 'result': {'drop': 1}, 'received_at': 4},
+        {'event_type': 'feedback', 'feedback': [{'drop': 1}], 'received_at': 3},
+        {'event_type': 'goal', 'goal': {'drop': 1}, 'received_at': 2},
+    ]}})
+    context = asyncio.run(_local_context_service(cache, monitor)._build_local_context(
+        _alert('action', code='action_qos_incompatible', channel='feedback'),
+    ))
+
+    data = context['current_runtime']['data']
+    assert data['qos_channel'] == 'feedback'
+    assert data['qos']['qos_status'] == 'incompatible'
+    assert 'last_goal_preview' not in data['lifecycle']
+    assert len(context['history']) == 2
+    assert all('result' not in item and 'feedback' not in item for item in context['history'])
+
+
+def test_local_monitor_status_and_node_context_are_compact():
+    monitor_context = asyncio.run(_local_context_service(MonitorCache(), FakeMonitorClient())._build_local_context(
+        _validated_alert(_alert(
+            'monitor_status', device_name='robot', node_name='/monitor', status='error',
+            values={f'key_{index}': index for index in range(8)},
+        )),
+    ))
+    assert monitor_context['current_runtime']['data']['device_name'] == 'robot'
+    assert len(monitor_context['current_runtime']['data']['values']) == 5
+
+    node = {
+        'full_name': '/demo', 'resource_key': '99:/demo', 'domain_id': 99,
+        'status': 'disconnected', 'graph_present': False, 'last_seen_at': 4,
+        'topic_publishers': [{'name': '/large'}], 'service_clients': [{'name': '/large'}],
+    }
+    cache = MonitorCache()
+    cache.update({'nodes': {'nodes': [node]}})
+    node_context = asyncio.run(_local_context_service(cache, FakeMonitorClient())._build_local_context(
+        _alert('node', code='node_stale'),
+    ))
+    assert node_context['current_runtime']['data']['status'] == 'disconnected'
+    assert 'topic_publishers' not in node_context['current_runtime']['data']
+    assert 'service_clients' not in node_context['current_runtime']['data']
+
+
+def test_local_schema_limits_returned_array_lengths():
+    long_analysis = {
+        'summary': '짧은 요약',
+        'evidence': ['근거 하나', '근거 둘', '근거 셋'],
+        'likely_causes': ['원인 하나', '원인 둘', '원인 셋'],
+        'recommended_checks': ['확인 하나', '확인 둘', '확인 셋', '확인 넷'],
+    }
+
+    def handler(request):
+        return httpx.Response(200, request=request, json={
+            'model': 'configured-gemma', 'message': {'content': json.dumps(long_analysis)},
+            'prompt_eval_count': 100, 'eval_count': 20,
+        })
+
+    result = asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
+    assert [len(result[key]) for key in ('evidence', 'likely_causes', 'recommended_checks')] == [2, 2, 3]
 
 
 @pytest.mark.parametrize(
@@ -489,8 +632,21 @@ def _local_service(handler, *, api_key='secret'):
     )
 
 
-def _alert(source):
-    return {
+def _local_context_service(cache, monitor):
+    return AlertDiagnosisService(
+        monitor_cache=cache,
+        monitor_client=monitor,
+        api_key='secret',
+        api_base_url='https://example.test/v1beta',
+        timeout_sec=1,
+        local_llm_url='http://ollama.test',
+        local_llm_model='configured-gemma',
+        local_llm_timeout_sec=1,
+    )
+
+
+def _alert(source, **extra):
+    alert = {
         'id': f'domain:99:{source}:/demo:test',
         'source': source,
         'name': '/demo',
@@ -503,6 +659,8 @@ def _alert(source):
         'resolved_at': None,
         'alert_state': 'active',
     }
+    alert.update(extra)
+    return alert
 
 
 def _success_response(request, *, alternate=False):

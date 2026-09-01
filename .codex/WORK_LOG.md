@@ -303,3 +303,13 @@
   Ollama/service와 설정 모델은 reinstall/restart/pull하지 않으며 외부 URL은 installer가 변경하지 않는다.
 - shell syntax와 helper 분기 테스트를 통과했다. 현재 host의 active Ollama, 설정 Gemma `/api/show`, 1-token
   `/api/chat`은 확인했으며 Fresh Ubuntu 최초 Ollama 설치와 실제 대용량 모델 pull은 미검증으로 남겼다.
+
+## 2026-09-01 - Local LLM Alert 진단 context·출력 경량화
+
+- Cloud/Gemini 경로는 유지하고 Local Ollama에만 source/code별 축약 context, 짧은 한국어 system prompt, 전용 JSON
+  schema를 적용했다. Topic/Action history는 2건, Service history는 1건으로 줄이고 raw message/request/goal/result
+  payload와 Node 관계 배열을 제외했으며 Action QoS channel과 monitor_status 핵심값은 보존했다.
+- Local `num_predict`를 512로 낮추고 evidence/likely causes/recommended checks를 각각 최대 2/2/3개로 제한했다.
+  Ollama 응답에 성능 counter가 있으면 prompt/eval/total duration을 INFO로 기록한다.
+- Backend 전체 테스트는 `46 passed, 2 skipped`였다. 이 환경에서는 Ollama process가 실행 중이지 않아 실제
+  prompt/eval token 전후 비교는 미검증으로 남겼다.
