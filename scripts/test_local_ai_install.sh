@@ -37,15 +37,34 @@ fi
 fake_systemctl="$tmp_dir/systemctl"
 printf '#!/usr/bin/env bash\n[[ "$1" == cat && "$2" == ollama.service ]]\n' > "$fake_systemctl"
 chmod +x "$fake_systemctl"
-if ros_dashboard_ollama_install_needed "$fake_ollama" "$fake_systemctl"; then
+if ros_dashboard_ollama_install_needed "$fake_ollama"; then
   echo 'A working Ollama command and service must skip installation.' >&2
   exit 1
 fi
-ros_dashboard_ollama_install_needed "$tmp_dir/missing-ollama" "$fake_systemctl"
+ros_dashboard_ollama_install_needed "$tmp_dir/missing-ollama"
 
 printf '#!/usr/bin/env bash\nexit 1\n' > "$fake_systemctl"
 chmod +x "$fake_systemctl"
-ros_dashboard_ollama_install_needed "$fake_ollama" "$fake_systemctl"
+if ros_dashboard_ollama_install_needed "$fake_ollama"; then
+  echo 'An executable Ollama command must not be reinstalled when its service is unavailable.' >&2
+  exit 1
+fi
+
+printf '#!/usr/bin/env bash\n[[ "$1" == is-active && "$2" == --quiet && "$3" == ollama.service ]]\n' > "$fake_systemctl"
+chmod +x "$fake_systemctl"
+ros_dashboard_ollama_service_is_active "$fake_systemctl"
+if ros_dashboard_ollama_service_is_enabled "$fake_systemctl"; then
+  echo 'An inactive or disabled Ollama service must not be treated as enabled.' >&2
+  exit 1
+fi
+
+printf '#!/usr/bin/env bash\n[[ "$1" == is-enabled && "$2" == --quiet && "$3" == ollama.service ]]\n' > "$fake_systemctl"
+chmod +x "$fake_systemctl"
+ros_dashboard_ollama_service_is_enabled "$fake_systemctl"
+if ros_dashboard_ollama_service_is_active "$fake_systemctl"; then
+  echo 'An inactive Ollama service must not be treated as active.' >&2
+  exit 1
+fi
 
 tags="$(jq -nc --arg model "$expected_model" '{models: [{name: "other:latest"}, {model: $model}]}')"
 ros_dashboard_ollama_model_in_tags "$expected_model" "$tags"
@@ -53,6 +72,19 @@ if ros_dashboard_ollama_model_in_tags missing-model "$tags"; then
   echo 'An absent Ollama model must not be considered downloaded.' >&2
   exit 1
 fi
+
+fake_pull="$tmp_dir/pull-ollama"
+pull_record="$tmp_dir/pull-record"
+printf '#!/usr/bin/env bash\nprintf "%%s|%%s|%%s\\n" "$OLLAMA_HOST" "$1" "$2" > "$PULL_RECORD"\necho "pulling 50%%"\n' > "$fake_pull"
+chmod +x "$fake_pull"
+export PULL_RECORD="$pull_record"
+ros_dashboard_ollama_pull_model http://127.0.0.1:11434 "$expected_model" "$fake_pull" \
+  > "$tmp_dir/pull-output"
+unset PULL_RECORD
+[[ "$(<"$pull_record")" == "http://127.0.0.1:11434|pull|$expected_model" ]]
+grep -qx 'pulling 50%' "$tmp_dir/pull-output"
+grep -Fq 'ros_dashboard_ollama_pull_model "$local_llm_url" "$local_llm_model" ollama >&3' \
+  "$SCRIPT_DIR/install.sh"
 
 ros_dashboard_local_llm_timeout_valid 120
 ros_dashboard_local_llm_timeout_valid 0.5

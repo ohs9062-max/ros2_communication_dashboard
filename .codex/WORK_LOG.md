@@ -313,3 +313,24 @@
   Ollama 응답에 성능 counter가 있으면 prompt/eval/total duration을 INFO로 기록한다.
 - Backend 전체 테스트는 `46 passed, 2 skipped`였다. 이 환경에서는 Ollama process가 실행 중이지 않아 실제
   prompt/eval token 전후 비교는 미검증으로 남겼다.
+
+## 2026-09-01 - Local LLM 설명량·다른 관점 validation 회귀 보정
+
+- Local 축약 context는 유지하고 `num_predict`를 768, 전용 schema 배열 한도를 evidence/likely causes/checks
+  4/3/4로 조정했다. 짧은 Local system prompt에 Alert 문구 반복 금지, Dashboard 값과 판단 연결, 근거 있는 원인,
+  구체적인 확인 순서를 추가했다.
+- 다른 관점 실패는 Ollama 호출이 아니라 경량화 때 `evidence`까지 한국어 검증 대상으로 넓힌 회귀였다. 기존 정책대로
+  영어 기술 식별자·field·로그 evidence는 허용하고 summary/원인/확인 순서만 한국어 검증해 alternate도 1회 POST로
+  정상 처리한다.
+- Backend 전체 테스트는 `47 passed, 2 skipped`였다. 이 환경에는 실행 중인 Ollama/Backend가 없어 실제 endpoint
+  HTTP·duration 측정은 미검증이다.
+
+## 2026-09-01 - Installer Local AI 자동 준비·pull 진행 표시
+
+- Local AI는 Backend `.env`의 기존 `LOCAL_LLM_*` 값을 기준으로 Ollama command/service와 설정 모델을 검사하고,
+  없을 때만 질문 없이 공식 installer·service start·model pull을 수행한다. 기존 설치·active service·다운로드 모델은
+  각각 reinstall/restart/repull하지 않는다.
+- `ollama pull` 출력은 설치 log capture에 묻히지 않고 원래 terminal로 직접 전달해 실제 다운로드 progress를 보인다.
+  pull 실패는 optional 경고로 Dashboard 설치를 계속하고 재시도 `ollama pull <configured model>` 명령을 출력한다.
+- shell syntax와 installer helper 전체 테스트(`install_environment`, `local_ai`, `network_environment`, `sudo_session`) 및
+  `git diff --check`를 통과했다. Fresh Ubuntu의 실제 2.9GB 다운로드는 수행하지 않았다.

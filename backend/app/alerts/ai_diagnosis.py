@@ -46,10 +46,10 @@ LOCAL_DIAGNOSIS_SCHEMA = {
     'additionalProperties': False,
     'properties': {
         'summary': {'type': 'string'},
-        'evidence': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 2},
-        'likely_causes': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 2},
+        'evidence': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 4},
+        'likely_causes': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 3},
         'recommended_checks': {
-            'type': 'array', 'items': {'type': 'string'}, 'maxItems': 3,
+            'type': 'array', 'items': {'type': 'string'}, 'maxItems': 4,
         },
     },
     'required': ['summary', 'evidence', 'likely_causes', 'recommended_checks'],
@@ -75,11 +75,13 @@ ALTERNATE_PERSPECTIVE_INSTRUCTION = """
 """
 LOCAL_SYSTEM_INSTRUCTION = """ROS2 Dashboard Alert 진단 보조자다.
 제공된 Dashboard 사실만 사용하고, 확정 사실과 가능한 원인을 구분하라. 정보가 부족하면 확인할 수 없다고 적어라.
+summary는 Alert 의미와 현재 Dashboard 상태를 연결한 2~3문장으로 쓴다. evidence와 가능한 원인은 실제 값과 그 값이 뜻하는 판단 근거를 함께 쓴다.
+확인 순서는 확인할 값·상태와 결과의 의미를 짧고 구체적으로 쓴다. Alert 문구를 단순 반복하거나 근거 없는 장비·네트워크·코드 장애를 채우지 마라.
 현재 Runtime은 Alert 당시 상태가 아니므로 과거를 역추정하지 마라. QoS가 compatible이면 mismatch 원인으로 말하지 마라.
 Graph entity 존재는 실제 통신 성공이 아니며, Service/Action transport 결과와 application result는 구분하라.
-근거 없이 장비·네트워크·코드 장애를 단정하지 마라. 한국어로 지정 JSON schema만 반환하라."""
+다른 관점 요청은 같은 사실에서 덜 강조한 근거·다른 원인·다른 확인 순서를 우선하되 새 근거가 없으면 추가 판단이 어렵다고 적어라. 한국어로 지정 JSON schema만 반환하라."""
 LOCAL_KOREAN_OUTPUT_INSTRUCTION = (
-    '\n설명 문장은 한국어로 짧게 작성하고 ROS2 이름·type·field·코드만 원문 표기를 유지하라.'
+    '\n설명 문장은 한국어로 작성하고 ROS2 이름·type·field·코드·로그 원문만 원문 표기를 유지하라.'
 )
 # SYSTEM_INSTRUCTION = """당신은 ROS2 Dashboard Alert 진단 보조자다.
 # Dashboard가 제공한 사실만 해석하고 새로운 통신 사실을 만들지 마라.
@@ -831,7 +833,7 @@ def _local_llm_payload(
         ],
         'options': {
             'temperature': ALTERNATE_PERSPECTIVE_TEMPERATURE if alternate else 0.2,
-            'num_predict': 512,
+            'num_predict': 768,
         },
     }
 
@@ -891,7 +893,6 @@ def _parse_structured_diagnosis(
 
 def _local_explanations_are_korean(analysis: dict[str, Any]) -> bool:
     explanatory_values = [analysis['summary']]
-    explanatory_values.extend(analysis['evidence'])
     explanatory_values.extend(analysis['likely_causes'])
     explanatory_values.extend(analysis['recommended_checks'])
     return all(any('\uac00' <= character <= '\ud7a3' for character in value)

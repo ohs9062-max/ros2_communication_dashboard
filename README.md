@@ -16,7 +16,8 @@ Topic 데이터 흐름, Service/Action 실행 결과, QoS 호환성, Alert 이�
 ROS workspace와 production Frontend를 빌드한다. 또한 Backend `.env`의 `LOCAL_LLM_URL`,
 `LOCAL_LLM_MODEL`, `LOCAL_LLM_TIMEOUT`을 기준으로 localhost Ollama service와 설정된 Gemma 모델을 준비한다.
 이미 실행 가능한 Ollama와 다운로드된 모델은 재설치하거나 다시 pull하지 않으며 Local AI 준비 실패는 원인을
-경고하고 Dashboard 핵심 설치를 계속한다. Gazebo, TurtleBot3, 실제 장비 드라이버와 demo package 의존성은
+경고하고 Dashboard 핵심 설치를 계속한다. 누락된 Ollama와 모델은 질문 없이 자동 설치하며, 모델 pull 중에는
+Ollama의 실제 진행 출력이 터미널에 표시된다. Gazebo, TurtleBot3, 실제 장비 드라이버와 demo package 의존성은
 제품 필수 설치에서 제외한다. 설치 프로세스는 `C.UTF-8`을 사용하지만 시스템 locale과 사용자 언어,
 netplan/NetworkManager 연결 설정은 변경하지 않는다.
 

@@ -19,6 +19,7 @@
 
 - [ ] Ollama가 없는 Fresh Ubuntu에서 공식 Linux installer로 service 준비
 - [ ] 설정된 Gemma 모델이 없을 때 최초 1회 pull 및 `/api/show`, 최소 `/api/chat` 검증 성공
+- [x] 설치 여부 질문 없이 누락 Ollama/model을 자동 준비하고, pull의 실제 진행 출력은 terminal에 전달
 - [x] 실행 가능한 Ollama와 systemd unit이 있으면 재설치 분기 생략
 - [x] `/api/tags`에 설정 모델이 있으면 pull 분기 생략
 - [x] 기존 `backend/.env` Local AI 값 보존 및 누락 key만 `.env.example`에서 보완

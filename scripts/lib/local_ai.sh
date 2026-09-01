@@ -26,9 +26,23 @@ ros_dashboard_ollama_command_ready() {
 }
 
 ros_dashboard_ollama_install_needed() {
-  local ollama_bin="${1:-ollama}" systemctl_bin="${2:-systemctl}"
-  ! ros_dashboard_ollama_command_ready "$ollama_bin" \
-    || ! "$systemctl_bin" cat ollama.service >/dev/null 2>&1
+  local ollama_bin="${1:-ollama}"
+  ! ros_dashboard_ollama_command_ready "$ollama_bin"
+}
+
+ros_dashboard_ollama_service_is_active() {
+  local systemctl_bin="${1:-systemctl}"
+  "$systemctl_bin" is-active --quiet ollama.service
+}
+
+ros_dashboard_ollama_service_is_enabled() {
+  local systemctl_bin="${1:-systemctl}"
+  "$systemctl_bin" is-enabled --quiet ollama.service
+}
+
+ros_dashboard_ollama_pull_model() {
+  local local_llm_url="$1" local_llm_model="$2" ollama_bin="${3:-ollama}"
+  env OLLAMA_HOST="$local_llm_url" "$ollama_bin" pull "$local_llm_model"
 }
 
 ros_dashboard_ollama_model_in_tags() {

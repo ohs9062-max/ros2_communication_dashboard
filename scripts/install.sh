@@ -121,8 +121,9 @@ prepare_local_ai() {
     return 1
   fi
 
-  if ros_dashboard_ollama_install_needed ollama systemctl; then
-    echo "[ros2_dashboard] Installing Ollama with the official Linux installer." >&3
+  echo "[Local AI 1/4] Checking Ollama command..." >&3
+  if ros_dashboard_ollama_install_needed ollama; then
+    echo "[Local AI 1/4] Ollama is missing; installing with the official Linux installer..." >&3
     ollama_installer="$(mktemp)"
     if ! curl -fsSL https://ollama.com/install.sh -o "$ollama_installer"; then
       echo "[ros2_dashboard] Could not download the official Ollama installer." >&3
@@ -135,7 +136,7 @@ prepare_local_ai() {
     rm -f -- "$ollama_installer"
     ollama_installer=""
   else
-    echo "[ros2_dashboard] Existing Ollama installation is executable; skipping reinstall." >&3
+    echo "[Local AI 1/4] Ollama is executable; skipping reinstall." >&3
   fi
 
   if ! ros_dashboard_ollama_command_ready ollama; then
@@ -146,20 +147,22 @@ prepare_local_ai() {
     echo "[ros2_dashboard] Ollama systemd service is unavailable." >&3
     return 1
   fi
-  if ! systemctl is-enabled --quiet ollama.service; then
+  echo "[Local AI 2/4] Checking Ollama service..." >&3
+  if ! ros_dashboard_ollama_service_is_enabled systemctl; then
     if ! sudo_run systemctl enable ollama.service; then
       echo "[ros2_dashboard] Could not enable ollama.service." >&3
       return 1
     fi
   fi
-  if ! systemctl is-active --quiet ollama.service; then
+  if ! ros_dashboard_ollama_service_is_active systemctl; then
     if ! sudo_run systemctl start ollama.service; then
       echo "[ros2_dashboard] Could not start ollama.service." >&3
       return 1
     fi
   else
-    echo "[ros2_dashboard] ollama.service is already running; skipping restart." >&3
+    echo "[Local AI 2/4] ollama.service is active; skipping restart." >&3
   fi
+  echo "[Local AI 2/4] Ollama service ready." >&3
 
   tags_payload=""
   for _attempt in $(seq 1 30); do
@@ -174,12 +177,14 @@ prepare_local_ai() {
     return 1
   fi
 
+  echo "[Local AI 3/4] Checking model: $local_llm_model" >&3
   if ros_dashboard_ollama_model_in_tags "$local_llm_model" "$tags_payload"; then
-    echo "[ros2_dashboard] Ollama model already exists; skipping pull: $local_llm_model" >&3
+    echo "[Local AI 3/4] Model already exists; skipping pull." >&3
   else
-    echo "[ros2_dashboard] Pulling configured Ollama model: $local_llm_model" >&3
-    if ! env OLLAMA_HOST="$local_llm_url" ollama pull "$local_llm_model"; then
+    echo "[Local AI 4/4] Downloading model; Ollama progress follows..." >&3
+    if ! ros_dashboard_ollama_pull_model "$local_llm_url" "$local_llm_model" ollama >&3; then
       echo "[ros2_dashboard] Ollama model pull failed: $local_llm_model" >&3
+      echo "[ros2_dashboard] Local AI is unavailable. After fixing the cause, rerun: ollama pull $local_llm_model" >&3
       return 1
     fi
   fi
@@ -207,6 +212,7 @@ prepare_local_ai() {
     return 1
   fi
 
+  echo "[Local AI 4/4] Verification complete." >&3
   echo "[ros2_dashboard] Local AI is ready: $local_llm_model at $local_llm_url" >&3
 }
 

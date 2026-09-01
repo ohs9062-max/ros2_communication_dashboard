@@ -232,7 +232,7 @@ def test_local_diagnosis_uses_one_ollama_structured_output_request():
         prompt = body['messages'][1]['content']
         assert prompt.endswith(LOCAL_KOREAN_OUTPUT_INSTRUCTION)
         assert ALTERNATE_PERSPECTIVE_INSTRUCTION.strip() not in prompt
-        assert body['options']['num_predict'] == 512
+        assert body['options']['num_predict'] == 768
         return httpx.Response(
             200,
             request=request,
@@ -261,6 +261,7 @@ def test_local_alternate_perspective_is_one_request_with_scoped_prompt_and_tempe
             LOCAL_KOREAN_OUTPUT_INSTRUCTION.strip(),
         )
         assert body['options']['temperature'] == ALTERNATE_PERSPECTIVE_TEMPERATURE
+        assert body['options']['num_predict'] == 768
         return httpx.Response(
             200,
             request=request,
@@ -316,6 +317,30 @@ def test_local_diagnosis_rejects_english_explanations():
 
     with pytest.raises(LocalLlmRequestError):
         asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
+
+
+def test_local_alternate_accepts_technical_english_evidence():
+    alternate_analysis = {
+        'summary': '현재 Dashboard 상태와 Alert 발생 시점은 구분해야 합니다.',
+        'evidence': ['sent_to_server=true, last_call_status=timeout'],
+        'likely_causes': ['호출은 전송됐지만 timeout 상태여서 응답 경로 확인이 필요합니다.'],
+        'recommended_checks': ['Service server의 실제 응답 시각을 확인해 timeout과 비교합니다.'],
+    }
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(200, request=request, json={
+            'model': 'configured-gemma',
+            'message': {'content': json.dumps(alternate_analysis)},
+        })
+
+    result = asyncio.run(
+        _local_service(handler).diagnose_local(_alert('service'), alternate=True),
+    )
+
+    assert result == {**alternate_analysis, 'model': 'configured-gemma'}
+    assert len(requests) == 1
 
 
 def test_local_diagnosis_never_falls_back_on_model_error():
@@ -487,7 +512,7 @@ def test_local_schema_limits_returned_array_lengths():
         })
 
     result = asyncio.run(_local_service(handler).diagnose_local(_alert('node')))
-    assert [len(result[key]) for key in ('evidence', 'likely_causes', 'recommended_checks')] == [2, 2, 3]
+    assert [len(result[key]) for key in ('evidence', 'likely_causes', 'recommended_checks')] == [3, 3, 4]
 
 
 @pytest.mark.parametrize(
