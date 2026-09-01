@@ -4,16 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-31 - Alert 클릭 목적지 Alerts 탭 통일
-
-- `AlertsPreview`와 `AlertsList`의 공통 click delegate는 유지하고, Overview·Topic·Service·Action·Node·Alerts의
-  기존 source별 Alert handler를 모두 `onNavigate('alerts')`로 통일했다. Topic/Service/Action/Node 상세 선택,
-  Alert 데이터와 Backend/Monitor/DB lifecycle은 변경하지 않았다.
-- 기존 Alerts route `/alerts`를 그대로 사용한다. Frontend unit 전체, lint(기존 `VisualizationPage` 미사용 인자 warning 1건),
-  production build와 diff check를 통과했고, `Alerts`, `Topics`, `Services`, `Actions`, `Nodes` local HTTPS route가 모두 200이다.
-- build를 `/var/lib/ros2-dashboard/frontend`에 동기화했다. source/target `index.html` SHA-256은
-  `4532310370bfa29c984d36423d80f8aa5c2e55085f336d5096bd9c697f0196e0`이다.
-
 ## 2026-08-31 - Alerts 상세 Modal Gemini AI 진단 연결
 
 - Alerts 행 클릭 시 기존 목록 디자인을 유지한 상세 Modal을 열고, 오른쪽 `AI 피드백`의 `[AI 분석]`을 사용자가
@@ -311,3 +301,16 @@
   Ollama 성능 및 context 크기 INFO 로그는 유지했다. Local 한국어 추가 지시는 `llm완` 당시 문구로 복원했다.
 - AI 진단 테스트 `37 passed`, Backend 전체 `54 passed, 2 skipped`, `git diff --check`를 통과했다. 현재 실행 중인
   Ollama가 없어 실제 prompt token·응답 시간은 측정하지 않았다.
+
+## 2026-09-01 - Local AI 모델 Browser 최초 다운로드 전환
+
+- installer는 Backend `.env`의 Local LLM URL을 기준으로 Ollama command·systemd service·`/api/tags` runtime만
+  준비하며 model pull, `/api/show`, `/api/chat`은 수행하지 않도록 분리했다. 기존 `.env`, Ollama 모델과 optional
+  실패 정책은 유지한다.
+- Backend에 설정 모델 상태와 단일 background `/api/pull` 관리 API를 추가했다. 실제 completed/total/percent와
+  preparing/downloading/verifying/completed/failed 상태를 제공하며 중복 시작을 하나의 task로 합친다.
+- Frontend Local 기본/다른 관점 요청은 모델 상태를 먼저 확인하고, 누락 시 다운로드 Modal과 실제 진행률을 표시한
+  뒤 완료 시 원래 요청만 1회 재개한다. Cloud/Gemini와 Local 진단 context/prompt/schema/history 계약은 변경하지 않았다.
+- installer shell syntax와 환경·Local AI·network·sudo helper 전체, Backend `59 passed, 2 skipped`, Frontend unit
+  전체·lint(기존 `VisualizationPage` warning 1건)·production build를 통과했다. 실제 대용량 model pull과 Browser
+  실화면 다운로드는 수행하지 않았다.

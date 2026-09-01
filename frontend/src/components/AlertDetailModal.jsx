@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 import { displayText } from '../utils/displayText.js'
 import { formatTime } from '../utils/format.js'
+import { ACTIVE_LOCAL_MODEL_STATES, localModelProgressLabel } from '../features/alerts/localModelFlow.js'
 
 export function AlertDetailModal({
   analysisProvider,
@@ -17,10 +18,16 @@ export function AlertDetailModal({
   localAiAnalysis,
   localAiError,
   localAiLoading,
+  localModelChecking,
+  localModelDialogOpen,
+  localModelDownloadPending,
+  localModelStatus,
   onAnalyze,
   onAnalyzeAlternative,
   onAnalyzeLocally,
   onClose,
+  onCloseLocalModelDialog,
+  onDownloadLocalModel,
 }) {
   useEffect(() => {
     const closeOnEscape = (event) => {
@@ -35,13 +42,17 @@ export function AlertDetailModal({
   const showingLocalAnalysis = analysisProvider === 'local'
   const displayedAnalysis = showingLocalAnalysis ? localAiAnalysis : aiAnalysis
   const displayedError = showingLocalAnalysis ? localAiError : aiError
-  const displayedLoading = showingLocalAnalysis ? localAiLoading : aiLoading
+  const displayedLoading = showingLocalAnalysis
+    ? localAiLoading || localModelChecking
+    : aiLoading
   const analyzeButtonLabel = aiLoading
     ? '분석 중...'
     : hasCloudAnalysisCache
       ? '클라우드 결과 보기'
       : 'AI 분석'
-  const localAnalyzeButtonLabel = localAiLoading
+  const localAnalyzeButtonLabel = localModelChecking
+    ? '모델 확인 중...'
+    : localAiLoading
     ? '로컬 분석 중...'
     : hasLocalAnalysisCache
       ? '로컬 결과 보기'
@@ -133,7 +144,7 @@ export function AlertDetailModal({
                 </button>
                 <button
                   className="alert-ai-analyze-button"
-                  disabled={localAiLoading}
+                  disabled={localAiLoading || localModelChecking}
                   onClick={onAnalyzeLocally}
                   type="button"
                 >
@@ -168,11 +179,116 @@ export function AlertDetailModal({
           </section>
         </div>
 
+        {localModelDialogOpen && (
+          <LocalModelDownloadModal
+            downloadPending={localModelDownloadPending}
+            onClose={onCloseLocalModelDialog}
+            onDownload={onDownloadLocalModel}
+            status={localModelStatus}
+          />
+        )}
+
         {displayedAnalysis && !displayedLoading && analysisModel && (
           <footer className="alert-detail-modal-footer">
             분석 모델 : <strong>{analysisModel} · {showingLocalAnalysis ? 'Local' : 'Cloud'}</strong>
           </footer>
         )}
+      </section>
+    </div>
+  )
+}
+
+function LocalModelDownloadModal({ downloadPending, onClose, onDownload, status }) {
+  const state = status?.download_state ?? 'idle'
+  const active = ACTIVE_LOCAL_MODEL_STATES.has(state)
+  const runtimeUnavailable = status?.ollama_available === false
+  const failed = state === 'failed'
+  const completed = state === 'completed' && status?.model_installed === true
+  const progress = Number.isFinite(status?.progress_percent)
+    ? Math.max(0, Math.min(100, status.progress_percent))
+    : null
+  const progressLabel = localModelProgressLabel(status)
+  const title = runtimeUnavailable
+    ? 'Local AI runtime이 준비되지 않았습니다'
+    : failed
+      ? 'Local AI 모델 다운로드에 실패했습니다'
+      : completed
+        ? '모델 다운로드 완료'
+      : active
+        ? '모델 다운로드 중'
+        : '로컬 AI 모델이 필요합니다'
+
+  return (
+    <div
+      aria-label="Local AI 모델 준비"
+      aria-modal="true"
+      className="local-model-modal-backdrop"
+      onClick={(event) => event.stopPropagation()}
+      role="dialog"
+    >
+      <section className="local-model-modal">
+        <h3>{title}</h3>
+        {runtimeUnavailable ? (
+          <p>
+            설치 스크립트를 다시 실행해 Ollama runtime과 service를 준비하세요.
+          </p>
+        ) : (
+          <>
+            {!active && !failed && !completed && (
+              <p>Local AI 분석을 사용하려면 다음 모델을 다운로드해야 합니다.</p>
+            )}
+            <code className="local-model-name">{status?.model || '-'}</code>
+            {!active && !failed && !completed && (
+              <p className="muted">다운로드에는 네트워크 환경에 따라 시간이 걸릴 수 있습니다.</p>
+            )}
+            {completed && (
+              <p aria-live="polite">모델 확인이 완료되어 요청한 Local AI 분석을 시작합니다.</p>
+            )}
+            {active && (
+              <div className="local-model-progress" aria-live="polite">
+                {progress !== null ? (
+                  <>
+                    <div
+                      aria-label={`모델 다운로드 ${progress}%`}
+                      aria-valuemax="100"
+                      aria-valuemin="0"
+                      aria-valuenow={progress}
+                      className="local-model-progress-track"
+                      role="progressbar"
+                    >
+                      <span style={{ width: `${progress}%` }} />
+                    </div>
+                    <strong>{progress}%</strong>
+                  </>
+                ) : (
+                  <strong>모델 준비 중...</strong>
+                )}
+                {progressLabel && <span>{progressLabel}</span>}
+                <span className="muted">{status?.status}</span>
+              </div>
+            )}
+            {failed && (
+              <p className="error-text local-model-error">
+                원인: {status?.error || '현재 오류 원인을 확인할 수 없습니다.'}
+              </p>
+            )}
+          </>
+        )}
+        {!completed && <div className="local-model-modal-actions">
+          <button disabled={downloadPending} onClick={onClose} type="button">
+            {active || failed || runtimeUnavailable ? '닫기' : '취소'}
+          </button>
+          {!runtimeUnavailable && !active && (
+            <button
+              className="alert-ai-analyze-button"
+              disabled={downloadPending}
+              onClick={onDownload}
+              type="button"
+            >
+              {downloadPending ? '요청 중...' : failed ? '다시 시도' : '다운로드'}
+            </button>
+          )}
+        </div>}
       </section>
     </div>
   )

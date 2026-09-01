@@ -4,11 +4,18 @@ import {
   diagnoseAlert,
   diagnoseAlertLocally,
   fetchAlertHistory,
+  fetchLocalAiModelStatus,
   resetAlertHistory,
   resetCurrentAlerts,
+  startLocalAiModelDownload,
 } from '../api/rosApi.js'
 import { AlertDetailModal } from '../components/AlertDetailModal.jsx'
 import { AlertsList } from '../components/AlertsList.jsx'
+import {
+  ACTIVE_LOCAL_MODEL_STATES,
+  localModelNextAction,
+  localModelResumeAction,
+} from '../features/alerts/localModelFlow.js'
 
 export function AlertsPage({
   actionDashboard,
@@ -41,9 +48,16 @@ export function AlertsPage({
   const [localAiLoading, setLocalAiLoading] = useState(false)
   const [alternateAiError, setAlternateAiError] = useState(null)
   const [alternateAiLoading, setAlternateAiLoading] = useState(false)
+  const [localModelChecking, setLocalModelChecking] = useState(false)
+  const [localModelDialogOpen, setLocalModelDialogOpen] = useState(false)
+  const [localModelStatus, setLocalModelStatus] = useState(null)
+  const [localModelDownloadPending, setLocalModelDownloadPending] = useState(false)
   const aiRequestRef = useRef({ pending: false, token: 0 })
   const localAiRequestRef = useRef({ pending: false, token: 0 })
   const alternateAiRequestRef = useRef({ pending: false, token: 0 })
+  const localModelIntentRef = useRef(null)
+  const localModelResumeRef = useRef(false)
+  const localModelAnalysisRef = useRef({ alternate: null, default: null })
   const response = dashboard.alerts.data
   const currentAlerts = useMemo(
     () => (response?.data ?? []).filter((alert) => alert.alert_state !== 'resolved'),
@@ -158,6 +172,12 @@ export function AlertsPage({
     setHasLocalAnalysisCache(false)
     setLocalAiError(null)
     setAlternateAiError(null)
+    setLocalModelChecking(false)
+    setLocalModelDialogOpen(false)
+    setLocalModelStatus(null)
+    setLocalModelDownloadPending(false)
+    localModelIntentRef.current = null
+    localModelResumeRef.current = false
   }
 
   const analyzeSelectedAlert = async () => {
@@ -251,7 +271,7 @@ export function AlertsPage({
       showStoredAlertAiAnalysis('local')
       return
     }
-    analyzeSelectedAlertLocally()
+    requestLocalAnalysis(false)
   }
 
   const analyzeFromAnotherPerspective = async () => {
@@ -262,6 +282,17 @@ export function AlertsPage({
       setAlternateAiError('먼저 Cloud 또는 Local AI 분석을 실행해주세요.')
       return
     }
+
+    if (provider === 'local') {
+      await requestLocalAnalysis(true)
+      return
+    }
+
+    await executeAlternateAnalysis(provider)
+  }
+
+  async function executeAlternateAnalysis(provider) {
+    if (!selectedAlert || alternateAiRequestRef.current.pending) return
 
     const alert = selectedAlert
     alternateAiRequestRef.current.pending = true
@@ -293,6 +324,114 @@ export function AlertsPage({
       setAlternateAiLoading(false)
     }
   }
+
+  async function requestLocalAnalysis(alternate) {
+    if (!selectedAlert || localModelChecking) return
+    const alert = selectedAlert
+    setAnalysisProvider('local')
+    setLocalModelChecking(true)
+    if (alternate) setAlternateAiError(null)
+    else setLocalAiError(null)
+    try {
+      const response = await fetchLocalAiModelStatus()
+      const status = response.data
+      const action = localModelNextAction(status)
+      if (action === 'analyze') {
+        if (alternate) await executeAlternateAnalysis('local')
+        else await analyzeSelectedAlertLocally()
+        return
+      }
+      localModelIntentRef.current = { alertId: alert.id, alternate }
+      localModelResumeRef.current = false
+      setLocalModelStatus(status)
+      setLocalModelDialogOpen(true)
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Local AI 준비 상태를 확인하지 못했습니다.'
+      if (alternate) setAlternateAiError(message)
+      else setLocalAiError(message)
+    } finally {
+      setLocalModelChecking(false)
+    }
+  }
+
+  const startModelDownload = async () => {
+    if (localModelDownloadPending) return
+    setLocalModelDownloadPending(true)
+    try {
+      const response = await startLocalAiModelDownload()
+      setLocalModelStatus(response.data)
+    } catch (error) {
+      setLocalModelStatus((current) => ({
+        ...current,
+        download_state: 'failed',
+        error: error instanceof Error ? error.message : '모델 다운로드를 시작하지 못했습니다.',
+        status: '모델 다운로드에 실패했습니다.',
+      }))
+    } finally {
+      setLocalModelDownloadPending(false)
+    }
+  }
+
+  const closeModelDialog = () => {
+    setLocalModelDialogOpen(false)
+    localModelIntentRef.current = null
+    localModelResumeRef.current = false
+  }
+
+  localModelAnalysisRef.current = {
+    alternate: () => executeAlternateAnalysis('local'),
+    default: analyzeSelectedAlertLocally,
+  }
+
+  useEffect(() => {
+    if (!localModelDialogOpen || !ACTIVE_LOCAL_MODEL_STATES.has(localModelStatus?.download_state)) {
+      return undefined
+    }
+    let cancelled = false
+    let requestPending = false
+    const poll = async () => {
+      if (requestPending) return
+      requestPending = true
+      try {
+        const response = await fetchLocalAiModelStatus()
+        if (!cancelled) setLocalModelStatus(response.data)
+      } catch (error) {
+        if (!cancelled) {
+          setLocalModelStatus((current) => ({
+            ...current,
+            download_state: 'failed',
+            error: error instanceof Error ? error.message : '다운로드 상태 확인에 실패했습니다.',
+            status: '모델 다운로드 상태를 확인하지 못했습니다.',
+          }))
+        }
+      } finally {
+        requestPending = false
+      }
+    }
+    const timer = window.setInterval(poll, 1000)
+    poll()
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [localModelDialogOpen, localModelStatus?.download_state])
+
+  useEffect(() => {
+    if (!localModelDialogOpen || localModelResumeRef.current) return
+    const intent = localModelIntentRef.current
+    const resumeAction = localModelResumeAction(intent, localModelStatus)
+    if (!resumeAction) return
+    if (!intent || selectedAlert?.id !== intent.alertId) return
+    localModelResumeRef.current = true
+    const timer = window.setTimeout(() => {
+      setLocalModelDialogOpen(false)
+      localModelIntentRef.current = null
+      localModelAnalysisRef.current[resumeAction]?.()
+    }, 600)
+    return () => window.clearTimeout(timer)
+  }, [localModelDialogOpen, localModelStatus, selectedAlert])
 
   const selectedResource = selectedAlert
     ? findAlertResource(selectedAlert, {
@@ -463,10 +602,16 @@ export function AlertsPage({
           localAiAnalysis={localAiAnalysis}
           localAiError={localAiError}
           localAiLoading={localAiLoading}
+          localModelChecking={localModelChecking}
+          localModelDialogOpen={localModelDialogOpen}
+          localModelDownloadPending={localModelDownloadPending}
+          localModelStatus={localModelStatus}
           onAnalyze={handleCloudAnalysis}
           onAnalyzeAlternative={analyzeFromAnotherPerspective}
           onAnalyzeLocally={handleLocalAnalysis}
           onClose={closeAlert}
+          onCloseLocalModelDialog={closeModelDialog}
+          onDownloadLocalModel={startModelDownload}
         />
       )}
     </main>

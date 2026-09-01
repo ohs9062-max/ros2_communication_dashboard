@@ -17,9 +17,9 @@
   static serving으로 구현됐다. 평상시 `start.sh`/`stop.sh`/`status.sh`가 target 수명주기와 API·DB 상태를 확인한다.
   설치기는 일반 사용자로 실행해 시작 시 `sudo -v`를 한 번 요청하고 45초 주기의 비대화형 keepalive를 유지한다.
   venv·ROS workspace·Frontend build는 일반 사용자, 시스템 변경만 `sudo -n`으로 실행하며 종료·실패·SIGINT 때
-  keepalive를 정리한다. `backend/.env`의 Local LLM 설정을 단일 source로 localhost Ollama service와 Gemma 모델을
-  설치 여부만 검사해 누락 시 질문 없이 자동 준비하며 기존 실행 파일·service·모델과 `.env` 값은 보존한다. 모델 pull의
-  실제 Ollama progress는 terminal에 표시한다. Local AI 실패는 경고하되 핵심
+  keepalive를 정리한다. `backend/.env`의 Local LLM 설정을 단일 source로 localhost Ollama runtime/service만
+  설치·기동하고 기존 실행 파일·active service·모델과 `.env` 값은 보존한다. installer는 모델 pull·show·chat을
+  수행하지 않는다. Local AI runtime 실패는 경고하되 핵심
   Dashboard 설치를 계속한다. demo/Gazebo dependency는 기본 제품 rosdep/build에서 제외한다.
 - 로컬/LAN 제품 HTTPS/WSS는 Nginx TLS 종료 방식이다. Nginx가 `/var/lib/ros2-dashboard/frontend`의 production
   build를 정적으로 제공하고 FastAPI REST/WSS만 localhost로 proxy한다. Vite는 개발 모드에만 사용하며
@@ -113,7 +113,7 @@
   조회하고, DB 장애 시 Monitoring을 중단하지 않고 메모리 fallback과 재연결을 사용한다.
 - Alert의 `detected_at`과 `resolved_at`은 MariaDB `DATETIME(6)`에 KST 벽시계 값으로 저장하고, 조회 시
   KST로 해석해 기존 API epoch timestamp로 반환한다.
-- Alerts 목록 행은 상세 Modal을 열며, Gemini 진단은 Modal 오른쪽 `AI 피드백`의 `[AI 분석]`을, Ollama 로컬 진단은 `[로컬 AI 분석]`을 사용자가 직접 누를 때만 Backend `POST /ros/alerts/ai-diagnosis` 또는 `POST /ros/alerts/ai-diagnosis/local`을 통해 실행한다. API key 및 Local LLM 설정은 Backend `.env`에서만 읽고 Frontend에는 전달하지 않는다. 성공한 기본 분석 결과는 Browser 탭의 `sessionStorage`에 Cloud는 `alert_ai_diagnosis:<alert.id>`, Local은 `alert_ai_diagnosis:local:<alert.id>`로 분리 저장하며 cache가 있으면 `[클라우드 결과 보기]`/`[로컬 결과 보기]`로 표시해 새 요청 없이 각 저장 결과를 전환한다. Header `[다른 관점 분석]`은 현재 표시 provider의 같은 endpoint에 `alternate=true`로 한 번 요청하고, 기존 context/schema와 SYSTEM instruction을 유지한 채 alternate 전용 추가 지시와 temperature 0.4만 적용한다. 결과는 React state에만 표시해 기본 cache를 덮어쓰지 않는다. Cloud와 Local 모두 exact Domain resource의 현재 Monitor 상태와 Topic/Service/Action history 최근 5건, 공용 `SYSTEM_INSTRUCTION`과 schema를 사용한다. Local output 한도는 `llm완` 기준 2048 tokens이며 Ollama 성능 counters가 있으면 INFO로 기록한다. 기술 식별자·field·로그 원문 evidence는 한국어 검증에서 제외하고 summary/원인/확인 순서만 검증한다. 현재 Runtime과 Alert 발생 시점은 모두 구분한다. Gemini REST structured output은 `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.7-flash` 순서이고, Local AI는 Ollama `gemma3:4b-it-q4_K_M` 단일 모델 structured output을 사용한다. Modal은 결과가 있을 때 하단에 `분석 모델 : <실제 model> · <Cloud|Local>` 메타정보를 표시한다. Cloud와 Local은 서로 fallback하지 않고 요청 잠금도 독립적으로 유지한다.
+- Alerts 목록 행은 상세 Modal을 열며, Gemini 진단은 Modal 오른쪽 `AI 피드백`의 `[AI 분석]`을, Ollama 로컬 진단은 `[로컬 AI 분석]`을 사용자가 직접 누를 때만 Backend `POST /ros/alerts/ai-diagnosis` 또는 `POST /ros/alerts/ai-diagnosis/local`을 통해 실행한다. Local 기본/다른 관점 요청 전에는 Backend model status API가 설정 모델을 `/api/tags`에서 확인한다. 누락 시 별도 Modal에서 사용자가 다운로드를 시작하며 Backend는 단일 background `/api/pull` stream의 실제 byte/percent를 상태 API로 제공한다. 완료되면 같은 Alert의 원래 기본/다른 관점 요청만 한 번 재개한다. Ollama runtime이 없으면 installer 재실행만 안내하며 Browser/Backend에서 sudo나 shell을 실행하지 않는다. API key 및 Local LLM 설정은 Backend `.env`에서만 읽고 Frontend에는 전달하지 않는다. 성공한 기본 분석 결과는 Browser 탭의 `sessionStorage`에 Cloud는 `alert_ai_diagnosis:<alert.id>`, Local은 `alert_ai_diagnosis:local:<alert.id>`로 분리 저장하며 cache가 있으면 `[클라우드 결과 보기]`/`[로컬 결과 보기]`로 표시해 새 요청 없이 각 저장 결과를 전환한다. Header `[다른 관점 분석]`은 현재 표시 provider의 같은 endpoint에 `alternate=true`로 한 번 요청하고, 기존 context/schema와 SYSTEM instruction을 유지한 채 alternate 전용 추가 지시와 temperature 0.4만 적용한다. 결과는 React state에만 표시해 기본 cache를 덮어쓰지 않는다. Cloud와 Local 모두 exact Domain resource의 현재 Monitor 상태와 Topic/Service/Action history 최근 5건, 공용 `SYSTEM_INSTRUCTION`과 schema를 사용한다. Local output 한도는 `llm완` 기준 2048 tokens이며 Ollama 성능 counters가 있으면 INFO로 기록한다. 기술 식별자·field·로그 원문 evidence는 한국어 검증에서 제외하고 summary/원인/확인 순서만 검증한다. 현재 Runtime과 Alert 발생 시점은 모두 구분한다. Gemini REST structured output은 `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.7-flash` 순서이고, Local AI는 Ollama `gemma3:4b-it-q4_K_M` 단일 모델 structured output을 사용한다. Modal은 결과가 있을 때 하단에 `분석 모델 : <실제 model> · <Cloud|Local>` 메타정보를 표시한다. Cloud와 Local은 서로 fallback하지 않고 요청 잠금도 독립적으로 유지한다.
 - Local 기본/다른 관점 응답은 Backend와 Frontend에서 `summary`, `likely_causes`, `recommended_checks`의 한국어
   설명 여부를 검증한다. 영어 설명 응답은 저장·표시하지 않으며 강화 이전의 영어 Local sessionStorage cache는
   조회 시 제거한다. `evidence`의 ROS2 식별자·JSON·code·log 원문은 검증 대상에서 제외한다.

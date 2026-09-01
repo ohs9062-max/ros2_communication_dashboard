@@ -3,6 +3,7 @@
 import json
 
 from app.alerts.ai_diagnosis import AlertDiagnosisService
+from app.alerts.local_model import LocalModelManager
 from app.alerts.service import AlertHistoryService
 from app.database.alert_repository import MariaDbAlertRepository
 from app.database.connection import MariaDbConnectionFactory
@@ -25,6 +26,10 @@ alert_ai_diagnosis = AlertDiagnosisService(
     local_llm_url=settings.local_llm_url,
     local_llm_model=settings.local_llm_model,
     local_llm_timeout_sec=settings.local_llm_timeout_sec,
+)
+local_model_manager = LocalModelManager(
+    base_url=settings.local_llm_url,
+    model=settings.local_llm_model,
 )
 alert_repository = None
 if settings.alert_db_enabled:

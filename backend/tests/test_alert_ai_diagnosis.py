@@ -834,6 +834,38 @@ def test_router_passes_alternate_flag_to_selected_provider(monkeypatch):
     assert calls == [('cloud', True), ('local', True)]
 
 
+def test_router_exposes_local_model_status_and_starts_download(monkeypatch):
+    calls = []
+
+    class RecordingManager:
+        async def status(self):
+            calls.append('status')
+            return {
+                'ollama_available': True,
+                'model': 'configured-gemma',
+                'model_installed': False,
+                'download_state': 'idle',
+            }
+
+        async def start_download(self):
+            calls.append('start')
+            return {
+                'ollama_available': True,
+                'model': 'configured-gemma',
+                'model_installed': False,
+                'download_state': 'preparing',
+            }
+
+    monkeypatch.setattr(alert_router, 'local_model_manager', RecordingManager())
+
+    status = asyncio.run(alert_router.local_ai_model_status())
+    started = asyncio.run(alert_router.start_local_ai_model_download())
+
+    assert status['data']['model'] == 'configured-gemma'
+    assert started['data']['download_state'] == 'preparing'
+    assert calls == ['status', 'start']
+
+
 def _service(handler):
     cache = MonitorCache()
     cache.update({'nodes': {'nodes': []}})

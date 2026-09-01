@@ -18,11 +18,12 @@
 ## Local AI 설치
 
 - [ ] Ollama가 없는 Fresh Ubuntu에서 공식 Linux installer로 service 준비
-- [ ] 설정된 Gemma 모델이 없을 때 최초 1회 pull 및 `/api/show`, 최소 `/api/chat` 검증 성공
-- [x] 설치 여부 질문 없이 누락 Ollama/model을 자동 준비하고, pull의 실제 진행 출력은 terminal에 전달
+- [x] installer는 Ollama runtime/service와 `/api/tags` 응답만 준비하고 model pull·show·chat을 실행하지 않음
 - [x] 실행 가능한 Ollama와 systemd unit이 있으면 재설치 분기 생략
-- [x] `/api/tags`에 설정 모델이 있으면 pull 분기 생략
 - [x] 기존 `backend/.env` Local AI 값 보존 및 누락 key만 `.env.example`에서 보완
+- [ ] Local AI 첫 요청에서 설정 모델 누락 Modal → 비동기 pull → 실제 byte/percent 표시 → 원래 분석 1회 재개
+- [ ] 이미 설치된 설정 모델은 pull 없이 기본/다른 관점 분석을 즉시 실행
+- [ ] 여러 Browser 요청이 겹쳐도 Backend process에서 model pull은 하나만 실행
 - [ ] 실제 전체 installer에서 Local AI 준비 실패 후 Dashboard 핵심 설치 완료
 
 ## 서비스 수명주기
@@ -64,6 +65,6 @@
 - [x] Python compileall
 - [x] `git diff --check`
 
-Dashboard 전체 host 검증 기준일은 2026-08-13이다. Local AI installer helper 분기는 2026-09-01에 검증했고,
-현재 host의 기존 Ollama service, 설정 모델 `/api/show`, 1-token `/api/chat`도 확인했다. Ollama가 전혀 없는
-별도 Fresh Ubuntu 최초 설치와 실제 대용량 모델 pull은 수행한 경우에만 남은 미체크 항목을 완료로 바꾼다.
+Dashboard 전체 host 검증 기준일은 2026-08-13이다. Local AI installer runtime/helper 분기는 2026-09-01에
+검증했다. Ollama가 전혀 없는 별도 Fresh Ubuntu 최초 설치와 Browser 기반 실제 대용량 모델 pull은 수행한
+경우에만 남은 미체크 항목을 완료로 바꾼다.

@@ -66,25 +66,18 @@ if ros_dashboard_ollama_service_is_active "$fake_systemctl"; then
   exit 1
 fi
 
-tags="$(jq -nc --arg model "$expected_model" '{models: [{name: "other:latest"}, {model: $model}]}')"
-ros_dashboard_ollama_model_in_tags "$expected_model" "$tags"
-if ros_dashboard_ollama_model_in_tags missing-model "$tags"; then
-  echo 'An absent Ollama model must not be considered downloaded.' >&2
+grep -Fq '"$local_llm_url/api/tags"' "$SCRIPT_DIR/install.sh"
+grep -Fq 'Model $local_llm_model will be downloaded on first Local AI use if needed.' \
+  "$SCRIPT_DIR/install.sh"
+if grep -Eq 'ollama[[:space:]]+pull|/api/(show|chat)' "$SCRIPT_DIR/install.sh"; then
+  echo 'install.sh must not download or validate a configured model.' >&2
   exit 1
 fi
-
-fake_pull="$tmp_dir/pull-ollama"
-pull_record="$tmp_dir/pull-record"
-printf '#!/usr/bin/env bash\nprintf "%%s|%%s|%%s\\n" "$OLLAMA_HOST" "$1" "$2" > "$PULL_RECORD"\necho "pulling 50%%"\n' > "$fake_pull"
-chmod +x "$fake_pull"
-export PULL_RECORD="$pull_record"
-ros_dashboard_ollama_pull_model http://127.0.0.1:11434 "$expected_model" "$fake_pull" \
-  > "$tmp_dir/pull-output"
-unset PULL_RECORD
-[[ "$(<"$pull_record")" == "http://127.0.0.1:11434|pull|$expected_model" ]]
-grep -qx 'pulling 50%' "$tmp_dir/pull-output"
-grep -Fq 'ros_dashboard_ollama_pull_model "$local_llm_url" "$local_llm_model" ollama >&3' \
-  "$SCRIPT_DIR/install.sh"
+if grep -q 'ros_dashboard_ollama_pull_model\|ros_dashboard_ollama_model_in_tags' \
+    "$SCRIPT_DIR/lib/local_ai.sh"; then
+  echo 'Installer-only model pull helpers must be removed.' >&2
+  exit 1
+fi
 
 ros_dashboard_local_llm_timeout_valid 120
 ros_dashboard_local_llm_timeout_valid 0.5

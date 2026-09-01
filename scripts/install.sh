@@ -103,7 +103,7 @@ backup_system_file() {
 }
 
 prepare_local_ai() {
-  local local_llm_url local_llm_model local_llm_timeout tags_payload show_payload chat_payload
+  local local_llm_url local_llm_model local_llm_timeout tags_payload
 
   local_llm_url="$(ros_dashboard_read_env_value "$backend_env" LOCAL_LLM_URL || true)"
   local_llm_model="$(ros_dashboard_read_env_value "$backend_env" LOCAL_LLM_MODEL || true)"
@@ -121,9 +121,9 @@ prepare_local_ai() {
     return 1
   fi
 
-  echo "[Local AI 1/4] Checking Ollama command..." >&3
+  echo "[Local AI 1/3] Checking Ollama command..." >&3
   if ros_dashboard_ollama_install_needed ollama; then
-    echo "[Local AI 1/4] Ollama is missing; installing with the official Linux installer..." >&3
+    echo "[Local AI 1/3] Ollama is missing; installing with the official Linux installer..." >&3
     ollama_installer="$(mktemp)"
     if ! curl -fsSL https://ollama.com/install.sh -o "$ollama_installer"; then
       echo "[ros2_dashboard] Could not download the official Ollama installer." >&3
@@ -136,7 +136,7 @@ prepare_local_ai() {
     rm -f -- "$ollama_installer"
     ollama_installer=""
   else
-    echo "[Local AI 1/4] Ollama is executable; skipping reinstall." >&3
+    echo "[Local AI 1/3] Ollama is executable; skipping reinstall." >&3
   fi
 
   if ! ros_dashboard_ollama_command_ready ollama; then
@@ -147,7 +147,7 @@ prepare_local_ai() {
     echo "[ros2_dashboard] Ollama systemd service is unavailable." >&3
     return 1
   fi
-  echo "[Local AI 2/4] Checking Ollama service..." >&3
+  echo "[Local AI 2/3] Checking Ollama service..." >&3
   if ! ros_dashboard_ollama_service_is_enabled systemctl; then
     if ! sudo_run systemctl enable ollama.service; then
       echo "[ros2_dashboard] Could not enable ollama.service." >&3
@@ -160,9 +160,9 @@ prepare_local_ai() {
       return 1
     fi
   else
-    echo "[Local AI 2/4] ollama.service is active; skipping restart." >&3
+    echo "[Local AI 2/3] ollama.service is active; skipping restart." >&3
   fi
-  echo "[Local AI 2/4] Ollama service ready." >&3
+  echo "[Local AI 2/3] Ollama service ready." >&3
 
   tags_payload=""
   for _attempt in $(seq 1 30); do
@@ -176,44 +176,14 @@ prepare_local_ai() {
     echo "[ros2_dashboard] Ollama API did not respond at $local_llm_url/api/tags." >&3
     return 1
   fi
-
-  echo "[Local AI 3/4] Checking model: $local_llm_model" >&3
-  if ros_dashboard_ollama_model_in_tags "$local_llm_model" "$tags_payload"; then
-    echo "[Local AI 3/4] Model already exists; skipping pull." >&3
-  else
-    echo "[Local AI 4/4] Downloading model; Ollama progress follows..." >&3
-    if ! ros_dashboard_ollama_pull_model "$local_llm_url" "$local_llm_model" ollama >&3; then
-      echo "[ros2_dashboard] Ollama model pull failed: $local_llm_model" >&3
-      echo "[ros2_dashboard] Local AI is unavailable. After fixing the cause, rerun: ollama pull $local_llm_model" >&3
-      return 1
-    fi
-  fi
-
-  show_payload="$(jq -nc --arg model "$local_llm_model" '{model: $model}')"
-  if ! curl --silent --show-error --fail --noproxy '*' --max-time 10 \
-      -H 'Content-Type: application/json' -d "$show_payload" \
-      "$local_llm_url/api/show" | jq -e '.details | type == "object"' >/dev/null; then
-    echo "[ros2_dashboard] Ollama could not inspect the configured model: $local_llm_model" >&3
+  if ! printf '%s' "$tags_payload" | jq -e '.models | type == "array"' >/dev/null 2>&1; then
+    echo "[ros2_dashboard] Ollama /api/tags returned an invalid response." >&3
     return 1
   fi
 
-  chat_payload="$(jq -nc --arg model "$local_llm_model" '{
-    model: $model,
-    messages: [{role: "user", content: "OK"}],
-    stream: false,
-    keep_alive: 0,
-    options: {num_predict: 1}
-  }')"
-  if ! curl --silent --show-error --fail --noproxy '*' --max-time "$local_llm_timeout" \
-      -H 'Content-Type: application/json' -d "$chat_payload" \
-      "$local_llm_url/api/chat" | jq -e \
-      '.done == true and (.message.content | type == "string")' >/dev/null; then
-    echo "[ros2_dashboard] Ollama /api/chat verification failed for: $local_llm_model" >&3
-    return 1
-  fi
-
-  echo "[Local AI 4/4] Verification complete." >&3
-  echo "[ros2_dashboard] Local AI is ready: $local_llm_model at $local_llm_url" >&3
+  echo "[Local AI 3/3] Ollama API and /api/tags are ready." >&3
+  echo "[ros2_dashboard] Ollama runtime is ready at $local_llm_url." >&3
+  echo "[ros2_dashboard] Model $local_llm_model will be downloaded on first Local AI use if needed." >&3
 }
 
 step 1 "Checking Ubuntu, architecture, and install owner"
@@ -442,7 +412,7 @@ sudo_run install -m 0644 "$runtime_env_work" "$runtime_env"
 rm -f -- "$runtime_env_work"
 sudo_run install -d -o "$INSTALL_USER" -g "$INSTALL_GROUP" -m 0755 "$PROJECT_DIR/.runtime/ros_logs"
 
-step 8 "Preparing optional Local AI with Ollama and Gemma"
+step 8 "Preparing optional Local AI runtime with Ollama"
 if ! prepare_local_ai; then
   echo "[ros2_dashboard] WARNING: Local AI setup did not complete; Dashboard installation will continue." >&3
   echo "[ros2_dashboard] WARNING: Review the Ollama messages above and rerun ./scripts/install.sh after fixing the cause." >&3

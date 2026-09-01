@@ -40,18 +40,6 @@ ros_dashboard_ollama_service_is_enabled() {
   "$systemctl_bin" is-enabled --quiet ollama.service
 }
 
-ros_dashboard_ollama_pull_model() {
-  local local_llm_url="$1" local_llm_model="$2" ollama_bin="${3:-ollama}"
-  env OLLAMA_HOST="$local_llm_url" "$ollama_bin" pull "$local_llm_model"
-}
-
-ros_dashboard_ollama_model_in_tags() {
-  local model="$1" payload="$2" jq_bin="${3:-jq}"
-  printf '%s' "$payload" | "$jq_bin" -e --arg model "$model" \
-    '.models | type == "array" and any(.[]; .name == $model or .model == $model)' \
-    >/dev/null 2>&1
-}
-
 ros_dashboard_local_llm_timeout_valid() {
   [[ "${1:-}" =~ ^[0-9]+([.][0-9]+)?$ ]] \
     && awk -v value="$1" 'BEGIN { exit !(value > 0) }'

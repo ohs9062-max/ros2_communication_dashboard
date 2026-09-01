@@ -29,6 +29,10 @@ export const diagnoseAlertLocally = (alert, { alternate = false } = {}) =>
     'POST',
     alternate ? { alert, alternate: true } : { alert },
   )
+export const fetchLocalAiModelStatus = () =>
+  requestJson('/ros/alerts/ai-diagnosis/local/model')
+export const startLocalAiModelDownload = () =>
+  requestJson('/ros/alerts/ai-diagnosis/local/model', { method: 'POST' })
 export const fetchServices = ({ includeHidden = false } = {}) =>
   requestJson(`/ros/services${includeHidden ? '?include_hidden=true' : ''}`)
 export const fetchActions = () => requestJson('/ros/actions')

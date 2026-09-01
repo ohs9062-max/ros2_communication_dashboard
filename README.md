@@ -14,10 +14,10 @@ Topic 데이터 흐름, Service/Action 실행 결과, QoS 호환성, Alert 이�
 
 `scripts/install.sh`가 ROS2 Jazzy, ROS 개발 도구, Node.js, Python 의존성, MariaDB, Nginx를 설치하고
 ROS workspace와 production Frontend를 빌드한다. 또한 Backend `.env`의 `LOCAL_LLM_URL`,
-`LOCAL_LLM_MODEL`, `LOCAL_LLM_TIMEOUT`을 기준으로 localhost Ollama service와 설정된 Gemma 모델을 준비한다.
-이미 실행 가능한 Ollama와 다운로드된 모델은 재설치하거나 다시 pull하지 않으며 Local AI 준비 실패는 원인을
-경고하고 Dashboard 핵심 설치를 계속한다. 누락된 Ollama와 모델은 질문 없이 자동 설치하며, 모델 pull 중에는
-Ollama의 실제 진행 출력이 터미널에 표시된다. Gazebo, TurtleBot3, 실제 장비 드라이버와 demo package 의존성은
+`LOCAL_LLM_MODEL`, `LOCAL_LLM_TIMEOUT`을 기준으로 localhost Ollama runtime과 service를 준비한다.
+이미 실행 가능한 Ollama는 재설치하거나 재시작하지 않으며 Local AI runtime 준비 실패는 원인을 경고하고
+Dashboard 핵심 설치를 계속한다. 설정 모델은 사용자가 처음 Local AI 분석을 요청할 때 Dashboard에서 설치 여부를
+확인하고, 누락된 경우 다운로드 확인 Modal과 Ollama의 실제 byte/percent 진행률을 표시한다. Gazebo, TurtleBot3, 실제 장비 드라이버와 demo package 의존성은
 제품 필수 설치에서 제외한다. 설치 프로세스는 `C.UTF-8`을 사용하지만 시스템 locale과 사용자 언어,
 netplan/NetworkManager 연결 설정은 변경하지 않는다.
 
@@ -47,7 +47,8 @@ runtime 환경 설정과 TLS 인증서는 삭제하거나 초기화하지 않는
 다른 프로세스를 정상 설치로 오인하지 않고 중단한다.
 
 Local AI 기본값은 `backend/.env.example`에서 새 `.env`로 복사하거나 누락 key에만 보완한다. 기존 Local AI
-설정과 다른 Ollama 모델은 덮어쓰거나 삭제하지 않는다. 기본 loopback URL이 아닌 값을 사용자가 지정한 경우
+설정과 기존 Ollama 모델은 덮어쓰거나 삭제하지 않는다. 설치 스크립트는 모델을 다운로드하거나 추론 검증하지 않는다.
+기본 loopback URL이 아닌 값을 사용자가 지정한 경우
 설치기는 해당 외부 endpoint를 변경하지 않고 Local AI 준비를 건너뛴다.
 
 `backend/.venv`, ROS workspace build/install/log와 Frontend node_modules/dist는 Git에 포함하지 않는 생성물이다.

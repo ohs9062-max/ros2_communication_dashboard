@@ -12,7 +12,11 @@ from app.alerts.ai_diagnosis import (
     LocalLlmConfigurationError,
     LocalLlmRequestError,
 )
-from app.app_state import alert_ai_diagnosis, alert_history
+from app.alerts.local_model import (
+    LocalModelConfigurationError,
+    LocalModelUnavailableError,
+)
+from app.app_state import alert_ai_diagnosis, alert_history, local_model_manager
 
 
 router = APIRouter()
@@ -107,4 +111,35 @@ async def diagnose_alert_locally(request: AlertDiagnosisRequest) -> dict[str, An
         'success': True,
         'data': diagnosis,
         'message': 'Alert 로컬 AI 분석이 완료되었습니다.',
+    }
+
+
+@router.get('/ros/alerts/ai-diagnosis/local/model')
+async def local_ai_model_status() -> dict[str, Any]:
+    try:
+        status = await local_model_manager.status()
+    except LocalModelConfigurationError as exc:
+        raise HTTPException(status_code=503, detail='로컬 AI 분석 설정을 확인해주세요.') from exc
+    return {
+        'success': True,
+        'data': status,
+        'message': 'Local AI 모델 상태를 확인했습니다.',
+    }
+
+
+@router.post('/ros/alerts/ai-diagnosis/local/model', status_code=202)
+async def start_local_ai_model_download() -> dict[str, Any]:
+    try:
+        status = await local_model_manager.start_download()
+    except LocalModelConfigurationError as exc:
+        raise HTTPException(status_code=503, detail='로컬 AI 분석 설정을 확인해주세요.') from exc
+    except LocalModelUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail='Local AI runtime이 준비되지 않았습니다. 설치 스크립트를 다시 실행해주세요.',
+        ) from exc
+    return {
+        'success': True,
+        'data': status,
+        'message': 'Local AI 모델 다운로드를 시작했습니다.',
     }
