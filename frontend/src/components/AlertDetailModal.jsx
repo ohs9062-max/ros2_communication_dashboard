@@ -142,27 +142,29 @@ export function AlertDetailModal({
               </div>
             </div>
 
-            {(alternateAiError || displayedError) && (
-              <p className="error-text alert-ai-error">{alternateAiError || displayedError}</p>
-            )}
-            {!displayedAnalysis && !displayedError && !displayedLoading && (
-              <div className="empty-state alert-ai-empty">
-                AI 분석 버튼을 누르면 선택한 Alert를 진단합니다.
-              </div>
-            )}
-            {displayedLoading && (
-              <div className="empty-state alert-ai-empty" aria-live="polite">
-                Alert와 현재 통신 데이터를 분석하고 있습니다…
-              </div>
-            )}
-            {displayedAnalysis && !displayedLoading && (
-              <div className="alert-ai-result" aria-live="polite">
-                <AnalysisSection title="요약" value={displayedAnalysis.summary} />
-                <AnalysisSection title="판단 근거" value={displayedAnalysis.evidence} />
-                <AnalysisSection title="가능한 원인" value={displayedAnalysis.likely_causes} />
-                <AnalysisSection title="확인 순서" ordered value={displayedAnalysis.recommended_checks} />
-              </div>
-            )}
+            <div className="alert-ai-content">
+              {(alternateAiError || displayedError) && (
+                <p className="error-text alert-ai-error">{alternateAiError || displayedError}</p>
+              )}
+              {!displayedAnalysis && !displayedError && !displayedLoading && (
+                <div className="empty-state alert-ai-empty">
+                  AI 분석 버튼을 누르면 선택한 Alert를 진단합니다.
+                </div>
+              )}
+              {displayedLoading && (
+                <div className="empty-state alert-ai-empty" aria-live="polite">
+                  Alert와 현재 통신 데이터를 분석하고 있습니다…
+                </div>
+              )}
+              {displayedAnalysis && !displayedLoading && (
+                <div className="alert-ai-result" aria-live="polite">
+                  <AnalysisSection title="요약" value={displayedAnalysis.summary} />
+                  <AnalysisSection title="판단 근거" value={displayedAnalysis.evidence} />
+                  <AnalysisSection title="가능한 원인" value={displayedAnalysis.likely_causes} />
+                  <AnalysisSection title="확인 순서" ordered value={displayedAnalysis.recommended_checks} />
+                </div>
+              )}
+            </div>
           </section>
         </div>
 

@@ -2515,11 +2515,12 @@ h3 {
 .preview-modal.alert-detail-modal {
   display: flex;
   flex-direction: column;
-  height: auto;
+  height: min(85vh, calc(100vh - 40px));
   max-height: calc(100vh - 40px);
   max-width: 1540px;
   min-height: min(680px, 85vh);
-  overflow-y: auto;
+  overflow: hidden;
+  padding: 16px 16px 0;
   width: min(82vw, 1540px);
 }
 
@@ -2541,9 +2542,16 @@ h3 {
   gap: 16px;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
-.alert-detail-column,
+.alert-detail-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
 .alert-ai-result {
   display: grid;
   gap: 14px;
@@ -2589,6 +2597,13 @@ h3 {
   margin-bottom: 10px;
 }
 
+.alert-detail-column > .alert-detail-section:last-child {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .alert-runtime-json {
   background: #080d13;
   border: 1px solid rgba(96, 165, 250, 0.2);
@@ -2596,8 +2611,9 @@ h3 {
   font-size: 12px;
   line-height: 1.55;
   margin: 0;
-  max-height: min(28vh, 260px);
   max-width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding: 12px;
   white-space: pre-wrap;
@@ -2608,6 +2624,8 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .alert-ai-feedback-heading {
@@ -2650,6 +2668,13 @@ h3 {
   min-height: 120px;
 }
 
+.alert-ai-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .alert-ai-error {
   background: rgba(127, 29, 29, 0.18);
   border: 1px solid rgba(248, 113, 113, 0.4);
@@ -2680,7 +2705,7 @@ h3 {
   font-size: 13px;
   justify-content: center;
   line-height: 1.4;
-  margin: 16px -16px -16px;
+  margin: 16px -16px 0;
   min-height: 48px;
   padding: 12px 24px;
   text-align: center;
