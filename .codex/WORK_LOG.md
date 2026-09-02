@@ -4,23 +4,6 @@
 `.codex/CURRENT_STATUS.md`, 오래된 기록은 `.codex/archive/`를 확인한다.
 모든 새 작업은 날짜와 함께 파일 하단에 추가한다.
 
-## 2026-08-31 - Alerts 상세 Modal Gemini AI 진단 연결
-
-- Alerts 행 클릭 시 기존 목록 디자인을 유지한 상세 Modal을 열고, 오른쪽 `AI 피드백`의 `[AI 분석]`을 사용자가
-  직접 누를 때만 Backend `POST /ros/alerts/ai-diagnosis`를 호출하도록 구현했다. Modal open·Alert 발생·resource
-  조회에서는 Gemini를 호출하지 않으며 요청 중 ref lock과 disabled/loading으로 동일 Alert 중복 호출을 막는다.
-- Backend는 기존 `.env` loader와 `httpx`를 재사용한다. 선택 Alert, exact Domain resource의 현재 Monitor 상태와
-  기존 Topic/Service/Action history 최근 5건만 제한해 전달하고, 현재 상태가 Alert 발생 시점 snapshot이 아님을
-  명시한다. Monitor Runtime, Alert lifecycle/DB schema, history API 계약은 변경하지 않았다.
-- Gemini REST structured output을 `gemini-2.5-flash` → `gemini-2.5-flash-lite` →
-  `gemini-3.5-flash-lite` 순서로 호출한다. 404/429/일시적 5xx·timeout/transport 오류만 순차 fallback하고
-  인증·권한·validation 오류는 즉시 안전한 Backend 오류로 종료한다.
-- Backend 전체 test는 29 passed·2 skipped, Frontend unit 전체·lint(기존 `VisualizationPage` warning 1건)·production
-  build와 diff check를 통과했다. API key는 Backend `.env`에만 두고 Frontend source/build에 포함되지 않음을 확인했다.
-- build를 로컬 HTTPS 정적 경로에 동기화하고 Backend를 재시작했다. 운영 ROS 정보는 외부 전송하지 않고 비민감
-  합성 Node Alert로 실제 HTTPS endpoint를 호출해 `gemini-3.5-flash-lite`의 `summary/evidence/likely_causes/
-  recommended_checks` 구조화 응답 성공을 확인했다.
-
 ## 2026-08-31 - Alerts 상세 Modal 가로 폭 확대
 
 - 공통 `.preview-modal`의 뒤쪽 760px 폭 규칙이 상세 Modal의 단일 class selector를 덮어쓴 원인을 수정했다.
@@ -314,3 +297,13 @@
 - installer shell syntax와 환경·Local AI·network·sudo helper 전체, Backend `59 passed, 2 skipped`, Frontend unit
   전체·lint(기존 `VisualizationPage` warning 1건)·production build를 통과했다. 실제 대용량 model pull과 Browser
   실화면 다운로드는 수행하지 않았다.
+
+## 2026-09-02 - Alert AI 실제 입력·판정 기준 문서화
+
+- `docs/architecture/alert_ai_diagnosis.md`에 Cloud/Local 공통 context, source별 runtime field, history 경로·최대 5건,
+  Alert code별 Monitor 생성 조건과 structured JSON 출력 계약을 현재 구현 기준으로 정리했다.
+- Alert `channel`, Topic `reception_diagnosis`, MonitorStatus의 device/node/status/values는 validation 단계에는 있어도
+  현재 최종 LLM context에는 전달되지 않는 사실을 별도 표로 명시했다. 이 작업은 동작 변경이 아니라 문서화다.
+- 문서 첫머리에 Alert 정보·현재 runtime summary·source별 최대 5건 history·출력 JSON을 쉬운 설명으로 요약하고,
+  모든 source의 원본 데이터를 전부 보내는 구조가 아님을 명시했다.
+- 코드·설정은 변경하지 않았고, 문서 `git diff --check`만 실행했다.

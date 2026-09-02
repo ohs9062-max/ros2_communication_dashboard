@@ -82,6 +82,9 @@ resource summary, Topic·Service·Action에 한정한 최근 history 최대 5건
 Ollama `/api/chat`에 요청당 한 번만 보내며 `num_predict=2048`, 한국어 설명 검증과 Ollama가 준
 `prompt_eval_count`·`eval_count`·duration INFO 로그를 사용한다.
 
+Alert code별 실제 context field, history, Monitor 판정 조건과 현재 전달 누락 항목은
+[`alert_ai_diagnosis.md`](./alert_ai_diagnosis.md)를 따른다.
+
 ## Failure behavior
 
 - Monitor 중단: Backend와 Frontend WebSocket은 계속 실행되고 cache 연결 상태가 false가 됩니다.
